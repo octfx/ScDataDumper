@@ -1,0 +1,25 @@
+{
+    "name": "octfx/sc-data-dumper",
+    "description": "PHP Tool for dumping SC data files",
+    "type": "project",
+    "require": {
+        "symfony/console": "^7.1"
+    },
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Octfx\\ScDataDumper\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "H. C. Kruse",
+            "email": "hannes@octofox.de"
+        }
+    ],
+    "require-dev": {
+        "roave/security-advisories": "dev-latest",
+        "laravel/pint": "^1.18",
+        "symfony/var-dumper": "^7.1"
+    }
+}
