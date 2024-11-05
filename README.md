@@ -1,14 +1,37 @@
 # ScDataDumper
 
-## Installation
+## Quickstart
+Unpack game data using [unp4k](https://github.com/dolkensp/unp4k):
+```shell
+./unp4k.exe 'C:\Program Files\Roberts Space Industries\StarCitizen\LIVE\Data.p4k' *.xml
+./unp4k.exe 'C:\Program Files\Roberts Space Industries\StarCitizen\LIVE\Data.p4k' *.ini
+./unforge.exe .
+```
+
+Put the unforged SC XML files in the `import` directory.
+
+Start the container with `docker compse up -d --build`
+
+When running for the first time, generate the cache files:
+```shell
+docker compose exec scdatadumper php cli.php generate:cache import
+```
+
+Dump items:
+```shell
+docker compose exec scdatadumper php cli.php load:items --scUnpackedFormat import export
+```
+
+## Advanced usage
+### Non-Docker installation
+Install dependency with Composer
 ```shell
 composer install --no-dev
 ```
 
-## Usage
-When running for the first time, cache files must be generated.
-All commands require unforged SC XML files unpacked by [unp4k](https://github.com/dolkensp/unp4k) in a dedicated folder.
-
+## Commands
+### Generate cache
+This is needed when you are running for the first time.
 ```shell
 php cli.php generate:cache Path/To/ScDataDir
 ```
@@ -16,17 +39,4 @@ php cli.php generate:cache Path/To/ScDataDir
 ## Dumping items
 ```shell
 php cli.php load:items --scUnpackedFormat Path/To/ScDataDir Path/To/Output
-```
-
-## Docker usage
-Put the unforged SC XML files in the `import` directory.
-
-Start the container with `docker compse up -d --build`
-
-```shell
-docker compose exec scdatadumper php cli.php generate:cache import
-```
-
-```shell
-docker compose exec scdatadumper php cli.php load:items --scUnpackedFormat import export
 ```
