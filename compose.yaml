@@ -1,0 +1,9 @@
+services:
+  scdatadumper:
+    build:
+      context: .
+    ports:
+      - 9000:80
+    volumes:
+      - ./export:/var/www/html/export
+      - ./import:/var/www/html/import

@@ -19,3 +19,17 @@ php cli.php generate:cache Path/To/ScDataDir
 ```shell
 php cli.php load:items --scUnpackedFormat Path/To/ScDataDir Path/To/Output
 ```
+
+## Docker usage
+
+Copy `data.p4k` to the `import` directory
+
+Start the container with `docker compse up -d --build`
+
+```shell
+docker compose exec scdatadumper php cli.php generate:cache import
+```
+
+```shell
+docker compose exec scdatadumper php cli.php load:items --scUnpackedFormat import export
+```
