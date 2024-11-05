@@ -22,8 +22,6 @@ php cli.php load:items --scUnpackedFormat Path/To/ScDataDir Path/To/Output
 
 ## Docker usage
 
-Copy `data.p4k` to the `import` directory
-
 Start the container with `docker compse up -d --build`
 
 ```shell
