@@ -7,20 +7,19 @@ composer install --no-dev
 
 ## Usage
 When running for the first time, cache files must be generated.
-
-All commands require unforged SC XML files in a dedicated folder.
+All commands require unforged SC XML files unpacked by [unp4k](https://github.com/dolkensp/unp4k) in a dedicated folder.
 
 ```shell
 php cli.php generate:cache Path/To/ScDataDir
 ```
 
 ## Dumping items
-
 ```shell
 php cli.php load:items --scUnpackedFormat Path/To/ScDataDir Path/To/Output
 ```
 
 ## Docker usage
+Put the unforged SC XML files in the `import` directory.
 
 Start the container with `docker compse up -d --build`
 
