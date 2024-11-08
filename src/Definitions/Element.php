@@ -76,7 +76,10 @@ abstract class Element extends SimpleXMLElement
         return (string) ($this['__ref'] ?? '');
     }
 
-    abstract public function toArray(): array;
+    public function toArray(): array
+    {
+        return $this->toArrayRecursive($this);
+    }
 
     /**
      * Retrieve a child or attribute name by dot notation, e.g. `Components.AttachDef` to retrieve the `AttachDef` child from `Components`.
@@ -155,7 +158,7 @@ abstract class Element extends SimpleXMLElement
         }
 
         $definition = ElementDefinitionFactory::getDefinition($element, $prefix);
-        if ($definition) {
+        if ($definition && $definition->getName() !== $element->getName()) {
             $data = array_merge($data, $definition->toArray());
         }
 

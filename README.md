@@ -22,6 +22,11 @@ Dump items:
 docker compose exec scdatadumper php cli.php load:items --scUnpackedFormat import export
 ```
 
+Dump ships:
+```shell
+docker compose exec scdatadumper php cli.php load:ships import export
+```
+
 ## Advanced usage
 ### Non-Docker installation
 Install dependency with Composer

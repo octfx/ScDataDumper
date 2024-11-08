@@ -47,6 +47,9 @@ final class ServiceFactory
         self::$services['MeleeCombatConfigService'] = new MeleeCombatConfigService($this->scDataPath);
         self::$services['MeleeCombatConfigService']->initialize();
 
+        self::$services['VehicleService'] = new VehicleService($this->scDataPath);
+        self::$services['VehicleService']->initialize();
+
         self::$initialized = true;
     }
 
@@ -93,6 +96,11 @@ final class ServiceFactory
     public static function getMeleeCombatConfigService(): MeleeCombatConfigService
     {
         return self::getService('MeleeCombatConfigService');
+    }
+
+    public static function getVehicleService(): VehicleService
+    {
+        return self::getService('VehicleService');
     }
 
     private static function getService(string $serviceName): mixed

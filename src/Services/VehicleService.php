@@ -2,10 +2,299 @@
 
 namespace Octfx\ScDataDumper\Services;
 
+use DOMDocument;
+use DOMElement;
+use DOMXPath;
+use Generator;
+use JsonException;
+use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\Definitions\EntityClassDefinition\VehicleDefinition;
+use Octfx\ScDataDumper\Definitions\Vehicle;
+use Octfx\ScDataDumper\Helper\VehicleWrapper;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use RuntimeException;
+use SplFileInfo;
+
 final class VehicleService extends BaseService
 {
+    private array $vehicles;
+
+    private array $implementations = [];
+
+    // Avoid files containing tags
+    private array $avoids = [
+        'active1',
+        'advocacy',
+        'ai',
+        'bombless',
+        'c19b',
+        'citizencon',
+        'civ',
+        'comms',
+        'crim',
+        'derelict',
+        'drone',
+        'drug',
+        'eaobjectivedestructable',
+        'fleetweek',
+        'fw22nfz',
+        'hijacked',
+        'indestructible',
+        'microtech',
+        'mlhm1',
+        'modifiers',
+        'nocrimesagainst',
+        'nointerior',
+        'outlaw',
+        'outlaws',
+        'piano',
+        'pir',
+        'pu',
+        'qig',
+        's3bombs',
+        's42',
+        'shields',
+        'shipshowdown',
+        'shubin',
+        'swarm',
+        'template',
+        'tow',
+        'tutorial',
+        'uee',
+        'unmanned',
+        'wreck',
+    ];
+
+    // Avoid these file suffixes
+    private array $avoidSuffixes = [
+        // '_rn',
+        '_ac_engineer',
+        '_cci2953',
+        '_cinematic_only',
+        '_fw22nfz',
+        '_mfd',
+        '_prison',
+        '_showdown',
+        '_temp',
+        '_test',
+    ];
+
+    /**
+     * @throws JsonException
+     */
     public function initialize(): void
     {
-        // TODO: Implement initialize() method.
+
+        $this->loadImplementations();
+        $items = json_decode(file_get_contents($this->classToPathMapPath), true, 512, JSON_THROW_ON_ERROR)['EntityClassDefinition'] ?? [];
+
+        $items = array_filter($items, static fn (string $path) => str_contains($path, 'entities/spaceships') || str_contains($path, 'entities/groundvehicles'));
+        $items = array_filter($items, function (string $path): bool {
+            $name = basename($path, '.xml');
+            $parts = explode('_', $name);
+
+            return ! array_reduce($parts, fn ($carry, $cur) => $carry || in_array(strtolower($cur), $this->avoids, true), false);
+        });
+
+        $items = array_filter($items, function (string $path): bool {
+            $name = basename($path, '.xml');
+
+            return ! array_reduce($this->avoidSuffixes, static fn ($carry, $cur) => $carry || str_ends_with(strtolower($name), strtolower($cur)), false);
+        });
+
+        $this->vehicles = $items;
+    }
+
+    public function iterator(): Generator
+    {
+        foreach ($this->vehicles as $path) {
+            yield $this->load($path);
+        }
+    }
+
+    public function load(string $filePath): ?VehicleWrapper
+    {
+        if (! file_exists($filePath)) {
+            throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
+        }
+
+        $vehicle = simplexml_load_string(file_get_contents($filePath), VehicleDefinition::class, LIBXML_NOCDATA | LIBXML_NOBLANKS);
+
+        if ($vehicle === false || ! is_object($vehicle)) {
+            throw new RuntimeException(sprintf('Cannot parse XML %s', $filePath));
+        }
+
+        $implementation = $vehicle->get('Components.VehicleComponentParams.vehicleDefinition');
+
+        if ($implementation === null) {
+            return null;
+        }
+
+        $fileName = explode('/', $implementation);
+        $fileName = array_pop($fileName);
+
+        $implementation = $this->implementations[strtolower($fileName)];
+
+        $modification = $vehicle->get('Components.VehicleComponentParams.modification');
+
+        $doc = $this->parseVehicle($implementation, $modification);
+
+        $manualLoadout = $vehicle->get('Components.SEntityComponentDefaultLoadoutParams.loadout.SItemPortLoadoutManualParams');
+
+        $loadout = [];
+        if ($manualLoadout) {
+            $loadout = $this->buildManualLoadout($manualLoadout);
+        }
+
+        return new VehicleWrapper(
+            simplexml_import_dom($doc, Vehicle::class),
+            $vehicle,
+            $loadout
+        );
+    }
+
+    private function parseVehicle(string $vehiclePath, string $modificationName): DOMDocument
+    {
+        $doc = new DOMDocument;
+        $doc->load($vehiclePath);
+
+        if (! empty(trim($modificationName))) {
+            $this->processPatchFile($doc, $modificationName, $vehiclePath);
+            $this->processModificationElems($doc, $modificationName);
+        }
+
+        return $doc;
+    }
+
+    private function processPatchFile($doc, $modificationName, $vehiclePath): void
+    {
+        $xpath = new DOMXPath($doc);
+        $modificationNode = $xpath->query("//Modifications/Modification[@name='$modificationName']")->item(0);
+        $patchFile = $modificationNode?->getAttribute('patchFile');
+
+        if (empty($patchFile)) {
+            return;
+        }
+
+        $patchFilename = sprintf(
+            '%s%sModifications%s%s.xml',
+            pathinfo($vehiclePath, PATHINFO_DIRNAME),
+            DIRECTORY_SEPARATOR,
+            DIRECTORY_SEPARATOR,
+            str_replace('/', DIRECTORY_SEPARATOR, pathinfo($patchFile, PATHINFO_FILENAME))
+        );
+
+        if (! file_exists($patchFilename)) {
+            return;
+        }
+
+        $patchDoc = new DOMDocument;
+        $patchDoc->load($patchFilename, LIBXML_NOCDATA | LIBXML_NOBLANKS);
+
+        /** @var DOMElement $patchNode */
+        foreach ($patchDoc->firstChild->childNodes as $patchNode) {
+            if ($patchNode->nodeType !== XML_ELEMENT_NODE) {
+                continue;
+            }
+
+            $id = $patchNode->getAttribute('id');
+            if (empty($id)) {
+                echo "Can't load modifications for {$patchNode->nodeName} - there is no id attribute".PHP_EOL;
+
+                continue;
+            }
+
+            $nodes = $xpath->query("//*[@id='$id']");
+            /** @var DOMElement $node */
+            foreach ($nodes as $node) {
+                $foo = $doc->importNode($patchNode->cloneNode(true), true);
+                $node->replaceWith($foo);
+            }
+        }
+    }
+
+    private function processModificationElems($doc, $modificationName): void
+    {
+        $xpath = new DOMXPath($doc);
+        $elems = $xpath->query("//Modifications/Modification[@name='$modificationName']/Elems/Elem");
+
+        foreach ($elems as $elem) {
+            $idRef = $elem->getAttribute('idRef');
+            $attrName = $elem->getAttribute('name');
+            $attrValue = $elem->getAttribute('value');
+
+            $nodes = $xpath->query("//*[@id='$idRef']");
+            /** @var DOMElement $node */
+            foreach ($nodes as $node) {
+                $attr = $node->getAttributeNode($attrName);
+                if ($attr === null || $attr === false) {
+                    $attr = $doc->createAttribute($attrName);
+                    $node->appendChild($attr);
+                }
+                $attr->value = $attrValue;
+            }
+        }
+    }
+
+    private function loadImplementations(): void
+    {
+        $implementationsPath = [
+            $this->scDataDir,
+            'Data',
+            'Scripts',
+            'Entities',
+            'Vehicles',
+            'Implementations',
+            'Xml',
+        ];
+        $implementationsPath = implode(DIRECTORY_SEPARATOR, $implementationsPath);
+
+        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($implementationsPath));
+
+        $implementations = [];
+
+        /** @var SplFileInfo $file */
+        foreach ($iterator as $file) {
+            if ($file->isFile() && $file->getExtension() === 'xml') {
+                $parts = explode('/', $file->getBasename());
+                $name = array_pop($parts);
+
+                $implementations[strtolower($name)] = $file->getPathname();
+            }
+        }
+
+        $this->implementations = $implementations;
+    }
+
+    public function buildManualLoadout(Element $manual): array
+    {
+        $entries = [];
+        foreach ($manual->get('entries')?->children() as $cigEntry) {
+            $entries[] = $this->buildManualLoadoutEntry($cigEntry);
+        }
+
+        return $entries;
+    }
+
+    private function buildManualLoadoutEntry(Element $cigLoadoutEntry): array
+    {
+        $entry = [
+            'portName' => $cigLoadoutEntry->get('itemPortName'),
+            'className' => $cigLoadoutEntry->get('entityClassName'),
+            'entries' => [],
+        ];
+
+        if (! empty($entry['className'])) {
+            $entry['Item'] = ServiceFactory::getItemService()->getByClassName($entry['className'])?->toArray();
+        }
+
+        if ($cigLoadoutEntry->get('loadout.SItemPortLoadoutManualParams.entries') !== null) {
+            foreach ($cigLoadoutEntry->get('loadout.SItemPortLoadoutManualParams.entries')->children() as $e) {
+                $entry['entries'][] = $this->buildManualLoadoutEntry($e);
+            }
+        }
+
+        return $entry;
     }
 }

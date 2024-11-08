@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Commands;
 
 use Exception;
+use JsonException;
 use Octfx\ScDataDumper\Formats\ScUnpacked\Item;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
@@ -22,6 +23,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class LoadItems extends Command
 {
+    /**
+     * @throws JsonException
+     */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
@@ -70,20 +74,12 @@ class LoadItems extends Command
 
         $iter = $service->iterator();
 
-        //        $iter = [
-        //            $service->load('/media/hannes/Volume/sc-data/3.24.1-LIVE-jsonphp/items/qdrv_just_s02_bolon_scitem.json')
-        //        ];
-
         foreach ($iter as $item) {
             $attach = $item->getAttachDef();
 
             $type = $item->getAttachType();
 
             $io->progressAdvance();
-
-            //            if ($type !== 'Radar') {
-            //                continue;
-            //            }
 
             if ($attach === null || $type === null || in_array(strtolower($type), $avoids)) {
                 continue;
@@ -94,7 +90,6 @@ class LoadItems extends Command
 
             $stdItem = (new Item($item))->toArray();
             $index[] = $stdItem;
-            //            dd($stdItem);
 
             if (! $overwrite && file_exists($filePath)) {
                 continue;
@@ -129,7 +124,7 @@ class LoadItems extends Command
 
         $filePath = sprintf('%s%sitems.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
         $ref = fopen($filePath, 'wb');
-        fwrite($ref, json_encode($index, JSON_PRETTY_PRINT));
+        fwrite($ref, json_encode($index, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
         fclose($ref);
 
         return Command::SUCCESS;

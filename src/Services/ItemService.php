@@ -23,10 +23,11 @@ final class ItemService extends BaseService
      */
     public function initialize(): void
     {
-        $classes = json_decode(file_get_contents($this->classToPathMapPath), true, 512, JSON_THROW_ON_ERROR)['EntityClassDefinition'] ?? [];
         $items = json_decode(file_get_contents($this->classToPathMapPath), true, 512, JSON_THROW_ON_ERROR)['EntityClassDefinition'] ?? [];
 
-        $this->entityPaths = array_intersect_key($items, $classes);
+        $items = array_filter($items, static fn ($path) => ! str_contains($path, 'entities/spaceships') && ! str_contains($path, 'entities/groundvehicles'));
+
+        $this->entityPaths = $items;
     }
 
     public function iterator(): Generator
@@ -34,6 +35,15 @@ final class ItemService extends BaseService
         foreach ($this->entityPaths as $path) {
             yield $this->load($path);
         }
+    }
+
+    public function getByClassName(?string $className): ?EntityClassDefinition
+    {
+        if ($className === null || ! isset($this->entityPaths[$className])) {
+            return null;
+        }
+
+        return $this->load($this->entityPaths[$className]);
     }
 
     public function getByReference(?string $reference): ?EntityClassDefinition
