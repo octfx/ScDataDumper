@@ -8,9 +8,9 @@ Unpack game data using [unp4k](https://github.com/dolkensp/unp4k):
 ./unforge.exe .
 ```
 
-Put the unforged SC XML files in the `import` directory.
+Put the unforged SC XML files (`Data` and `Engine` folders) in the `import` directory.
 
-Start the container with `docker compse up -d --build`
+Start the container with `docker compose up -d --build`
 
 When running for the first time, generate the cache files:
 ```shell
