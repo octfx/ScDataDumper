@@ -23,6 +23,10 @@ FROM php:8.3-apache as final
 # https://github.com/docker-library/docs/tree/master/php#configuration
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
+# Bump memory limit to 1024M
+# Avoid Allowed memory size of 134217728 bytes exhausted
+RUN echo 'memory_limit = 1024M' >> "$PHP_INI_DIR/php.ini"
+
 # Copy the app dependencies from the previous install stage.
 COPY --from=deps app/vendor/ /var/www/html/vendor
 # Copy the app files from the app directory.
