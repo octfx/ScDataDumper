@@ -21,7 +21,7 @@ final class AmmoParamsService extends BaseService
     {
         $classes = json_decode(file_get_contents($this->classToPathMapPath), true, 512, JSON_THROW_ON_ERROR);
 
-        $this->ammoParams = $classes['AmmoParams'];
+        $this->ammoParams = $classes['AmmoParams'] ?? [];
     }
 
     public function iterator(): Generator
