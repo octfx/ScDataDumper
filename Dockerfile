@@ -17,7 +17,7 @@ RUN --mount=type=bind,source=composer.json,target=composer.json \
     --mount=type=cache,target=/tmp/cache \
     composer install --no-dev --no-interaction
 
-FROM php:8.3-apache as final
+FROM php:8.3-fpm-alpine as final
 
 # Use the default production configuration for PHP runtime arguments, see
 # https://github.com/docker-library/docs/tree/master/php#configuration
