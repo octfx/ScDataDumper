@@ -20,8 +20,8 @@ RUN --mount=type=bind,source=composer.json,target=composer.json \
 FROM php:8.3-fpm as final
 
 # Install the OPcache extension
-# RUN docker-php-ext-configure opcache --enable-opcache \
-#     && docker-php-ext-install opcache
+RUN docker-php-ext-configure opcache --enable-opcache \
+    && docker-php-ext-install opcache
 
 # Use the default production configuration for PHP runtime arguments, see
 # https://github.com/docker-library/docs/tree/master/php#configuration
@@ -32,7 +32,7 @@ RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 RUN echo 'memory_limit = 512M' >> "$PHP_INI_DIR/php.ini"
 
 # Enable opcache for CLI
-# RUN echo 'opcache.enable_cli = 1' >> "$PHP_INI_DIR/php.ini"
+RUN echo 'opcache.enable_cli = 1' >> "$PHP_INI_DIR/php.ini"
 
 # Copy the app dependencies from the previous install stage.
 COPY --from=deps app/vendor/ /var/www/html/vendor
