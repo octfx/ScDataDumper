@@ -22,9 +22,9 @@ Dump items:
 docker compose exec scdatadumper php cli.php load:items --scUnpackedFormat import export
 ```
 
-Dump ships:
+Dump vehicles:
 ```shell
-docker compose exec scdatadumper php cli.php load:ships import export
+docker compose exec scdatadumper php cli.php load:vehicles import export
 ```
 
 ## Advanced usage
