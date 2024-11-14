@@ -29,6 +29,8 @@ class LoadItems extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+        $io->title('ScDataDumper');
+        $io->section('Loading items');
 
         $fac = new ServiceFactory($input->getArgument('scDataPath'));
         $fac->initialize();
@@ -37,7 +39,7 @@ class LoadItems extends Command
 
         $service = ServiceFactory::getItemService();
 
-        $io->progressStart();
+        $io->progressStart($service->count());
 
         $outDir = sprintf('%s%sitems', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
 
@@ -117,10 +119,12 @@ class LoadItems extends Command
         }
 
         $end = microtime(true);
-        $duration = $end - $start;
-        $io->info('Took '.round($duration).' seconds.');
-
         $io->progressFinish();
+        $duration = $end - $start;
+        $io->success( sprintf('Saved item files (%s | %s )',
+            'Took: '.round($duration).' s',
+            'Path: '.$input->getArgument('jsonOutPath')
+        ));
 
         $filePath = sprintf('%s%sitems.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
         $ref = fopen($filePath, 'wb');

@@ -26,6 +26,8 @@ class LoadVehicles extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+        $io->title('ScDataDumper');
+        $io->section('Loading vehicles');
 
         $fac = new ServiceFactory($input->getArgument('scDataPath'));
         $fac->initialize();
@@ -34,7 +36,7 @@ class LoadVehicles extends Command
 
         $service = ServiceFactory::getVehicleService();
 
-        $io->progressStart();
+        $io->progressStart($service->count());
 
         $outDir = sprintf('%s%sships', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
 
@@ -62,8 +64,12 @@ class LoadVehicles extends Command
         }
 
         $end = microtime(true);
+        $io->progressFinish();
         $duration = $end - $start;
-        $io->info('Took '.round($duration).' seconds.');
+        $io->success( sprintf('Saved item files (%s | %s )',
+            'Took: '.round($duration).' s',
+            'Path: '.$input->getArgument('jsonOutPath')
+        ));
 
         return Command::SUCCESS;
     }

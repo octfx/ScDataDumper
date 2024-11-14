@@ -80,6 +80,11 @@ final class VehicleService extends BaseService
         '_test',
     ];
 
+    public function count(): int
+    {
+        return count($this->vehicles);
+    }
+
     /**
      * @throws JsonException
      */

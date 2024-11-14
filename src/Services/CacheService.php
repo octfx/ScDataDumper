@@ -9,13 +9,17 @@ use JsonException;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
+use Symfony\Component\Console\Style\SymfonyStyle;
 
 final class CacheService
 {
     /**
      * @param  string  $scDataDir  Path to unforged SC Data, i.e. folder Containing `Data` and `Engine` folder
      */
-    public function __construct(private readonly string $scDataDir) {}
+    public function __construct(
+        private readonly string $scDataDir,
+        private SymfonyStyle $io
+    ) {}
 
     /**
      * @throws JsonException
@@ -31,6 +35,7 @@ final class CacheService
 
         /** @var SplFileInfo $file */
         foreach ($iterator as $file) {
+            $this->io->progressAdvance();
             if ($file->isFile() && $file->getExtension() === 'xml') {
                 $ref = fopen($file->getRealPath(), 'rb');
                 if ($ref) {

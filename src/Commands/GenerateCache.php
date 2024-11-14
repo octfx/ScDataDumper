@@ -23,10 +23,13 @@ class GenerateCache extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        $io->info('Generating cache files...');
 
-        $service = new CacheService($input->getArgument('path'));
+        $io->title('ScDataDumper');
+        $io->section('Generating cache files');
 
+        $service = new CacheService($input->getArgument('path'), $io);
+
+        $io->progressStart();
         $start = microtime(true);
         try {
             $service->makeCacheFiles();
@@ -36,12 +39,11 @@ class GenerateCache extends Command
             return Command::FAILURE;
         }
         $end = microtime(true);
-        $duration = round($end - $start);
-
-        $io->success(sprintf(
-            'Cache files generated in %ds (%s)',
-            $duration,
-            $input->getArgument('path')
+        $io->progressFinish();
+        $duration = $end - $start;
+        $io->success( sprintf('Generated cache files (%s | %s )',
+            'Took: '.round($duration).' s',
+            'Path: '.$input->getArgument('path')
         ));
 
         return Command::SUCCESS;
