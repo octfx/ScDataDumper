@@ -38,7 +38,7 @@ class LoadVehicles extends Command
 
         $outDir = sprintf('%s%sships', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
 
-        if (! is_dir($outDir) && ! mkdir($outDir, 777, true) && ! is_dir($outDir)) {
+        if (! is_dir($outDir) && ! mkdir($outDir, 0777, true) && ! is_dir($outDir)) {
             throw new RuntimeException(sprintf('Directory "%s" was not created', $outDir));
         }
 
