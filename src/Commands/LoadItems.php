@@ -29,8 +29,7 @@ class LoadItems extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        $io->title('ScDataDumper');
-        $io->section('Loading items');
+        $io->title('[ScDataDumper] Loading items');
 
         $fac = new ServiceFactory($input->getArgument('scDataPath'));
         $fac->initialize();

@@ -26,8 +26,7 @@ class LoadVehicles extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        $io->title('ScDataDumper');
-        $io->section('Loading vehicles');
+        $io->title('[ScDataDumper] Loading vehicles');
 
         $fac = new ServiceFactory($input->getArgument('scDataPath'));
         $fac->initialize();

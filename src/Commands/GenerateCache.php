@@ -24,8 +24,7 @@ class GenerateCache extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
-        $io->title('ScDataDumper');
-        $io->section('Generating cache files');
+        $io->title('[ScDataDumper] Generating cache files');
 
         $service = new CacheService($input->getArgument('path'), $io);
 
