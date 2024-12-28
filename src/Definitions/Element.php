@@ -1,197 +1,102 @@
 <?php
 
-declare(strict_types=1);
-
 namespace Octfx\ScDataDumper\Definitions;
 
-use Exception;
-use JsonException;
-use Octfx\ScDataDumper\ElementDefinitionFactory;
+use DOMDocument;
+use DOMException;
+use DOMNode;
+use DOMXPath;
+use Octfx\ScDataDumper\Helper\XmlAccess;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
-use SimpleXMLElement;
 
-abstract class Element extends SimpleXMLElement
+abstract class Element
 {
-    protected static string $element = '';
+    protected bool $initialized = false;
 
-    /**
-     * @throws Exception
-     */
-    public static function fromElement(SimpleXMLElement $parent): ?static
+    use XmlAccess;
+
+    public function __construct(protected readonly DOMNode $node)
     {
-        $element = static::$element;
+        $this->domXPath = new DOMXPath($this->getDomDocument());
+    }
 
-        if ($element === '') {
-            $parts = explode('\\', static::class);
-            $element = array_pop($parts);
-        }
+    protected function getDomDocument(): DOMDocument
+    {
+        return $this->node->ownerDocument ?? $this->node;
+    }
 
-        $element = $parent->{$element};
+    public function initialize(DOMDocument $document): void
+    {
+        $this->initialized = true;
+    }
 
-        if (! ($element instanceof SimpleXMLElement)) {
-            return null;
-        }
-
-        return new static($element[0]->asXML());
+    public function getNode(): DOMNode
+    {
+        return $this->node;
     }
 
     /**
-     * Checks that the instantiated definition matches the xml one
-     */
-    public function checkValidity(): void
-    {
-        if (! str_contains($this->getName(), '.')) {
-            throw new RuntimeException('Invalid definition name');
-        }
-
-        $parts = explode('.', $this->getName());
-
-        if (! str_contains(static::class, $parts[0])) {
-            throw new RuntimeException(sprintf('Tried instantiating %s while definition is %s', static::class, $parts[0]));
-        }
-    }
-
-    /**
-     * First part of root node name, split by `.`.
-     */
-    public function getClassName(): string
-    {
-        return explode('.', $this->getName())[1];
-    }
-
-    /**
-     * Value from `__type` or empty string if not found
-     */
-    public function getType(): string
-    {
-        return (string) ($this['__type'] ?? '');
-    }
-
-    /**
-     * Value from `__ref` or empty string if not found
-     */
-    public function getUuid(): string
-    {
-        return (string) ($this['__ref'] ?? '');
-    }
-
-    public function toArray(): array
-    {
-        return $this->toArrayRecursive($this);
-    }
-
-    /**
-     * Retrieve a child or attribute name by dot notation, e.g. `Components.AttachDef` to retrieve the `AttachDef` child from `Components`.
+     * Appends `$import` after `$this->node`
      *
-     * @return $this|float|mixed|Element|string|null
+     * @param  string|null  $elementName  Optional XML Tag name that holds the content of $import
+     *                                    This is useful when importing whole XML files as without this argument the root tag of the imported document is used.
+     *                                    For manufacturers this would be (example) `<Manufacturer.APAR>` instead of `<Manufacturer>`
      */
-    public function get(string $key, $default = null): mixed
+    protected function appendNode(DOMDocument $document, ?DOMDocument $import, ?string $elementName = null): void
     {
-        $return = $this;
-        $keyParts = explode('.', $key);
-        $target = $keyParts[array_key_last($keyParts)];
+        if (! $import) {
+            return;
+        }
 
-        foreach ($keyParts as $segment) {
-            // Child exists and segment is not found in attributes
-            if ($return->{$segment} instanceof SimpleXMLElement && ! isset($return[$segment])) {
-                $return = $return->{$segment};
-            } elseif (isset($return[$segment])) {
-                $data = (string) $return[$segment];
+        $importedNode = $document->importNode($import->documentElement, true);
 
-                if (is_numeric($data)) {
-                    $data = (float) $data;
-                }
+        if ($importedNode === false) {
+            throw new RuntimeException('Failed to import node');
+        }
 
-                return $data === 'null' ? $default : $data;
-            } else {
-                return $default;
+        if ($elementName) {
+            try {
+                $renamedElement = $document->createElement($elementName);
+                $renamedElement->append(...$importedNode->childNodes);
+                $this->node->appendChild($renamedElement);
+
+                $importedNode = $renamedElement;
+            } catch (DOMException $e) {
+
             }
         }
 
-        if ($return?->getName() !== $target) {
-            return $default;
-        }
-
-        return $return;
-    }
-
-    /**
-     * @throws JsonException
-     */
-    public function toJson(): string
-    {
-        return json_encode($this->toArray(), JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
-    }
-
-    /**
-     * Recursively walks the given xml $element and turns it into an array.
-     * If a node name matches a class in Definitions, it is passed to the matching definition and `toArray()` is called on the instance
-     *
-     * @see ElementDefinitionFactory
-     */
-    protected function toArrayRecursive(SimpleXMLElement $element, ?string $prefix = ''): array
-    {
-        $cleanedName = str_contains($element->getName(), '.') ? explode('.', $element->getName())[0] : $element->getName();
-
-        $data = $this->attributesToArray($element);
-
-        if (count($element) > 0) {
-            $prf = $prefix ? sprintf('%s\\%s', $prefix, $cleanedName) : $cleanedName;
-
-            $isArray = false;
-
-            foreach ($element as $child) {
-                if (isset($data[$child->getName()])) {
-                    $isArray = true;
-                    $data = [
-                        $data[$child->getName()],
-                    ];
-                }
-
-                if ($isArray) {
-                    $data[] = $this->toArrayRecursive($child, $prf);
-                } else {
-                    $data[$child->getName()] = $this->toArrayRecursive($child, $prf);
-                }
-            }
-        }
-
-        $definition = ElementDefinitionFactory::getDefinition($element, $prefix);
-        if ($definition && $definition->getName() !== $element->getName()) {
-            $data = array_merge($data, $definition->toArray());
-        }
-
-        unset($data['@attributes']);
-
-        return $data;
+        $this->node->appendChild($importedNode);
     }
 
     /**
      * Turns Element Attributes into an array
      */
-    public function attributesToArray(?SimpleXMLElement $element = null, ?array $unsetKeys = []): array
+    public function attributesToArray(?array $ignore = []): array
     {
-        $element = $element ?? $this;
+        $attributes = [];
 
-        if (! count($element->attributes() ?? [])) {
-            return [];
-        }
+        foreach ($this->node->attributes as $attribute) {
+            if (! $attribute) {
+                continue;
+            }
 
-        $attributes = ((array) $element->attributes())['@attributes'];
-        unset($attributes['__type'], $attributes['__polymorphicType']);
+            $name = $attribute->nodeName;
+            $value = $attribute->nodeValue;
 
-        foreach ($unsetKeys as $unsetKey) {
-            unset($attributes[$unsetKey]);
-        }
-
-        foreach ($attributes as $name => $value) {
-            if (is_numeric($value)) {
-                $attributes[$name] = (float) $value;
-            } elseif (str_starts_with((string) $value, '@')) {
-                $attributes[$name] = ['key' => (string) $value] + ServiceFactory::getLocalizationService()->getTranslations((string) $value);
+            if (! in_array($attribute->nodeName, $ignore, true)) {
+                if (is_numeric($value)) {
+                    $attributes[$name] = (float) $value;
+                } elseif (str_starts_with((string) $value, '@')) {
+                    $attributes[$name] = ServiceFactory::getLocalizationService()->getTranslation((string) $value);
+                } else {
+                    $attributes[$name] = (string) $value;
+                }
             }
         }
+
+        unset($attributes['__type'], $attributes['__polymorphicType']);
 
         return $attributes;
     }

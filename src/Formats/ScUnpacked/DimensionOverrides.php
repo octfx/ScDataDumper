@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class DimensionOverrides extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.SAttachableComponentParams.AttachDef.inventoryOccupancyDimensionsUIOverride.Vec3';
+    protected ?string $elementKey = 'Components/SAttachableComponentParams/AttachDef/inventoryOccupancyDimensionsUIOverride/Vec3';
 
     public function toArray(): ?array
     {

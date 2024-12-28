@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class EMP extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.SCItemEMPParams';
+    protected ?string $elementKey = 'Components/SCItemEMPParams';
 
     public function toArray(): ?array
     {

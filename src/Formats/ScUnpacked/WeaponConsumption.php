@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class WeaponConsumption extends BaseFormat
 {
-    protected ?string $elementKey = 'weaponRegenConsumerParams.SWeaponRegenConsumerParams';
+    protected ?string $elementKey = 'weaponRegenConsumerParams/SWeaponRegenConsumerParams';
 
     public function toArray(): ?array
     {

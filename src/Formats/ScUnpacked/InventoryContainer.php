@@ -7,7 +7,7 @@ use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class InventoryContainer extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.SCItemInventoryContainerComponentParams.containerParams';
+    protected ?string $elementKey = 'Components/SCItemInventoryContainerComponentParams/containerParams';
 
     public function toArray(): ?array
     {

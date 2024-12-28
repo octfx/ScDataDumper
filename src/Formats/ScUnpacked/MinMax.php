@@ -2,12 +2,13 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
-use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\Formats\BaseFormat;
+use Octfx\ScDataDumper\Helper\DOMElementProxy;
 
 final class MinMax extends BaseFormat
 {
-    public function __construct(Element $item, private readonly ?string $minKey = 'Min', private readonly ?string $maxKey = 'Max')
+    public function __construct(RootDocument|DOMElementProxy $item, private readonly ?string $minKey = 'Min', private readonly ?string $maxKey = 'Max')
     {
         parent::__construct($item);
     }

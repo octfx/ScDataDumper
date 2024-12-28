@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class MeleeWeapon extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.SMeleeWeaponComponentParams';
+    protected ?string $elementKey = 'Components/SMeleeWeaponComponentParams';
 
     public function toArray(): ?array
     {
@@ -17,7 +17,6 @@ final class MeleeWeapon extends BaseFormat
         $weapon = $this->get();
 
         $attributes = $weapon->attributesToArray(
-            null,
             [
                 'helper',
                 'audioTriggerName',
@@ -31,8 +30,8 @@ final class MeleeWeapon extends BaseFormat
             'Modes' => [],
         ];
 
-        foreach ($weapon->get('MeleeCombatConfig.attackCategoryParams')?->children() ?? [] as $attackCategory) {
-            $attributes = $attackCategory->attributesToArray(null, ['cameraShakeParams']);
+        foreach ($weapon->get('MeleeCombatConfig/attackCategoryParams')?->children() ?? [] as $attackCategory) {
+            $attributes = $attackCategory->attributesToArray(['cameraShakeParams']);
 
             $attributes['Damage'] = Damage::fromDamageInfo($attackCategory->get('damageInfo'));
 

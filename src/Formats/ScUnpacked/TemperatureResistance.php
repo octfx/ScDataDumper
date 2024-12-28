@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class TemperatureResistance extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.SCItemClothingParams.TemperatureResistance';
+    protected ?string $elementKey = 'Components/SCItemClothingParams/TemperatureResistance';
 
     public function toArray(): ?array
     {

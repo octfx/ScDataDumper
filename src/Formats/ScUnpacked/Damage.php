@@ -2,12 +2,13 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
-use Octfx\ScDataDumper\Definitions\AmmoParams;
+use Octfx\ScDataDumper\DocumentTypes\AmmoParams;
 use Octfx\ScDataDumper\Formats\BaseFormat;
+use Octfx\ScDataDumper\Helper\DOMElementProxy;
 
 final class Damage extends BaseFormat
 {
-    public static function fromDamageInfo(?AmmoParams $element): ?static
+    public static function fromDamageInfo(AmmoParams|DOMElementProxy|null $element): ?static
     {
         if ($element === null) {
             return null;
@@ -40,6 +41,6 @@ final class Damage extends BaseFormat
 
     public function canTransform(): bool
     {
-        return $this->item?->getName() === 'DamageInfo';
+        return $this->item?->nodeName === 'DamageInfo';
     }
 }

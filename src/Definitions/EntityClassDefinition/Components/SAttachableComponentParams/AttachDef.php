@@ -4,15 +4,21 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Definitions\EntityClassDefinition\Components\SAttachableComponentParams;
 
+use DOMDocument;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
 class AttachDef extends Element
 {
-    public function toArray(): array
+    public function initialize(DOMDocument $document): void
     {
-        return [
-            'Manufacturer' => ServiceFactory::getManufacturerService()->getByReference((string) $this->attributes()['Manufacturer'])?->toArray() ?? [],
-        ];
+        if ($this->initialized) {
+            return;
+        }
+
+        parent::initialize($document);
+
+        $manufacturer = ServiceFactory::getManufacturerService()->getByReference($this->get('@Manufacturer'));
+        $this->appendNode($document, $manufacturer, 'Manufacturer');
     }
 }

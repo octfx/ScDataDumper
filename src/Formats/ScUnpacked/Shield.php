@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class Shield extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.SCItemShieldGeneratorParams';
+    protected ?string $elementKey = 'Components/SCItemShieldGeneratorParams';
 
     public function toArray(): ?array
     {
@@ -19,7 +19,6 @@ final class Shield extends BaseFormat
         $return = [];
 
         $attributes = $shield->attributesToArray(
-            null,
             [
                 'RegeneratingState',
                 'IdleState',
@@ -42,9 +41,9 @@ final class Shield extends BaseFormat
         }
 
         return $return + [
-            'StunParams' => $shield->attributesToArray($shield->get('stunParams')),
-            'Absorption' => new MinMaxList($shield->ShieldAbsorption, 'SShieldAbsorption', 6),
-            'Resistance' => new MinMaxList($shield->ShieldResistance, 'SShieldResistance', 6),
+            'StunParams' => $shield->get('stunParams')?->attributesToArray(),
+            'Absorption' => new MinMaxList($shield->get('/ShieldAbsorption'), 'SShieldAbsorption', 6),
+            'Resistance' => new MinMaxList($shield->get('/ShieldResistance'), 'SShieldResistance', 6),
         ];
     }
 }

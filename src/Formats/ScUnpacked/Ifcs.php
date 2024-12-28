@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class Ifcs extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.IFCSParams';
+    protected ?string $elementKey = 'Components/IFCSParams';
 
     public function toArray(): ?array
     {
@@ -16,7 +16,6 @@ final class Ifcs extends BaseFormat
 
         $ifcs = $this->get();
         $attributes = $ifcs->attributesToArray(
-            null,
             [
                 'pitchYawLimiterType',
                 'linearLimiterType',
@@ -26,10 +25,10 @@ final class Ifcs extends BaseFormat
         );
 
         return $attributes + [
-            'Pitch' => $ifcs->get('maxAngularVelocity.x'),
-            'Yaw' => $ifcs->get('maxAngularVelocity.z'),
-            'Roll' => $ifcs->get('maxAngularVelocity.y'),
-            'MaxAngularVelocity' => (new Vec3($ifcs->get('maxAngularVelocity')))->toArray(),
+            'Pitch' => $ifcs->get('maxAngularVelocity@x'),
+            'Yaw' => $ifcs->get('maxAngularVelocity@z'),
+            'Roll' => $ifcs->get('maxAngularVelocity@y'),
+            'MaxAngularVelocity' => (new Vec3($ifcs->get('/maxAngularVelocity')))->toArray(),
             'Afterburner' => (new Afterburner($this->item))->toArray(),
         ];
     }

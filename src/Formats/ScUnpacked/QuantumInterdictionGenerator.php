@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class QuantumInterdictionGenerator extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.SCItemQuantumInterdictionGeneratorParams';
+    protected ?string $elementKey = 'Components/SCItemQuantumInterdictionGeneratorParams';
 
     public function toArray(): ?array
     {
@@ -16,18 +16,16 @@ final class QuantumInterdictionGenerator extends BaseFormat
 
         $qig = $this->get();
 
-        return $qig->attributesToArray(null, ['mainDeviceSwitchOn', 'mainDeviceSwitchOff']) + [
-            'JammingRange' => $qig->get('jammerSettings.SCItemQuantumJammerParams.jammerRange'),
-            'InterdictionRange' => $qig->get('quantumInterdictionPulseSettings.SCItemQuantumInterdictionPulseParams.radiusMeters'),
-            'Jammer' => $qig->get('jammerSettings.SCItemQuantumJammerParams')?->attributesToArray(
-                null,
+        return $qig->attributesToArray(['mainDeviceSwitchOn', 'mainDeviceSwitchOff']) + [
+            'JammingRange' => $qig->get('jammerSettings/SCItemQuantumJammerParams@jammerRange'),
+            'InterdictionRange' => $qig->get('quantumInterdictionPulseSettings/SCItemQuantumInterdictionPulseParams@radiusMeters'),
+            'Jammer' => $qig->get('jammerSettings/SCItemQuantumJammerParams')?->attributesToArray(
                 [
                     'setJammerSwitchOn',
                     'setJammerSwitchOff',
                 ]
             ),
-            'Pulse' => $qig->get('quantumInterdictionPulseSettings.SCItemQuantumInterdictionPulseParams')?->attributesToArray(
-                null,
+            'Pulse' => $qig->get('quantumInterdictionPulseSettings/SCItemQuantumInterdictionPulseParams')?->attributesToArray(
                 [
                     'startChargingIP',
                     'cancelChargingIP',

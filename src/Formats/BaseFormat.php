@@ -2,10 +2,11 @@
 
 namespace Octfx\ScDataDumper\Formats;
 
+use DOMNode;
 use JsonException;
-use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\DocumentTypes\RootDocument;
+use Octfx\ScDataDumper\Helper\DOMElementProxy;
 use RuntimeException;
-use SimpleXMLElement;
 
 abstract class BaseFormat
 {
@@ -32,7 +33,12 @@ abstract class BaseFormat
      */
     protected ?string $elementKey = null;
 
-    public function __construct(protected readonly ?Element $item) {}
+    public function __construct(protected RootDocument|DOMElementProxy|DOMNode|null $item)
+    {
+        if ($item && ! $item instanceof DOMElementProxy) {
+            $this->item = new DOMElementProxy($item);
+        }
+    }
 
     abstract public function toArray(): ?array;
 
@@ -49,7 +55,7 @@ abstract class BaseFormat
      * Retrieve an element or attribute from `$this->item`.
      * Key defaults to `$this->elementKey` if not set.
      *
-     * @return float|mixed|Element|string|null
+     * @return float|mixed|null|DOMElementProxy|string
      */
     public function get(?string $key = null, $default = null): mixed
     {
@@ -63,13 +69,17 @@ abstract class BaseFormat
     /**
      * Checks if the retrieved element's name is equal to the last key part, or if an attribute with this name exist
      *
-     * Example: Passing `Components.IFCSParams` checks if `Components->IFCSParams->getName() === IFCSParams`
+     * Example: Passing `Components.IFCSParams` checks if `Components->IFCSParams->nodeName === IFCSParams`
      *
      * @param  string  $key  Format Element.Child.Child...
      */
     public function has(string $key, ?string $elementName = null): bool
     {
-        $parts = explode('.', $key);
+        if (str_contains($key, '.')) {
+            throw new RuntimeException('Element key contains invalid format');
+        }
+
+        $parts = explode('/', $key);
         $elementName = $elementName ?? array_pop($parts);
 
         // Return key name if not found
@@ -83,7 +93,7 @@ abstract class BaseFormat
             return $obj !== $key;
         }
 
-        return $obj instanceof SimpleXMLElement && $obj->getName() === $elementName;
+        return $obj instanceof DOMElementProxy && $obj->nodeName === $elementName;
     }
 
     /**

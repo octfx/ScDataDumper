@@ -2,8 +2,8 @@
 
 namespace Octfx\ScDataDumper\Helper;
 
-use Octfx\ScDataDumper\Definitions\EntityClassDefinition\VehicleDefinition;
-use Octfx\ScDataDumper\Definitions\Vehicle;
+use Octfx\ScDataDumper\DocumentTypes\Vehicle;
+use Octfx\ScDataDumper\DocumentTypes\VehicleDefinition;
 
 class VehicleWrapper
 {

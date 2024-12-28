@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class Weapon extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.SCItemWeaponComponentParams';
+    protected ?string $elementKey = 'Components/SCItemWeaponComponentParams';
 
     public function toArray(): ?array
     {
@@ -21,12 +21,12 @@ final class Weapon extends BaseFormat
         $out = [
             'Modes' => [],
             'Ammunition' => $ammunition->toArray(),
-            'Consumption' => new WeaponConsumption($weapon),
+            'Consumption' => (new WeaponConsumption($weapon))->toArray(),
         ];
 
         $damageReducer = static fn ($carry, $cur) => $carry + $cur;
 
-        foreach ($weapon->get('fireActions')?->children() as $action) {
+        foreach ($weapon->get('/fireActions')?->children() as $action) {
             $mode = new WeaponMode($action);
             if (! $mode->canTransform()) {
                 continue;

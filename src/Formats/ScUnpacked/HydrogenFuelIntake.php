@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class HydrogenFuelIntake extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.SCItemFuelIntakeParams';
+    protected ?string $elementKey = 'Components/SCItemFuelIntakeParams';
 
     public function toArray(): ?array
     {
@@ -18,6 +18,7 @@ final class HydrogenFuelIntake extends BaseFormat
 
         return [
             'Rate' => $intake->get('fuelPushRate'),
-        ] + $intake->toArray();
+            'MinRate' => $intake->get('minimumRate'),
+        ];
     }
 }

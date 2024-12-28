@@ -4,7 +4,7 @@ namespace Octfx\ScDataDumper\Services;
 
 use Generator;
 use JsonException;
-use Octfx\ScDataDumper\Definitions\MeleeCombatConfig;
+use Octfx\ScDataDumper\DocumentTypes\MeleeCombatConfig;
 use RuntimeException;
 
 final class MeleeCombatConfigService extends BaseService
@@ -47,12 +47,8 @@ final class MeleeCombatConfigService extends BaseService
             throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
         }
 
-        $meleeCombatConfig = simplexml_load_string(file_get_contents($filePath), MeleeCombatConfig::class, LIBXML_NOCDATA | LIBXML_NOBLANKS);
-
-        if ($meleeCombatConfig === false || ! is_object($meleeCombatConfig)) {
-            throw new RuntimeException(sprintf('Cannot parse XML %s', $filePath));
-        }
-
+        $meleeCombatConfig = new MeleeCombatConfig;
+        $meleeCombatConfig->load($filePath);
         $meleeCombatConfig->checkValidity();
 
         return $meleeCombatConfig;

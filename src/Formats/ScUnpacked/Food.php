@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class Food extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.SCItemConsumableParams';
+    protected ?string $elementKey = 'Components/SCItemConsumableParams';
 
     public function toArray(): ?array
     {

@@ -40,7 +40,7 @@ class GenerateCache extends Command
         $end = microtime(true);
         $io->progressFinish();
         $duration = $end - $start;
-        $io->success( sprintf('Generated cache files (%s | %s )',
+        $io->success(sprintf('Generated cache files (%s | %s )',
             'Took: '.round($duration).' s',
             'Path: '.$input->getArgument('path')
         ));

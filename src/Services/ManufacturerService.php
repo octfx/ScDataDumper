@@ -6,7 +6,7 @@ namespace Octfx\ScDataDumper\Services;
 
 use Generator;
 use JsonException;
-use Octfx\ScDataDumper\Definitions\SCItemManufacturer;
+use Octfx\ScDataDumper\DocumentTypes\SCItemManufacturer;
 use RuntimeException;
 
 final class ManufacturerService extends BaseService
@@ -52,14 +52,10 @@ final class ManufacturerService extends BaseService
             throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
         }
 
-        $item = simplexml_load_string(file_get_contents($filePath), SCItemManufacturer::class, LIBXML_NOCDATA | LIBXML_NOBLANKS);
+        $manufacturer = new SCItemManufacturer;
+        $manufacturer->load($filePath);
+        $manufacturer->checkValidity();
 
-        if ($item === false || ! is_object($item)) {
-            throw new RuntimeException(sprintf('Cannot parse XML %s', $filePath));
-        }
-
-        $item->checkValidity();
-
-        return $item;
+        return $manufacturer;
     }
 }

@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class WeaponRegenPool extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.SCItemWeaponRegenPoolComponentParams';
+    protected ?string $elementKey = 'Components/SCItemWeaponRegenPoolComponentParams';
 
     public function toArray(): ?array
     {
@@ -15,7 +15,6 @@ final class WeaponRegenPool extends BaseFormat
         }
 
         return $this->get()?->attributesToArray(
-            null,
             // TODO: Add Service
             [
                 'capacitorAssignmentInputOutputRegen',

@@ -17,11 +17,11 @@ final class ItemPort extends BaseFormat
         $port = $this->item;
 
         $stdPort = [
-            'PortName' => $port->get('Name'),
-            'Size' => $port->get('MaxSize'),
+            'PortName' => $port->get('@Name'),
+            'Size' => $port->get('@MaxSize'),
             'Flags' => $this->buildFlagsList($port),
-            'Tags' => array_filter(explode(' ', $port->get('PortTags'))),
-            'RequiredTags' => array_filter(explode(' ', $port->get('RequiredPortTags'))),
+            'Tags' => array_filter(explode(' ', $port->get('@PortTags'))),
+            'RequiredTags' => array_filter(explode(' ', $port->get('@RequiredPortTags'))),
             'Types' => $this->buildTypesList($port),
         ];
 
@@ -34,12 +34,13 @@ final class ItemPort extends BaseFormat
     {
         $types = [];
 
-        foreach ($port->get('Types', [])->children() as $portType) {
-            $major = $portType->get('Type');
-            if ($portType->get('SubType')) {
+        foreach ($port->get('/Types', [])?->children() as $portType) {
+            $major = $portType->get('@Type');
+
+            if ($portType->get('@SubType')) {
                 $types[] = Item::buildTypeName($major, null);
             } else {
-                foreach ($portType->get('SubTypes')?->children() as $subType) {
+                foreach ($portType->get('/SubTypes')?->children() as $subType) {
                     $minor = $subType->get('value');
                     $types[] = Item::buildTypeName($major, $minor);
                 }
@@ -51,13 +52,13 @@ final class ItemPort extends BaseFormat
 
     private function buildFlagsList($port): ?array
     {
-        $flags = explode(' ', $port->get('Flags'));
+        $flags = explode(' ', $port->get('@Flags'));
 
         return array_filter(array_map('trim', $flags));
     }
 
     public function canTransform(): bool
     {
-        return $this->item?->getName() === 'SItemPortDef';
+        return $this->item?->nodeName === 'SItemPortDef';
     }
 }

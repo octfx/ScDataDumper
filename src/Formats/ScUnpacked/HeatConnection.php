@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class HeatConnection extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.EntityComponentHeatConnection';
+    protected ?string $elementKey = 'Components/EntityComponentHeatConnection';
 
     public function toArray(): ?array
     {

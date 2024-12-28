@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Services;
 
 use JsonException;
-use Octfx\ScDataDumper\Definitions\InventoryContainer;
+use Octfx\ScDataDumper\DocumentTypes\InventoryContainer;
 use RuntimeException;
 
 final class InventoryContainerService extends BaseService
@@ -46,7 +46,8 @@ final class InventoryContainerService extends BaseService
             throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
         }
 
-        $container = simplexml_load_string(file_get_contents($filePath), InventoryContainer::class);
+        $container = new InventoryContainer;
+        $container->load($filePath);
         $container->checkValidity();
 
         return $container;

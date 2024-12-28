@@ -4,18 +4,23 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Definitions\EntityClassDefinition\Components;
 
+use DOMDocument;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
 class SMeleeWeaponComponentParams extends Element
 {
-    public function toArray(): array
+    public function initialize(DOMDocument $document): void
     {
+        if ($this->initialized) {
+            return;
+        }
+
+        parent::initialize($document);
+
         $svc = ServiceFactory::getMeleeCombatConfigService();
+        $meleeCombatConfig = $svc->getByReference($this->get('@meleeCombatConfig'));
 
-        $attributes = $this->attributesToArray();
-        $attributes['MeleeCombatConfig'] = $svc->getByReference($attributes['meleeCombatConfig'])?->toArray();
-
-        return $attributes;
+        $this->appendNode($document, $meleeCombatConfig, 'MeleeCombatConfig');
     }
 }

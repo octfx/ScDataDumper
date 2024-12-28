@@ -7,7 +7,7 @@ use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class SuitArmor extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.SCItemSuitArmorParams';
+    protected ?string $elementKey = 'Components/SCItemSuitArmorParams';
 
     public function toArray(): ?array
     {
@@ -18,7 +18,7 @@ final class SuitArmor extends BaseFormat
         $armor = $this->get();
 
         $protectedParts = [];
-        foreach ($armor->get('protectedBodyParts')?->children() as $part) {
+        foreach ($armor->get('/protectedBodyParts')?->children() ?? [] as $part) {
             $protectedParts[] = $part->get('value');
         }
 

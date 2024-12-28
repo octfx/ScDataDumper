@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class Missile extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.SCItemMissileParams';
+    protected ?string $elementKey = 'Components/SCItemMissileParams';
 
     public function toArray(): ?array
     {
@@ -17,7 +17,7 @@ final class Missile extends BaseFormat
         $missile = $this->get();
 
         return [
-            'Damage' => new Damage($missile->get('explosionParams.damage.DamageInfo')),
+            'Damage' => new Damage($missile->get('explosionParams/damage/DamageInfo')),
         ];
     }
 }

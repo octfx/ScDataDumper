@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class BulletElectron extends BaseFormat
 {
-    protected ?string $elementKey = 'electronParams.BulletElectronParams';
+    protected ?string $elementKey = 'electronParams/BulletElectronParams';
 
     public function toArray(): ?array
     {

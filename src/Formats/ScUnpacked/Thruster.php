@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class Thruster extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.SCItemThrusterParams';
+    protected ?string $elementKey = 'Components/SCItemThrusterParams';
 
     public function toArray(): ?array
     {

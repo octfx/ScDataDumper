@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class Afterburner extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.IFCSParams.afterburner';
+    protected ?string $elementKey = 'Components/IFCSParams/afterburner';
 
     public function toArray(): ?array
     {
@@ -14,7 +14,7 @@ final class Afterburner extends BaseFormat
             return null;
         }
 
-        $afterburner = $this->get('Components.IFCSParams.afterburner');
+        $afterburner = $this->get('Components/IFCSParams/afterburner');
 
         return [
             'SpoolUpTime' => $afterburner->get('afterburnerSpoolUpTime'),

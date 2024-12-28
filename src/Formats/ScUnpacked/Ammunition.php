@@ -21,7 +21,7 @@ final class Ammunition extends BaseFormat
             return null;
         }
 
-        $projectiles = $ammo->get('projectileParams.BulletProjectileParams');
+        $projectiles = $ammo->get('projectileParams/BulletProjectileParams');
 
         return [
             'UUID' => $ammo->get('__ref'),
@@ -29,20 +29,20 @@ final class Ammunition extends BaseFormat
             'Speed' => $ammo->get('speed'),
             'Range' => $ammo->get('lifetime') * $ammo->get('speed'),
             'Size' => $ammo->get('size'),
-            'ImpactDamage' => Damage::fromDamageInfo($projectiles?->get('damage.DamageInfo'))?->toArray(),
-            'DetonationDamage' => Damage::fromDamageInfo($projectiles?->get('detonationParams.ProjectileDetonationParams.explosionParams.damage.DamageInfo'))?->toArray(),
-            'Capacity' => $this->item->get('Components.SAmmoContainerComponentParams.maxAmmoCount') ?? $this->item->get('Components.SAmmoContainerComponentParams.maxRestockCount'),
+            'ImpactDamage' => Damage::fromDamageInfo($projectiles?->get('damage/DamageInfo'))?->toArray(),
+            'DetonationDamage' => Damage::fromDamageInfo($projectiles?->get('detonationParams/ProjectileDetonationParams/explosionParams/damage/DamageInfo'))?->toArray(),
+            'Capacity' => $this->item->get('Components/SAmmoContainerComponentParams@maxAmmoCount') ?? $this->item->get('Components/SAmmoContainerComponentParams@maxRestockCount'),
             'BulletImpulseFalloff' => new BulletImpulseFalloff($projectiles),
             'BulletPierceability' => new BulletPierceability($projectiles),
             'BulletElectron' => new BulletImpulseFalloff($projectiles),
-            'DamageDropMinDistance' => Damage::fromDamageInfo($projectiles?->get('damageDropParams.BulletDamageDropParams.damageDropMinDistance.DamageInfo')),
-            'DamageDropPerMeter' => Damage::fromDamageInfo($projectiles?->get('damageDropParams.BulletDamageDropParams.damageDropPerMeter.DamageInfo')),
-            'DamageDropMinDamage' => Damage::fromDamageInfo($projectiles?->get('damageDropParams.BulletDamageDropParams.damageDropMinDamage.DamageInfo')),
+            'DamageDropMinDistance' => Damage::fromDamageInfo($projectiles?->get('damageDropParams/BulletDamageDropParams/damageDropMinDistance/DamageInfo')),
+            'DamageDropPerMeter' => Damage::fromDamageInfo($projectiles?->get('damageDropParams/BulletDamageDropParams/damageDropPerMeter/DamageInfo')),
+            'DamageDropMinDamage' => Damage::fromDamageInfo($projectiles?->get('damageDropParams/BulletDamageDropParams/damageDropMinDamage/DamageInfo')),
         ];
     }
 
     public function canTransform(): bool
     {
-        return $this->has('Components.SAmmoContainerComponentParams.ammoParamsRecord') || $this->has('Components.SCItemWeaponComponentParams.ammoContainerRecord');
+        return $this->has('Components/SAmmoContainerComponentParams@ammoParamsRecord') || $this->has('Components/SCItemWeaponComponentParams@ammoContainerRecord');
     }
 }

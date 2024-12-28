@@ -2,18 +2,23 @@
 
 namespace Octfx\ScDataDumper\Definitions\EntityClassDefinition\Components;
 
+use DOMDocument;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
 class SCItemSuitArmorParams extends Element
 {
-    public function toArray(): array
+    public function initialize(DOMDocument $document): void
     {
+        if ($this->initialized) {
+            return;
+        }
+
+        parent::initialize($document);
+
         $svc = ServiceFactory::getDamageResistanceMacroService();
+        $damageResistance = $svc->getByReference($this->get('@damageResistance'));
 
-        $attributes = $this->attributesToArray();
-        $attributes['DamageResistance'] = $svc->getByReference($attributes['damageResistance'])?->toArray();
-
-        return $attributes;
+        $this->appendNode($document, $damageResistance, 'DamageResistance');
     }
 }

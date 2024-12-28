@@ -2,14 +2,15 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
-use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\Formats\BaseFormat;
+use Octfx\ScDataDumper\Helper\DOMElementProxy;
 
 final class FuelTank extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.SCItemFuelTankParams';
+    protected ?string $elementKey = 'Components/SCItemFuelTankParams';
 
-    public function __construct(Element $element, private readonly string $type = 'FuelTank')
+    public function __construct(RootDocument|DOMElementProxy $element, private readonly string $type = 'FuelTank')
     {
         parent::__construct($element);
     }
@@ -20,10 +21,8 @@ final class FuelTank extends BaseFormat
             return null;
         }
 
-        $tank = $this->get();
-
         return [
-            'Capacity' => (float) $tank['capacity'],
+            'Capacity' => (float) $this->get('capacity'),
         ];
     }
 

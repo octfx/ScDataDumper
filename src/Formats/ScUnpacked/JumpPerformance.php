@@ -19,6 +19,6 @@ final class JumpPerformance extends BaseFormat
 
     public function canTransform(): bool
     {
-        return $this->has('stageOneAccelRate');
+        return $this->has('/stageOneAccelRate');
     }
 }

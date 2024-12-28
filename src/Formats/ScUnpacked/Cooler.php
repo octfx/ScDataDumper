@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class Cooler extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.SCItemCoolerParams';
+    protected ?string $elementKey = 'Components/SCItemCoolerParams';
 
     public function toArray(): ?array
     {

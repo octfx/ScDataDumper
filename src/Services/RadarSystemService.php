@@ -6,7 +6,7 @@ namespace Octfx\ScDataDumper\Services;
 
 use Generator;
 use JsonException;
-use Octfx\ScDataDumper\Definitions\RadarSystemSharedParams;
+use Octfx\ScDataDumper\DocumentTypes\RadarSystemSharedParams;
 use RuntimeException;
 
 final class RadarSystemService extends BaseService
@@ -49,12 +49,8 @@ final class RadarSystemService extends BaseService
             throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
         }
 
-        $radarSystem = simplexml_load_string(file_get_contents($filePath), RadarSystemSharedParams::class, LIBXML_NOCDATA | LIBXML_NOBLANKS);
-
-        if ($radarSystem === false || ! is_object($radarSystem)) {
-            throw new RuntimeException(sprintf('Cannot parse XML %s', $filePath));
-        }
-
+        $radarSystem = new RadarSystemSharedParams;
+        $radarSystem->load($filePath);
         $radarSystem->checkValidity();
 
         return $radarSystem;

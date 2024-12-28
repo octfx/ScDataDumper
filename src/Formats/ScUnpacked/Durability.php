@@ -13,13 +13,13 @@ final class Durability extends BaseFormat
         }
 
         return [
-            'Lifetime' => $this->get('Components.SDegradationParams.MaxLifetimeHours'),
-            'Health' => $this->get('Components.SHealthComponentParams.Health'),
+            'Lifetime' => $this->get('Components/SDegradationParams@MaxLifetimeHours'),
+            'Health' => $this->get('Components/SHealthComponentParams@Health'),
         ];
     }
 
     public function canTransform(): bool
     {
-        return $this->has('Components.SDegradationParams') || $this->has('Components.SHealthComponentParams');
+        return $this->has('Components/SDegradationParams') || $this->has('Components/SHealthComponentParams');
     }
 }

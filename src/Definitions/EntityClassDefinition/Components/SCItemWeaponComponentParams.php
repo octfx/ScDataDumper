@@ -7,13 +7,17 @@ use Octfx\ScDataDumper\Services\ServiceFactory;
 
 class SCItemWeaponComponentParams extends Element
 {
-    public function toArray(): array
+    public function initialize(\DOMDocument $document): void
     {
+        if ($this->initialized) {
+            return;
+        }
+
+        parent::initialize($document);
+
         $svc = ServiceFactory::getItemService();
+        $magazine = $svc->getByReference($this->get('@ammoContainerRecord'));
 
-        $attributes = $this->attributesToArray();
-        $attributes['Magazine'] = $svc->getByReference($attributes['ammoContainerRecord'])?->toArray();
-
-        return $attributes;
+        $this->appendNode($document, $magazine, 'Magazine');
     }
 }

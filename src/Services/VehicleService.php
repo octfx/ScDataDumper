@@ -7,9 +7,9 @@ use DOMElement;
 use DOMXPath;
 use Generator;
 use JsonException;
-use Octfx\ScDataDumper\Definitions\Element;
-use Octfx\ScDataDumper\Definitions\EntityClassDefinition\VehicleDefinition;
-use Octfx\ScDataDumper\Definitions\Vehicle;
+use Octfx\ScDataDumper\DocumentTypes\RootDocument;
+use Octfx\ScDataDumper\DocumentTypes\Vehicle;
+use Octfx\ScDataDumper\DocumentTypes\VehicleDefinition;
 use Octfx\ScDataDumper\Helper\VehicleWrapper;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -272,7 +272,7 @@ final class VehicleService extends BaseService
         $this->implementations = $implementations;
     }
 
-    public function buildManualLoadout(Element $manual): array
+    public function buildManualLoadout(RootDocument $manual): array
     {
         $entries = [];
         foreach ($manual->get('entries')?->children() as $cigEntry) {
@@ -282,7 +282,7 @@ final class VehicleService extends BaseService
         return $entries;
     }
 
-    private function buildManualLoadoutEntry(Element $cigLoadoutEntry): array
+    private function buildManualLoadoutEntry(RootDocument $cigLoadoutEntry): array
     {
         $entry = [
             'portName' => $cigLoadoutEntry->get('itemPortName'),

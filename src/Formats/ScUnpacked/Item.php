@@ -2,19 +2,17 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
-use Octfx\ScDataDumper\Definitions\EntityClassDefinition\EntityClassDefinition;
+use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\Formats\BaseFormat;
-use Octfx\ScDataDumper\Helper\Arr;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class Item extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.SAttachableComponentParams.AttachDef';
+    protected ?string $elementKey = 'Components/SAttachableComponentParams/AttachDef';
 
     public function toArray(): array
     {
         $attach = $this->get();
-        $raw = Arr::get($this->item->toArray(), $this->elementKey);
 
         $manufacturer = $attach->get('Manufacturer');
         $manufacturer = ServiceFactory::getManufacturerService()->getByReference($manufacturer);
@@ -27,7 +25,7 @@ final class Item extends BaseFormat
             'subType' => $attach->get('SubType'),
             'size' => $attach->get('Size'),
             'grade' => $attach->get('Grade'),
-            'name' => $attach->get('Localization.Name.key'),
+            'name' => $attach->get('Localization/English@Name'),
             'tags' => $attach->get('Tags'),
             'manufacturer' => $manufacturer?->getCode(),
             'classification' => $this->item->getClassification(),
@@ -36,17 +34,17 @@ final class Item extends BaseFormat
                 'ClassName' => $this->item->getClassName(),
                 'Size' => $attach->get('Size', 0),
                 'Grade' => $attach->get('Grade', 0),
-                'Width' => $attach->get('inventoryOccupancyDimensions.x', 0),
-                'Height' => $attach->get('inventoryOccupancyDimensions.z', 0),
-                'Length' => $attach->get('inventoryOccupancyDimensions.y', 0),
+                'Width' => $attach->get('inventoryOccupancyDimensions@x', 0),
+                'Height' => $attach->get('inventoryOccupancyDimensions@z', 0),
+                'Length' => $attach->get('inventoryOccupancyDimensions@y', 0),
                 'Volume' => self::convertToScu($attach->get('inventoryOccupancyVolume')),
                 'Type' => self::buildTypeName($attach->get('Type', 'UNKNOWN'), $attach->get('SubType', 'UNKNOWN')),
-                'Name' => Arr::get($raw, 'Localization.Name.english', ''),
-                'Description' => Arr::get($raw, 'Localization.Description.english', ''),
+                'Name' => $attach->get('Localization/English@Name', ''),
+                'Description' => $attach->get('Localization/English@Description', ''),
                 'Manufacturer' => $manufacturer ? [
                     'Code' => $manufacturer->getCode(),
-                    'Name' => Arr::get($manufacturer->toArray(), 'Localization.Name.english', ''),
-                ] : Arr::get($raw, 'Manufacturer'),
+                    'Name' => $manufacturer->get('Localization/English@Name'),
+                ] : [],
                 'Tags' => $this->item->getTagList(),
                 'Ports' => $this->buildPortsList(),
 
@@ -95,12 +93,12 @@ final class Item extends BaseFormat
 
         $scu = null;
 
-        if ($item->get('SStandardCargoUnit.standardCargoUnits') !== null) {
-            $scu = $item->get('SStandardCargoUnit.standardCargoUnits');
-        } elseif ($item->get('SCentiCargoUnit.centiSCU') !== null) {
-            $scu = $item->get('SCentiCargoUnit.centiSCU') * (10 ** -2);
-        } elseif ($item->get('SMicroCargoUnit.microSCU') !== null) {
-            $scu = $item->get('SMicroCargoUnit.microSCU') * (10 ** -6);
+        if ($item->get('SStandardCargoUnit@standardCargoUnits') !== null) {
+            $scu = $item->get('SStandardCargoUnit@standardCargoUnits');
+        } elseif ($item->get('SCentiCargoUnit@centiSCU') !== null) {
+            $scu = $item->get('SCentiCargoUnit@centiSCU') * (10 ** -2);
+        } elseif ($item->get('SMicroCargoUnit@microSCU') !== null) {
+            $scu = $item->get('SMicroCargoUnit@microSCU') * (10 ** -6);
         }
 
         return $scu;
@@ -123,8 +121,12 @@ final class Item extends BaseFormat
     {
         $ports = [];
 
-        foreach ($this->item->get('Components.SItemPortContainerComponentParams.Ports')?->children() ?? [] as $port) {
-            $ports[] = new ItemPort($port);
+        foreach ($this->item->get('Components/SItemPortContainerComponentParams/Ports')?->childNodes ?? [] as $port) {
+            $port = (new ItemPort($port))->toArray();
+
+            if ($port !== null) {
+                $ports[] = $port;
+            }
         }
 
         return $ports;

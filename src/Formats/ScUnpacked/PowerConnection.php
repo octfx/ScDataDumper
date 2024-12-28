@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class PowerConnection extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.EntityComponentPowerConnection';
+    protected ?string $elementKey = 'Components/EntityComponentPowerConnection';
 
     public function toArray(): ?array
     {
@@ -15,7 +15,6 @@ final class PowerConnection extends BaseFormat
         }
 
         return $this->get()?->attributesToArray(
-            null,
             [
                 'MisfireItemTypeLocID',
                 'WarningDisplayTime',

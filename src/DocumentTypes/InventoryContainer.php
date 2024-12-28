@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Octfx\ScDataDumper\Definitions;
+namespace Octfx\ScDataDumper\DocumentTypes;
 
 define('M_TO_SCU_UNIT', 1.953125);
 
-final class InventoryContainer extends Element
+final class InventoryContainer extends RootDocument
 {
     /**
      * Dimensions of this entity in meter, defined as x, y, z
@@ -16,9 +16,9 @@ final class InventoryContainer extends Element
     public function getInteriorDimensions(): array
     {
         return [
-            'x' => (float) $this->get('interiorDimensions.x'),
-            'y' => (float) $this->get('interiorDimensions.y'),
-            'z' => (float) $this->get('interiorDimensions.z'),
+            'x' => (float) $this->get('interiorDimensions@x'),
+            'y' => (float) $this->get('interiorDimensions@y'),
+            'z' => (float) $this->get('interiorDimensions@z'),
         ];
     }
 
@@ -34,9 +34,9 @@ final class InventoryContainer extends Element
         }
 
         return [
-            'x' => (float) $this->get('inventoryType.InventoryOpenContainerType.minPermittedItemSize.x'),
-            'y' => (float) $this->get('inventoryType.InventoryOpenContainerType.minPermittedItemSize.y'),
-            'z' => (float) $this->get('inventoryType.InventoryOpenContainerType.minPermittedItemSize.z'),
+            'x' => (float) $this->get('inventoryType/InventoryOpenContainerType/minPermittedItemSize@x'),
+            'y' => (float) $this->get('inventoryType/InventoryOpenContainerType/minPermittedItemSize@y'),
+            'z' => (float) $this->get('inventoryType/InventoryOpenContainerType/minPermittedItemSize@z'),
         ];
     }
 
@@ -52,9 +52,9 @@ final class InventoryContainer extends Element
         }
 
         return [
-            'x' => (float) $this->get('inventoryType.InventoryOpenContainerType.maxPermittedItemSize.x'),
-            'y' => (float) $this->get('inventoryType.InventoryOpenContainerType.maxPermittedItemSize.y'),
-            'z' => (float) $this->get('inventoryType.InventoryOpenContainerType.maxPermittedItemSize.z'),
+            'x' => (float) $this->get('inventoryType/InventoryOpenContainerType/maxPermittedItemSize@x'),
+            'y' => (float) $this->get('inventoryType/InventoryOpenContainerType/maxPermittedItemSize@y'),
+            'z' => (float) $this->get('inventoryType/InventoryOpenContainerType/maxPermittedItemSize@z'),
         ];
     }
 
@@ -63,7 +63,7 @@ final class InventoryContainer extends Element
      */
     public function isOpenContainer(): bool
     {
-        return $this->get('inventoryType.InventoryOpenContainerType')?->getName() === 'InventoryOpenContainerType';
+        return $this->get('inventoryType/InventoryOpenContainerType')?->getName() === 'InventoryOpenContainerType';
     }
 
     public function isExternalContainer(): bool
@@ -73,7 +73,7 @@ final class InventoryContainer extends Element
 
     public function isClosedContainer(): bool
     {
-        return $this->get('inventoryType.InventoryClosedContainerType')?->getName() === 'InventoryClosedContainerType';
+        return $this->get('inventoryType/InventoryClosedContainerType')?->getName() === 'InventoryClosedContainerType';
     }
 
     /**
@@ -103,10 +103,10 @@ final class InventoryContainer extends Element
             return 'SCU';
         }
 
-        $capacity = $this->get('inventoryType.InventoryClosedContainerType.capacity')?->children();
+        $capacity = $this->get('inventoryType/InventoryClosedContainerType/capacity')?->childNodes;
 
         return match (
-            $capacity?->getName()) {
+            $capacity?->nodeName) {
             'SStandardCargoUnit' => 'SCU',
             'SCentiCargoUnit' => 'cSCU',
             'SMicroCargoUnit' => 'µSCU',
@@ -126,12 +126,12 @@ final class InventoryContainer extends Element
             return round(($x * $y * $z) / M_TO_SCU_UNIT, 2);
         }
 
-        $capacity = $this->get('inventoryType.InventoryClosedContainerType.capacity')?->children();
+        $capacity = $this->get('inventoryType/InventoryClosedContainerType/capacity')?->childNodes;
 
-        return match ($capacity?->getName()) {
-            'SStandardCargoUnit' => (int) $capacity?->attributes()['standardCargoUnits'],
-            'SCentiCargoUnit' => (int) $capacity?->attributes()['centiSCU'],
-            'SMicroCargoUnit' => (int) $capacity?->attributes()['microSCU'],
+        return match ($capacity?->nodeName) {
+            'SStandardCargoUnit' => (int) $capacity?->get('standardCargoUnits'),
+            'SCentiCargoUnit' => (int) $capacity?->get('centiSCU'),
+            'SMicroCargoUnit' => (int) $capacity?->get('microSCU'),
             default => null
         };
     }
@@ -145,7 +145,7 @@ final class InventoryContainer extends Element
             return 0;
         }
 
-        $capacity = $this->get('inventoryType.InventoryClosedContainerType.capacity')?->children();
+        $capacity = $this->get('inventoryType/InventoryClosedContainerType/capacity')?->childNodes;
 
         return match (
             $capacity?->getName()) {
@@ -163,7 +163,7 @@ final class InventoryContainer extends Element
     {
         return [
             'uuid' => $this->getUuid(),
-            'class' => $this->getName(),
+            'class' => $this->getClassName(),
             'SCU' => $this->getSCU(),
             'capacity' => $this->getCapacityValue(),
             'capacity_name' => $this->getCapacityName(),

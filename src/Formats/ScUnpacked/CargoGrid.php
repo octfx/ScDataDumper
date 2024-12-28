@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class CargoGrid extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.SCItemCargoGridParams';
+    protected ?string $elementKey = 'Components/SCItemCargoGridParams';
 
     public function toArray(): ?array
     {
@@ -18,10 +18,10 @@ final class CargoGrid extends BaseFormat
         $attribs = $grid?->attributesToArray();
 
         return [
-            'Width' => $grid->get('dimensions.x'),
-            'Height' => $grid->get('dimensions.z'),
-            'Depth' => $grid->get('dimensions.y'),
-            'Capacity' => ($grid->get('dimensions.x') * $grid->get('dimensions.y') * $grid->get('dimensions.z')) / M_TO_SCU_UNIT,
+            'Width' => $grid->get('dimensions@x'),
+            'Height' => $grid->get('dimensions@z'),
+            'Depth' => $grid->get('dimensions@y'),
+            'Capacity' => ($grid->get('dimensions@x') * $grid->get('dimensions@y') * $grid->get('dimensions@z')) / M_TO_SCU_UNIT,
         ] + $attribs;
     }
 }

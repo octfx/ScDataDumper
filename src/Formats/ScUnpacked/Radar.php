@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class Radar extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.SCItemRadarComponentParams';
+    protected ?string $elementKey = 'Components/SCItemRadarComponentParams';
 
     public function toArray(): ?array
     {
@@ -17,7 +17,7 @@ final class Radar extends BaseFormat
         $radar = $this->get();
         $signatures = [];
 
-        foreach ($radar->get('signatureDetection') as $signature) {
+        foreach ($radar->get('/signatureDetection') as $signature) {
             $signatures[] = [
                 'Sensitivity' => $signature->get('sensitivity'),
                 'piercing' => $signature->get('piercing'),
@@ -27,9 +27,9 @@ final class Radar extends BaseFormat
         }
 
         return [
-            'Cooldown' => $radar->get('pingProperties.cooldownTime'),
+            'Cooldown' => $radar->get('pingProperties@cooldownTime'),
             'SignatureDetection' => $signatures,
-            'Sensitivity' => $radar->get('sensitivityModifiers.SCItemRadarSensitivityModifier.sensitivityAddition'),
+            'Sensitivity' => $radar->get('sensitivityModifiers/SCItemRadarSensitivityModifier@sensitivityAddition'),
         ];
     }
 }

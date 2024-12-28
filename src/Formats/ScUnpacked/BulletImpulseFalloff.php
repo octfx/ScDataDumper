@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class BulletImpulseFalloff extends BaseFormat
 {
-    protected ?string $elementKey = 'impulseFalloffParams.BulletImpulseFalloffParams';
+    protected ?string $elementKey = 'impulseFalloffParams/BulletImpulseFalloffParams';
 
     public function toArray(): ?array
     {

@@ -87,6 +87,7 @@ class LoadItems extends Command
             $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
 
             $stdItem = (new Item($item))->toArray();
+
             $index[] = $stdItem;
 
             if (! $overwrite && file_exists($filePath)) {
@@ -117,7 +118,7 @@ class LoadItems extends Command
         $end = microtime(true);
         $io->progressFinish();
         $duration = $end - $start;
-        $io->success( sprintf('Saved item files (%s | %s )',
+        $io->success(sprintf('Saved item files (%s | %s )',
             'Took: '.round($duration).' s',
             'Path: '.$input->getArgument('jsonOutPath')
         ));

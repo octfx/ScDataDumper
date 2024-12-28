@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class PowerPlant extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.EntityComponentPowerConnection';
+    protected ?string $elementKey = 'Components/EntityComponentPowerConnection';
 
     public function toArray(): ?array
     {

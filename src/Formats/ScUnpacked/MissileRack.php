@@ -3,10 +3,11 @@
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\Formats\BaseFormat;
+use Octfx\ScDataDumper\Helper\DOMElementProxy;
 
 final class MissileRack extends BaseFormat
 {
-    protected ?string $elementKey = 'Components.SItemPortContainerComponentParams';
+    protected ?string $elementKey = 'Components/SItemPortContainerComponentParams';
 
     public function toArray(): ?array
     {
@@ -17,8 +18,8 @@ final class MissileRack extends BaseFormat
         $rack = $this->get();
 
         return [
-            'Count' => count($rack->children()),
-            'Size' => $rack->children()[0]->get('MaxSize'),
+            'Count' => count($rack->childNodes),
+            'Size' => (new DOMElementProxy($rack->getNode()->firstChild))->get('MaxSize'),
         ];
     }
 

@@ -6,7 +6,8 @@ namespace Octfx\ScDataDumper\Services;
 
 use Generator;
 use JsonException;
-use Octfx\ScDataDumper\Definitions\EntityClassDefinition\EntityClassDefinition;
+use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
+use Octfx\ScDataDumper\Loader\ElementLoader;
 use RuntimeException;
 
 final class ItemService extends BaseService
@@ -61,15 +62,13 @@ final class ItemService extends BaseService
             throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
         }
 
-        $item = simplexml_load_string(file_get_contents($filePath), $class, LIBXML_NOCDATA | LIBXML_NOBLANKS);
-
-        if ($item === false || ! is_object($item)) {
-            throw new RuntimeException(sprintf('Cannot parse XML %s', $filePath));
-        }
-
+        $item = new $class;
+        $item->load($filePath);
         if ($class === EntityClassDefinition::class) {
             $item->checkValidity();
         }
+
+        ElementLoader::load($item);
 
         return $item;
     }

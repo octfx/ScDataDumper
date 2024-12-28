@@ -6,7 +6,7 @@ namespace Octfx\ScDataDumper\Services;
 
 use Generator;
 use JsonException;
-use Octfx\ScDataDumper\Definitions\DamageResistanceMacro;
+use Octfx\ScDataDumper\DocumentTypes\DamageResistanceMacro;
 use RuntimeException;
 
 final class DamageResistanceMacroService extends BaseService
@@ -49,12 +49,8 @@ final class DamageResistanceMacroService extends BaseService
             throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
         }
 
-        $resistanceMacro = simplexml_load_string(file_get_contents($filePath), DamageResistanceMacro::class, LIBXML_NOCDATA | LIBXML_NOBLANKS);
-
-        if ($resistanceMacro === false || ! is_object($resistanceMacro)) {
-            throw new RuntimeException(sprintf('Cannot parse XML %s', $filePath));
-        }
-
+        $resistanceMacro = new DamageResistanceMacro;
+        $resistanceMacro->load($filePath);
         $resistanceMacro->checkValidity();
 
         return $resistanceMacro;
