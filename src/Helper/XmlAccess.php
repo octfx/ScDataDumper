@@ -19,7 +19,7 @@ trait XmlAccess
      *
      * Queries are always scoped to the current element, the path to the current node is prepended to each `$xPath`.
      *
-     * @return float|DOMElementProxy|string|null
+     * @return float|Element|string|null
      */
     public function get(string $xPath, $default = null): mixed
     {
@@ -61,7 +61,7 @@ trait XmlAccess
                 return $attribute;
             }
 
-            return $node ? new DOMElementProxy($node) : $default;
+            return $node ? new Element($node) : $default;
         }
 
         return $default;

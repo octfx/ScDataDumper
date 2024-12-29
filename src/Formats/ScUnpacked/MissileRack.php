@@ -2,8 +2,8 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
+use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Formats\BaseFormat;
-use Octfx\ScDataDumper\Helper\DOMElementProxy;
 
 final class MissileRack extends BaseFormat
 {
@@ -19,7 +19,7 @@ final class MissileRack extends BaseFormat
 
         return [
             'Count' => count($rack->childNodes),
-            'Size' => (new DOMElementProxy($rack->getNode()->firstChild))->get('MaxSize'),
+            'Size' => (new Element($rack->getNode()->firstChild))->get('MaxSize'),
         ];
     }
 

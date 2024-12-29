@@ -7,7 +7,6 @@ namespace Octfx\ScDataDumper\Services;
 use Generator;
 use JsonException;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
-use Octfx\ScDataDumper\Loader\ElementLoader;
 use RuntimeException;
 
 final class ItemService extends BaseService
@@ -67,8 +66,6 @@ final class ItemService extends BaseService
         if ($class === EntityClassDefinition::class) {
             $item->checkValidity();
         }
-
-        ElementLoader::load($item);
 
         return $item;
     }

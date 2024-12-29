@@ -6,8 +6,8 @@ namespace Octfx\ScDataDumper\Services;
 
 use Generator;
 use JsonException;
+use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\AmmoParams;
-use Octfx\ScDataDumper\Helper\DOMElementProxy;
 use RuntimeException;
 
 final class AmmoParamsService extends BaseService
@@ -40,7 +40,7 @@ final class AmmoParamsService extends BaseService
         return $this->load(self::$uuidToPathMap[$uuid]);
     }
 
-    public function getByEntity(DOMElementProxy $item): ?AmmoParams
+    public function getByEntity(Element $item): ?AmmoParams
     {
         // If this is a weapon that contains its own ammo, or if it is a magazine, then it will have an SCAmmoContainerComponentParams component.
         $ammoRef = $item->get('Components/SAmmoContainerComponentParams@ammoParamsRecord');

@@ -4,8 +4,8 @@ namespace Octfx\ScDataDumper\Formats;
 
 use DOMNode;
 use JsonException;
+use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
-use Octfx\ScDataDumper\Helper\DOMElementProxy;
 use RuntimeException;
 
 abstract class BaseFormat
@@ -33,10 +33,10 @@ abstract class BaseFormat
      */
     protected ?string $elementKey = null;
 
-    public function __construct(protected RootDocument|DOMElementProxy|DOMNode|null $item)
+    public function __construct(protected RootDocument|Element|DOMNode|null $item)
     {
-        if ($item && ! $item instanceof DOMElementProxy) {
-            $this->item = new DOMElementProxy($item);
+        if ($item && ! $item instanceof Element) {
+            $this->item = new Element($item);
         }
     }
 
@@ -55,7 +55,7 @@ abstract class BaseFormat
      * Retrieve an element or attribute from `$this->item`.
      * Key defaults to `$this->elementKey` if not set.
      *
-     * @return float|mixed|null|DOMElementProxy|string
+     * @return float|mixed|null|Element|string
      */
     public function get(?string $key = null, $default = null): mixed
     {
@@ -93,7 +93,7 @@ abstract class BaseFormat
             return $obj !== $key;
         }
 
-        return $obj instanceof DOMElementProxy && $obj->nodeName === $elementName;
+        return $obj instanceof Element && $obj->nodeName === $elementName;
     }
 
     /**

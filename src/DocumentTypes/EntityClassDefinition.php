@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes;
 
-use Octfx\ScDataDumper\Helper\DOMElementProxy;
+use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
 class EntityClassDefinition extends RootDocument
 {
-    public function getAttachDef(): ?DOMElementProxy
+    public function getAttachDef(): ?Element
     {
         return $this->get('Components/SAttachableComponentParams/AttachDef');
     }

@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Commands;
 
+use Octfx\ScDataDumper\Formats\ScUnpacked\Ship;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
@@ -25,6 +27,9 @@ class LoadVehicles extends Command
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        $cacheCommand = new GenerateCache;
+        $cacheCommand->run(new StringInput($input->getArgument('scDataPath')), $output);
+
         $io = new SymfonyStyle($input, $output);
         $io->title('[ScDataDumper] Loading vehicles');
 
@@ -46,10 +51,12 @@ class LoadVehicles extends Command
         $start = microtime(true);
 
         foreach ($service->iterator() as $vehicle) {
+
             $out = [
                 'Entity' => $vehicle->getVehicleEntityArray(),
                 'Vehicle' => $vehicle->getVehicleArray(),
                 'Loadout' => $vehicle->loadout,
+                'ScVehicle' => (new Ship($vehicle->entity))->toArray(),
             ];
 
             $fileName = strtolower($vehicle->entity->getClassName());

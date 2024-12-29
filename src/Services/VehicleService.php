@@ -7,6 +7,7 @@ use DOMElement;
 use DOMXPath;
 use Generator;
 use JsonException;
+use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 use Octfx\ScDataDumper\DocumentTypes\VehicleDefinition;
@@ -90,7 +91,6 @@ final class VehicleService extends BaseService
      */
     public function initialize(): void
     {
-
         $this->loadImplementations();
         $items = json_decode(file_get_contents($this->classToPathMapPath), true, 512, JSON_THROW_ON_ERROR)['EntityClassDefinition'] ?? [];
 
@@ -114,7 +114,12 @@ final class VehicleService extends BaseService
     public function iterator(): Generator
     {
         foreach ($this->vehicles as $path) {
-            yield $this->load($path);
+            $vehicle = $this->load($path);
+            if ($vehicle === null) {
+                continue;
+            }
+
+            yield $vehicle;
         }
     }
 
@@ -124,13 +129,10 @@ final class VehicleService extends BaseService
             throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
         }
 
-        $vehicle = simplexml_load_string(file_get_contents($filePath), VehicleDefinition::class, LIBXML_NOCDATA | LIBXML_NOBLANKS);
+        $vehicle = new VehicleDefinition;
+        $vehicle->load($filePath);
 
-        if ($vehicle === false || ! is_object($vehicle)) {
-            throw new RuntimeException(sprintf('Cannot parse XML %s', $filePath));
-        }
-
-        $implementation = $vehicle->get('Components.VehicleComponentParams.vehicleDefinition');
+        $implementation = $vehicle->get('Components/VehicleComponentParams@vehicleDefinition');
 
         if ($implementation === null) {
             return null;
@@ -141,11 +143,11 @@ final class VehicleService extends BaseService
 
         $implementation = $this->implementations[strtolower($fileName)];
 
-        $modification = $vehicle->get('Components.VehicleComponentParams.modification');
+        $modification = $vehicle->get('Components/VehicleComponentParams@modification');
 
         $doc = $this->parseVehicle($implementation, $modification);
 
-        $manualLoadout = $vehicle->get('Components.SEntityComponentDefaultLoadoutParams.loadout.SItemPortLoadoutManualParams');
+        $manualLoadout = $vehicle->get('Components/SEntityComponentDefaultLoadoutParams/loadout/SItemPortLoadoutManualParams');
 
         $loadout = [];
         if ($manualLoadout) {
@@ -153,15 +155,15 @@ final class VehicleService extends BaseService
         }
 
         return new VehicleWrapper(
-            simplexml_import_dom($doc, Vehicle::class),
+            $doc,
             $vehicle,
             $loadout
         );
     }
 
-    private function parseVehicle(string $vehiclePath, string $modificationName): DOMDocument
+    private function parseVehicle(string $vehiclePath, string $modificationName): Vehicle
     {
-        $doc = new DOMDocument;
+        $doc = new Vehicle;
         $doc->load($vehiclePath);
 
         if (! empty(trim($modificationName))) {
@@ -195,7 +197,7 @@ final class VehicleService extends BaseService
         }
 
         $patchDoc = new DOMDocument;
-        $patchDoc->load($patchFilename, LIBXML_NOCDATA | LIBXML_NOBLANKS);
+        $patchDoc->load($patchFilename, LIBXML_NOCDATA | LIBXML_NOBLANKS | LIBXML_COMPACT);
 
         /** @var DOMElement $patchNode */
         foreach ($patchDoc->firstChild->childNodes as $patchNode) {
@@ -213,8 +215,8 @@ final class VehicleService extends BaseService
             $nodes = $xpath->query("//*[@id='$id']");
             /** @var DOMElement $node */
             foreach ($nodes as $node) {
-                $foo = $doc->importNode($patchNode->cloneNode(true), true);
-                $node->replaceWith($foo);
+                $clonedNode = $doc->importNode($patchNode, true);
+                $node->replaceWith($clonedNode);
             }
         }
     }
@@ -272,17 +274,17 @@ final class VehicleService extends BaseService
         $this->implementations = $implementations;
     }
 
-    public function buildManualLoadout(RootDocument $manual): array
+    public function buildManualLoadout(RootDocument|Element $manual): array
     {
         $entries = [];
-        foreach ($manual->get('entries')?->children() as $cigEntry) {
+        foreach ($manual->get('/entries')?->children() as $cigEntry) {
             $entries[] = $this->buildManualLoadoutEntry($cigEntry);
         }
 
         return $entries;
     }
 
-    private function buildManualLoadoutEntry(RootDocument $cigLoadoutEntry): array
+    private function buildManualLoadoutEntry(RootDocument|Element $cigLoadoutEntry): array
     {
         $entry = [
             'portName' => $cigLoadoutEntry->get('itemPortName'),
@@ -294,8 +296,8 @@ final class VehicleService extends BaseService
             $entry['Item'] = ServiceFactory::getItemService()->getByClassName($entry['className'])?->toArray();
         }
 
-        if ($cigLoadoutEntry->get('loadout.SItemPortLoadoutManualParams.entries') !== null) {
-            foreach ($cigLoadoutEntry->get('loadout.SItemPortLoadoutManualParams.entries')->children() as $e) {
+        if ($cigLoadoutEntry->get('loadout/SItemPortLoadoutManualParams/entries') !== null) {
+            foreach ($cigLoadoutEntry->get('loadout/SItemPortLoadoutManualParams/entries')->children() as $e) {
                 $entry['entries'][] = $this->buildManualLoadoutEntry($e);
             }
         }

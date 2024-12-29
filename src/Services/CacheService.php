@@ -18,7 +18,7 @@ final class CacheService
      */
     public function __construct(
         private readonly string $scDataDir,
-        private SymfonyStyle $io
+        private readonly SymfonyStyle $io
     ) {}
 
     /**
