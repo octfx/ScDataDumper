@@ -3,12 +3,19 @@
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
+use Octfx\ScDataDumper\DocumentTypes\Vehicle;
+use Octfx\ScDataDumper\DocumentTypes\VehicleDefinition;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class Ship extends BaseFormat
 {
     protected ?string $elementKey = 'Components/SAttachableComponentParams/AttachDef';
+
+    public function __construct(VehicleDefinition $item, private readonly Vehicle $vehicle)
+    {
+        parent::__construct($item);
+    }
 
     public function toArray(): array
     {
@@ -37,9 +44,16 @@ final class Ship extends BaseFormat
             'Length' => $vehicleComponent->get('maxBoundingBoxSize@y', 0),
             'Height' => $vehicleComponent->get('maxBoundingBoxSize@z', 0),
             'Crew' => $vehicleComponent->get('crewSize', 0),
+
+            'Parts' => [],
         ];
 
-//        $this->processArray($data);
+
+        foreach ($this->vehicle->get('//Parts')?->children() ?? [] as $part) {
+            $data['Parts'][] = (new Part($part))->toArray();
+        }
+
+        //        $this->processArray($data);
 
         return $this->removeNullValues($data);
     }

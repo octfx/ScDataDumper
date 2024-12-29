@@ -115,7 +115,7 @@ class Element
     /**
      * Returns all child elements and wraps it in DOMElementProxy
      */
-    public function children(): Generator
+    public function children(): Generator|array
     {
         foreach ($this->node->childNodes as $child) {
             if ($child->nodeType !== XML_ELEMENT_NODE) {

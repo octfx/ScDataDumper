@@ -154,6 +154,9 @@ final class VehicleService extends BaseService
             $loadout = $this->buildManualLoadout($manualLoadout);
         }
 
+        $doc->initXPath();
+        $vehicle->initXPath();
+
         return new VehicleWrapper(
             $doc,
             $vehicle,

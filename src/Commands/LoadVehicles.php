@@ -51,12 +51,11 @@ class LoadVehicles extends Command
         $start = microtime(true);
 
         foreach ($service->iterator() as $vehicle) {
-
             $out = [
                 'Entity' => $vehicle->getVehicleEntityArray(),
                 'Vehicle' => $vehicle->getVehicleArray(),
                 'Loadout' => $vehicle->loadout,
-                'ScVehicle' => (new Ship($vehicle->entity))->toArray(),
+                'ScVehicle' => (new Ship($vehicle->entity, $vehicle->vehicle))->toArray(),
             ];
 
             $fileName = strtolower($vehicle->entity->getClassName());

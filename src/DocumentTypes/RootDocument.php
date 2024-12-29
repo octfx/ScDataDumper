@@ -29,9 +29,8 @@ abstract class RootDocument extends DOMDocument
             throw new RuntimeException('Failed to load document');
         }
 
-        $this->domXPath = new DOMXPath($this->getDomDocument());
-
         ElementLoader::load($this);
+        $this->initXPath();
 
         return $success;
     }

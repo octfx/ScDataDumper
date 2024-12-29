@@ -68,4 +68,9 @@ trait XmlAccess
     }
 
     abstract protected function getDomDocument(): DOMDocument;
+
+    public function initXPath(): void
+    {
+        $this->domXPath = new DOMXPath($this->getDomDocument());
+    }
 }
