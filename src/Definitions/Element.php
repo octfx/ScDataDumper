@@ -6,11 +6,12 @@ use DOMDocument;
 use DOMException;
 use DOMNode;
 use DOMXPath;
+use Generator;
 use Octfx\ScDataDumper\Helper\XmlAccess;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
 
-abstract class Element
+class Element
 {
     protected bool $initialized = false;
 
@@ -99,5 +100,29 @@ abstract class Element
         unset($attributes['__type'], $attributes['__polymorphicType']);
 
         return $attributes;
+    }
+
+    public function __call(string $name, array $arguments)
+    {
+        return $this->node->{$name}(...$arguments);
+    }
+
+    public function __get(string $name)
+    {
+        return $this->node->{$name};
+    }
+
+    /**
+     * Returns all child elements and wraps it in DOMElementProxy
+     */
+    public function children(): Generator
+    {
+        foreach ($this->node->childNodes as $child) {
+            if ($child->nodeType !== XML_ELEMENT_NODE) {
+                continue;
+            }
+
+            yield new self($child);
+        }
     }
 }

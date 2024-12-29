@@ -8,9 +8,10 @@ use DOMDocument;
 use DOMElement;
 use DOMXPath;
 use JsonException;
+use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\ElementDefinitionFactory;
-use Octfx\ScDataDumper\Helper\DOMElementProxy;
 use Octfx\ScDataDumper\Helper\XmlAccess;
+use Octfx\ScDataDumper\Loader\ElementLoader;
 use RuntimeException;
 
 /**
@@ -22,13 +23,15 @@ abstract class RootDocument extends DOMDocument
 
     public function load(string $filename, int $options = 0): bool
     {
-        $success = parent::load($filename, $options);
+        $success = parent::load($filename, $options | LIBXML_NOCDATA | LIBXML_NOBLANKS | LIBXML_COMPACT);
 
         if (! $success) {
             throw new RuntimeException('Failed to load document');
         }
 
         $this->domXPath = new DOMXPath($this->getDomDocument());
+
+        ElementLoader::load($this);
 
         return $success;
     }
@@ -92,27 +95,20 @@ abstract class RootDocument extends DOMDocument
      *
      * @see ElementDefinitionFactory
      */
-    protected function toArrayRecursive(DOMElement|DOMElementProxy $element): array
+    protected function toArrayRecursive(DOMElement|Element $element): array
     {
-        if (! $element instanceof DOMElementProxy) {
-            $element = new DOMElementProxy($element);
+        if (! $element instanceof Element) {
+            $element = new Element($element);
         }
 
         $data = $element->attributesToArray();
 
         if ($element->childNodes->length > 0) {
-            $isArray = false;
-
             foreach ($element->children() as $child) {
-                if ($child->getNode()->nextSibling !== null && $child->getNode()->nodeName === $child->getNode()->nextSibling->nodeName) {
-                    $isArray = true;
-
-                    $data = [
-                        $data,
-                    ];
-                }
-
-                if ($isArray) {
+                if (
+                    ($child->getNode()->previousSibling && $child->getNode()->nodeName === $child->getNode()->previousSibling->nodeName) ||
+                    ($child->getNode()->nextSibling && $child->getNode()->nodeName === $child->getNode()->nextSibling->nodeName)
+                ) {
                     $data[] = $this->toArrayRecursive($child);
                 } else {
                     $data[$child->nodeName] = $this->toArrayRecursive($child);
