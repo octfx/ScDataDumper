@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Definitions\EntityClassDefinition\Components;
 
 use DOMDocument;
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Definitions\EntityClassDefinition\Components\SAttachableComponentParams\AttachDef\Localization;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 

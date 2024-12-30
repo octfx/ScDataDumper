@@ -16,14 +16,19 @@ final class Part extends BaseFormat
 
         $part = [
             'Name' => $this->get('name'),
+            'Parts' => [],
+            'Port' => (new VehiclePartPort($this->get('/ItemPort')))->toArray(),
             'MaximumDamage' => $this->getDamageMax() > 0 ? $this->getDamageMax() : null,
             'Mass' => $this->get('mass'),
             'ShipDestructionDamage' => $this->calculateDamageToDestroyShip(),
             'PartDetachDamage' => $this->calculateDamageToDetach(),
-            'Parts' => [],
         ];
 
         foreach ($this->get('/Parts')?->children() ?? [] as $subPart) {
+            if ($subPart->get('@skipPart') === '1') {
+                continue;
+            }
+
             $part['Parts'][] = (new Part($subPart))->toArray();
         }
 

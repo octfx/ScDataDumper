@@ -6,7 +6,7 @@ namespace Octfx\ScDataDumper\DocumentTypes;
 
 use DOMDocument;
 use DOMElement;
-use DOMXPath;
+use DOMNode;
 use JsonException;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\ElementDefinitionFactory;
@@ -20,6 +20,23 @@ use RuntimeException;
 abstract class RootDocument extends DOMDocument
 {
     use XmlAccess;
+
+    public static function fromNode(?DOMNode $node): ?self
+    {
+        if (! $node) {
+            return null;
+        }
+
+        $xml = $node->ownerDocument->saveXML($node);
+
+        $instance = new static;
+        $instance->loadXML($xml);
+
+        ElementLoader::load($instance);
+        $instance->initXPath();
+
+        return $instance;
+    }
 
     public function load(string $filename, int $options = 0): bool
     {

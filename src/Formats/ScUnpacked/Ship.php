@@ -7,6 +7,8 @@ use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 use Octfx\ScDataDumper\DocumentTypes\VehicleDefinition;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 use Octfx\ScDataDumper\Services\ServiceFactory;
+use RecursiveArrayIterator;
+use RecursiveIteratorIterator;
 
 final class Ship extends BaseFormat
 {
@@ -24,6 +26,9 @@ final class Ship extends BaseFormat
 
         $manufacturer = $vehicleComponent->get('Manufacturer');
         $manufacturer = ServiceFactory::getManufacturerService()->getByReference($manufacturer);
+
+        $isVehicle = $this->item->get('Components/VehicleComponentParams@vehicleCareer') === '@vehicle_focus_ground';
+        $isGravlev = $this->item->get('Components/VehicleComponentParams@isGravlevVehicle') === '1';
 
         $data = [
             'UUID' => $this->item->getUuid(),
@@ -46,14 +51,45 @@ final class Ship extends BaseFormat
             'Crew' => $vehicleComponent->get('crewSize', 0),
 
             'Parts' => [],
+
+            // WeaponCrew = portSummary.MannedTurrets.Count + portSummary.RemoteTurrets.Count,
+            // OperationsCrew = Math.Max(portSummary.MiningTurrets.Count, portSummary.UtilityTurrets.Count),
+
+            'Insurance' => [
+                'ExpeditedCost' => $this->item->get('StaticEntityClassData/SEntityInsuranceProperties/shipInsuranceParams@baseExpeditingFee', 0),
+                'ExpeditedClaimTime' => $this->item->get('StaticEntityClassData/SEntityInsuranceProperties/shipInsuranceParams@mandatoryWaitTimeMinutes', 0),
+                'StandardClaimTime' => $this->item->get('StaticEntityClassData/SEntityInsuranceProperties/shipInsuranceParams@baseWaitTimeMinutes', 0),
+            ],
+
+            'IsVehicle' => $isVehicle,
+            'IsGravlev' => $isGravlev,
+            'IsSpaceship' => ! ($isVehicle || $isGravlev),
         ];
 
-
         foreach ($this->vehicle->get('//Parts')?->children() ?? [] as $part) {
+            if ($part->get('skipPart') === '1') {
+                continue;
+            }
+
             $data['Parts'][] = (new Part($part))->toArray();
         }
 
-        //        $this->processArray($data);
+        $loadoutEntries = [];
+
+        foreach ($this->item->get('/SEntityComponentDefaultLoadoutParams/loadout')?->children() ?? [] as $loadout) {
+            $loadoutEntries[] = (new Loadout($loadout))->toArray();
+        }
+
+        $data['LoadoutEntries'] = $loadoutEntries;
+
+        $mass = 0;
+        foreach ($this->partList($data['Parts']) as $part) {
+            // TODO fix non-numeric values
+            $mass += $part['Mass'] ?? 0;
+        }
+        $data['Mass'] = $mass > 0 ? $mass : null;
+
+        $this->processArray($data);
 
         return $this->removeNullValues($data);
     }
@@ -132,5 +168,19 @@ final class Ship extends BaseFormat
         }
 
         return $array;
+    }
+
+    /**
+     * @param  Part[]  $parts
+     */
+    private function partList(array $parts): \Generator
+    {
+        $arrayIterator = new RecursiveArrayIterator($parts);
+        $recursiveIterator = new RecursiveIteratorIterator($arrayIterator, RecursiveIteratorIterator::SELF_FIRST);
+
+        /** @var Part $part */
+        foreach ($recursiveIterator as $part) {
+            yield $part;
+        }
     }
 }

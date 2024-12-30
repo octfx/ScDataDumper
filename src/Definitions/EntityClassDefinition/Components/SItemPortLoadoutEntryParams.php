@@ -28,7 +28,10 @@ class SItemPortLoadoutEntryParams extends Element
         }
 
         if ($item) {
-            $this->appendNode($document, $item, 'Item');
+            $importedNode = $document->importNode($item->documentElement, true);
+            $element = $document->createElement('InstalledItem');
+            $element->appendChild($importedNode);
+            $this->node->appendChild($element);
         }
     }
 }
