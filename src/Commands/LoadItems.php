@@ -104,6 +104,9 @@ class LoadItems extends Command
                     $json = json_encode([
                         'Raw' => [
                             'Entity' => $item->toArray(),
+                            'ClassName' => $item->getClassName(),
+                            '__ref' => $item->getUuid(),
+                            '__type' => $item->getAttachType(),
                         ],
                         'Item' => $stdItem,
                     ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);

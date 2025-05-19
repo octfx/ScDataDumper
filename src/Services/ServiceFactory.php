@@ -50,6 +50,9 @@ final class ServiceFactory
         self::$services['VehicleService'] = new VehicleService($this->scDataPath);
         self::$services['VehicleService']->initialize();
 
+        self::$services['FactionService'] = new FactionService($this->scDataPath);
+        self::$services['FactionService']->initialize();
+
         self::$initialized = true;
     }
 
@@ -101,6 +104,11 @@ final class ServiceFactory
     public static function getVehicleService(): VehicleService
     {
         return self::getService('VehicleService');
+    }
+
+    public static function getFactionService(): FactionService
+    {
+        return self::getService('FactionService');
     }
 
     private static function getService(string $serviceName): mixed

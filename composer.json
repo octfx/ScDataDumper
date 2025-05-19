@@ -3,13 +3,17 @@
     "description": "PHP Tool for dumping SC data files",
     "type": "project",
     "require": {
-        "symfony/console": "^7.1"
+        "symfony/console": "^7.1",
+        "ext-dom": "*"
     },
     "license": "MIT",
     "autoload": {
         "psr-4": {
             "Octfx\\ScDataDumper\\": "src/"
         }
+    },
+    "scripts": {
+        "pint": "pint"
     },
     "authors": [
         {
