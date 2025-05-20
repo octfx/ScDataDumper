@@ -95,14 +95,13 @@ final class Ship extends BaseFormat
 
         $mass = 0;
         foreach ($this->partList($data['Parts']) as $part) {
-            // TODO fix non-numeric values
-            $mass += $part['Mass'] ?? 0;
+            $mass += (float) ($part['Mass'] ?? 0);
         }
 
         $data['Mass'] = $mass > 0 ? $mass : null;
 
-        $parts = collect($this->partList($data['Parts']))->toArray();
-        $portSummary = $this->buildPortSummary($parts);
+        $parts = collect($this->partList($data['Parts']));
+        $portSummary = $this->buildPortSummary($parts->toArray());
         $portSummary = $this->installItems($portSummary);
 
         $quantumDrive = $portSummary['quantumDrives']->first(fn ($x) => isset($x['InstalledItem']));
@@ -141,7 +140,6 @@ final class Ship extends BaseFormat
         $summary['Propulsion']['ManeuveringTimeTillEmpty'] = $summary['Propulsion']['FuelUsage']['Main'] > 0 && $summary['Propulsion']['FuelUsage']['Maneuvering'] > 0 ? $summary['Propulsion']['FuelCapacity'] / ($summary['Propulsion']['FuelUsage']['Main'] + $summary['Propulsion']['FuelUsage']['Maneuvering'] / 2 - $summary['Propulsion']['FuelIntakeRate']) : null;
 
         if ($isGravlev || ! $isVehicle) {
-
             $ifcs = collect($this->vehicleWrapper->loadout)
                 ->first(fn ($x) => isset($x['Item']['Components']['IFCSParams']));
 
@@ -176,6 +174,26 @@ final class Ship extends BaseFormat
 
         }
 
+        $cargoCapacity = collect($this->vehicleWrapper->loadout)
+            ->filter(fn ($x) => isset($x['Item']['Components']['SCItemInventoryContainerComponentParams']) && $x['Item']['Type'] === 'Ship.CargoGrid')
+            ->sum(fn ($x) => (
+                Arr::get($x, 'Item.Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.x', 0) *
+                Arr::get($x, 'Item.Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.y', 0) *
+                Arr::get($x, 'Item.Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.z', 0)
+            ));
+
+        $summary['Cargo'] = $cargoCapacity;
+
+        $summary['Health'] = $parts->filter(fn ($x) => ($x['MaximumDamage'] ?? 0) > 0)->sum(fn ($x) => $x['MaximumDamage']);
+        $summary['DamageBeforeDestruction'] = $parts->filter(fn ($x) => ($x['ShipDestructionDamage'] ?? 0) > 0)->mapWithKeys(fn ($x) => [$x['Name'] => $x['ShipDestructionDamage']]);
+        $summary['DamageBeforeDetach'] = $parts->filter(fn ($x) => ($x['PartDetachDamage'] ?? 0) > 0 && $x['ShipDestructionDamage'] === null)->mapWithKeys(fn ($x) => [$x['Name'] => $x['PartDetachDamage']]);
+
+        /**
+         * // Weapon fittings
+         * shipSummary.PilotHardpoints = CalculateWeaponFittings(portSummary.PilotHardpoints);
+         * shipSummary.MannedTurrets = CalculateWeaponFittings(portSummary.MannedTurrets);
+         * shipSummary.RemoteTurrets = CalculateWeaponFittings(portSummary.RemoteTurrets);
+         */
         $data = array_merge($data, $summary);
 
         $this->processArray($data);

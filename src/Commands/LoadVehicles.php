@@ -51,18 +51,26 @@ class LoadVehicles extends Command
         $start = microtime(true);
 
         foreach ($service->iterator() as $vehicle) {
+            $scUnpackedShip = new Ship($vehicle);
+
             $out = [
                 'Entity' => $vehicle->getVehicleEntityArray(),
                 'Vehicle' => $vehicle->getVehicleArray(),
                 'Loadout' => $vehicle->loadout,
-                'ScVehicle' => (new Ship($vehicle))->toArray(),
+                'ScVehicle' => $scUnpackedShip->toArray(),
             ];
 
             $fileName = strtolower($vehicle->entity->getClassName());
-            $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
+            $filePath = sprintf('%s%s%s-raw.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
 
             $ref = fopen($filePath, 'wb');
             fwrite($ref, json_encode($out, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
+            fclose($ref);
+
+            $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
+
+            $ref = fopen($filePath, 'wb');
+            fwrite($ref, json_encode($scUnpackedShip->toArray(), JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
             fclose($ref);
 
             $io->progressAdvance();
