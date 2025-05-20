@@ -292,11 +292,18 @@ final class VehicleService extends BaseService
         $entry = [
             'portName' => $cigLoadoutEntry->get('itemPortName'),
             'className' => $cigLoadoutEntry->get('entityClassName'),
+            'classReference' => $cigLoadoutEntry->get('entityClassReference'),
             'entries' => [],
         ];
 
         if (! empty($entry['className'])) {
             $entry['Item'] = ServiceFactory::getItemService()->getByClassName($entry['className'])?->toArray();
+            $entry['Item']['Type'] = (new ItemClassifierService)->classify($entry['Item']);
+        }
+
+        if (! empty($entry['classReference']) && $entry['classReference'] !== '00000000-0000-0000-0000-000000000000') {
+            $entry['Item'] = ServiceFactory::getItemService()->getByReference($entry['classReference'])?->toArray();
+            $entry['Item']['Type'] = (new ItemClassifierService)->classify($entry['Item']);
         }
 
         if ($cigLoadoutEntry->get('loadout/SItemPortLoadoutManualParams/entries') !== null) {

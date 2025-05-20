@@ -4,7 +4,8 @@
     "type": "project",
     "require": {
         "symfony/console": "^7.1",
-        "ext-dom": "*"
+        "ext-dom": "*",
+        "illuminate/collections": "^12.14"
     },
     "license": "MIT",
     "autoload": {

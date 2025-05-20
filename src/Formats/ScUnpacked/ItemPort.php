@@ -31,6 +31,79 @@ class ItemPort extends BaseFormat
         return $stdPort;
     }
 
+    /**
+     * Checks if the port accepts the specified item type pattern.
+     *
+     * @param  string  $typePattern  Item type pattern to check (e.g. "WeaponGun", "Turret.*")
+     * @return bool True if the port accepts the specified type pattern
+     */
+    public static function accepts(array $port, string $typePattern): bool
+    {
+        if ($port['Types'] === null) {
+            return false;
+        }
+
+        return self::typeMatch($port['Types'], $typePattern);
+    }
+
+    /**
+     * Match a type pattern against a list of types.
+     *
+     * @param  array  $types  The list of types to match against
+     * @param  string  $typePattern  The pattern to match
+     * @return bool True if any of the types match the pattern
+     */
+    private static function typeMatch(array $types, string $typePattern): bool
+    {
+        if ($types === null) {
+            return false;
+        }
+
+        foreach ($types as $type) {
+            if (self::matchSingleType($type, $typePattern)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Match a single type against a pattern.
+     *
+     * @param  string  $type  The type to check
+     * @param  string  $typePattern  The pattern to match against
+     * @return bool True if the type matches the pattern
+     */
+    private static function matchSingleType(string $type, string $typePattern): bool
+    {
+        $patternSplit = explode('.', $typePattern, 2);
+
+        $patternType = $patternSplit[0];
+        if ($patternType === '*') {
+            $patternType = null;
+        }
+
+        $patternSubType = $patternSplit[1] ?? null;
+        if ($patternSubType === '*') {
+            $patternSubType = null;
+        }
+
+        $typeSplit = explode('.', $type, 2);
+        $typeType = $typeSplit[0];
+        $typeSubType = $typeSplit[1] ?? null;
+
+        if (! empty($patternType) && strcasecmp($patternType, $typeType) !== 0) {
+            return false;
+        }
+
+        if (! empty($patternSubType) && strcasecmp($patternSubType, $typeSubType) !== 0) {
+            return false;
+        }
+
+        return true;
+    }
+
     private function buildTypesList($port): array
     {
         $types = [];
@@ -43,7 +116,7 @@ class ItemPort extends BaseFormat
             if (! empty($portType->get($subtypeKey))) {
                 $types[] = Item::buildTypeName($major, null);
             } else {
-                foreach ($portType->get('/SubTypes')?->children() ?? [] as $subType) {
+                foreach ($port->get('/SubTypes')?->children() ?? [] as $subType) {
                     $minor = $subType->get('value');
                     $types[] = Item::buildTypeName($major, $minor);
                 }

@@ -55,7 +55,7 @@ class LoadVehicles extends Command
                 'Entity' => $vehicle->getVehicleEntityArray(),
                 'Vehicle' => $vehicle->getVehicleArray(),
                 'Loadout' => $vehicle->loadout,
-                'ScVehicle' => (new Ship($vehicle->entity, $vehicle->vehicle))->toArray(),
+                'ScVehicle' => (new Ship($vehicle))->toArray(),
             ];
 
             $fileName = strtolower($vehicle->entity->getClassName());

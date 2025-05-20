@@ -4,19 +4,29 @@ namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\DocumentTypes\Vehicle;
-use Octfx\ScDataDumper\DocumentTypes\VehicleDefinition;
 use Octfx\ScDataDumper\Formats\BaseFormat;
+use Octfx\ScDataDumper\Helper\Arr;
+use Octfx\ScDataDumper\Helper\VehicleWrapper;
+use Octfx\ScDataDumper\Services\PortClassifierService;
 use Octfx\ScDataDumper\Services\ServiceFactory;
-use RecursiveArrayIterator;
-use RecursiveIteratorIterator;
+
+const G = 9.80665;
 
 final class Ship extends BaseFormat
 {
     protected ?string $elementKey = 'Components/SAttachableComponentParams/AttachDef';
 
-    public function __construct(VehicleDefinition $item, private readonly Vehicle $vehicle)
+    private readonly PortClassifierService $portClassifierService;
+
+    private readonly Vehicle $vehicle;
+
+    public function __construct(private readonly VehicleWrapper $vehicleWrapper)
     {
-        parent::__construct($item);
+        parent::__construct($this->vehicleWrapper->entity);
+
+        $this->vehicle = $this->vehicleWrapper->vehicle;
+
+        $this->portClassifierService = new PortClassifierService;
     }
 
     public function toArray(): array
@@ -71,7 +81,8 @@ final class Ship extends BaseFormat
                 continue;
             }
 
-            $data['Parts'][] = (new Part($part))->toArray();
+            $part = (new Part($part))->toArray();
+            $data['Parts'][] = $part;
         }
 
         $loadoutEntries = [];
@@ -87,11 +98,108 @@ final class Ship extends BaseFormat
             // TODO fix non-numeric values
             $mass += $part['Mass'] ?? 0;
         }
+
         $data['Mass'] = $mass > 0 ? $mass : null;
+
+        $parts = collect($this->partList($data['Parts']))->toArray();
+        $portSummary = $this->buildPortSummary($parts);
+        $portSummary = $this->installItems($portSummary);
+
+        $quantumDrive = $portSummary['quantumDrives']->first(fn ($x) => isset($x['InstalledItem']));
+
+        $quantumFuelCapacity = $portSummary['quantumFuelTanks']->sum(fn ($x) => Arr::get($x, 'InstalledItem.Components.ResourceContainer.capacity.SStandardCargoUnit.standardCargoUnits', 0) * 1000);
+
+        $summary = [
+            'QuantumTravel' => [
+                'FuelCapacity' => $quantumFuelCapacity ?? 0,
+                'Range' => ($quantumFuelCapacity / (Arr::get($quantumDrive, 'InstalledItem.Components.SCItemQuantumDriveParams.quantumFuelRequirement', 0.0001) / 1e6)),
+                'Speed' => Arr::get($quantumDrive, 'InstalledItem.Components.SCItemQuantumDriveParams.params.driveSpeed'),
+                'SpoolTime' => Arr::get($quantumDrive, 'InstalledItem.Components.SCItemQuantumDriveParams.params.spoolUpTime'),
+            ],
+
+            'Propulsion' => [
+                'FuelCapacity' => $portSummary['hydrogenFuelTanks']->sum(fn ($x) => Arr::get($x, 'InstalledItem.Components.ResourceContainer.capacity.SStandardCargoUnit.standardCargoUnits', 0) * 1000),
+                'FuelIntakeRate' => $portSummary['hydrogenFuelIntakes']->sum(fn ($x) => Arr::get($x, 'InstalledItem.Components.SCItemFuelIntakeParams.fuelPushRate', 0)),
+                'FuelUsage' => [
+                    'Main' => $portSummary['mainThrusters']->sum(fn ($x) => (Arr::get($x, 'InstalledItem.Components.SCItemThrusterParams.fuelBurnRatePer10KNewton', 0) / 1e4) * Arr::get($x, 'InstalledItem.Components.SCItemThrusterParams.thrustCapacity', 0)),
+                    'Retro' => $portSummary['retroThrusters']->sum(fn ($x) => (Arr::get($x, 'InstalledItem.Components.SCItemThrusterParams.fuelBurnRatePer10KNewton', 0) / 1e4) * Arr::get($x, 'InstalledItem.Components.SCItemThrusterParams.thrustCapacity', 0)),
+                    'Vtol' => $portSummary['vtolThrusters']->sum(fn ($x) => (Arr::get($x, 'InstalledItem.Components.SCItemThrusterParams.fuelBurnRatePer10KNewton', 0) / 1e4) * Arr::get($x, 'InstalledItem.Components.SCItemThrusterParams.thrustCapacity', 0)),
+                    'Maneuvering' => $portSummary['maneuveringThrusters']->sum(fn ($x) => (Arr::get($x, 'InstalledItem.Components.SCItemThrusterParams.fuelBurnRatePer10KNewton', 0) / 1e4) * Arr::get($x, 'InstalledItem.Components.SCItemThrusterParams.thrustCapacity', 0)),
+                ],
+                'ThrustCapacity' => [
+                    'Main' => $portSummary['mainThrusters']->sum(fn ($x) => Arr::get($x, 'InstalledItem.Components.SCItemThrusterParams.thrustCapacity', 0)),
+                    'Retro' => $portSummary['retroThrusters']->sum(fn ($x) => Arr::get($x, 'InstalledItem.Components.SCItemThrusterParams.thrustCapacity', 0)),
+                    'Vtol' => $portSummary['vtolThrusters']->sum(fn ($x) => Arr::get($x, 'InstalledItem.Components.SCItemThrusterParams.thrustCapacity', 0)),
+                    'Maneuvering' => $portSummary['maneuveringThrusters']->sum(fn ($x) => Arr::get($x, 'InstalledItem.Components.SCItemThrusterParams.thrustCapacity', 0)),
+                ],
+            ],
+        ];
+
+        $summary['Propulsion']['IntakeToMainFuelRatio'] = $summary['Propulsion']['FuelUsage']['Main'] > 0 ? $summary['Propulsion']['FuelIntakeRate'] / $summary['Propulsion']['FuelUsage']['Main'] : null;
+        $summary['Propulsion']['IntakeToTankCapacityRatio'] = $summary['Propulsion']['FuelCapacity'] > 0 ? $summary['Propulsion']['FuelIntakeRate'] / $summary['Propulsion']['FuelCapacity'] : null;
+        $summary['Propulsion']['TimeForIntakesToFillTank'] = $summary['Propulsion']['FuelIntakeRate'] > 0 ? $summary['Propulsion']['FuelCapacity'] / $summary['Propulsion']['FuelIntakeRate'] : null;
+        $summary['Propulsion']['ManeuveringTimeTillEmpty'] = $summary['Propulsion']['FuelUsage']['Main'] > 0 && $summary['Propulsion']['FuelUsage']['Maneuvering'] > 0 ? $summary['Propulsion']['FuelCapacity'] / ($summary['Propulsion']['FuelUsage']['Main'] + $summary['Propulsion']['FuelUsage']['Maneuvering'] / 2 - $summary['Propulsion']['FuelIntakeRate']) : null;
+
+        if ($isGravlev || ! $isVehicle) {
+
+            $ifcs = collect($this->vehicleWrapper->loadout)
+                ->first(fn ($x) => isset($x['Item']['Components']['IFCSParams']));
+
+            if ($ifcs) {
+                $summary['FlightCharacteristics'] = [
+                    'ScmSpeed' => Arr::get($ifcs, 'Item.Components.IFCSParams.scmSpeed'),
+                    'MaxSpeed' => Arr::get($ifcs, 'Item.Components.IFCSParams.maxSpeed'),
+                    'BoostSpeedForward' => Arr::get($ifcs, 'Item.Components.IFCSParams.boostSpeedForward'),
+                    'BoostSpeedBackward' => Arr::get($ifcs, 'Item.Components.IFCSParams.boostSpeedBackward'),
+                    'Acceleration' => [
+                        'Main' => $summary['Propulsion']['ThrustCapacity']['Main'] / $data['Mass'],
+                        'Retro' => $summary['Propulsion']['ThrustCapacity']['Retro'] / $data['Mass'],
+                        'Vtol' => $summary['Propulsion']['ThrustCapacity']['Vtol'] / $data['Mass'],
+                        'Maneuvering' => $summary['Propulsion']['ThrustCapacity']['Maneuvering'] / $data['Mass'],
+                    ],
+                    'AccelerationG' => [
+                        'Main' => $summary['Propulsion']['ThrustCapacity']['Main'] / $data['Mass'] / G,
+                        'Retro' => $summary['Propulsion']['ThrustCapacity']['Retro'] / $data['Mass'] / G,
+                        'Vtol' => $summary['Propulsion']['ThrustCapacity']['Vtol'] / $data['Mass'] / G,
+                        'Maneuvering' => $summary['Propulsion']['ThrustCapacity']['Maneuvering'] / $data['Mass'] / G,
+                    ],
+                    'Pitch' => Arr::get($ifcs, 'Item.Components.IFCSParams.maxAngularVelocity.x'),
+                    'Yaw' => Arr::get($ifcs, 'Item.Components.IFCSParams.maxAngularVelocity.z'),
+                    'Roll' => Arr::get($ifcs, 'Item.Components.IFCSParams.maxAngularVelocity.y'),
+                ];
+
+                $summary['FlightCharacteristics']['ZeroToScm'] = $summary['FlightCharacteristics']['Acceleration']['Main'] > 0 ? $summary['FlightCharacteristics']['ScmSpeed'] / $summary['FlightCharacteristics']['Acceleration']['Main'] : null;
+                $summary['FlightCharacteristics']['ZeroToMax'] = $summary['FlightCharacteristics']['Acceleration']['Main'] > 0 ? $summary['FlightCharacteristics']['MaxSpeed'] / $summary['FlightCharacteristics']['Acceleration']['Main'] : null;
+                $summary['FlightCharacteristics']['ScmToZero'] = $summary['FlightCharacteristics']['Acceleration']['Retro'] > 0 ? $summary['FlightCharacteristics']['ScmSpeed'] / $summary['FlightCharacteristics']['Acceleration']['Retro'] : null;
+                $summary['FlightCharacteristics']['MaxToZero'] = $summary['FlightCharacteristics']['Acceleration']['Retro'] > 0 ? $summary['FlightCharacteristics']['MaxSpeed'] / $summary['FlightCharacteristics']['Acceleration']['Retro'] : null;
+            }
+
+        }
+
+        $data = array_merge($data, $summary);
 
         $this->processArray($data);
 
         return $this->removeNullValues($data);
+    }
+
+    private function installItems(array $portSummary)
+    {
+        $loadouts = collect($this->vehicleWrapper->loadout);
+
+        return collect($portSummary)->mapWithKeys(function ($items, $portName) use ($loadouts) {
+            return [
+                $portName => collect($items)->map(function ($item) use ($loadouts) {
+                    $loadout = $loadouts->first(fn ($x) => $x['portName'] === $item['Name']);
+
+                    if ($loadout && isset($loadout['Item'])) {
+                        $item['InstalledItem'] = $loadout['Item'];
+                    }
+
+                    return $item;
+                }),
+            ];
+        });
     }
 
     public static function convertToScu(?EntityClassDefinition $item): ?float
@@ -111,34 +219,6 @@ final class Ship extends BaseFormat
         }
 
         return $scu;
-    }
-
-    public static function buildTypeName(?string $major, ?string $minor): string
-    {
-        if (empty($major)) {
-            return 'UNKNOWN';
-        }
-
-        if (empty(trim($minor)) || $minor === 'UNKNOWN') {
-            return $major;
-        }
-
-        return "{$major}.{$minor}";
-    }
-
-    private function buildPortsList(): array
-    {
-        $ports = [];
-
-        foreach ($this->item->get('Components/SItemPortContainerComponentParams/Ports')?->childNodes ?? [] as $port) {
-            $port = (new ItemPort($port))->toArray();
-
-            if ($port !== null) {
-                $ports[] = $port;
-            }
-        }
-
-        return $ports;
     }
 
     private function processArray(&$array): void
@@ -171,16 +251,219 @@ final class Ship extends BaseFormat
     }
 
     /**
-     * @param  Part[]  $parts
+     * @param  array[]  $parts
      */
     private function partList(array $parts): \Generator
     {
-        $arrayIterator = new RecursiveArrayIterator($parts);
-        $recursiveIterator = new RecursiveIteratorIterator($arrayIterator, RecursiveIteratorIterator::SELF_FIRST);
+        $loadouts = collect($this->vehicleWrapper->loadout);
 
-        /** @var Part $part */
-        foreach ($recursiveIterator as $part) {
+        foreach ($parts as $part) {
+            if (isset($part['Parts'])) {
+                yield from $this->partList($part['Parts']);
+            }
+
+            $loadout = $loadouts->first(fn ($x) => $x['portName'] === $part['Name']);
+
+            if ($loadout && isset($loadout['Item'])) {
+                $part['InstalledItem'] = $loadout['Item'];
+            }
+
+            $part['Category'] = $this->portClassifierService->classifyPort($part['Port'])[1];
+
             yield $part;
         }
+    }
+
+    /**
+     * Builds a summary of all port types on the ship
+     *
+     * @param  array  $loadout  The ship parts to analyze
+     * @return array Port summary with categorized ports
+     */
+    private function buildPortSummary(array $loadout): array
+    {
+        $portSummary = [];
+
+        // Player controlled hardpoints (those not in a turret)
+        $portSummary['pilotHardpoints'] = $this->findItemPorts($loadout, fn ($x) => ($x['Category'] ?? '') === 'Weapon hardpoints', true,
+            fn ($x) => in_array(($x['Category'] ?? ''), ['Manned turrets', 'Remote turrets', 'Mining turrets', 'Utility turrets']))
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        $portSummary['miningHardpoints'] = $this->findItemPorts($loadout, fn ($x) => ($x['Category'] ?? '') === 'Mining hardpoints', true,
+            fn ($x) => in_array(($x['Category'] ?? ''), ['Manned turrets', 'Remote turrets', 'Mining turrets', 'Utility turrets']))
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        $portSummary['utilityHardpoints'] = $this->findItemPorts($loadout, fn ($x) => ($x['Category'] ?? '') === 'Utility hardpoints', true,
+            fn ($x) => in_array(($x['Category'] ?? ''), ['Manned turrets', 'Remote turrets', 'Mining turrets', 'Utility turrets']))
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        // Turrets
+        $portSummary['miningTurrets'] = $this->findItemPorts($loadout, fn ($x) => ($x['Category'] ?? '') === 'Mining turrets', true)
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        $portSummary['mannedTurrets'] = $this->findItemPorts($loadout, fn ($x) => ($x['Category'] ?? '') === 'Manned turrets', true)
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        $portSummary['remoteTurrets'] = $this->findItemPorts($loadout, fn ($x) => ($x['Category'] ?? '') === 'Remote turrets', true)
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        $portSummary['utilityTurrets'] = $this->findItemPorts($loadout, fn ($x) => ($x['Category'] ?? '') === 'Utility turrets', true)
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        // Other hardpoints
+        $portSummary['interdictionHardpoints'] = $this->findItemPorts($loadout,
+            fn ($x) => in_array(($x['Category'] ?? ''), ['EMP hardpoints', 'QIG hardpoints']), true)
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        $portSummary['missileRacks'] = $this->findItemPorts($loadout, fn ($x) => ($x['Category'] ?? '') === 'Missile racks', true)
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        $portSummary['powerPlants'] = $this->findItemPorts($loadout, fn ($x) => ($x['Category'] ?? '') === 'Power plants', true)
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        $portSummary['coolers'] = $this->findItemPorts($loadout, fn ($x) => ($x['Category'] ?? '') === 'Coolers', true)
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        $portSummary['shields'] = $this->findItemPorts($loadout, fn ($x) => ($x['Category'] ?? '') === 'Shield generators', true)
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        $portSummary['cargoGrids'] = $this->findItemPorts($loadout,
+            fn ($x) => isset($x['InstalledItem']['InventoryContainer']), true)
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        $portSummary['countermeasures'] = $this->findItemPorts($loadout, fn ($x) => ($x['Category'] ?? '') === 'Countermeasures', true)
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        $portSummary['mainThrusters'] = $this->findItemPorts($loadout, fn ($x) => ($x['Category'] ?? '') === 'Main thrusters', true)
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        $portSummary['retroThrusters'] = $this->findItemPorts($loadout, fn ($x) => ($x['Category'] ?? '') === 'Retro thrusters', true)
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        $portSummary['vtolThrusters'] = $this->findItemPorts($loadout, fn ($x) => ($x['Category'] ?? '') === 'VTOL thrusters', true)
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        $portSummary['maneuveringThrusters'] = $this->findItemPorts($loadout, fn ($x) => ($x['Category'] ?? '') === 'Maneuvering thrusters', true)
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        $portSummary['hydrogenFuelIntakes'] = $this->findItemPorts($loadout, fn ($x) => ($x['Category'] ?? '') === 'Fuel intakes', true)
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        $portSummary['hydrogenFuelTanks'] = $this->findItemPorts($loadout, fn ($x) => ($x['Category'] ?? '') === 'Fuel tanks', true)
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        $portSummary['quantumDrives'] = $this->findItemPorts($loadout, fn ($x) => ($x['Category'] ?? '') === 'Quantum drives', true)
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        $portSummary['quantumFuelTanks'] = $this->findItemPorts($loadout, fn ($x) => ($x['Category'] ?? '') === 'Quantum fuel tanks', true)
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        $portSummary['avionics'] = $this->findItemPorts($loadout,
+            fn ($x) => in_array(($x['Category'] ?? ''), ['Scanners', 'Pings', 'Radars', 'Transponders', 'FlightControllers']), true)
+            ->map(fn ($x) => $x[0])
+            ->toArray();
+
+        return $portSummary;
+    }
+
+    /**
+     * Finds item ports in the parts list that match the given predicate
+     *
+     * @param  array  $parts  List of parts to search through
+     * @param  callable  $predicate  Function to determine if an item port matches
+     * @param  bool  $stopOnFind  Whether to stop searching once a match is found
+     * @param  callable|null  $stopPredicate  Optional function to determine if search should stop
+     * @param  int  $depth  Current recursion depth
+     * @return \Illuminate\Support\Collection Collection of matched item ports with their depth
+     */
+    private function findItemPorts(array $parts, callable $predicate, bool $stopOnFind = false, ?callable $stopPredicate = null, int $depth = 0): \Illuminate\Support\Collection
+    {
+        $results = collect();
+
+        foreach ($parts as $part) {
+            //            if (isset($part['Port'])) {
+            if ($stopPredicate !== null && $stopPredicate($part)) {
+                continue;
+            }
+
+            if ($predicate($part)) {
+                $results->push([$part, $depth]);
+                if ($stopOnFind) {
+                    continue;
+                }
+            }
+
+            if (isset($part['Port']['InstalledItem'])) {
+                $itemMatches = $this->findItemPortsInItem($part['Port']['InstalledItem'], $predicate, $stopOnFind, $stopPredicate, $depth + 1);
+                $results = $results->merge($itemMatches);
+            }
+            //            }
+
+            //            if (isset($part['Parts'])) {
+            //                $partMatches = $this->findItemPorts($part['Parts'], $predicate, $stopOnFind, $stopPredicate, $depth + 1);
+            //                $results = $results->merge($partMatches);
+            //            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Finds item ports in an installed item that match the given predicate
+     *
+     * @param  array  $item  The item to search through
+     * @param  callable  $predicate  Function to determine if an item port matches
+     * @param  bool  $stopOnFind  Whether to stop searching once a match is found
+     * @param  callable|null  $stopPredicate  Optional function to determine if search should stop
+     * @param  int  $depth  Current recursion depth
+     * @return \Illuminate\Support\Collection Collection of matched item ports with their depth
+     */
+    private function findItemPortsInItem(array $item, callable $predicate, bool $stopOnFind, ?callable $stopPredicate, int $depth): \Illuminate\Support\Collection
+    {
+        $results = collect();
+
+        if (isset($item['Ports'])) {
+            foreach ($item['Ports'] as $port) {
+                if ($stopPredicate !== null && $stopPredicate($port)) {
+                    continue;
+                }
+
+                if ($predicate($port)) {
+                    $results->push([$port, $depth]);
+                    if ($stopOnFind) {
+                        continue;
+                    }
+                }
+
+                if (isset($port['InstalledItem'])) {
+                    $matches = $this->findItemPortsInItem($port['InstalledItem'], $predicate, $stopOnFind, $stopPredicate, $depth + 1);
+                    $results = $results->merge($matches);
+                }
+            }
+        }
+
+        return $results;
     }
 }

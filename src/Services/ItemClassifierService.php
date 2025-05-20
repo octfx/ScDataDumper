@@ -105,6 +105,38 @@ final class ItemClassifierService
                 'Matcher' => fn ($item) => self::typeMatch($item, 'WeaponRegenPool.*'),
                 'Classifier' => fn ($t, $s) => "Ship.$t.$s",
             ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'ManneuverThruster.*'),
+                'Classifier' => fn ($t, $s) => "Ship.$t.$s",
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'MainThruster.*'),
+                'Classifier' => fn ($t, $s) => "Ship.$t.$s",
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'SelfDestruct.*'),
+                'Classifier' => fn ($t, $s) => "Ship.$t",
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'FuelIntake.*'),
+                'Classifier' => fn ($t, $s) => "Ship.$t.$s",
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'FuelTank.*'),
+                'Classifier' => fn ($t, $s) => "Ship.$t.$s",
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'QuantumFuelTank.*'),
+                'Classifier' => fn ($t, $s) => "Ship.$t.$s",
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'CargoGrid.*'),
+                'Classifier' => fn ($t, $s) => "Ship.$t",
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'LifeSupportGenerator.*'),
+                'Classifier' => fn ($t, $s) => "Ship.$t",
+            ],
 
             // FPS weapons
             [
@@ -226,8 +258,12 @@ final class ItemClassifierService
         return [$type, $subType];
     }
 
-    public function classify(EntityClassDefinition|array $entity): ?string
+    public function classify(null|EntityClassDefinition|array $entity): ?string
     {
+        if ($entity === null) {
+            return null;
+        }
+
         [$type, $subType] = self::getTypeAndSubType($entity);
         $cacheIndex = $type.'.'.$subType;
 
