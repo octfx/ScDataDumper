@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Commands;
 
+use JsonException;
 use Octfx\ScDataDumper\Formats\ScUnpacked\Ship;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Exception\ExceptionInterface;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\StringInput;
@@ -23,7 +25,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 class LoadVehicles extends Command
 {
     /**
-     * @throws \JsonException
+     * @throws JsonException|ExceptionInterface
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
@@ -50,18 +52,26 @@ class LoadVehicles extends Command
 
         $start = microtime(true);
 
+        $index = [];
+
         foreach ($service->iterator() as $vehicle) {
-            $scUnpackedShip = new Ship($vehicle);
+            $scUnpackedShip = (new Ship($vehicle))->toArray();
+
+            $index[] = $scUnpackedShip;
 
             $out = [
                 'Entity' => $vehicle->getVehicleEntityArray(),
                 'Vehicle' => $vehicle->getVehicleArray(),
                 'Loadout' => $vehicle->loadout,
-                'ScVehicle' => $scUnpackedShip->toArray(),
+                'ScVehicle' => $scUnpackedShip,
             ];
 
             $fileName = strtolower($vehicle->entity->getClassName());
             $filePath = sprintf('%s%s%s-raw.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
+
+            if (! $overwrite && file_exists($filePath)) {
+                continue;
+            }
 
             $ref = fopen($filePath, 'wb');
             fwrite($ref, json_encode($out, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
@@ -70,7 +80,7 @@ class LoadVehicles extends Command
             $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
 
             $ref = fopen($filePath, 'wb');
-            fwrite($ref, json_encode($scUnpackedShip->toArray(), JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
+            fwrite($ref, json_encode($scUnpackedShip, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
             fclose($ref);
 
             $io->progressAdvance();
@@ -83,6 +93,11 @@ class LoadVehicles extends Command
             'Took: '.round($duration).' s',
             'Path: '.$input->getArgument('jsonOutPath')
         ));
+
+        $filePath = sprintf('%s%sships.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
+        $ref = fopen($filePath, 'wb');
+        fwrite($ref, json_encode($index, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
+        fclose($ref);
 
         return Command::SUCCESS;
     }

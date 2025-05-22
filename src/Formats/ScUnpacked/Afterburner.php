@@ -17,7 +17,9 @@ final class Afterburner extends BaseFormat
         $afterburner = $this->get('Components/IFCSParams/afterburner');
 
         return [
-            'SpoolUpTime' => $afterburner->get('afterburnerSpoolUpTime'),
+            'PreDelayTime' => $afterburner->get('afterburnerPreDelayTime'),
+            'RampUpTime' => $afterburner->get('afterburnerRampUpTime'),
+            'RampDownTime' => $afterburner->get('afterburnerRampDownTime'),
             'CapacitorThresholdRatio' => $afterburner->get('afterburnerCapacitorThresholdRatio'),
             'CapacitorMax' => $afterburner->get('capacitorMax'),
             'CapacitorAfterburnerIdleCost' => $afterburner->get('capacitorAfterburnerIdleCost'),

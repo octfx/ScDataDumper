@@ -11,6 +11,7 @@ use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Exception\ExceptionInterface;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\StringInput;
@@ -25,7 +26,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 class LoadItems extends Command
 {
     /**
-     * @throws JsonException
+     * @throws JsonException|ExceptionInterface
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
@@ -103,10 +104,12 @@ class LoadItems extends Command
                 if ($input->getOption('scUnpackedFormat')) {
                     $json = json_encode([
                         'Raw' => [
-                            'Entity' => $item->toArray(),
-                            'ClassName' => $item->getClassName(),
-                            '__ref' => $item->getUuid(),
-                            '__type' => $item->getAttachType(),
+                            'Entity' => [
+                                ...$item->toArray(),
+                                'ClassName' => $item->getClassName(),
+                                '__ref' => $item->getUuid(),
+                                '__type' => $item->getAttachType(),
+                            ],
                         ],
                         'Item' => $stdItem,
                     ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);

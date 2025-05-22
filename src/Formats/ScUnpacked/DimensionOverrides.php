@@ -16,6 +16,6 @@ final class DimensionOverrides extends BaseFormat
 
         $override = $this->get();
 
-        return (new Vec3($override))->toArray();
+        return (new Vec3($override, ['x' => 'Width', 'y' => 'Length', 'z' => 'Height']))->toArray();
     }
 }

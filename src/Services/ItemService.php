@@ -27,6 +27,9 @@ final class ItemService extends BaseService
 
         $items = array_filter($items, static fn ($path) => ! str_contains($path, 'entities/spaceships') && ! str_contains($path, 'entities/groundvehicles'));
 
+        // Testing
+        // $items = array_filter($items, static fn ($path) => str_contains($path, '987_jacket'));
+
         $this->entityPaths = $items;
     }
 

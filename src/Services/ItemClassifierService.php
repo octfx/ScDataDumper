@@ -198,6 +198,32 @@ final class ItemClassifierService
                 'Classifier' => fn ($t, $s) => 'FPS.Armor.Backpack',
             ],
 
+            // Clothing
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Char_Clothing_Torso_0.*'),
+                'Classifier' => fn ($t, $s) => 'FPS.Clothing.Torso',
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Char_Clothing_Torso_1.*'),
+                'Classifier' => fn ($t, $s) => 'FPS.Clothing.Torso',
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Char_Clothing_Hat.*'),
+                'Classifier' => fn ($t, $s) => 'FPS.Clothing.Hat',
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Char_Clothing_Legs.*'),
+                'Classifier' => fn ($t, $s) => 'FPS.Clothing.Legs',
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Char_Clothing_Feet.*'),
+                'Classifier' => fn ($t, $s) => 'FPS.Clothing.Shoes',
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Char_Clothing_Hands.*'),
+                'Classifier' => fn ($t, $s) => 'FPS.Clothing.Gloves',
+            ],
+
             // Default catch all
             [
                 'Matcher' => fn ($item) => self::typeMatch($item, '*.*'),

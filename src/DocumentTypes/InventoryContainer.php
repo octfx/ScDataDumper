@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes;
 
+use Octfx\ScDataDumper\Definitions\Element;
+
 define('M_TO_SCU_UNIT', 1.953125);
 
 final class InventoryContainer extends RootDocument
@@ -63,17 +65,17 @@ final class InventoryContainer extends RootDocument
      */
     public function isOpenContainer(): bool
     {
-        return $this->get('inventoryType/InventoryOpenContainerType')?->getName() === 'InventoryOpenContainerType';
+        return $this->get('inventoryType/InventoryOpenContainerType')?->nodeName === 'InventoryOpenContainerType';
     }
 
     public function isExternalContainer(): bool
     {
-        return $this->isOpenContainer() && ((int) $this->inventoryType?->InventoryOpenContainerType['isExternalContainer']) === 1;
+        return $this->isOpenContainer() && ((int) $this->get('inventoryTypeInventoryOpenContainerType@isExternalContainer') === 1);
     }
 
     public function isClosedContainer(): bool
     {
-        return $this->get('inventoryType/InventoryClosedContainerType')?->getName() === 'InventoryClosedContainerType';
+        return $this->get('inventoryType/InventoryClosedContainerType')?->nodeName === 'InventoryClosedContainerType';
     }
 
     /**
@@ -90,7 +92,7 @@ final class InventoryContainer extends RootDocument
             return null;
         }
 
-        return round($this->getCapacityValue() * (10 ** -$unit), 2);
+        return round($this->getCapacityValue() * (10 ** -$unit), 4);
     }
 
     /**
@@ -103,10 +105,10 @@ final class InventoryContainer extends RootDocument
             return 'SCU';
         }
 
+        /** @var \DOMNodeList|null $capacity */
         $capacity = $this->get('inventoryType/InventoryClosedContainerType/capacity')?->childNodes;
 
-        return match (
-            $capacity?->nodeName) {
+        return match ($capacity?->item(0)?->nodeName) {
             'SStandardCargoUnit' => 'SCU',
             'SCentiCargoUnit' => 'cSCU',
             'SMicroCargoUnit' => 'µSCU',
@@ -126,14 +128,12 @@ final class InventoryContainer extends RootDocument
             return round(($x * $y * $z) / M_TO_SCU_UNIT, 2);
         }
 
-        $capacity = $this->get('inventoryType/InventoryClosedContainerType/capacity')?->childNodes;
+        /** @var Element|null $capacity */
+        $capacity = $this->get('inventoryType/InventoryClosedContainerType/capacity');
 
-        return match ($capacity?->nodeName) {
-            'SStandardCargoUnit' => (int) $capacity?->get('standardCargoUnits'),
-            'SCentiCargoUnit' => (int) $capacity?->get('centiSCU'),
-            'SMicroCargoUnit' => (int) $capacity?->get('microSCU'),
-            default => null
-        };
+        return $capacity->get('SStandardCargoUnit@standardCargoUnits') ??
+            $capacity->get('SCentiCargoUnit@centiSCU') ??
+            $capacity->get('SMicroCargoUnit@microSCU');
     }
 
     /**
@@ -145,10 +145,10 @@ final class InventoryContainer extends RootDocument
             return 0;
         }
 
+        /** @var \DOMNodeList|null $capacity */
         $capacity = $this->get('inventoryType/InventoryClosedContainerType/capacity')?->childNodes;
 
-        return match (
-            $capacity?->getName()) {
+        return match ($capacity?->item(0)?->nodeName) {
             'SStandardCargoUnit' => 0,
             'SCentiCargoUnit' => 2,
             'SMicroCargoUnit' => 6,

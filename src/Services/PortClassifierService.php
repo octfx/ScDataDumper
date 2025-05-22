@@ -10,16 +10,16 @@ class PortClassifierService
      * Classifies a port based on its characteristics.
      * The order of checks is very important to handle obscure corner cases.
      *
-     * @param  array  $port  The port to classify
+     * @param  array|null  $port  The port to classify
      * @return array An array with two elements - major category and specific category
      */
-    public function classifyPort(?array $port): array
+    public function classifyPort(?array $port, ?array $installedItem): array
     {
         /*
             The order here is very important to try and catch obscure corner cases
         */
 
-        if ($port === null || (empty($port['Types']) && empty($port['InstalledItem']))) {
+        if ($port === null || (empty($port['Types']) && empty($installedItem))) {
             return ['DISABLED', 'DISABLED'];
         }
 
@@ -33,8 +33,8 @@ class PortClassifierService
             return ['Utility', 'Utility hardpoints'];
         }
 
-        if ($port['Uneditable'] && ! empty($port['InstalledItem'])) {
-            $guess = $this->guessByInstalledItem($port);
+        if ($port['Uneditable'] && ! empty($installedItem)) {
+            $guess = $this->guessByInstalledItem($installedItem);
             if ($guess !== null) {
                 return $guess;
             }
@@ -49,7 +49,7 @@ class PortClassifierService
         }
 
         if (ItemPort::accepts($port, 'Turret.*')) {
-            return ['Weapons', self::fuzzyNameMatch($port, 'remote') ? 'Remote turrets' : 'Weapon hardpoints'];
+            return ['Weapons', self::fuzzyNameMatch($port, 'remote', $installedItem) ? 'Remote turrets' : 'Weapon hardpoints'];
         }
 
         if (ItemPort::accepts($port, 'TurretBase.MannedTurret')) {
@@ -61,7 +61,7 @@ class PortClassifierService
                 return ['Mining', 'Mining turrets']; // Argo Mole
             }
 
-            if (self::fuzzyNameMatch($port, 'tractor')) {
+            if (self::fuzzyNameMatch($port, 'tractor', $installedItem)) {
                 return ['Utility', 'Utility turrets'];
             }
 
@@ -127,11 +127,11 @@ class PortClassifierService
 
         // Main Thrusters
         if (ItemPort::accepts($port, 'MainThruster.*')) {
-            if (self::fuzzyNameMatch($port, 'retro')) {
+            if (self::fuzzyNameMatch($port, 'retro', $installedItem)) {
                 return ['Thrusters', 'Retro thrusters'];
             }
 
-            if (self::fuzzyNameMatch($port, 'vtol')) {
+            if (self::fuzzyNameMatch($port, 'vtol', $installedItem)) {
                 return ['Thrusters', 'VTOL thrusters'];
             }
 
@@ -140,11 +140,11 @@ class PortClassifierService
 
         // Maneuvering Thrusters
         if (ItemPort::accepts($port, 'ManneuverThruster.*')) {
-            if (self::fuzzyNameMatch($port, 'retro')) {
+            if (self::fuzzyNameMatch($port, 'retro', $installedItem)) {
                 return ['Thrusters', 'Retro thrusters'];
             }
 
-            if (self::fuzzyNameMatch($port, 'vtol')) {
+            if (self::fuzzyNameMatch($port, 'vtol', $installedItem)) {
                 return ['Thrusters', 'VTOL thrusters'];
             }
 
@@ -214,7 +214,7 @@ class PortClassifierService
         }
 
         // Attachments to larger objects
-        if (self::fuzzyNameMatch($port, 'BatteryPort')) {
+        if (self::fuzzyNameMatch($port, 'BatteryPort', $installedItem)) {
             return ['Attachments', 'Batteries'];
         }
         if (ItemPort::accepts($port, 'WeaponAttachment.Barrel')) {
@@ -262,14 +262,13 @@ class PortClassifierService
     /**
      * Attempts to guess the port type based on the installed item.
      *
-     * @param  array  $port  The port to guess
      * @return array|null Guessed port classification or null if unable to guess
      */
-    private function guessByInstalledItem(array $port): ?array
+    private function guessByInstalledItem(array $installedItem): ?array
     {
         $itemClassifier = new ItemClassifierService;
 
-        $type = $itemClassifier->classify($port['InstalledItem']);
+        $type = $itemClassifier->classify($installedItem);
 
         if ($type === null) {
             return null;
@@ -282,8 +281,8 @@ class PortClassifierService
             case 'TurretBase.MannedTurret':
                 // Check if any of the ports have a WeaponMining.Gun installed
                 $hasMiningGun = false;
-                if (! empty($port['InstalledItem']['Ports'])) {
-                    foreach ($port['InstalledItem']['Ports'] as $subPort) {
+                if (! empty($installedItem['Ports'])) {
+                    foreach ($installedItem['Ports'] as $subPort) {
                         if (! empty($subPort['InstalledItem']) && $subPort['InstalledItem']['Type'] === 'WeaponMining.Gun') {
                             $hasMiningGun = true;
                             break;
@@ -311,21 +310,19 @@ class PortClassifierService
      * @param  string  $lookFor  The string to look for
      * @return bool True if the port matches the pattern
      */
-    public static function fuzzyNameMatch(array $port, string $lookFor): bool
+    public static function fuzzyNameMatch(array $port, string $lookFor, ?array $installedItem = null): bool
     {
-        $portData = $port;
-
-        if (stripos($portData['PortName'] ?? '', $lookFor) !== false) {
+        if (stripos($port['PortName'] ?? '', $lookFor) !== false) {
             return true;
         }
 
-        if (! empty($portData['InstalledItem']['ClassName']) &&
-            stripos($portData['InstalledItem']['ClassName'], $lookFor) !== false) {
+        if (! empty($installedItem['ClassName']) &&
+            stripos($installedItem['ClassName'], $lookFor) !== false) {
             return true;
         }
 
-        if (! empty($portData['Loadout']) &&
-            stripos($portData['Loadout'], $lookFor) !== false) {
+        if (! empty($port['Loadout']) &&
+            stripos($port['Loadout'], $lookFor) !== false) {
             return true;
         }
 
