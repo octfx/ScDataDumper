@@ -109,7 +109,7 @@ final class VehicleService extends BaseService
         });
 
         // Testing
-        // $items = array_filter($items, static fn (string $path) => str_contains($path, 'carrack'));
+        // $items = array_filter($items, static fn (string $path) => str_contains($path, 'spartan'));
 
         $this->vehicles = $items;
     }

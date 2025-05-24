@@ -134,6 +134,14 @@ final class ItemClassifierService
                 'Classifier' => fn ($t, $s) => "Ship.$t",
             ],
             [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Cargo.*'),
+                'Classifier' => fn ($t, $s) => 'Ship.CargoGrid',
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Container.Cargo'),
+                'Classifier' => fn ($t, $s) => "Ship.$t.$s",
+            ],
+            [
                 'Matcher' => fn ($item) => self::typeMatch($item, 'LifeSupportGenerator.*'),
                 'Classifier' => fn ($t, $s) => "Ship.$t",
             ],

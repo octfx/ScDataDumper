@@ -70,6 +70,8 @@ class LoadVehicles extends Command
             $filePath = sprintf('%s%s%s-raw.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
 
             if (! $overwrite && file_exists($filePath)) {
+                $io->progressAdvance();
+
                 continue;
             }
 
@@ -104,7 +106,7 @@ class LoadVehicles extends Command
 
     protected function configure(): void
     {
-        $this->setHelp('php cli.php load:vehicles Path/To/ScDataDir');
+        $this->setHelp('php cli.php load:vehicles Path/To/ScDataDir Path/To/JsonOutDir');
         $this->addArgument('scDataPath', InputArgument::REQUIRED);
         $this->addArgument('jsonOutPath', InputArgument::REQUIRED);
         $this->addOption('overwrite');

@@ -4,6 +4,7 @@ namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Generator;
 use Illuminate\Support\Collection;
+use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 use Octfx\ScDataDumper\Helper\Arr;
@@ -184,13 +185,99 @@ final class Ship extends BaseFormat
             }
         }
 
+        if ($isVehicle) {
+            unset($summary['Propulsion'], $summary['QuantumTravel']);
+
+            if ($this->vehicleWrapper->vehicle->get('MovementParams/ArcadeWheeled/Handling/Power@topSpeed')) {
+                $summary['DriveCharacteristics'] = [
+                    'TopSpeed' => $this->vehicleWrapper->vehicle->get('MovementParams/ArcadeWheeled/Handling/Power@topSpeed'),
+                    'ReverseSpeed' => $this->vehicleWrapper->vehicle->get('MovementParams/ArcadeWheeled/Handling/Power@reverseSpeed'),
+                    'Acceleration' => $this->vehicleWrapper->vehicle->get('MovementParams/ArcadeWheeled/Handling/Power@acceleration'),
+                    'Decceleration' => $this->vehicleWrapper->vehicle->get('MovementParams/ArcadeWheeled/Handling/Power@decceleration'),
+
+                    'ZeroToMax' => $this->vehicleWrapper->vehicle->get('MovementParams/ArcadeWheeled/Handling/Power@topSpeed') / $this->vehicleWrapper->vehicle->get('MovementParams/ArcadeWheeled/Handling/Power@acceleration'),
+                    'ZeroToReverse' => $this->vehicleWrapper->vehicle->get('MovementParams/ArcadeWheeled/Handling/Power@reverseSpeed') / $this->vehicleWrapper->vehicle->get('MovementParams/ArcadeWheeled/Handling/Power@acceleration'),
+
+                    'MaxToZero' => $this->vehicleWrapper->vehicle->get('MovementParams/ArcadeWheeled/Handling/Power@topSpeed') / $this->vehicleWrapper->vehicle->get('MovementParams/ArcadeWheeled/Handling/Power@decceleration'),
+                    'ReverseToZero' => $this->vehicleWrapper->vehicle->get('MovementParams/ArcadeWheeled/Handling/Power@reverseSpeed') / $this->vehicleWrapper->vehicle->get('MovementParams/ArcadeWheeled/Handling/Power@decceleration'),
+                ];
+                // @TODO: This whole thing needs to be validated
+            } elseif ($this->vehicleWrapper->vehicle->get('MovementParams/PhysicalWheeled/PhysicsParams@wWheelsMax')) {
+                $wWheelsMax = $this->vehicleWrapper->vehicle->get('MovementParams/PhysicalWheeled/PhysicsParams@wWheelsMax');
+                $brakeTorque = $this->vehicleWrapper->vehicle->get('MovementParams/PhysicalWheeled/PhysicsParams@brakeTorque');
+                $torqueScale = $this->vehicleWrapper->vehicle->get('MovementParams/PhysicalWheeled/PhysicsParams/Engine@torqueScale');
+                $gearFirst = $this->vehicleWrapper->vehicle->get('MovementParams/PhysicalWheeled/PhysicsParams/Gears@first');
+                $gearReverse = $this->vehicleWrapper->vehicle->get('MovementParams/PhysicalWheeled/PhysicsParams/Gears@reverse');
+                $mass = $data['Mass'];
+
+                // Spartan fix?
+                if ($wWheelsMax === 26000000.0) {
+                    $wWheelsMax = 26;
+                }
+
+                $wheelRadius = $this->vehicleWrapper->vehicle->get('//SubPartWheel@rimRadius');
+
+                $peakTorque = null;
+                $torqueTable = $this->vehicleWrapper->vehicle->get('MovementParams/PhysicalWheeled/PhysicsParams/Engine/RPMTorqueTable')?->children() ?? [];
+                foreach ($torqueTable as $entry) {
+                    /** @var $entry Element */
+                    $torque = $entry->get('torque', 0);
+                    $peakTorque = max($peakTorque ?? $torque, $torque);
+                }
+
+                if ($wheelRadius && $wWheelsMax && $mass && $brakeTorque && $peakTorque && $torqueScale && $gearFirst && $gearReverse) {
+                    $topSpeed = $wWheelsMax * $wheelRadius; // m/s
+                    $topSpeedKph = $topSpeed * 3.6;
+
+                    $reverseSpeed = $wWheelsMax * $wheelRadius; // m/s
+                    $reverseSpeedKph = $reverseSpeed * 3.6;
+
+                    // This does not seem correct, but ohwell
+                    $wheelTorque = $peakTorque * $torqueScale * $gearFirst;
+                    $force = $wheelTorque / $wheelRadius;
+                    $acceleration = $force / $mass;
+
+                    $brakeForce = $brakeTorque / $wheelRadius;
+                    $deceleration = $brakeForce / $mass;
+
+                    $summary['DriveCharacteristics'] = [
+                        'TopSpeed' => round($topSpeedKph, 2),
+                        'ReverseSpeed' => round($reverseSpeedKph, 2),
+                        'Acceleration' => round($acceleration, 4),
+                        'Decceleration' => round($deceleration, 4),
+                        'ZeroToMax' => round($topSpeed / $acceleration, 2),
+                        'ZeroToReverse' => round($reverseSpeed / $acceleration, 2),
+                        'MaxToZero' => round($topSpeed / $deceleration, 2),
+                        'ReverseToZero' => round($reverseSpeed / $deceleration, 2),
+                    ];
+                } else {
+                    $summary['DriveCharacteristics'] = [
+                        'TopSpeed' => null,
+                        'ReverseSpeed' => null,
+                        'Acceleration' => null,
+                        'Decceleration' => null,
+                        'ZeroToMax' => null,
+                        'ZeroToReverse' => null,
+                        'MaxToZero' => null,
+                        'ReverseToZero' => null,
+                    ];
+                }
+            }
+        }
+
+        // "Real" Cargo Grids
         $cargoCapacity = collect($this->vehicleWrapper->loadout)
-            ->filter(fn ($x) => isset($x['Item']['Components']['SCItemInventoryContainerComponentParams']) && $x['Item']['Type'] === 'Ship.CargoGrid')
+            ->filter(fn ($x) => (isset($x['Item']['Components']['SCItemInventoryContainerComponentParams']) && $x['Item']['Type'] === 'Ship.CargoGrid'))
             ->sum(fn ($x) => (
                 (Arr::get($x, 'Item.Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.x', 0) *
                 Arr::get($x, 'Item.Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.y', 0) *
                 Arr::get($x, 'Item.Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.z', 0)) / M_TO_SCU_UNIT
             ));
+
+        // Cargo Containers for Ores etc.
+        $cargoCapacity += collect($this->vehicleWrapper->loadout)
+            ->filter(fn ($x) => (isset($x['Item']['Components']['ResourceContainer']) && $x['Item']['Type'] === 'Ship.Container.Cargo'))
+            ->sum(fn ($x) => Arr::get($x, 'Item.Components.ResourceContainer.capacity.SStandardCargoUnit.standardCargoUnits', 0));
 
         $summary['Cargo'] = $cargoCapacity;
 
