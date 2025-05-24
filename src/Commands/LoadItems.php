@@ -138,12 +138,27 @@ class LoadItems extends Command
         fwrite($ref, json_encode($index, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
         fclose($ref);
 
+        $index = collect($index);
+
+        $fpsItems = $index->filter(static fn ($item) => ! empty($item['classification']) && str_starts_with($item['classification'], 'FPS.'))->values()->toArray();
+        $shipItems = $index->filter(static fn ($item) => ! empty($item['classification']) && str_starts_with($item['classification'], 'Ship.'))->values()->toArray();
+
+        $filePath = sprintf('%s%sfps-items.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
+        $ref = fopen($filePath, 'wb');
+        fwrite($ref, json_encode($fpsItems, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
+        fclose($ref);
+
+        $filePath = sprintf('%s%sship-items.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
+        $ref = fopen($filePath, 'wb');
+        fwrite($ref, json_encode($shipItems, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
+        fclose($ref);
+
         return Command::SUCCESS;
     }
 
     protected function configure(): void
     {
-        $this->setHelp('php cli.php generate:cache Path/To/ScDataDir');
+        $this->setHelp('php cli.php load:items Path/To/ScDataDir Path/To/JsonOutDir');
         $this->addArgument('scDataPath', InputArgument::REQUIRED);
         $this->addArgument('jsonOutPath', InputArgument::REQUIRED);
         $this->addOption('overwrite');

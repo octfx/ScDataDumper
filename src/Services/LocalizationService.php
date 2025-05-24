@@ -74,6 +74,16 @@ final class LocalizationService extends BaseService
         return $out;
     }
 
+    /**
+     * Get all available translations.
+     *
+     * @return array Array of translations with locale keys
+     */
+    public function getAllTranslations(): array
+    {
+        return $this->translations;
+    }
+
     private function cleanKey(string $key): string
     {
         return trim(ltrim($key, '@'));

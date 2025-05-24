@@ -75,7 +75,7 @@ class LoadFactions extends Command
 
     protected function configure(): void
     {
-        $this->setHelp('php cli.php load:factions Path/To/ScDataDir');
+        $this->setHelp('php cli.php load:factions Path/To/ScDataDir Path/To/JsonOutDir');
         $this->addArgument('scDataPath', InputArgument::REQUIRED);
         $this->addArgument('jsonOutPath', InputArgument::REQUIRED);
         $this->addOption('overwrite');

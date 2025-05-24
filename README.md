@@ -12,7 +12,12 @@ Put the unforged SC XML files (`Data` and `Engine` folders) in the `import` dire
 
 Start the container with `docker compose up -d --build`
 
-When running for the first time, generate the cache files:
+Dumping all files is done using:
+```shell
+docker compose exec scdatadumper php cli.php load:data --scUnpackedFormat import export
+```
+
+Alternatively, when running commands for the first time separately, generate the cache files:
 ```shell
 docker compose exec scdatadumper php cli.php generate:cache import
 ```

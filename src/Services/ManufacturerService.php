@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Services;
 
 use Generator;
-use JsonException;
 use Octfx\ScDataDumper\DocumentTypes\SCItemManufacturer;
 use RuntimeException;
 
@@ -18,9 +17,6 @@ final class ManufacturerService extends BaseService
         return count($this->manufacturerPaths);
     }
 
-    /**
-     * @throws JsonException
-     */
     public function initialize(): void
     {
         $this->manufacturerPaths = array_filter(self::$uuidToPathMap, static fn (string $path) => str_contains($path, 'scitemmanufacturer') === true);
