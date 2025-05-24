@@ -60,6 +60,13 @@ class Element
             try {
                 $renamedElement = $document->createElement($elementName);
                 $renamedElement->append(...$importedNode->childNodes);
+
+                if ($import->firstChild?->attributes) {
+                    foreach ($import->firstChild->attributes as $name => $attribute) {
+                        $renamedElement->setAttribute($name, $attribute->nodeValue);
+                    }
+                }
+
                 $this->node->appendChild($renamedElement);
 
                 $importedNode = $renamedElement;
