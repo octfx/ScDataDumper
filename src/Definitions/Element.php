@@ -93,11 +93,12 @@ class Element
             $name = $attribute->nodeName;
             $value = $attribute->nodeValue;
 
-            if (! in_array($attribute->nodeName, $ignore, true)) {
+            if (! in_array($name, $ignore, true)) {
                 if (is_numeric($value)) {
                     $attributes[$name] = (float) $value;
                 } elseif (str_starts_with((string) $value, '@')) {
                     $attributes[$name] = ServiceFactory::getLocalizationService()->getTranslation((string) $value);
+                    $attributes['__'.$name] = (string) $value;
                 } else {
                     $attributes[$name] = (string) $value;
                 }
