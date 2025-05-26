@@ -19,6 +19,10 @@ class SCItemInventoryContainerComponentParams extends Element
         $svc = ServiceFactory::getInventoryContainerService();
         $containerParams = $svc->getByReference($this->get('@containerParams'));
 
+        if ($this->get('inventoryContainer@__ref') === $this->get('@containerParams')) {
+            return;
+        }
+
         $this->appendNode($document, $containerParams, 'inventoryContainer');
     }
 }

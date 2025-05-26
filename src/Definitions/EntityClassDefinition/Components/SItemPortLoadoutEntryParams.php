@@ -10,7 +10,7 @@ class SItemPortLoadoutEntryParams extends Element
 {
     public function initialize(DOMDocument $document): void
     {
-        if ($this->initialized) {
+        if ($this->initialized || $this->get('InstalledItem')) {
             return;
         }
 
@@ -30,7 +30,14 @@ class SItemPortLoadoutEntryParams extends Element
         if ($item) {
             $importedNode = $document->importNode($item->documentElement, true);
             $element = $document->createElement('InstalledItem');
-            $element->appendChild($importedNode);
+
+            if ($item->firstChild?->attributes) {
+                foreach ($item->firstChild?->attributes as $name => $attribute) {
+                    $element->setAttribute($name, $attribute->nodeValue);
+                }
+            }
+
+            $element->append(...$importedNode->childNodes);
             $this->node->appendChild($element);
         }
     }

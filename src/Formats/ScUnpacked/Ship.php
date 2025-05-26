@@ -265,14 +265,11 @@ final class Ship extends BaseFormat
             }
         }
 
-        // "Real" Cargo Grids
-        $cargoCapacity = collect($this->vehicleWrapper->loadout)
-            ->filter(fn ($x) => (isset($x['Item']['Components']['SCItemInventoryContainerComponentParams']) && $x['Item']['Type'] === 'Ship.CargoGrid'))
-            ->sum(fn ($x) => (
-                (Arr::get($x, 'Item.Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.x', 0) *
-                Arr::get($x, 'Item.Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.y', 0) *
-                Arr::get($x, 'Item.Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.z', 0)) / M_TO_SCU_UNIT
-            ));
+        $cargoCapacity = 0.0;
+
+        foreach ($this->vehicleWrapper->loadout as $loadoutEntry) {
+            $cargoCapacity += $this->cargoFromLoadout($loadoutEntry);
+        }
 
         // Cargo Containers for Ores etc.
         $cargoCapacity += collect($this->vehicleWrapper->loadout)
@@ -641,5 +638,92 @@ final class Ship extends BaseFormat
         }
 
         return $sizes;
+    }
+
+    /**
+     * Recursively calculates cargo capacity for a top-level load-out entry.
+     */
+    private function cargoFromLoadout(array $loadout): float
+    {
+        $capacity = 0.0;
+
+        // 1) process the item mounted in this port
+        if (isset($loadout['Item']) && is_array($loadout['Item'])) {
+            $capacity += $this->cargoFromItem($loadout['Item']);
+        }
+
+        // 2) some load-out entries already expose nested entries at this level
+        if (isset($loadout['entries']) && is_array($loadout['entries'])) {
+            foreach ($loadout['entries'] as $entry) {
+                $capacity += $this->cargoFromLoadout($entry);
+            }
+        }
+
+        return $capacity;
+    }
+
+    /**
+     * Recursively calculates cargo capacity inside an item.
+     *
+     * Only items whose attach-def type is **CargoGrid**
+     * (Components.SAttachableComponentParams.AttachDef.Type === 'CargoGrid')
+     * contribute to the total. The method still drills into nested default
+     * load-outs so that descendant items that *are* cargo-grids are included.
+     */
+    private function cargoFromItem(array $item): float
+    {
+        $capacity = 0.0;
+
+        // Check whether THIS item is a cargo-grid
+        $isCargoGrid = Arr::get(
+            $item,
+            'Components.SAttachableComponentParams.AttachDef.Type'
+        ) === 'CargoGrid';
+
+        // If it is, read its interior dimensions and convert to SCU
+        if (
+            $isCargoGrid &&
+            isset($item['Components']['SCItemInventoryContainerComponentParams'])
+        ) {
+            $dimX = Arr::get(
+                $item,
+                'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.x',
+                0
+            );
+            $dimY = Arr::get(
+                $item,
+                'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.y',
+                0
+            );
+            $dimZ = Arr::get(
+                $item,
+                'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.z',
+                0
+            );
+
+            $capacity += ($dimX * $dimY * $dimZ) / M_TO_SCU_UNIT;
+        }
+
+        $manualEntries = Arr::get(
+            $item,
+            'Components.SEntityComponentDefaultLoadoutParams.loadout.SItemPortLoadoutManualParams.entries',
+            []
+        );
+
+        foreach ($manualEntries as $entry) {
+            // InstalledItem wrapper one or more actual items
+            if (isset($entry['InstalledItem']) && is_array($entry['InstalledItem'])) {
+                $capacity += $this->cargoFromItem($entry['InstalledItem']);
+            }
+
+            // Some entries expose another "entries" array directly
+            if (isset($entry['entries']) && is_array($entry['entries'])) {
+                foreach ($entry['entries'] as $subEntry) {
+                    $capacity += $this->cargoFromLoadout($subEntry);
+                }
+            }
+        }
+
+        return $capacity;
     }
 }
