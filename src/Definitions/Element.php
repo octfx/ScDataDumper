@@ -44,7 +44,7 @@ class Element
      *                                    This is useful when importing whole XML files as without this argument the root tag of the imported document is used.
      *                                    For manufacturers this would be (example) `<Manufacturer.APAR>` instead of `<Manufacturer>`
      */
-    protected function appendNode(DOMDocument $document, ?DOMDocument $import, ?string $elementName = null): void
+    protected function appendNode(DOMDocument|DOMNode $document, ?DOMDocument $import, ?string $elementName = null): void
     {
         if (! $import) {
             return;
@@ -68,14 +68,12 @@ class Element
                 }
 
                 $this->node->appendChild($renamedElement);
-
-                $importedNode = $renamedElement;
             } catch (DOMException $e) {
 
             }
+        } else {
+            $this->node->appendChild($importedNode);
         }
-
-        $this->node->appendChild($importedNode);
     }
 
     /**

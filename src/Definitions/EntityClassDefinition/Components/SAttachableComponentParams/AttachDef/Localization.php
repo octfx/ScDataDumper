@@ -32,6 +32,10 @@ class Localization extends Element
         $t = ServiceFactory::getLocalizationService();
 
         foreach ($this->locales as $locale => $element) {
+            if ($this->get($element)) {
+                continue;
+            }
+
             $translation = $document->createElement($element);
 
             $translation->setAttribute('Locale', $locale);
@@ -40,7 +44,9 @@ class Localization extends Element
                 $translation->setAttribute($key, $t->getTranslation($this->get($key), $locale));
             }
 
-            $this->node->appendChild($translation);
+            if ($this->node->lastChild->nodeName !== $element) {
+                $this->node->appendChild($translation);
+            }
         }
     }
 }
