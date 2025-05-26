@@ -176,6 +176,20 @@ final class Ship extends BaseFormat
                     'Pitch' => Arr::get($ifcs, 'Item.Components.IFCSParams.maxAngularVelocity.x'),
                     'Yaw' => Arr::get($ifcs, 'Item.Components.IFCSParams.maxAngularVelocity.z'),
                     'Roll' => Arr::get($ifcs, 'Item.Components.IFCSParams.maxAngularVelocity.y'),
+                    'PitchBoostMultiplier' => Arr::get($ifcs, 'Item.Components.IFCSParams.afterburner.afterburnAngVelocityMultiplier.x'),
+                    'YawBoostMultiplier' => Arr::get($ifcs, 'Item.Components.IFCSParams.afterburner.afterburnAngVelocityMultiplier.z'),
+                    'RollBoostMultiplier' => Arr::get($ifcs, 'Item.Components.IFCSParams.afterburner.afterburnAngVelocityMultiplier.y'),
+                    'Afterburner' => [
+                        'PreDelayTime' => Arr::get($ifcs, 'Item.Components.IFCSParams.afterburner.afterburnerPreDelayTime'),
+                        'RampUpTime' => Arr::get($ifcs, 'Item.Components.IFCSParams.afterburner.afterburnerRampUpTime'),
+                        'RampDownTime' => Arr::get($ifcs, 'Item.Components.IFCSParams.afterburner.afterburnerRampDownTime'),
+                        'Capacitor' => Arr::get($ifcs, 'Item.Components.IFCSParams.afterburner.capacitorMax'),
+                        'IdleCost' => Arr::get($ifcs, 'Item.Components.IFCSParams.afterburner.capacitorAfterburnerIdleCost'),
+                        'LinearCost' => Arr::get($ifcs, 'Item.Components.IFCSParams.afterburner.capacitorAfterburnerLinearCost'),
+                        'AngularCost' => Arr::get($ifcs, 'Item.Components.IFCSParams.afterburner.capacitorAfterburnerAngularCost'),
+                        'RegenPerSec' => Arr::get($ifcs, 'Item.Components.IFCSParams.afterburner.capacitorRegenPerSec'),
+                        'RegenDelayAfterUse' => Arr::get($ifcs, 'Item.Components.IFCSParams.afterburner.capacitorRegenDelayAfterUse'),
+                    ],
                 ];
 
                 $summary['FlightCharacteristics']['ZeroToScm'] = $summary['FlightCharacteristics']['Acceleration']['Main'] > 0 ? $summary['FlightCharacteristics']['ScmSpeed'] / $summary['FlightCharacteristics']['Acceleration']['Main'] : null;
@@ -269,6 +283,10 @@ final class Ship extends BaseFormat
 
         foreach ($this->vehicleWrapper->loadout as $loadoutEntry) {
             $cargoCapacity += $this->cargoFromLoadout($loadoutEntry);
+
+            if (str_contains($loadoutEntry['portName'], 'controller_shield')) {
+                $data['ShieldFaceType'] = Arr::get($loadoutEntry, 'Item.Components.SCItemShieldEmitterParams.FaceType');
+            }
         }
 
         // Cargo Containers for Ores etc.
@@ -284,6 +302,8 @@ final class Ship extends BaseFormat
 
         $summary['MannedTurrets'] = $portSummary['mannedTurrets']->map(fn ($x) => $this->calculateWeaponFitting($x['Port']))->toArray();
         $summary['RemoteTurrets'] = $portSummary['remoteTurrets']->map(fn ($x) => $this->calculateWeaponFitting($x['Port']))->toArray();
+
+
 
         $data = array_merge($data, $summary);
 
