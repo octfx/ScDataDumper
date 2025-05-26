@@ -28,6 +28,10 @@ class SItemPortLoadoutEntryParams extends Element
         }
 
         if ($item) {
+            if ($this->get('InstalledItem@__ref') === $item->getUuid()) {
+                return;
+            }
+
             $importedNode = $document->importNode($item->documentElement, true);
             $element = $document->createElement('InstalledItem');
 

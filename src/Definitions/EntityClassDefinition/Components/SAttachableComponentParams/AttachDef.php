@@ -18,7 +18,9 @@ class AttachDef extends Element
 
         parent::initialize($document);
 
-        $manufacturer = ServiceFactory::getManufacturerService()->getByReference($this->get('@Manufacturer'));
-        $this->appendNode($document, $manufacturer, 'Manufacturer');
+        if ($this->get('Manufacturer@__ref') !== $this->get('@Manufacturer')) {
+            $manufacturer = ServiceFactory::getManufacturerService()->getByReference($this->get('@Manufacturer'));
+            $this->appendNode($document, $manufacturer, 'Manufacturer');
+        }
     }
 }

@@ -20,7 +20,12 @@ class SAmmoContainerComponentParams extends Element
         $ammoParamsRecord = $svc->getByReference($this->get('@ammoParamsRecord'));
         $secondaryAmmoParamsRecord = $svc->getByReference($this->get('@secondaryAmmoParamsRecord'));
 
-        $this->appendNode($document, $ammoParamsRecord, 'ammoParams');
-        $this->appendNode($document, $secondaryAmmoParamsRecord, 'secondaryAmmoParams');
+        if ($this->get('ammoParams@__ref') !== $this->get('@ammoParamsRecord')) {
+            $this->appendNode($document, $ammoParamsRecord, 'ammoParams');
+        }
+
+        if ($this->get('secondaryAmmoParams@__ref') !== $this->get('@secondaryAmmoParamsRecord')) {
+            $this->appendNode($document, $secondaryAmmoParamsRecord, 'secondaryAmmoParams');
+        }
     }
 }

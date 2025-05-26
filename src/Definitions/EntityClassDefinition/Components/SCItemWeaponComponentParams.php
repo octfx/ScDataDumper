@@ -18,6 +18,8 @@ class SCItemWeaponComponentParams extends Element
         $svc = ServiceFactory::getItemService();
         $magazine = $svc->getByReference($this->get('@ammoContainerRecord'));
 
-        $this->appendNode($document, $magazine, 'Magazine');
+        if ($this->get('ammoContainer@__ref') !== $this->get('@ammoContainerRecord')) {
+            $this->appendNode($document, $magazine, 'Magazine');
+        }
     }
 }

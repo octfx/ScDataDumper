@@ -19,6 +19,8 @@ class SCItemRadarComponentParams extends Element
         $svc = ServiceFactory::getRadarSystemService();
         $radarSystem = $svc->getByReference($this->get('@sharedParams'));
 
-        $this->appendNode($document, $radarSystem, 'RadarSystem');
+        if ($this->get('RadarSystem@__ref') !== $this->get('@sharedParams')) {
+            $this->appendNode($document, $radarSystem, 'RadarSystem');
+        }
     }
 }
