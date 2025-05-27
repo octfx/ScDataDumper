@@ -16,6 +16,11 @@ class VehicleWrapper
 
     public function getVehicleEntityArray(): array
     {
-        return $this->entity->toArray();
+        return [
+            ...$this->entity->toArray(),
+            'ClassName' => $this->entity->getClassName(),
+            '__ref' => $this->entity->getUuid(),
+            '__type' => $this->entity->getType(),
+        ];
     }
 }

@@ -60,7 +60,9 @@ class LoadVehicles extends Command
             $index[] = $scUnpackedShip;
 
             $out = [
-                'Entity' => $vehicle->getVehicleEntityArray(),
+                'Raw' => [
+                    'Entity' => $vehicle->getVehicleEntityArray(),
+                ],
                 'Vehicle' => $vehicle->getVehicleArray(),
                 'Loadout' => $vehicle->loadout,
                 'ScVehicle' => $scUnpackedShip,

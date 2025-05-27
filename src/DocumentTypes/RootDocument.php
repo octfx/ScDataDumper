@@ -73,7 +73,7 @@ abstract class RootDocument extends DOMDocument
      */
     public function getClassName(): string
     {
-        return explode('.', $this->documentElement->nodeName)[1];
+        return explode('.', $this->documentElement->nodeName)[1] ?? $this->documentElement->nodeName;
     }
 
     /**

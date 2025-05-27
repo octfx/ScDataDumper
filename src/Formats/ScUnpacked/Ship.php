@@ -36,6 +36,8 @@ final class Ship extends BaseFormat
         $attach = $this->get();
         $vehicleComponent = $this->get('Components/VehicleComponentParams');
 
+        $vehicleComponentData = (new Element($vehicleComponent->getNode()))->attributesToArray();
+
         $manufacturer = $vehicleComponent->get('manufacturer');
 
         $manufacturer = ServiceFactory::getManufacturerService()->getByReference($manufacturer);
@@ -46,7 +48,7 @@ final class Ship extends BaseFormat
         $data = [
             'UUID' => $this->item->getUuid(),
             'ClassName' => $this->item->getClassName(),
-            'Name' => $vehicleComponent->get('/vehicleName@Name', $this->item->getClassName()),
+            'Name' => Arr::get($vehicleComponentData, 'vehicleName', $this->item->getClassName()),
             'Description' => $vehicleComponent->get('/English@vehicleDescription', ''),
 
             'Career' => $vehicleComponent->get('/English@vehicleCareer', ''),
