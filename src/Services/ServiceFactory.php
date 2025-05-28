@@ -53,6 +53,9 @@ final class ServiceFactory
         self::$services['FactionService'] = new FactionService($this->scDataPath);
         self::$services['FactionService']->initialize();
 
+        self::$services['LoadoutFileService'] = new LoadoutFileService($this->scDataPath);
+        self::$services['LoadoutFileService']->initialize();
+
         self::$initialized = true;
     }
 
@@ -109,6 +112,11 @@ final class ServiceFactory
     public static function getFactionService(): FactionService
     {
         return self::getService('FactionService');
+    }
+
+    public static function getLoadoutFileService(): LoadoutFileService
+    {
+        return self::getService('LoadoutFileService');
     }
 
     private static function getService(string $serviceName): mixed
