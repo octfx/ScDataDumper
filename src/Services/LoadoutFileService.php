@@ -8,9 +8,9 @@ use FilesystemIterator;
 use Generator;
 use JsonException;
 use Octfx\ScDataDumper\DocumentTypes\Loadout;
-use RuntimeException;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use RuntimeException;
 use SplFileInfo;
 
 final class LoadoutFileService extends BaseService
@@ -27,9 +27,9 @@ final class LoadoutFileService extends BaseService
      */
     public function initialize(): void
     {
-        $loadoutsDir = $this->scDataDir . DIRECTORY_SEPARATOR . 'Data' . DIRECTORY_SEPARATOR . 'Scripts' . DIRECTORY_SEPARATOR . 'Loadouts';
+        $loadoutsDir = $this->scDataDir.DIRECTORY_SEPARATOR.'Data'.DIRECTORY_SEPARATOR.'Scripts'.DIRECTORY_SEPARATOR.'Loadouts';
 
-        if (!is_dir($loadoutsDir)) {
+        if (! is_dir($loadoutsDir)) {
             throw new RuntimeException(sprintf('Directory %s does not exist or is not readable.', $loadoutsDir));
         }
 
@@ -42,7 +42,7 @@ final class LoadoutFileService extends BaseService
     private function mapLoadoutFiles(string $directory): array
     {
         $files = [];
-        $basePathLength = strlen($this->scDataDir . DIRECTORY_SEPARATOR . 'Data' . DIRECTORY_SEPARATOR);
+        $basePathLength = strlen($this->scDataDir.DIRECTORY_SEPARATOR.'Data'.DIRECTORY_SEPARATOR);
 
         $iterator = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS)
@@ -85,11 +85,11 @@ final class LoadoutFileService extends BaseService
 
     public function load(string $filePath): Loadout
     {
-        if (!is_readable($filePath)) {
+        if (! is_readable($filePath)) {
             throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
         }
 
-        $loadout = new Loadout();
+        $loadout = new Loadout;
         $loadout->load($filePath);
 
         return $loadout;

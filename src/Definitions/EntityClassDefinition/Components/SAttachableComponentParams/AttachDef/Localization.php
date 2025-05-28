@@ -23,7 +23,7 @@ class Localization extends Element
 
     public function initialize(DOMDocument $document): void
     {
-        if ($this->initialized) {
+        if ($this->isInitialized()) {
             return;
         }
 

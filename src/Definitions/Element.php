@@ -13,9 +13,9 @@ use RuntimeException;
 
 class Element
 {
-    protected bool $initialized = false;
-
     use XmlAccess;
+
+    protected static array $initializedPaths = [];
 
     public function __construct(protected readonly DOMNode $node)
     {
@@ -27,9 +27,12 @@ class Element
         return $this->node->ownerDocument ?? $this->node;
     }
 
+    /**
+     * Adds the current node path to the list of processed nodes
+     */
     public function initialize(DOMDocument $document): void
     {
-        $this->initialized = true;
+        self::$initializedPaths[$this->node->getNodePath()] = true;
     }
 
     public function getNode(): DOMNode
@@ -130,5 +133,17 @@ class Element
 
             yield new self($child);
         }
+    }
+
+    /**
+     * Checks if the current node has already been processed
+     */
+    protected function isInitialized(): bool
+    {
+        if ($this->node->getNodePath() === null) {
+            return false;
+        }
+
+        return self::$initializedPaths[$this->node->getNodePath()] ?? false;
     }
 }

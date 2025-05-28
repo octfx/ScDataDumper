@@ -10,7 +10,7 @@ class SItemPortLoadoutEntryParams extends Element
 {
     public function initialize(DOMDocument $document): void
     {
-        if ($this->initialized || $this->get('InstalledItem')) {
+        if ($this->isInitialized() || $this->get('InstalledItem')) {
             return;
         }
 

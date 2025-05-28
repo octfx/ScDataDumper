@@ -27,6 +27,9 @@ class ElementLoader
         });
     }
 
+    /**
+     * Walks every node in the DOM tree and calls the callback function on each node
+     */
     private static function walkDomNodes(DOMNode $node, callable $callback): void
     {
         $callback($node);

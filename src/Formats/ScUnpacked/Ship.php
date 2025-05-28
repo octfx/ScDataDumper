@@ -305,8 +305,6 @@ final class Ship extends BaseFormat
         $summary['MannedTurrets'] = $portSummary['mannedTurrets']->map(fn ($x) => $this->calculateWeaponFitting($x['Port']))->toArray();
         $summary['RemoteTurrets'] = $portSummary['remoteTurrets']->map(fn ($x) => $this->calculateWeaponFitting($x['Port']))->toArray();
 
-
-
         $data = array_merge($data, $summary);
 
         $this->processArray($data);
