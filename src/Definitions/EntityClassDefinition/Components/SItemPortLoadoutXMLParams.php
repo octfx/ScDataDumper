@@ -12,7 +12,7 @@ class SItemPortLoadoutXMLParams extends Element
 {
     public function initialize(DOMDocument $document): void
     {
-        if ($this->isInitialized() || $this->get('@loadoutPath') === null) {
+        if ($this->get('@loadoutPath') === null) {
             return;
         }
 
@@ -41,8 +41,15 @@ class SItemPortLoadoutXMLParams extends Element
 
         $manualParams = $parentEl->get('SItemPortLoadoutManualParams');
 
+        foreach ($this->node->parentNode->childNodes as $childNode) {
+            if ($childNode->nodeName === 'SItemPortLoadoutManualParams') {
+                return;
+            }
+        }
+
         if (! $manualParams) {
             $manualParams = $document->createElement('SItemPortLoadoutManualParams');
+
             $entries = $document->createElement('entries');
             $manualParams->appendChild($entries);
 

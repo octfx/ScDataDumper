@@ -140,6 +140,9 @@ class Element
      */
     protected function isInitialized(): bool
     {
+        // TODO: Find a way of saving the init state on the node directly
+        return false;
+
         if ($this->node->getNodePath() === null) {
             return false;
         }
