@@ -70,7 +70,7 @@ final class InventoryContainer extends RootDocument
 
     public function isExternalContainer(): bool
     {
-        return $this->isOpenContainer() && ((int) $this->get('inventoryTypeInventoryOpenContainerType@isExternalContainer') === 1);
+        return $this->isOpenContainer() && ((int) $this->get('inventoryType/InventoryOpenContainerType@isExternalContainer') === 1);
     }
 
     public function isClosedContainer(): bool
