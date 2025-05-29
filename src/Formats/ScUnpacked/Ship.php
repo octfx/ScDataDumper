@@ -41,6 +41,7 @@ final class Ship extends BaseFormat
         $manufacturer = $vehicleComponent->get('manufacturer');
 
         $manufacturer = ServiceFactory::getManufacturerService()->getByReference($manufacturer);
+        $itemService = ServiceFactory::getItemService();
 
         $isVehicle = $this->item->get('Components/VehicleComponentParams@vehicleCareer') === '@vehicle_focus_ground';
         $isGravlev = $this->item->get('Components/VehicleComponentParams@isGravlevVehicle') === '1';
@@ -281,22 +282,42 @@ final class Ship extends BaseFormat
             }
         }
 
-        $cargoCapacity = 0.0;
-
         foreach ($this->vehicleWrapper->loadout as $loadoutEntry) {
-            $cargoCapacity += $this->cargoFromLoadout($loadoutEntry);
-
-            if (str_contains($loadoutEntry['portName'], 'controller_shield')) {
+            if (Arr::has($loadoutEntry, 'Item.Components.SCItemShieldEmitterParams.FaceType')) {
                 $data['ShieldFaceType'] = Arr::get($loadoutEntry, 'Item.Components.SCItemShieldEmitterParams.FaceType');
             }
         }
+        $cargoGrids = collect($this->vehicleWrapper->loadout)
+            ->flatMap(function ($entry) {
+                return $this->extractCargoGrids($entry);
+            });
 
-        // Cargo Containers for Ores etc.
+        $cargoCapacity = $cargoGrids->sum(function ($item) {
+            $dimX = Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.x', 0);
+            $dimY = Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.y', 0);
+            $dimZ = Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.z', 0);
+
+            return ($dimX * $dimY * $dimZ) / M_TO_SCU_UNIT;
+        });
+
+        $standardisedCargoGrids = $cargoGrids
+            ->map(function ($item) use ($itemService) {
+                return $itemService->getByReference($item['__ref']);
+            })
+            ->filter(fn ($x) => $x !== null)
+            ->map(function ($item) {
+                return (new InventoryContainer($item))->toArray();
+            })
+            ->filter(fn ($x) => $x !== null);
+
+        // Add ResourceContainer-based cargo
         $cargoCapacity += collect($this->vehicleWrapper->loadout)
             ->filter(fn ($x) => (isset($x['Item']['Components']['ResourceContainer']) && $x['Item']['Type'] === 'Ship.Container.Cargo'))
             ->sum(fn ($x) => Arr::get($x, 'Item.Components.ResourceContainer.capacity.SStandardCargoUnit.standardCargoUnits', 0));
 
         $summary['Cargo'] = $cargoCapacity;
+        $summary['CargoGrids'] = $standardisedCargoGrids;
+        $summary['CargoSizeLimits'] = $this->calculateCargoGridSizeLimits($standardisedCargoGrids);
 
         $summary['Health'] = $parts->filter(fn ($x) => ($x['MaximumDamage'] ?? 0) > 0)->sum(fn ($x) => $x['MaximumDamage']);
         $summary['DamageBeforeDestruction'] = $parts->filter(fn ($x) => ($x['ShipDestructionDamage'] ?? 0) > 0)->mapWithKeys(fn ($x) => [$x['Name'] => $x['ShipDestructionDamage']]);
@@ -592,14 +613,6 @@ final class Ship extends BaseFormat
             ];
         }
 
-        if (($this->isTurret($port) || $this->isGimbal($port)) && $this->acceptsWeapon($port)) {
-            return [
-                'Size' => $port['Size'],
-                'Fixed' => true,
-                'WeaponSizes' => [$port['Size']],
-            ];
-        }
-
         return [
             'Size' => $port['Size'],
             'Fixed' => true,
@@ -745,5 +758,56 @@ final class Ship extends BaseFormat
         }
 
         return $capacity;
+    }
+
+    private function extractCargoGrids(array $loadout): Collection
+    {
+        $grids = collect();
+
+        if (
+            Arr::get($loadout, 'Item.Components.SAttachableComponentParams.AttachDef.Type') === 'CargoGrid' &&
+            isset($loadout['Item']['Components']['SCItemInventoryContainerComponentParams'])
+        ) {
+            $grids->push($loadout['Item']);
+        }
+
+        if (! empty($loadout['entries']) && is_array($loadout['entries'])) {
+            foreach ($loadout['entries'] as $entry) {
+                $grids = $grids->merge($this->extractCargoGrids($entry));
+            }
+        }
+
+        $manualEntries = Arr::get($loadout, 'Item.Components.SEntityComponentDefaultLoadoutParams.loadout.SItemPortLoadoutManualParams.entries', []);
+        foreach ($manualEntries as $entry) {
+            if (isset($entry['InstalledItem'])) {
+                $grids = $grids->merge($this->extractCargoGrids(['Item' => $entry['InstalledItem']]));
+            }
+
+            if (! empty($entry['entries']) && is_array($entry['entries'])) {
+                foreach ($entry['entries'] as $subEntry) {
+                    $grids = $grids->merge($this->extractCargoGrids($subEntry));
+                }
+            }
+        }
+
+        return $grids;
+    }
+
+    private function calculateCargoGridSizeLimits(Collection $cargoGrids): array
+    {
+        $minVolumeGrid = $cargoGrids
+            ->filter(fn ($grid) => isset($grid['minSize']['x'], $grid['minSize']['y'], $grid['minSize']['z']))
+            ->sortBy(fn ($grid) => $grid['minSize']['x'] * $grid['minSize']['y'] * $grid['minSize']['z'])
+            ->first();
+
+        $maxVolumeGrid = $cargoGrids
+            ->filter(fn ($grid) => isset($grid['maxSize']['x'], $grid['maxSize']['y'], $grid['maxSize']['z']))
+            ->sortByDesc(fn ($grid) => $grid['maxSize']['x'] * $grid['maxSize']['y'] * $grid['maxSize']['z'])
+            ->first();
+
+        return [
+            'MinSize' => $minVolumeGrid['minSize'] ?? null,
+            'MaxSize' => $maxVolumeGrid['maxSize'] ?? null,
+        ];
     }
 }

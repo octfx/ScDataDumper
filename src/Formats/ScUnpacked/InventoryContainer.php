@@ -24,6 +24,10 @@ final class InventoryContainer extends BaseFormat
             ...($container?->getInteriorDimensions() ?? []),
             'minSize' => $container?->getMinPermittedItemSize(),
             'maxSize' => $container?->getMaxPermittedItemSize(),
+            'isOpenContainer' => $container?->isOpenContainer(),
+            'isExternalContainer' => $container?->isExternalContainer(),
+            'isClosedContainer' => $container?->isClosedContainer(),
+            'uuid' => $container?->getUuid(),
         ];
     }
 
