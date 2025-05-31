@@ -20,7 +20,7 @@ final class Ship extends BaseFormat
 
     private readonly PortClassifierService $portClassifierService;
 
-    private readonly Vehicle $vehicle;
+    private readonly ?Vehicle $vehicle;
 
     public function __construct(private readonly VehicleWrapper $vehicleWrapper)
     {
@@ -36,21 +36,26 @@ final class Ship extends BaseFormat
         $attach = $this->get();
         $vehicleComponent = $this->get('Components/VehicleComponentParams');
 
-        $vehicleComponentData = (new Element($vehicleComponent->getNode()))->attributesToArray();
+        $vehicleComponentData = [];
+        if ($vehicleComponent) {
+            $vehicleComponentData = (new Element($vehicleComponent->getNode()))->attributesToArray();
+        } else {
+            $vehicleComponent = $this->vehicleWrapper->entity->getAttachDef();
+        }
 
         $manufacturer = $vehicleComponent->get('manufacturer');
 
         $manufacturer = ServiceFactory::getManufacturerService()->getByReference($manufacturer);
         $itemService = ServiceFactory::getItemService();
 
-        $isVehicle = $this->item->get('Components/VehicleComponentParams@vehicleCareer') === '@vehicle_focus_ground';
+        $isVehicle = $this->item->get('Components/VehicleComponentParams@vehicleCareer') === '@vehicle_focus_ground' || $vehicleComponent->get('@SubType') === 'Vehicle_GroundVehicle';
         $isGravlev = $this->item->get('Components/VehicleComponentParams@isGravlevVehicle') === '1';
 
         $data = [
             'UUID' => $this->item->getUuid(),
             'ClassName' => $this->item->getClassName(),
-            'Name' => Arr::get($vehicleComponentData, 'vehicleName', $this->item->getClassName()),
-            'Description' => $vehicleComponent->get('/English@vehicleDescription', ''),
+            'Name' => trim(Arr::get($vehicleComponentData, 'vehicleName') ?? $vehicleComponent->get('/Localization/English@Name') ?? $this->item->getClassName()),
+            'Description' => $vehicleComponent->get('/English@vehicleDescription') ?? $vehicleComponent->get('/Localization/English@Description', ''),
 
             'Career' => $vehicleComponent->get('/English@vehicleCareer', ''),
             'Role' => $vehicleComponent->get('/English@vehicleRole', ''),
@@ -64,7 +69,7 @@ final class Ship extends BaseFormat
             'Width' => $vehicleComponent->get('maxBoundingBoxSize@x', 0),
             'Length' => $vehicleComponent->get('maxBoundingBoxSize@y', 0),
             'Height' => $vehicleComponent->get('maxBoundingBoxSize@z', 0),
-            'Crew' => $vehicleComponent->get('crewSize', 0),
+            'Crew' => $vehicleComponent->get('crewSize', 1),
 
             //            'Parts' => [],
 
@@ -83,7 +88,7 @@ final class Ship extends BaseFormat
         ];
 
         $vehicleParts = [];
-        foreach ($this->vehicle->get('//Parts')?->children() ?? [] as $part) {
+        foreach ($this->vehicle?->get('//Parts')?->children() ?? [] as $part) {
             if ($part->get('skipPart') === '1') {
                 continue;
             }
@@ -109,26 +114,31 @@ final class Ship extends BaseFormat
         $mass = $parts->sum(fn ($x) => (float) ($x['Mass'] ?? 0));
 
         $data['Mass'] = $mass > 0 ? $mass : null;
+        if ($data['Mass'] === null) {
+            $data['Mass'] = $this->item->get('SSCActorPhysicsControllerComponentParams/physType/SEntityActorPhysicsControllerParams@Mass');
+        }
+
+
 
         $portSummary = $this->buildPortSummary($parts->toArray());
         $portSummary = $this->installItems($portSummary);
 
         $quantumDrive = $portSummary['quantumDrives']->first(fn ($x) => isset($x['InstalledItem']));
 
-        $quantumFuelCapacity = $portSummary['quantumFuelTanks']->sum(fn ($x) => Arr::get($x, 'InstalledItem.Components.ResourceContainer.capacity.SStandardCargoUnit.standardCargoUnits', 0) * 1000);
-        $quantumFuelRate = Arr::get($quantumDrive, 'InstalledItem.Components.SCItemQuantumDriveParams.quantumFuelRequirement', 0.0001) / 1e6;
+        $quantumFuelCapacity = $portSummary['quantumFuelTanks']->sum(fn ($x) => Arr::get($x, 'InstalledItem.Components.ResourceContainer.capacity.SStandardCargoUnit.standardCargoUnits') * 1000);
+        $quantumFuelRate = Arr::get($quantumDrive, 'InstalledItem.Components.SCItemQuantumDriveParams.quantumFuelRequirement', 0) / 1e6;
         $quantumDriveSpeed = Arr::get($quantumDrive, 'InstalledItem.Components.SCItemQuantumDriveParams.params.driveSpeed');
         $distanceBetweenPOandArcCorp = 41927351070;
 
         $summary = [
             'QuantumTravel' => [
-                'FuelCapacity' => $quantumFuelCapacity ?? 0,
-                'Range' => ($quantumFuelCapacity / $quantumFuelRate),
+                'FuelCapacity' => ($quantumFuelCapacity ?? 0) > 0 ? ($quantumFuelCapacity) : null,
+                'Range' => $quantumFuelRate > 0 ? ($quantumFuelCapacity / $quantumFuelRate) : null,
                 'Speed' => Arr::get($quantumDrive, 'InstalledItem.Components.SCItemQuantumDriveParams.params.driveSpeed'),
                 'SpoolTime' => Arr::get($quantumDrive, 'InstalledItem.Components.SCItemQuantumDriveParams.params.spoolUpTime'),
                 'PortOlisarToArcCorpTime' => ! empty($quantumDriveSpeed) ? ($distanceBetweenPOandArcCorp / Arr::get($quantumDrive, 'InstalledItem.Components.SCItemQuantumDriveParams.params.driveSpeed')) : null,
-                'PortOlisarToArcCorpFuel' => ($distanceBetweenPOandArcCorp * $quantumFuelRate),
-                'PortOlisarToArcCorpAndBack' => (($quantumFuelCapacity / $quantumFuelRate) / (2 * $distanceBetweenPOandArcCorp)),
+                'PortOlisarToArcCorpFuel' => ($distanceBetweenPOandArcCorp * $quantumFuelRate) > 0 ? ($distanceBetweenPOandArcCorp * $quantumFuelRate) : null,
+                'PortOlisarToArcCorpAndBack' => $quantumFuelRate > 0 ? (($quantumFuelCapacity / $quantumFuelRate) / (2 * $distanceBetweenPOandArcCorp)) : null,
             ],
 
             'Propulsion' => [
@@ -205,7 +215,7 @@ final class Ship extends BaseFormat
         if ($isVehicle) {
             unset($summary['Propulsion'], $summary['QuantumTravel']);
 
-            if ($this->vehicleWrapper->vehicle->get('MovementParams/ArcadeWheeled/Handling/Power@topSpeed')) {
+            if ($this->vehicleWrapper->vehicle?->get('MovementParams/ArcadeWheeled/Handling/Power@topSpeed')) {
                 $summary['DriveCharacteristics'] = [
                     'TopSpeed' => $this->vehicleWrapper->vehicle->get('MovementParams/ArcadeWheeled/Handling/Power@topSpeed'),
                     'ReverseSpeed' => $this->vehicleWrapper->vehicle->get('MovementParams/ArcadeWheeled/Handling/Power@reverseSpeed'),
@@ -219,7 +229,7 @@ final class Ship extends BaseFormat
                     'ReverseToZero' => $this->vehicleWrapper->vehicle->get('MovementParams/ArcadeWheeled/Handling/Power@reverseSpeed') / $this->vehicleWrapper->vehicle->get('MovementParams/ArcadeWheeled/Handling/Power@decceleration'),
                 ];
                 // @TODO: This whole thing needs to be validated
-            } elseif ($this->vehicleWrapper->vehicle->get('MovementParams/PhysicalWheeled/PhysicsParams@wWheelsMax')) {
+            } elseif ($this->vehicleWrapper->vehicle?->get('MovementParams/PhysicalWheeled/PhysicsParams@wWheelsMax')) {
                 $wWheelsMax = $this->vehicleWrapper->vehicle->get('MovementParams/PhysicalWheeled/PhysicsParams@wWheelsMax');
                 $brakeTorque = $this->vehicleWrapper->vehicle->get('MovementParams/PhysicalWheeled/PhysicsParams@brakeTorque');
                 $torqueScale = $this->vehicleWrapper->vehicle->get('MovementParams/PhysicalWheeled/PhysicsParams/Engine@torqueScale');
