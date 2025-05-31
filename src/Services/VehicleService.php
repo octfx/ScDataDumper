@@ -28,7 +28,9 @@ final class VehicleService extends BaseService
         'active1',
         'advocacy',
         'ai',
+        'aiship',
         'bombless',
+        'bounty',
         'c19b',
         'citizencon',
         'civ',
@@ -37,24 +39,30 @@ final class VehicleService extends BaseService
         'derelict',
         'drone',
         'drug',
+        'dummy',
         'eaobjectivedestructable',
+        'featuretest',
         'fleetweek',
         'fw22nfz',
         'hijacked',
+        'human',
         'indestructible',
+        'kopion',
         'microtech',
         'mlhm1',
         'modifiers',
         'nocrimesagainst',
         'nointerior',
+        'npc',
         'outlaw',
         'outlaws',
         'piano',
-        'pir',
+        'player',
         'pu',
         'qig',
         's3bombs',
         's42',
+        'securitynetwork',
         'shields',
         'shipshowdown',
         'shubin',
@@ -73,12 +81,14 @@ final class VehicleService extends BaseService
         '_ac_engineer',
         '_cci2953',
         '_cinematic_only',
+        '_ea_pir',
         '_fw22nfz',
         '_mfd',
         '_prison',
-        '_showdown',
+        '_pir_package',
         '_temp',
         '_test',
+        '_instanced',
     ];
 
     public function count(): int
@@ -94,10 +104,10 @@ final class VehicleService extends BaseService
         $this->loadImplementations();
         $items = json_decode(file_get_contents($this->classToPathMapPath), true, 512, JSON_THROW_ON_ERROR)['EntityClassDefinition'] ?? [];
 
-        $items = array_filter($items, static fn (string $path) => str_contains($path, 'entities/spaceships') || str_contains($path, 'entities/groundvehicles'));
+        $items = array_filter($items, static fn (string $path) => str_contains($path, 'entities/spaceships') || str_contains($path, 'entities/groundvehicles') || str_contains($path, 'actor/actors'));
         $items = array_filter($items, function (string $path): bool {
             $name = basename($path, '.xml');
-            $parts = explode('_', $name);
+            $parts = array_map('strtolower', explode('_', $name));
 
             return ! array_reduce($parts, fn ($carry, $cur) => $carry || in_array(strtolower($cur), $this->avoids, true), false);
         });
@@ -109,7 +119,7 @@ final class VehicleService extends BaseService
         });
 
         // Testing
-        // $items = array_filter($items, static fn (string $path) => str_contains($path, 'spartan'));
+        // $items = array_filter($items, static fn (string $path) => str_contains($path, 'atls'));
 
         $this->vehicles = $items;
     }
@@ -137,18 +147,20 @@ final class VehicleService extends BaseService
 
         $implementation = $vehicle->get('Components/VehicleComponentParams@vehicleDefinition');
 
-        if ($implementation === null) {
+        $doc = null;
+        if ($implementation !== null) {
+            $fileName = explode('/', $implementation);
+            $fileName = array_pop($fileName);
+
+            $implementation = $this->implementations[strtolower($fileName)];
+            $modification = $vehicle->get('Components/VehicleComponentParams@modification');
+
+            $doc = $this->parseVehicle($implementation, $modification);
+
+            $doc->initXPath();
+        } elseif ($vehicle->getAttachType() !== 'NOITEM_Vehicle') {
             return null;
         }
-
-        $fileName = explode('/', $implementation);
-        $fileName = array_pop($fileName);
-
-        $implementation = $this->implementations[strtolower($fileName)];
-
-        $modification = $vehicle->get('Components/VehicleComponentParams@modification');
-
-        $doc = $this->parseVehicle($implementation, $modification);
 
         $manualLoadout = $vehicle->get('Components/SEntityComponentDefaultLoadoutParams/loadout/SItemPortLoadoutManualParams');
 
@@ -157,7 +169,6 @@ final class VehicleService extends BaseService
             $loadout = $this->buildManualLoadout($manualLoadout);
         }
 
-        $doc->initXPath();
         $vehicle->initXPath();
 
         return new VehicleWrapper(

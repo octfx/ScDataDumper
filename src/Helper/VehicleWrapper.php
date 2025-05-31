@@ -7,11 +7,11 @@ use Octfx\ScDataDumper\DocumentTypes\VehicleDefinition;
 
 class VehicleWrapper
 {
-    public function __construct(public readonly Vehicle $vehicle, public readonly VehicleDefinition $entity, public readonly array $loadout) {}
+    public function __construct(public readonly ?Vehicle $vehicle, public readonly VehicleDefinition $entity, public readonly array $loadout) {}
 
-    public function getVehicleArray(): array
+    public function getVehicleArray(): ?array
     {
-        return $this->vehicle->toArray();
+        return $this->vehicle?->toArray();
     }
 
     public function getVehicleEntityArray(): array
