@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class Part extends BaseFormat
 {
-    protected ?string $elementKey = 'Components/SCItemShieldGeneratorParams';
+    protected ?string $elementKey = '';
 
     public function toArray(): ?array
     {
