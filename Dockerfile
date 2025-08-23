@@ -27,9 +27,9 @@ RUN docker-php-ext-configure opcache --enable-opcache \
 # https://github.com/docker-library/docs/tree/master/php#configuration
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
-# Bump memory limit to 512M
+# Bump memory limit to 2G
 # Avoid Allowed memory size of 134217728 bytes exhausted
-RUN echo 'memory_limit = 512M' >> "$PHP_INI_DIR/php.ini"
+RUN echo 'memory_limit = 2G' >> "$PHP_INI_DIR/php.ini"
 
 # Enable opcache for CLI
 RUN echo 'opcache.enable_cli = 1' >> "$PHP_INI_DIR/php.ini"

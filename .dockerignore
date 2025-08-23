@@ -31,7 +31,8 @@
 **/secrets.dev.yaml
 **/values.dev.yaml
 **/vendor
-import
-export
+**/import
+**/export
 LICENSE
 README.md
+sc-data
