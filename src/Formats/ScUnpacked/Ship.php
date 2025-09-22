@@ -33,7 +33,7 @@ final class Ship extends BaseFormat
 
     public function toArray(): array
     {
-        $attach = $this->get();
+        $attach = $this->vehicleWrapper->entity->getAttachDef();
         $vehicleComponent = $this->get('Components/VehicleComponentParams');
 
         $vehicleComponentData = [];
