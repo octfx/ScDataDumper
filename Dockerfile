@@ -17,11 +17,7 @@ RUN --mount=type=bind,source=composer.json,target=composer.json \
     --mount=type=cache,target=/tmp/cache \
     composer install --no-dev --no-interaction
 
-FROM php:8.3-fpm as final
-
-# Install the OPcache extension
-RUN docker-php-ext-configure opcache --enable-opcache \
-    && docker-php-ext-install opcache
+FROM php:8.5-fpm as final
 
 # Use the default production configuration for PHP runtime arguments, see
 # https://github.com/docker-library/docs/tree/master/php#configuration
