@@ -74,6 +74,7 @@ final class Item extends BaseFormat
                 'Shield' => new Shield($this->item),
                 'SuitArmor' => new SuitArmor($this->item),
                 'TemperatureResistance' => new TemperatureResistance($this->item),
+                'RadiationResistance' => new RadiationResistance($this->item),
                 'Thruster' => new Thruster($this->item),
                 'Weapon' => new Weapon($this->item),
                 'WeaponRegenPool' => new WeaponRegenPool($this->item),
