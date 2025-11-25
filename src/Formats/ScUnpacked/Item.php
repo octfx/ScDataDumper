@@ -60,6 +60,7 @@ final class Item extends BaseFormat
                 'FuelIntake' => new HydrogenFuelIntake($this->item),
                 'FuelTank' => new FuelTank($this->item, 'FuelTank'),
                 'HeatConnection' => new HeatConnection($this->item),
+                'Helmet' => new Helmet($this->item),
                 'Ifcs' => new Ifcs($this->item),
                 'InventoryContainer' => new InventoryContainer($this->item),
                 'MeleeWeapon' => new MeleeWeapon($this->item),
