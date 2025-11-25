@@ -118,8 +118,6 @@ final class Ship extends BaseFormat
             $data['Mass'] = $this->item->get('SSCActorPhysicsControllerComponentParams/physType/SEntityActorPhysicsControllerParams@Mass');
         }
 
-
-
         $portSummary = $this->buildPortSummary($parts->toArray());
         $portSummary = $this->installItems($portSummary);
 

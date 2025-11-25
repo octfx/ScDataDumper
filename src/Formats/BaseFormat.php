@@ -69,9 +69,9 @@ abstract class BaseFormat
     /**
      * Checks if the retrieved element's name is equal to the last key part, or if an attribute with this name exist
      *
-     * Example: Passing `Components.IFCSParams` checks if `Components->IFCSParams->nodeName === IFCSParams`
+     * Example: Passing `Components/IFCSParams` checks if `Components->IFCSParams->nodeName === IFCSParams`
      *
-     * @param  string  $key  Format Element.Child.Child...
+     * @param  string  $key  Format Element/Child/Child...
      */
     public function has(string $key, ?string $elementName = null): bool
     {
