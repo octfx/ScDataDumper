@@ -75,6 +75,11 @@ class LoadItems extends Command
 
         $index = [];
 
+        if ($input->hasOption('typeFilter')) {
+            $typeFilter = $input->getOption('typeFilter') ?? '';
+            $avoids += array_map('trim', explode(',', $typeFilter));
+        }
+
         $iter = $service->iterator();
 
         foreach ($iter as $item) {
@@ -84,7 +89,7 @@ class LoadItems extends Command
 
             $io->progressAdvance();
 
-            if ($attach === null || $type === null || in_array(strtolower($type), $avoids)) {
+            if ($attach === null || $type === null || in_array(strtolower($type), $avoids, true)) {
                 continue;
             }
 
@@ -98,6 +103,7 @@ class LoadItems extends Command
             if (! $overwrite && file_exists($filePath)) {
                 continue;
             }
+
 
             $ref = fopen($filePath, 'wb');
             try {
@@ -161,6 +167,7 @@ class LoadItems extends Command
         $this->setHelp('php cli.php load:items Path/To/ScDataDir Path/To/JsonOutDir');
         $this->addArgument('scDataPath', InputArgument::REQUIRED);
         $this->addArgument('jsonOutPath', InputArgument::REQUIRED);
+        $this->addOption('typeFilter', 't',InputArgument::OPTIONAL, 'Filter by type (comma separated list)');
         $this->addOption('overwrite');
         $this->addOption('scUnpackedFormat');
     }
