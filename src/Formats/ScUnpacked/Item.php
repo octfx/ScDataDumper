@@ -2,6 +2,7 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
+use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\DocumentTypes\SCItemManufacturer;
 use Octfx\ScDataDumper\Formats\BaseFormat;
@@ -74,6 +75,7 @@ final class Item extends BaseFormat
                 'CargoGrid' => new CargoGrid($this->item),
                 'Cooler' => new Cooler($this->item),
                 'DimensionOverrides' => new DimensionOverrides($this->item),
+                'Distortion' => new Distortion($this->item),
                 'Durability' => new Durability($this->item),
                 'Emp' => new EMP($this->item),
                 'Food' => new Food($this->item),
@@ -82,12 +84,16 @@ final class Item extends BaseFormat
                 'HeatConnection' => new HeatConnection($this->item),
                 'Helmet' => new Helmet($this->item),
                 'Ifcs' => new Ifcs($this->item),
+                'Interactions' => new Interactions($this->item),
                 'InventoryContainer' => new InventoryContainer($this->item),
+                'ResourceContainer' => new ResourceContainer($this->item),
                 'MeleeWeapon' => new MeleeWeapon($this->item),
                 'Missile' => new Missile($this->item),
                 'MissileRack' => new MissileRack($this->item),
                 'PowerConnection' => new PowerConnection($this->item),
                 'PowerPlant' => new PowerPlant($this->item),
+//                'ResourceNetwork' => new ResourceNetwork($this->item),
+                'ResourceNetwork' => new ResourceNetworkSimple($this->item),
                 'QuantumDrive' => new QuantumDrive($this->item),
                 'QuantumFuelTank' => new FuelTank($this->item, 'QuantumFuelTank'),
                 'QuantumInterdiction' => new QuantumInterdictionGenerator($this->item),
@@ -107,7 +113,7 @@ final class Item extends BaseFormat
         return $this->removeNullValues($data);
     }
 
-    public static function convertToScu(?EntityClassDefinition $item): ?float
+    public static function convertToScu(EntityClassDefinition|Element|null $item): ?float
     {
         if (! $item) {
             return null;
@@ -143,8 +149,10 @@ final class Item extends BaseFormat
     {
         $ports = [];
 
+        $loadoutMap = $this->buildLoadoutMap();
+
         foreach ($this->item->get('Components/SItemPortContainerComponentParams/Ports')?->childNodes ?? [] as $port) {
-            $port = (new ItemPort($port))->toArray();
+            $port = (new ItemPort($port, $loadoutMap))->toArray();
 
             if ($port !== null) {
                 $ports[] = $port;
@@ -152,6 +160,49 @@ final class Item extends BaseFormat
         }
 
         return $ports;
+    }
+
+    /**
+     * Extract default loadout entries and map port names to equipped item UUIDs
+     *
+     * @return array<string, string> Map of lowercase port name to item UUID
+     */
+    private function buildLoadoutMap(): array
+    {
+        $loadoutMap = [];
+
+        $loadoutEntries = $this->item->get(
+            'Components/SEntityComponentDefaultLoadoutParams/loadout/SItemPortLoadoutManualParams/entries'
+        );
+
+        if (! $loadoutEntries) {
+            return $loadoutMap;
+        }
+
+        $itemService = ServiceFactory::getItemService();
+
+        foreach ($loadoutEntries->children() ?? [] as $entry) {
+            $entityClassName = $entry->get('@entityClassName');
+
+            if (empty($entityClassName)) {
+                continue;
+            }
+
+            $itemUuid = $itemService->getUuidByClassName($entityClassName);
+
+            if ($itemUuid === null) {
+                continue;
+            }
+
+            $portName = $entry->get('@itemPortName');
+            if (empty($portName)) {
+                continue;
+            }
+
+            $loadoutMap[strtolower($portName)] = $itemUuid;
+        }
+
+        return $loadoutMap;
     }
 
     private function processArray(&$array): void

@@ -15,6 +15,8 @@ final class Durability extends BaseFormat
         return [
             'Lifetime' => $this->get('Components/SDegradationParams@MaxLifetimeHours'),
             'Health' => $this->get('Components/SHealthComponentParams@Health'),
+            'Salvageable' => $this->get('Components/SHealthComponentParams@IsSalvagable'),
+            'Repairable' => $this->get('Components/SHealthComponentParams@IsRepairable'),
         ];
     }
 

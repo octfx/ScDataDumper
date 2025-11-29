@@ -6,7 +6,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class DamageResistance extends BaseFormat
 {
-    protected ?string $elementKey = 'damageResistance';
+    protected ?string $elementKey = '/damageResistance';
 
     public function toArray(): ?array
     {

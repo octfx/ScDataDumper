@@ -58,6 +58,21 @@ final class ItemService extends BaseService
         return $this->load(self::$uuidToPathMap[$reference]);
     }
 
+    /**
+     * Get item UUID by class name using the cache map
+     *
+     * @param  string|null  $className  The entity class name
+     * @return string|null The UUID if found, null otherwise
+     */
+    public function getUuidByClassName(?string $className): ?string
+    {
+        if ($className === null || empty($className)) {
+            return null;
+        }
+
+        return self::$classToUuidMap[$className] ?? null;
+    }
+
     public function load(string $filePath, string $class = EntityClassDefinition::class): EntityClassDefinition
     {
         if (! file_exists($filePath)) {

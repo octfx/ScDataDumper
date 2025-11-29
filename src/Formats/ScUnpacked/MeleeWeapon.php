@@ -25,6 +25,10 @@ final class MeleeWeapon extends BaseFormat
             ]
         );
 
+        if ($attributes['meleeCombatConfig'] === '00000000-0000-0000-0000-000000000000') {
+            return null;
+        }
+
         $out = [
             ...$attributes,
             'Modes' => [],

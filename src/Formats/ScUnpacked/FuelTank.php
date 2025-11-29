@@ -8,7 +8,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class FuelTank extends BaseFormat
 {
-    protected ?string $elementKey = 'Components/SCItemFuelTankParams';
+    protected ?string $elementKey = 'Components/ResourceContainer';
 
     public function __construct(RootDocument|Element $element, private readonly string $type = 'FuelTank')
     {
@@ -22,7 +22,7 @@ final class FuelTank extends BaseFormat
         }
 
         return [
-            'Capacity' => (float) $this->get('capacity'),
+            'Capacity' => (float) Item::convertToScu($this->get('capacity')),
         ];
     }
 
