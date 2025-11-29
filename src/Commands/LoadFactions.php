@@ -12,9 +12,11 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Exception\ExceptionInterface;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Throwable;
 
 #[AsCommand(
     name: 'load:factions',
@@ -55,9 +57,25 @@ class LoadFactions extends Command
             $fileName = strtolower($faction->getClassName());
             $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
 
-            $ref = fopen($filePath, 'wb');
-            fwrite($ref, $faction->toJson());
-            fclose($ref);
+            if (! $overwrite && file_exists($filePath)) {
+                $io->progressAdvance();
+
+                continue;
+            }
+
+            try {
+                if (! $this->writeJsonFile($filePath, $faction->toJson(), $io)) {
+                    $io->warning(sprintf('Skipping faction %s due to write failure', $fileName));
+                    $io->progressAdvance();
+
+                    continue;
+                }
+            } catch (JsonException $e) {
+                $io->warning(sprintf('Failed to encode JSON for faction %s: %s', $fileName, $e->getMessage()));
+                $io->progressAdvance();
+
+                continue;
+            }
 
             $io->progressAdvance();
         }
@@ -73,12 +91,44 @@ class LoadFactions extends Command
         return Command::SUCCESS;
     }
 
+    /**
+     * Safely write JSON content to file
+     */
+    private function writeJsonFile(string $filePath, string $content, SymfonyStyle $io): bool
+    {
+        try {
+            $bytesWritten = file_put_contents($filePath, $content);
+
+            if ($bytesWritten === false) {
+                $io->error(sprintf('Failed to write file: %s', $filePath));
+
+                return false;
+            }
+
+            return true;
+        } catch (Throwable $e) {
+            $io->error(sprintf('Error writing %s: %s', $filePath, $e->getMessage()));
+
+            return false;
+        }
+    }
+
     protected function configure(): void
     {
         $this->setHelp('php cli.php load:factions Path/To/ScDataDir Path/To/JsonOutDir');
-        $this->addArgument('scDataPath', InputArgument::REQUIRED);
-        $this->addArgument('jsonOutPath', InputArgument::REQUIRED);
-        $this->addOption('overwrite');
-        $this->addOption('scUnpackedFormat');
+        $this->addArgument('scDataPath', InputArgument::REQUIRED, 'Path to unpacked Star Citizen data directory');
+        $this->addArgument('jsonOutPath', InputArgument::REQUIRED, 'Output directory for exported JSON files');
+        $this->addOption(
+            'overwrite',
+            null,
+            InputOption::VALUE_NONE,
+            'Overwrite existing faction JSON files'
+        );
+        $this->addOption(
+            'scUnpackedFormat',
+            null,
+            InputOption::VALUE_NONE,
+            'Export factions in SC Unpacked format (currently has no effect)'
+        );
     }
 }

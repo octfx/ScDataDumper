@@ -23,7 +23,7 @@ class LoadTranslations extends Command
     /**
      * @throws JsonException
      */
-    public function execute(InputInterface $input, OutputInterface $output): int
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
         $io->title('[ScDataDumper] Loading translations');
@@ -35,11 +35,43 @@ class LoadTranslations extends Command
         $io->info('Writing translations to labels.json...');
 
         $filePath = sprintf('%s%slabels.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
-        $ref = fopen($filePath, 'wb');
-        fwrite($ref, json_encode($translations, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
-        fclose($ref);
+
+        try {
+            $json = json_encode($translations, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
+            if (! $this->writeJsonFile($filePath, $json, $io)) {
+                $io->error('Failed to write translations file');
+
+                return Command::FAILURE;
+            }
+        } catch (JsonException $e) {
+            $io->error(sprintf('Failed to encode translations data: %s', $e->getMessage()));
+
+            return Command::FAILURE;
+        }
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * Safely write JSON content to file
+     */
+    private function writeJsonFile(string $filePath, string $content, SymfonyStyle $io): bool
+    {
+        try {
+            $bytesWritten = file_put_contents($filePath, $content);
+
+            if ($bytesWritten === false) {
+                $io->error(sprintf('Failed to write file: %s', $filePath));
+
+                return false;
+            }
+
+            return true;
+        } catch (\Throwable $e) {
+            $io->error(sprintf('Error writing %s: %s', $filePath, $e->getMessage()));
+
+            return false;
+        }
     }
 
     protected function configure(): void

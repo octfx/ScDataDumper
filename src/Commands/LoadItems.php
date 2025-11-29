@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Commands;
 
-use Exception;
 use JsonException;
 use Octfx\ScDataDumper\Formats\ScUnpacked\Item;
 use Octfx\ScDataDumper\Services\ServiceFactory;
@@ -14,6 +13,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Exception\ExceptionInterface;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
@@ -104,7 +104,6 @@ class LoadItems extends Command
                 continue;
             }
 
-            $ref = fopen($filePath, 'wb');
             try {
                 if ($input->getOption('scUnpackedFormat')) {
                     $json = json_encode([
@@ -122,11 +121,15 @@ class LoadItems extends Command
                     $json = $item->toJson();
                 }
 
-                fwrite($ref, $json);
-            } catch (Exception $e) {
-                $io->error('Could not write file '.$fileName);
-            } finally {
-                fclose($ref);
+                if (! $this->writeJsonFile($filePath, $json, $io)) {
+                    $io->warning(sprintf('Skipping item %s due to write failure', $fileName));
+
+                    continue;
+                }
+            } catch (JsonException $e) {
+                $io->warning(sprintf('Failed to encode JSON for item %s: %s', $fileName, $e->getMessage()));
+
+                continue;
             }
         }
 
@@ -139,9 +142,19 @@ class LoadItems extends Command
         ));
 
         $filePath = sprintf('%s%sitems.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
-        $ref = fopen($filePath, 'wb');
-        fwrite($ref, json_encode($index, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
-        fclose($ref);
+
+        try {
+            $json = json_encode($index, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
+            if (! $this->writeJsonFile($filePath, $json, $io)) {
+                $io->error('Failed to write items index file');
+
+                return Command::FAILURE;
+            }
+        } catch (JsonException $e) {
+            $io->error(sprintf('Failed to encode items index: %s', $e->getMessage()));
+
+            return Command::FAILURE;
+        }
 
         $index = collect($index);
 
@@ -149,25 +162,82 @@ class LoadItems extends Command
         $shipItems = $index->filter(static fn ($item) => ! empty($item['classification']) && str_starts_with($item['classification'], 'Ship.'))->values()->toArray();
 
         $filePath = sprintf('%s%sfps-items.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
-        $ref = fopen($filePath, 'wb');
-        fwrite($ref, json_encode($fpsItems, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
-        fclose($ref);
+
+        try {
+            $json = json_encode($fpsItems, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
+            if (! $this->writeJsonFile($filePath, $json, $io)) {
+                $io->error('Failed to write FPS items index file');
+
+                return Command::FAILURE;
+            }
+        } catch (JsonException $e) {
+            $io->error(sprintf('Failed to encode FPS items index: %s', $e->getMessage()));
+
+            return Command::FAILURE;
+        }
 
         $filePath = sprintf('%s%sship-items.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
-        $ref = fopen($filePath, 'wb');
-        fwrite($ref, json_encode($shipItems, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
-        fclose($ref);
+
+        try {
+            $json = json_encode($shipItems, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
+            if (! $this->writeJsonFile($filePath, $json, $io)) {
+                $io->error('Failed to write ship items index file');
+
+                return Command::FAILURE;
+            }
+        } catch (JsonException $e) {
+            $io->error(sprintf('Failed to encode ship items index: %s', $e->getMessage()));
+
+            return Command::FAILURE;
+        }
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * Safely write JSON content to file
+     */
+    private function writeJsonFile(string $filePath, string $content, SymfonyStyle $io): bool
+    {
+        try {
+            $bytesWritten = file_put_contents($filePath, $content);
+
+            if ($bytesWritten === false) {
+                $io->error(sprintf('Failed to write file: %s', $filePath));
+
+                return false;
+            }
+
+            return true;
+        } catch (\Throwable $e) {
+            $io->error(sprintf('Error writing %s: %s', $filePath, $e->getMessage()));
+
+            return false;
+        }
     }
 
     protected function configure(): void
     {
         $this->setHelp('php cli.php load:items Path/To/ScDataDir Path/To/JsonOutDir');
-        $this->addArgument('scDataPath', InputArgument::REQUIRED);
-        $this->addArgument('jsonOutPath', InputArgument::REQUIRED);
-        $this->addOption('typeFilter', 't', InputArgument::OPTIONAL, 'Filter by type (comma separated list)');
-        $this->addOption('overwrite');
-        $this->addOption('scUnpackedFormat');
+        $this->addArgument('scDataPath', InputArgument::REQUIRED, 'Path to unpacked Star Citizen data directory');
+        $this->addArgument('jsonOutPath', InputArgument::REQUIRED, 'Output directory for exported JSON files');
+        $this->addOption(
+            'typeFilter',
+            't',
+            InputOption::VALUE_OPTIONAL,
+            'Comma-separated list of item types to exclude from export (e.g., "helmet,armor")'
+        );
+        $this->addOption(
+            'overwrite',
+            null,
+            InputOption::VALUE_NONE,
+            'Overwrite existing item JSON files'
+        );
+        $this->addOption(
+            'scUnpackedFormat',
+            null,
+            InputOption::VALUE_NONE,
+            'Export items in SC Unpacked format with Raw entity data and formatted Item data'
+        );
     }
 }

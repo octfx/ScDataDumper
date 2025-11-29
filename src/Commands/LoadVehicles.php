@@ -13,6 +13,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Exception\ExceptionInterface;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
@@ -77,15 +78,29 @@ class LoadVehicles extends Command
                 continue;
             }
 
-            $ref = fopen($filePath, 'wb');
-            fwrite($ref, json_encode($out, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
-            fclose($ref);
+            try {
+                $jsonRaw = json_encode($out, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
+                if (! $this->writeJsonFile($filePath, $jsonRaw, $io)) {
+                    $io->warning(sprintf('Skipping vehicle %s due to write failure', $fileName));
+                    $io->progressAdvance();
 
-            $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
+                    continue;
+                }
 
-            $ref = fopen($filePath, 'wb');
-            fwrite($ref, json_encode($scUnpackedShip, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
-            fclose($ref);
+                $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
+                $jsonShip = json_encode($scUnpackedShip, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
+                if (! $this->writeJsonFile($filePath, $jsonShip, $io)) {
+                    $io->warning(sprintf('Skipping formatted vehicle %s due to write failure', $fileName));
+                    $io->progressAdvance();
+
+                    continue;
+                }
+            } catch (JsonException $e) {
+                $io->warning(sprintf('Failed to encode JSON for vehicle %s: %s', $fileName, $e->getMessage()));
+                $io->progressAdvance();
+
+                continue;
+            }
 
             $io->progressAdvance();
         }
@@ -99,19 +114,61 @@ class LoadVehicles extends Command
         ));
 
         $filePath = sprintf('%s%sships.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
-        $ref = fopen($filePath, 'wb');
-        fwrite($ref, json_encode($index, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
-        fclose($ref);
+
+        try {
+            $json = json_encode($index, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
+            if (! $this->writeJsonFile($filePath, $json, $io)) {
+                $io->error('Failed to write ships index file');
+
+                return Command::FAILURE;
+            }
+        } catch (JsonException $e) {
+            $io->error(sprintf('Failed to encode ships index: %s', $e->getMessage()));
+
+            return Command::FAILURE;
+        }
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * Safely write JSON content to file
+     */
+    private function writeJsonFile(string $filePath, string $content, SymfonyStyle $io): bool
+    {
+        try {
+            $bytesWritten = file_put_contents($filePath, $content);
+
+            if ($bytesWritten === false) {
+                $io->error(sprintf('Failed to write file: %s', $filePath));
+
+                return false;
+            }
+
+            return true;
+        } catch (\Throwable $e) {
+            $io->error(sprintf('Error writing %s: %s', $filePath, $e->getMessage()));
+
+            return false;
+        }
     }
 
     protected function configure(): void
     {
         $this->setHelp('php cli.php load:vehicles Path/To/ScDataDir Path/To/JsonOutDir');
-        $this->addArgument('scDataPath', InputArgument::REQUIRED);
-        $this->addArgument('jsonOutPath', InputArgument::REQUIRED);
-        $this->addOption('overwrite');
-        $this->addOption('scUnpackedFormat');
+        $this->addArgument('scDataPath', InputArgument::REQUIRED, 'Path to unpacked Star Citizen data directory');
+        $this->addArgument('jsonOutPath', InputArgument::REQUIRED, 'Output directory for exported JSON files');
+        $this->addOption(
+            'overwrite',
+            null,
+            InputOption::VALUE_NONE,
+            'Overwrite existing vehicle JSON files'
+        );
+        $this->addOption(
+            'scUnpackedFormat',
+            null,
+            InputOption::VALUE_NONE,
+            'Export vehicles in SC Unpacked format (currently has no effect)'
+        );
     }
 }

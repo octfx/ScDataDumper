@@ -62,13 +62,45 @@ class LoadManufacturers extends Command
         $io->progressFinish();
 
         $filePath = sprintf('%s%smanufacturers.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
-        $ref = fopen($filePath, 'wb');
-        fwrite($ref, json_encode($manufacturers, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
-        fclose($ref);
+
+        try {
+            $json = json_encode($manufacturers, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
+            if (! $this->writeJsonFile($filePath, $json, $io)) {
+                $io->error('Failed to write manufacturers file');
+
+                return Command::FAILURE;
+            }
+        } catch (JsonException $e) {
+            $io->error(sprintf('Failed to encode manufacturers data: %s', $e->getMessage()));
+
+            return Command::FAILURE;
+        }
 
         $io->success(sprintf('Manufacturers successfully dumped to %s', $filePath));
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * Safely write JSON content to file
+     */
+    private function writeJsonFile(string $filePath, string $content, SymfonyStyle $io): bool
+    {
+        try {
+            $bytesWritten = file_put_contents($filePath, $content);
+
+            if ($bytesWritten === false) {
+                $io->error(sprintf('Failed to write file: %s', $filePath));
+
+                return false;
+            }
+
+            return true;
+        } catch (\Throwable $e) {
+            $io->error(sprintf('Error writing %s: %s', $filePath, $e->getMessage()));
+
+            return false;
+        }
     }
 
     protected function configure(): void

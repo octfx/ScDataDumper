@@ -16,12 +16,12 @@ use Symfony\Component\Console\Application;
 
 $application = new Application('ScDataDumper', '1.0.0');
 
-$application->add(new GenerateCache);
-$application->add(new LoadItems);
-$application->add(new LoadVehicles);
-$application->add(new LoadFactions);
-$application->add(new LoadData);
-$application->add(new LoadTranslations);
-$application->add(new LoadManufacturers);
+$application->addCommand(new GenerateCache);
+$application->addCommand(new LoadItems);
+$application->addCommand(new LoadVehicles);
+$application->addCommand(new LoadFactions);
+$application->addCommand(new LoadData);
+$application->addCommand(new LoadTranslations);
+$application->addCommand(new LoadManufacturers);
 
 $application->run();

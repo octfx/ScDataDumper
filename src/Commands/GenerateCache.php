@@ -10,6 +10,7 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
@@ -90,7 +91,12 @@ class GenerateCache extends Command
     protected function configure(): void
     {
         $this->setHelp('php cli.php generate:cache Path/To/ScDataDir');
-        $this->addArgument('path', InputArgument::REQUIRED);
-        $this->addOption('overwrite', description: 'Overwrite existing cache files');
+        $this->addArgument('path', InputArgument::REQUIRED, 'Path to unpacked Star Citizen data directory');
+        $this->addOption(
+            'overwrite',
+            null,
+            InputOption::VALUE_NONE,
+            'Overwrite existing cache files'
+        );
     }
 }
