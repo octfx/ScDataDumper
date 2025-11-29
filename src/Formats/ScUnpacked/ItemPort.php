@@ -20,6 +20,8 @@ class ItemPort extends BaseFormat
             'PortName' => $this instanceof VehiclePartPort ? $port->parentNode->attributes->getNamedItem('name')?->nodeValue : $port->get('@Name'),
             'DisplayName' => $this instanceof VehiclePartPort ? $port->get('@display_name') : null,
             'Size' => $port->get('@MaxSize') ?? $port->get('@maxSize'),
+            'MaxSize' => $port->get('@MaxSize') ?? $port->get('@maxSize'),
+            'MinSize' => $port->get('@MinSize') ?? $port->get('@minSize'),
             'Flags' => $this->buildFlagsList($port),
             'Tags' => array_filter(explode(' ', $port->get('@PortTags'))),
             'RequiredTags' => array_filter(explode(' ', $port->get('@RequiredPortTags'))),

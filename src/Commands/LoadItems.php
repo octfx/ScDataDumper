@@ -104,7 +104,6 @@ class LoadItems extends Command
                 continue;
             }
 
-
             $ref = fopen($filePath, 'wb');
             try {
                 if ($input->getOption('scUnpackedFormat')) {
@@ -167,7 +166,7 @@ class LoadItems extends Command
         $this->setHelp('php cli.php load:items Path/To/ScDataDir Path/To/JsonOutDir');
         $this->addArgument('scDataPath', InputArgument::REQUIRED);
         $this->addArgument('jsonOutPath', InputArgument::REQUIRED);
-        $this->addOption('typeFilter', 't',InputArgument::OPTIONAL, 'Filter by type (comma separated list)');
+        $this->addOption('typeFilter', 't', InputArgument::OPTIONAL, 'Filter by type (comma separated list)');
         $this->addOption('overwrite');
         $this->addOption('scUnpackedFormat');
     }

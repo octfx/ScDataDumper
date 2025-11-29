@@ -3,7 +3,9 @@
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
+use Octfx\ScDataDumper\DocumentTypes\SCItemManufacturer;
 use Octfx\ScDataDumper\Formats\BaseFormat;
+use Octfx\ScDataDumper\Helper\ItemDescriptionParser;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class Item extends BaseFormat
@@ -15,7 +17,20 @@ final class Item extends BaseFormat
         $attach = $this->get();
 
         $manufacturer = $attach->get('Manufacturer');
+        /** @var SCItemManufacturer|null $manufacturer */
         $manufacturer = ServiceFactory::getManufacturerService()->getByReference($manufacturer);
+
+        $defaultManufacturer = [
+            'Name' => 'Unknown Manufacturer',
+            'Code' => 'UNKN',
+            'UUID' => '00000000-0000-0000-0000-000000000000',
+        ];
+
+        $hasManufacturer = $manufacturer && $manufacturer->get('Localization@__Name') !== '@LOC_PLACEHOLDER';
+
+        $descriptionData = ItemDescriptionParser::parse(
+            $attach->get('Localization/English@Description', '')
+        );
 
         $data = [
             'className' => $this->item->getClassName(),
@@ -27,6 +42,7 @@ final class Item extends BaseFormat
             'grade' => $attach->get('Grade'),
             'name' => $attach->get('Localization/English@Name'),
             'tags' => $attach->get('Tags'),
+            'required_tags' => $attach->get('RequiredTags'),
             'manufacturer' => $manufacturer?->getCode(),
             'classification' => $this->item->getClassification(),
             'stdItem' => [
@@ -38,13 +54,17 @@ final class Item extends BaseFormat
                 'Height' => $attach->get('inventoryOccupancyDimensions@z', 0),
                 'Length' => $attach->get('inventoryOccupancyDimensions@y', 0),
                 'Volume' => self::convertToScu($attach->get('inventoryOccupancyVolume')),
+                'Mass' => $this->item->get('SEntityPhysicsControllerParams.PhysType.SEntityRigidPhysicsControllerParams.Mass', 0),
                 'Type' => self::buildTypeName($attach->get('Type', 'UNKNOWN'), $attach->get('SubType', 'UNKNOWN')),
                 'Name' => $attach->get('Localization/English@Name', ''),
                 'Description' => $attach->get('Localization/English@Description', ''),
-                'Manufacturer' => $manufacturer ? [
+                'DescriptionData' => $descriptionData['data'] ?? null,
+                'DescriptionText' => $descriptionData['description'] ?? null,
+                'Manufacturer' => $hasManufacturer ? [
                     'Code' => $manufacturer->getCode(),
                     'Name' => $manufacturer->get('Localization/English@Name'),
-                ] : [],
+                    'UUID' => $manufacturer->getUuid(),
+                ] : $defaultManufacturer,
                 'Tags' => $this->item->getTagList(),
                 'Ports' => $this->buildPortsList(),
 

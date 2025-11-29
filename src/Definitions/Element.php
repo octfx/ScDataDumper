@@ -98,6 +98,11 @@ class Element
                 if (is_numeric($value)) {
                     $attributes[$name] = (float) $value;
                 } elseif (str_starts_with((string) $value, '@')) {
+                    // Someone accidentally put the description in the name attribute
+                    if ($name === 'Name' && str_contains($value, '_Desc_')) {
+                        $value = str_replace('_Desc_', '_Name_', $value);
+                    }
+
                     $attributes[$name] = ServiceFactory::getLocalizationService()->getTranslation((string) $value);
                     $attributes['__'.$name] = (string) $value;
                 } else {
