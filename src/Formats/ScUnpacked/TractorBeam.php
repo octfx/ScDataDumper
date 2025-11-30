@@ -41,15 +41,15 @@ final class TractorBeam extends BaseFormat
             'AllowScrollingIntoBreakingRange' => $this->castBool($beam->get('@allowScrollingIntoBreakingRange')),
             'ShouldFireInHangars' => $this->castBool($beam->get('@shouldFireInHangars')),
             'ShouldTractorSelf' => $this->castBool($beam->get('@shouldTractorSelf')),
-            'Input' => $this->capitalizeArrayKeys($beam->get('inputParams')?->attributesToArray() ?? []),
-            'Movement' => $this->capitalizeArrayKeys($beam->get('movementParams')?->attributesToArray() ?? []),
-            'AttachDetach' => $this->capitalizeArrayKeys($beam->get('attachDetachParams')?->attributesToArray() ?? []),
-            'Rotation' => $this->capitalizeArrayKeys($beam->get('rotationParams')?->attributesToArray() ?? []),
-            'Grapple' => $this->capitalizeArrayKeys($beam->get('grappleParams')?->attributesToArray() ?? []),
-            'Vehicle' => $this->capitalizeArrayKeys($beam->get('vehicleParams')?->attributesToArray() ?? []),
-            'MultiTractor' => $this->capitalizeArrayKeys($beam->get('multitractorParams')?->attributesToArray() ?? []),
-            'BeamStrength' => $this->capitalizeArrayKeys($beam->get('beamStrengthValues')?->attributesToArray() ?? []),
-            'CargoModeOverride' => $this->capitalizeArrayKeys(
+            'Input' => $this->transformArrayKeysToPascalCase($beam->get('inputParams')?->attributesToArray() ?? []),
+            'Movement' => $this->transformArrayKeysToPascalCase($beam->get('movementParams')?->attributesToArray() ?? []),
+            'AttachDetach' => $this->transformArrayKeysToPascalCase($beam->get('attachDetachParams')?->attributesToArray() ?? []),
+            'Rotation' => $this->transformArrayKeysToPascalCase($beam->get('rotationParams')?->attributesToArray() ?? []),
+            'Grapple' => $this->transformArrayKeysToPascalCase($beam->get('grappleParams')?->attributesToArray() ?? []),
+            'Vehicle' => $this->transformArrayKeysToPascalCase($beam->get('vehicleParams')?->attributesToArray() ?? []),
+            'MultiTractor' => $this->transformArrayKeysToPascalCase($beam->get('multitractorParams')?->attributesToArray() ?? []),
+            'BeamStrength' => $this->transformArrayKeysToPascalCase($beam->get('beamStrengthValues')?->attributesToArray() ?? []),
+            'CargoModeOverride' => $this->transformArrayKeysToPascalCase(
                 $beam->get('attachDetachParams/cargoModeOverrideParams')?->attributesToArray() ?? []
             ),
         ];

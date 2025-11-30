@@ -19,15 +19,15 @@ final class InventoryContainer extends BaseFormat
 
         return [
             'SCU' => $container?->getSCU(),
-            'unit' => $container?->getScuConversionUnit(),
-            'unitName' => $container?->getCapacityName(),
+            'Unit' => $container?->getScuConversionUnit(),
+            'UnitName' => $container?->getCapacityName(),
             ...($container?->getInteriorDimensions() ?? []),
-            'minSize' => $container?->getMinPermittedItemSize(),
-            'maxSize' => $container?->getMaxPermittedItemSize(),
-            'isOpenContainer' => $container?->isOpenContainer(),
-            'isExternalContainer' => $container?->isExternalContainer(),
-            'isClosedContainer' => $container?->isClosedContainer(),
-            'uuid' => $container?->getUuid(),
+            'MinSize' => $container?->getMinPermittedItemSize(),
+            'MaxSize' => $container?->getMaxPermittedItemSize(),
+            'IsOpenContainer' => $container?->isOpenContainer(),
+            'IsExternalContainer' => $container?->isExternalContainer(),
+            'IsClosedContainer' => $container?->isClosedContainer(),
+            'UUID' => $container?->getUuid(),
         ];
     }
 

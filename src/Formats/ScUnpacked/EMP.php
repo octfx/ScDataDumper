@@ -14,6 +14,8 @@ final class EMP extends BaseFormat
             return null;
         }
 
-        return $this->get()?->attributesToArray();
+        $attributes = $this->get()?->attributesToArray();
+
+        return $attributes ? $this->transformArrayKeysToPascalCase($attributes) : null;
     }
 }

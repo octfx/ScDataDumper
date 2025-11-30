@@ -22,6 +22,6 @@ final class CargoGrid extends BaseFormat
             'Height' => $grid->get('dimensions@z'),
             'Depth' => $grid->get('dimensions@y'),
             'Capacity' => ($grid->get('dimensions@x') * $grid->get('dimensions@y') * $grid->get('dimensions@z')) / M_TO_SCU_UNIT,
-        ] + $attribs;
+        ] + ($attribs ? $this->transformArrayKeysToPascalCase($attribs) : []);
     }
 }

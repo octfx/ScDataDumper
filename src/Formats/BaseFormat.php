@@ -112,27 +112,38 @@ abstract class BaseFormat
      */
     protected function toPascalCase(string $value): string
     {
-        $value = str_replace(['_', '-'], ' ', $value);
+        if (ctype_upper($value[0]) && ! str_contains($value, '_') && ! str_contains($value, '-')) {
+            $acronyms = ['Uuid' => 'UUID', 'Scu' => 'SCU', 'Ifcs' => 'IFCS', 'Emp' => 'EMP'];
 
-        return str_replace(' ', '', ucwords($value));
+            return $acronyms[$value] ?? $value;
+        }
+
+        $value = str_replace(['_', '-'], ' ', $value);
+        $result = str_replace(' ', '', ucwords($value));
+
+        $acronyms = ['Uuid' => 'UUID', 'Scu' => 'SCU', 'Ifcs' => 'IFCS', 'Emp' => 'EMP'];
+
+        return $acronyms[$result] ?? $result;
     }
 
     /**
-     * Capitalizes the first letter of each array key
-     * Useful for transforming camelCase map keys to PascalCase
+     * Recursively transforms all array keys to PascalCase
      *
-     * @param  array  $attributes  Array with camelCase keys
-     * @return array Array with PascalCase keys
+     * @param  array  $data  The array with mixed case keys
+     * @return array Array with all keys in PascalCase
      */
-    protected function capitalizeArrayKeys(array $attributes): array
+    protected function transformArrayKeysToPascalCase(array $data): array
     {
-        $out = [];
+        $result = [];
 
-        foreach ($attributes as $key => $value) {
-            $out[ucfirst($key)] = $value;
+        foreach ($data as $key => $value) {
+            $pascalKey = $this->toPascalCase($key);
+            $result[$pascalKey] = is_array($value)
+                ? $this->transformArrayKeysToPascalCase($value)
+                : $value;
         }
 
-        return $out;
+        return $result;
     }
 
     /**

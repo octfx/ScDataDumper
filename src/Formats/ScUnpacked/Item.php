@@ -91,6 +91,7 @@ final class Item extends BaseFormat
                 'Interactions' => new Interactions($this->item),
                 'InventoryContainer' => new InventoryContainer($this->item),
                 'ResourceContainer' => new ResourceContainer($this->item),
+                'Seat' => new Seat($this->item),
                 'MeleeWeapon' => new MeleeWeapon($this->item),
                 'Missile' => new Missile($this->item),
                 'MissileRack' => new MissileRack($this->item),

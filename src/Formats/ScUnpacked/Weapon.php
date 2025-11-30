@@ -30,7 +30,6 @@ final class Weapon extends BaseFormat
             'Magazine' => $this->buildMagazine(),
             'Attachments' => $this->buildAttachments(),
             'Modes' => [],
-            //            'Ammunition' => $ammunitionArray,
             'Consumption' => (new WeaponConsumption($weapon))->toArray(),
             'Knife' => $this->buildKnife(),
         ];
@@ -45,12 +44,12 @@ final class Weapon extends BaseFormat
 
             $mode = $mode->toArray();
 
-            $impact = is_array($out['Ammunition']['ImpactDamage'] ?? null)
-                ? array_reduce($out['Ammunition']['ImpactDamage'], $damageReducer, 0)
+            $impact = is_array($ammunitionArray['ImpactDamage'] ?? null)
+                ? array_reduce($ammunitionArray['ImpactDamage'], $damageReducer, 0)
                 : 0;
 
-            $detonation = is_array($out['Ammunition']['DetonationDamage'] ?? null)
-                ? array_reduce($out['Ammunition']['DetonationDamage'], $damageReducer, 0)
+            $detonation = is_array($ammunitionArray['DetonationDamage'] ?? null)
+                ? array_reduce($ammunitionArray['DetonationDamage'], $damageReducer, 0)
                 : 0;
 
             $mode['DamagePerShot'] = ($impact + $detonation) * ($mode['PelletsPerShot'] ?? 0);
@@ -136,7 +135,8 @@ final class Weapon extends BaseFormat
         ];
 
         foreach ($config->children() as $attackCategory) {
-            $mode = $attackCategory->attributesToArray(['cameraShakeParams']);
+            $attributes = $attackCategory->attributesToArray(['cameraShakeParams']);
+            $mode = $attributes ? $this->transformArrayKeysToPascalCase($attributes) : [];
             $mode['Damage'] = Damage::fromDamageInfo($attackCategory->get('damageInfo'))?->toArray();
 
             $out['AttackConfig'][] = array_filter($mode, static fn ($v) => $v !== null && $v !== '');

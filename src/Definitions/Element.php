@@ -116,6 +116,34 @@ class Element
         return $attributes;
     }
 
+    /**
+     * Checks if a child element or attribute exists relative to this element.
+     *
+     * @param  string       $key          XPath-like path scoped to this element (e.g. 'child/grandchild@attr')
+     * @param  string|null  $elementName  Expected element name; defaults to the last segment of $key
+     */
+    public function has(string $key, ?string $elementName = null): bool
+    {
+        if (str_contains($key, '.')) {
+            throw new RuntimeException('Element key contains invalid format');
+        }
+
+        $parts = explode('/', $key);
+        $elementName = $elementName ?? array_pop($parts);
+
+        $obj = $this->get($key, $key);
+
+        if ($obj === null) {
+            return false;
+        }
+
+        if (! is_object($obj)) {
+            return $obj !== $key;
+        }
+
+        return $obj instanceof self && $obj->nodeName === $elementName;
+    }
+
     public function __call(string $name, array $arguments)
     {
         return $this->node->{$name}(...$arguments);

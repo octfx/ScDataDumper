@@ -218,8 +218,8 @@ class ItemPort extends BaseFormat
             $subTypes = array_values(array_unique(array_filter($subTypes)));
 
             $compatibleTypes[] = [
-                'type' => $major,
-                'sub_types' => $subTypes,
+                'Type' => $major,
+                'SubTypes' => $subTypes,
             ];
         }
 

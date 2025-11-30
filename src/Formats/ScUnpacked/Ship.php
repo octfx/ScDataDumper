@@ -38,7 +38,8 @@ final class Ship extends BaseFormat
 
         $vehicleComponentData = [];
         if ($vehicleComponent) {
-            $vehicleComponentData = (new Element($vehicleComponent->getNode()))->attributesToArray();
+            $attributes = (new Element($vehicleComponent->getNode()))->attributesToArray();
+            $vehicleComponentData = $attributes ? $this->transformArrayKeysToPascalCase($attributes) : [];
         } else {
             $vehicleComponent = $this->vehicleWrapper->entity->getAttachDef();
         }
