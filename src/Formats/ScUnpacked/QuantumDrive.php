@@ -18,27 +18,55 @@ final class QuantumDrive extends BaseFormat
 
         return [
             'JumpRange' => $quantum->get('jumpRange'),
-            'disconnectRange' => $quantum->get('disconnectRange'),
-            'FuelRate' => $quantum->get('quantumFuelRequirement') / 1e6,
+            'DisconnectRange' => $quantum->get('disconnectRange'),
+            'QuantumFuelRequirement' => $quantum->get('quantumFuelRequirement'),
+            'FuelRate' => $this->formatFuelRate($quantum->get('quantumFuelRequirement')),
             'StandardJump' => new JumpPerformance($quantum->get('/params')),
             'SplineJump' => new JumpPerformance($quantum->get('/splineJumpParams')),
-            'Heat' => [
-                'preRampUpThermalEnergyDraw' => $quantum->get('heatParams@preRampUpThermalEnergyDraw'),
-                'rampUpThermalEnergyDraw' => $quantum->get('heatParams@rampUpThermalEnergyDraw'),
-                'inFlightThermalEnergyDraw' => $quantum->get('heatParams@inFlightThermalEnergyDraw'),
-                'rampDownThermalEnergyDraw' => $quantum->get('heatParams@rampDownThermalEnergyDraw'),
-                'postRampDownThermalEnergyDraw' => $quantum->get('heatParams@postRampDownThermalEnergyDraw'),
-            ],
-            'Boost' => [
-                'maxBoostSpeed' => $quantum->get('quantumBoostParams@maxBoostSpeed'),
-                'timeToMaxBoostSpeed' => $quantum->get('quantumBoostParams@timeToMaxBoostSpeed'),
-                'boostUseTime' => $quantum->get('quantumBoostParams@boostUseTime'),
-                'boostRechargeTime' => $quantum->get('quantumBoostParams@boostRechargeTime'),
-                'stopTime' => $quantum->get('quantumBoostParams@stopTime'),
-                'minJumpDistance' => $quantum->get('quantumBoostParams@minJumpDistance'),
-                'ifcsHandoverDownTime' => $quantum->get('quantumBoostParams@ifcsHandoverDownTime'),
-                'ifcsHandoverRespoolTime' => $quantum->get('quantumBoostParams@ifcsHandoverRespoolTime'),
-            ],
+            'Heat' => $this->formatHeat($quantum->get('/heatParams')),
+            'Boost' => $this->formatBoost($quantum->get('/quantumBoostParams')),
         ];
+    }
+
+    private function formatHeat($heatParams): ?array
+    {
+        if ($heatParams === null) {
+            return null;
+        }
+
+        return [
+            'PreRampUpThermalEnergyDraw' => $heatParams->get('preRampUpThermalEnergyDraw'),
+            'RampUpThermalEnergyDraw' => $heatParams->get('rampUpThermalEnergyDraw'),
+            'InFlightThermalEnergyDraw' => $heatParams->get('inFlightThermalEnergyDraw'),
+            'RampDownThermalEnergyDraw' => $heatParams->get('rampDownThermalEnergyDraw'),
+            'PostRampDownThermalEnergyDraw' => $heatParams->get('postRampDownThermalEnergyDraw'),
+        ];
+    }
+
+    private function formatBoost($boostParams): ?array
+    {
+        if ($boostParams === null) {
+            return null;
+        }
+
+        return [
+            'MaxBoostSpeed' => $boostParams->get('maxBoostSpeed'),
+            'TimeToMaxBoostSpeed' => $boostParams->get('timeToMaxBoostSpeed'),
+            'BoostUseTime' => $boostParams->get('boostUseTime'),
+            'BoostRechargeTime' => $boostParams->get('boostRechargeTime'),
+            'StopTime' => $boostParams->get('stopTime'),
+            'MinJumpDistance' => $boostParams->get('minJumpDistance'),
+            'IfcsHandoverDownTime' => $boostParams->get('ifcsHandoverDownTime'),
+            'IfcsHandoverRespoolTime' => $boostParams->get('ifcsHandoverRespoolTime'),
+        ];
+    }
+
+    private function formatFuelRate(mixed $rawRequirement): ?float
+    {
+        if ($rawRequirement === null) {
+            return null;
+        }
+
+        return $rawRequirement / 1e6;
     }
 }

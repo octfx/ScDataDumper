@@ -375,20 +375,6 @@ final class Ship extends BaseFormat
         }
     }
 
-    private function removeNullValues($array)
-    {
-        foreach ($array as $key => &$value) {
-            if (is_array($value)) {
-                $value = $this->removeNullValues($value);
-            }
-            if ($value === null || (is_array($value) && empty($value))) {
-                unset($array[$key]);
-            }
-        }
-
-        return $array;
-    }
-
     /**
      * @param  array[]  $parts
      */

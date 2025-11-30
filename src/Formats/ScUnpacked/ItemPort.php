@@ -174,7 +174,7 @@ class ItemPort extends BaseFormat
     /**
      * Build structured compatible types list with type and sub_types
      *
-     * @param Element $port  The port element
+     * @param  Element  $port  The port element
      * @return array Array of compatible types with structure: [['type' => string, 'sub_types' => array]]
      */
     private function buildCompatibleTypes(Element $port): array
