@@ -32,7 +32,21 @@ final class InventoryContainerService extends BaseService
             return null;
         }
 
-        return $this->load(self::$uuidToPathMap[$uuid]);
+        $filePath = self::$uuidToPathMap[$uuid];
+
+        // Some references (e.g. item __ref values) point to EntityClassDefinition
+        // files rather than standalone InventoryContainer records. Loading those
+        // with an InventoryContainer DOM wrapper triggers a validity exception,
+        // so we short‑circuit here.
+        if (! $this->isInventoryContainerFile($filePath)) {
+            return null;
+        }
+
+        try {
+            return $this->load($filePath);
+        } catch (RuntimeException) {
+            return null;
+        }
     }
 
     public function getByClassName(string $className): ?InventoryContainer
@@ -51,5 +65,24 @@ final class InventoryContainerService extends BaseService
         $container->checkValidity();
 
         return $container;
+    }
+
+    private function isInventoryContainerFile(string $filePath): bool
+    {
+        if (! is_readable($filePath)) {
+            return false;
+        }
+
+        $ref = fopen($filePath, 'rb');
+        if ($ref === false) {
+            return false;
+        }
+
+        $firstLine = fgets($ref) ?: '';
+        fclose($ref);
+
+        $firstLine = preg_replace('/^\xEF\xBB\xBF/', '', ltrim($firstLine));
+
+        return str_starts_with($firstLine, '<InventoryContainer');
     }
 }

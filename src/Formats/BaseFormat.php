@@ -137,7 +137,7 @@ abstract class BaseFormat
         $result = [];
 
         foreach ($data as $key => $value) {
-            $pascalKey = $this->toPascalCase($key);
+            $pascalKey = is_string($key) ? $this->toPascalCase($key) : $key;
             $result[$pascalKey] = is_array($value)
                 ? $this->transformArrayKeysToPascalCase($value)
                 : $value;

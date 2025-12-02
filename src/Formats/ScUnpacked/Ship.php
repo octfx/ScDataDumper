@@ -52,6 +52,19 @@ final class Ship extends BaseFormat
         $isVehicle = $this->item->get('Components/VehicleComponentParams@vehicleCareer') === '@vehicle_focus_ground' || $vehicleComponent->get('@SubType') === 'Vehicle_GroundVehicle';
         $isGravlev = $this->item->get('Components/VehicleComponentParams@isGravlevVehicle') === '1';
 
+        // Star Citizen bounding boxes are stored as maxBoundingBoxSize@x/y/z but
+        // their axis assignment is not consistent between vehicles. The
+        // ground‑truth data (refs/mat-table.json) always lists dimensions as
+        // Length >= Width >= Height, so we normalise by sorting the three
+        // components descending before assigning Length/Width/Height.
+        $dimensions = [
+            (float) $vehicleComponent->get('maxBoundingBoxSize@x', 0),
+            (float) $vehicleComponent->get('maxBoundingBoxSize@y', 0),
+            (float) $vehicleComponent->get('maxBoundingBoxSize@z', 0),
+        ];
+
+        rsort($dimensions, SORT_NUMERIC);
+
         $data = [
             'UUID' => $this->item->getUuid(),
             'ClassName' => $this->item->getClassName(),
@@ -67,12 +80,10 @@ final class Ship extends BaseFormat
             ] : [],
 
             'Size' => $attach->get('Size', 0),
-            'Width' => $vehicleComponent->get('maxBoundingBoxSize@x', 0),
-            'Length' => $vehicleComponent->get('maxBoundingBoxSize@y', 0),
-            'Height' => $vehicleComponent->get('maxBoundingBoxSize@z', 0),
+            'Length' => $dimensions[0] ?? 0,
+            'Width' => $dimensions[1] ?? 0,
+            'Height' => $dimensions[2] ?? 0,
             'Crew' => $vehicleComponent->get('crewSize', 1),
-
-            //            'Parts' => [],
 
             // WeaponCrew = portSummary.MannedTurrets.Count + portSummary.RemoteTurrets.Count,
             // OperationsCrew = Math.Max(portSummary.MiningTurrets.Count, portSummary.UtilityTurrets.Count),
@@ -98,6 +109,31 @@ final class Ship extends BaseFormat
             $vehicleParts[] = $part;
         }
 
+        $data['parts'] = $this->mapParts($vehicleParts);
+
+        $portsElement = $this->vehicleWrapper->entity->get('Components/SItemPortContainerComponentParams/Ports');
+        if ($portsElement) {
+            $data['ports'] = $this->buildPortsFromElements($portsElement->children(), collect($this->vehicleWrapper->loadout));
+        }
+
+        // Extract ports from Vehicle Parts hierarchy that don't have loadout entries
+        $partsPortDefs = $this->extractPortsFromParts($vehicleParts);
+        if (!empty($partsPortDefs)) {
+            $existingPortNames = array_map(
+                static fn($p) => strtolower($p['name'] ?? ''),
+                $data['ports'] ?? []
+            );
+
+            // Add ports from parts that aren't already in the ports array
+            foreach ($partsPortDefs as $partPort) {
+                $portName = strtolower($partPort['name'] ?? '');
+                if ($portName && !in_array($portName, $existingPortNames, true)) {
+                    $data['ports'][] = $partPort;
+                    $existingPortNames[] = $portName;
+                }
+            }
+        }
+
         //        $loadoutEntries = [];
         //
         //        foreach ($this->item->get('/SEntityComponentDefaultLoadoutParams/loadout')?->children() ?? [] as $loadout) {
@@ -117,6 +153,56 @@ final class Ship extends BaseFormat
         $data['Mass'] = $mass > 0 ? $mass : null;
         if ($data['Mass'] === null) {
             $data['Mass'] = $this->item->get('SSCActorPhysicsControllerComponentParams/physType/SEntityActorPhysicsControllerParams@Mass');
+        }
+
+        $extractSignatureValues = static function (?Element $signatures): array {
+            if (! $signatures) {
+                return [];
+            }
+
+            $values = [];
+            foreach ($signatures->children() as $child) {
+                $value = $child->get('value', null);
+
+                if ($value === null) {
+                    $nodeValue = trim((string) $child->nodeValue);
+                    $value = is_numeric($nodeValue) ? (float) $nodeValue : null;
+                }
+
+                if ($value !== null) {
+                    $values[] = (float) $value;
+                }
+            }
+
+            return $values;
+        };
+
+        $signatureParams = $this->vehicleWrapper->entity->get('Components/SSCSignatureSystemParams');
+
+        if ($signatureParams) {
+            $signatureValues = $extractSignatureValues($signatureParams->get('/baseSignatureParams/SSCSignatureSystemBaseSignatureParams/signatures'));
+            $maxSignatureValues = $extractSignatureValues($signatureParams->get('/baseSignatureParams/SSCSignatureSystemBaseSignatureParams/maxSignatures'));
+            $radarProps = $signatureParams->get('/radarProperties/SSCRadarContactProperites')?->attributesToArray() ?? [];
+
+            $ir = $signatureValues[0] ?? null;
+            $emIdle = $signatureValues[1] ?? null;
+
+            $emMax = $maxSignatureValues[1]
+                ?? Arr::get($radarProps, 'emMax')
+                ?? Arr::get($radarProps, 'maxEm')
+                ?? Arr::get($radarProps, 'maxSignatureEm');
+
+            if ($emMax === null && $emIdle !== null) {
+                $emMax = $emIdle;
+            }
+
+            if ($ir !== null || $emIdle !== null || $emMax !== null) {
+                $data['emission'] = [
+                    'ir' => $ir,
+                    'em_idle' => $emIdle,
+                    'em_max' => $emMax,
+                ];
+            }
         }
 
         $portSummary = $this->buildPortSummary($parts->toArray());
@@ -208,6 +294,31 @@ final class Ship extends BaseFormat
                 $summary['FlightCharacteristics']['ZeroToMax'] = $summary['FlightCharacteristics']['Acceleration']['Main'] > 0 ? $summary['FlightCharacteristics']['MaxSpeed'] / $summary['FlightCharacteristics']['Acceleration']['Main'] : null;
                 $summary['FlightCharacteristics']['ScmToZero'] = $summary['FlightCharacteristics']['Acceleration']['Retro'] > 0 ? $summary['FlightCharacteristics']['ScmSpeed'] / $summary['FlightCharacteristics']['Acceleration']['Retro'] : null;
                 $summary['FlightCharacteristics']['MaxToZero'] = $summary['FlightCharacteristics']['Acceleration']['Retro'] > 0 ? $summary['FlightCharacteristics']['MaxSpeed'] / $summary['FlightCharacteristics']['Acceleration']['Retro'] : null;
+
+                $round3 = static fn ($value) => $value !== null ? round($value, 3) : null;
+
+                $agilityAcceleration = [
+                    'main' => $summary['FlightCharacteristics']['Acceleration']['Main'] ?? null,
+                    'retro' => $summary['FlightCharacteristics']['Acceleration']['Retro'] ?? null,
+                    'vtol' => $summary['FlightCharacteristics']['Acceleration']['Vtol'] ?? null,
+                    'maneuvering' => $summary['FlightCharacteristics']['Acceleration']['Maneuvering'] ?? null,
+                ];
+
+                $data['agility'] = [
+                    'pitch' => $round3($summary['FlightCharacteristics']['Pitch'] ?? null),
+                    'yaw' => $round3($summary['FlightCharacteristics']['Yaw'] ?? null),
+                    'roll' => $round3($summary['FlightCharacteristics']['Roll'] ?? null),
+                    'acceleration' => [
+                        'main' => $round3($agilityAcceleration['main']),
+                        'retro' => $round3($agilityAcceleration['retro']),
+                        'vtol' => $round3($agilityAcceleration['vtol']),
+                        'maneuvering' => $round3($agilityAcceleration['maneuvering']),
+                        'main_g' => $round3($agilityAcceleration['main'] !== null ? $agilityAcceleration['main'] / G : null),
+                        'retro_g' => $round3($agilityAcceleration['retro'] !== null ? $agilityAcceleration['retro'] / G : null),
+                        'vtol_g' => $round3($agilityAcceleration['vtol'] !== null ? $agilityAcceleration['vtol'] / G : null),
+                        'maneuvering_g' => $round3($agilityAcceleration['maneuvering'] !== null ? $agilityAcceleration['maneuvering'] / G : null),
+                    ],
+                ];
             }
         }
 
@@ -293,9 +404,39 @@ final class Ship extends BaseFormat
 
         foreach ($this->vehicleWrapper->loadout as $loadoutEntry) {
             if (Arr::has($loadoutEntry, 'Item.Components.SCItemShieldEmitterParams.FaceType')) {
-                $data['ShieldFaceType'] = Arr::get($loadoutEntry, 'Item.Components.SCItemShieldEmitterParams.FaceType');
+                $faceType = Arr::get($loadoutEntry, 'Item.Components.SCItemShieldEmitterParams.FaceType');
+                $data['ShieldFaceType'] = $faceType;
+            }
+
+            if (($loadoutEntry['portName'] ?? '') && str_contains(strtolower($loadoutEntry['portName']), 'shield')) {
+                $shieldHp = Arr::get($loadoutEntry, 'Item.Components.SDistortionParams.Maximum');
+                $shieldHp ??= Arr::get($loadoutEntry, 'Item.Components.SHealthComponentParams.Health');
+
+                if ($shieldHp !== null) {
+                    $data['shield_hp'] = $shieldHp;
+                }
             }
         }
+
+        $armorEntry = collect($this->vehicleWrapper->loadout)
+            ->first(fn ($x) => ($x['portName'] ?? null) === 'hardpoint_armor' && Arr::has($x, 'Item.Components.SCItemVehicleArmorParams'));
+
+        if ($armorEntry) {
+            $armor = Arr::get($armorEntry, 'Item.Components.SCItemVehicleArmorParams', []);
+
+            $data['armor'] = [
+                'signal_infrared' => Arr::get($armor, 'signalInfrared'),
+                'signal_electromagnetic' => Arr::get($armor, 'signalElectromagnetic'),
+                'signal_cross_section' => Arr::get($armor, 'signalCrossSection'),
+                'damage_physical' => Arr::get($armor, 'damageMultiplier.DamageInfo.DamagePhysical'),
+                'damage_energy' => Arr::get($armor, 'damageMultiplier.DamageInfo.DamageEnergy'),
+                'damage_distortion' => Arr::get($armor, 'damageMultiplier.DamageInfo.DamageDistortion'),
+                'damage_thermal' => Arr::get($armor, 'damageMultiplier.DamageInfo.DamageThermal'),
+                'damage_biochemical' => Arr::get($armor, 'damageMultiplier.DamageInfo.DamageBiochemical'),
+                'damage_stun' => Arr::get($armor, 'damageMultiplier.DamageInfo.DamageStun'),
+            ];
+        }
+
         $cargoGrids = collect($this->vehicleWrapper->loadout)
             ->flatMap(function ($entry) {
                 return $this->extractCargoGrids($entry);
@@ -324,13 +465,89 @@ final class Ship extends BaseFormat
             ->filter(fn ($x) => (isset($x['Item']['Components']['ResourceContainer']) && $x['Item']['Type'] === 'Ship.Container.Cargo'))
             ->sum(fn ($x) => Arr::get($x, 'Item.Components.ResourceContainer.capacity.SStandardCargoUnit.standardCargoUnits', 0));
 
-        $summary['Cargo'] = $cargoCapacity;
+        $cargoFallback = $this->vehicleWrapper->vehicle?->get('Cargo') ?? $this->item->get('Components/VehicleComponentParams@cargo');
+        $summary['Cargo'] = $cargoCapacity > 0 ? $cargoCapacity : ($cargoFallback ?? $cargoCapacity);
         $summary['CargoGrids'] = $standardisedCargoGrids;
         $summary['CargoSizeLimits'] = $this->calculateCargoGridSizeLimits($standardisedCargoGrids);
+
+        $calcContainerScu = static function (array $item): ?float {
+            $ref = Arr::get($item, '__ref');
+            if ($ref) {
+                $container = ServiceFactory::getInventoryContainerService()->getByReference($ref);
+                if ($container) {
+                    return $container->getSCU();
+                }
+            }
+
+            $capacity = Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.capacity', []);
+
+            $standard = Arr::get($capacity, 'SStandardCargoUnit.standardCargoUnits');
+            if ($standard !== null) {
+                return (float) $standard;
+            }
+
+            $centi = Arr::get($capacity, 'SCentiCargoUnit.centiSCU');
+            if ($centi !== null) {
+                return (float) $centi / 100;
+            }
+
+            $micro = Arr::get($capacity, 'SMicroCargoUnit.microSCU');
+            if ($micro !== null) {
+                return (float) $micro / 1_000_000;
+            }
+
+            $dimX = Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.x');
+            $dimY = Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.y');
+            $dimZ = Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.z');
+
+            if ($dimX !== null && $dimY !== null && $dimZ !== null) {
+                return ($dimX * $dimY * $dimZ) / M_TO_SCU_UNIT;
+            }
+
+            return null;
+        };
+
+        $personalInventory = collect($this->vehicleWrapper->loadout)
+            ->filter(fn ($entry) => isset($entry['Item']['Components']['SCItemInventoryContainerComponentParams']))
+            ->filter(fn ($entry) => str_contains(strtolower($entry['portName'] ?? ''), 'personal'))
+            ->sum(fn ($entry) => $calcContainerScu($entry['Item']) ?? 0);
+
+        $data['personal_inventory'] = $personalInventory;
+
+        $vehicleInventory = collect($this->vehicleWrapper->loadout)
+            ->filter(fn ($entry) => isset($entry['Item']['Components']['SCItemInventoryContainerComponentParams']))
+            ->reject(fn ($entry) => str_contains(strtolower($entry['portName'] ?? ''), 'personal'))
+            ->reject(fn ($entry) => Arr::get($entry, 'Item.Components.SAttachableComponentParams.AttachDef.Type') === 'CargoGrid'
+                || Arr::get($entry, 'Item.Type') === 'Ship.Container.Cargo')
+            ->sum(fn ($entry) => $calcContainerScu($entry['Item']) ?? 0);
+
+        $data['vehicle_inventory'] = $vehicleInventory;
 
         $summary['Health'] = $parts->filter(fn ($x) => ($x['MaximumDamage'] ?? 0) > 0)->sum(fn ($x) => $x['MaximumDamage']);
         $summary['DamageBeforeDestruction'] = $parts->filter(fn ($x) => ($x['ShipDestructionDamage'] ?? 0) > 0)->mapWithKeys(fn ($x) => [$x['Name'] => $x['ShipDestructionDamage']]);
         $summary['DamageBeforeDetach'] = $parts->filter(fn ($x) => ($x['PartDetachDamage'] ?? 0) > 0 && $x['ShipDestructionDamage'] === null)->mapWithKeys(fn ($x) => [$x['Name'] => $x['PartDetachDamage']]);
+
+        if (! empty($summary['Propulsion'])) {
+            $data['fuel'] = [
+                'capacity' => isset($summary['Propulsion']['FuelCapacity']) ? $summary['Propulsion']['FuelCapacity'] / 1000 : null,
+                'intake_rate' => $summary['Propulsion']['FuelIntakeRate'] ?? null,
+                'usage' => [
+                    'main' => $summary['Propulsion']['FuelUsage']['Main'] ?? null,
+                    'retro' => $summary['Propulsion']['FuelUsage']['Retro'] ?? null,
+                    'vtol' => $summary['Propulsion']['FuelUsage']['Vtol'] ?? null,
+                    'maneuvering' => $summary['Propulsion']['FuelUsage']['Maneuvering'] ?? null,
+                ],
+            ];
+        }
+
+        if (! empty($summary['QuantumTravel'])) {
+            $data['quantum'] = [
+                'quantum_speed' => $summary['QuantumTravel']['Speed'] ?? null,
+                'quantum_spool_time' => $summary['QuantumTravel']['SpoolTime'] ?? null,
+                'quantum_fuel_capacity' => isset($summary['QuantumTravel']['FuelCapacity']) ? $summary['QuantumTravel']['FuelCapacity'] / 1000 : null,
+                'quantum_range' => isset($summary['QuantumTravel']['Range']) ? $summary['QuantumTravel']['Range'] / 1000 : null,
+            ];
+        }
 
         $summary['MannedTurrets'] = $portSummary['mannedTurrets']->map(fn ($x) => $this->calculateWeaponFitting($x['Port']))->toArray();
         $summary['RemoteTurrets'] = $portSummary['remoteTurrets']->map(fn ($x) => $this->calculateWeaponFitting($x['Port']))->toArray();
@@ -339,7 +556,335 @@ final class Ship extends BaseFormat
 
         $this->processArray($data);
 
+        $data = $this->transformArrayKeysToPascalCase($data);
+
         return $this->removeNullValues($data);
+    }
+
+    private function mapParts(array $parts): array
+    {
+        return array_map(function ($part) {
+            return [
+                'name' => $part['Name'] ?? null,
+                'display_name' => $part['Port']['DisplayName'] ?? $part['Name'] ?? null,
+                'damage_max' => $part['MaximumDamage'] ?? null,
+                'children' => isset($part['Parts']) ? $this->mapParts($part['Parts']) : [],
+            ];
+        }, $parts);
+    }
+
+    private function buildPortsFromElements(iterable $ports, Collection $loadouts): array
+    {
+        $mapped = [];
+
+        foreach ($ports as $port) {
+            $portName = $port->get('Name');
+
+            $loadout = $loadouts->first(fn ($x) => strcasecmp($x['portName'] ?? '', $portName ?? '') === 0);
+
+            $childPorts = [];
+            if ($loadout && ! empty($loadout['entries'])) {
+                $childPorts = $this->buildPortsFromArrayDefs(
+                    Arr::get($loadout, 'Item.Components.SItemPortContainerComponentParams.Ports', []),
+                    $loadout['entries']
+                );
+            }
+
+            $mapped[] = $this->mapPort(
+                [
+                    'name' => $portName,
+                    'min' => $port->get('MinSize'),
+                    'max' => $port->get('MaxSize'),
+                    'types' => $this->buildCompatibleTypesFromElement($port),
+                ],
+                $loadout,
+                $childPorts
+            );
+        }
+
+        $matchedPortNames = array_map(static fn($port) => $port['name'] ?? null, $mapped);
+
+        foreach ($loadouts as $loadout) {
+            $loadoutPortName = $loadout['portName'] ?? null;
+
+            if ($loadoutPortName === null) {
+                continue;
+            }
+
+            $wasMatched = false;
+            foreach ($matchedPortNames as $matchedName) {
+                if (strcasecmp($matchedName, $loadoutPortName) === 0) {
+                    $wasMatched = true;
+                    break;
+                }
+            }
+
+            if (!$wasMatched) {
+                $childPorts = [];
+                if (!empty($loadout['entries'])) {
+                    $childPorts = $this->buildPortsFromArrayDefs(
+                        Arr::get($loadout, 'Item.Components.SItemPortContainerComponentParams.Ports', []),
+                        $loadout['entries']
+                    );
+                }
+
+                $mapped[] = $this->mapPort(
+                    ['name' => $loadoutPortName],
+                    $loadout,
+                    $childPorts
+                );
+            }
+        }
+
+        return $mapped;
+    }
+
+    private function buildPortsFromArrayDefs(array $portDefs, array $loadouts): array
+    {
+        $mapped = [];
+        $loadoutCollection = collect($loadouts);
+
+        foreach ($portDefs as $port) {
+            $portName = $port['Name'] ?? $port['name'] ?? null;
+
+            if ($portName === null) {
+                continue;
+            }
+
+            $loadout = $loadoutCollection->first(fn ($x) => strcasecmp($x['portName'] ?? '', $portName) === 0);
+
+            $childPorts = [];
+            if ($loadout && ! empty($loadout['entries'])) {
+                $childPorts = $this->buildPortsFromArrayDefs(
+                    Arr::get($loadout, 'Item.Components.SItemPortContainerComponentParams.Ports', []),
+                    $loadout['entries']
+                );
+            }
+
+            $mapped[] = $this->mapPort(
+                [
+                    'name' => $portName,
+                    'min' => Arr::get($port, 'MinSize'),
+                    'max' => Arr::get($port, 'MaxSize'),
+                    'types' => $this->buildCompatibleTypesFromArray($port),
+                ],
+                $loadout,
+                $childPorts
+            );
+        }
+
+        foreach ($loadouts as $loadout) {
+            if ($loadoutCollection->first(fn ($x) => strcasecmp($x['portName'] ?? '', $loadout['portName'] ?? '') === 0, null) === null) {
+                $mapped[] = $this->mapPort(
+                    ['name' => $loadout['portName'] ?? null],
+                    $loadout,
+                    []
+                );
+            }
+        }
+
+        return $mapped;
+    }
+
+    /**
+     * Recursively extracts port definitions from Vehicle Parts hierarchy
+     *
+     * @param array $parts The parts array to search
+     * @return array Array of port data extracted from parts
+     */
+    private function extractPortsFromParts(array $parts): array
+    {
+        $ports = [];
+
+        foreach ($parts as $part) {
+            if (isset($part['Port']) && is_array($part['Port'])) {
+                $portName = $part['Port']['PortName'] ?? $part['Port']['Name'] ?? $part['Name'] ?? null;
+
+                if ($portName !== null) {
+                    $ports[] = [
+                        'name' => $portName,
+                        'sizes' => [
+                            'min' => $part['Port']['MinSize'] ?? null,
+                            'max' => $part['Port']['MaxSize'] ?? null,
+                        ],
+                        'class_name' => null,
+                        'health' => null,
+                        'compatible_types' => $part['Port']['CompatibleTypes'] ?? [],
+                    ];
+                }
+            }
+
+            // Recursively process child parts
+            if (isset($part['Parts']) && is_array($part['Parts'])) {
+                $childPorts = $this->extractPortsFromParts($part['Parts']);
+                $ports = array_merge($ports, $childPorts);
+            }
+        }
+
+        return $ports;
+    }
+
+    private function mapPort(array $portInfo, ?array $loadout, array $childPorts): array
+    {
+        $equippedItem = $this->mapEquippedItem($loadout['Item'] ?? null);
+
+        $mapped = [
+            'name' => $portInfo['name'] ?? null,
+            'position' => $this->inferPortPosition($portInfo['name'] ?? ''),
+            'sizes' => [
+                'min' => $portInfo['min'] ?? null,
+                'max' => $portInfo['max'] ?? null,
+            ],
+            'class_name' => $loadout['className'] ?? null,
+            'health' => Arr::get($loadout, 'Item.Components.SHealthComponentParams.Health'),
+            'compatible_types' => $portInfo['types'] ?? [],
+        ];
+
+        if ($equippedItem) {
+            $mapped['equipped_item'] = $equippedItem;
+        }
+
+        if (! empty($childPorts)) {
+            $mapped['ports'] = $childPorts;
+        }
+
+        return $mapped;
+    }
+
+    private function buildCompatibleTypesFromElement(Element $port): array
+    {
+        $types = [];
+
+        foreach ($port->get('/Types')?->children() ?? [] as $portType) {
+            $major = $portType->get('@Type') ?? $portType->get('@type');
+
+            if (empty($major)) {
+                continue;
+            }
+
+            $subTypes = [];
+
+            foreach ($portType->get('/SubTypes')?->children() ?? [] as $subType) {
+                $value = $subType->get('value');
+                if (! empty($value)) {
+                    $subTypes[] = $value;
+                }
+            }
+
+            $subTypeAttr = $portType->get('@SubTypes') ?? $portType->get('@subtypes');
+            if (! empty($subTypeAttr)) {
+                foreach (explode(',', $subTypeAttr) as $subType) {
+                    $trimmed = trim($subType);
+                    if (! empty($trimmed)) {
+                        $subTypes[] = $trimmed;
+                    }
+                }
+            }
+
+            $types[] = [
+                'type' => $major,
+                'sub_types' => array_values(array_unique(array_filter($subTypes))),
+            ];
+        }
+
+        return $types;
+    }
+
+    private function buildCompatibleTypesFromArray(array $port): array
+    {
+        $types = Arr::get($port, 'Types', []);
+
+        if (! is_array($types)) {
+            return [];
+        }
+
+        if (isset($types['SItemPortDefTypes'])) {
+            $types = [$types['SItemPortDefTypes']];
+        } elseif (isset($types['Type']) || isset($types['type'])) {
+            $types = [$types];
+        }
+
+        $mapped = [];
+
+        foreach ($types as $type) {
+            $major = $type['Type'] ?? $type['type'] ?? null;
+
+            if (! $major) {
+                continue;
+            }
+
+            $subTypes = [];
+            $subs = $type['SubTypes'] ?? $type['subTypes'] ?? $type['sub_types'] ?? null;
+
+            if (is_array($subs)) {
+                foreach ($subs as $subType) {
+                    if (is_array($subType) && isset($subType['value'])) {
+                        $subTypes[] = $subType['value'];
+                    } elseif (is_string($subType)) {
+                        $subTypes[] = $subType;
+                    }
+                }
+            }
+
+            $mapped[] = [
+                'type' => $major,
+                'sub_types' => array_values(array_filter(array_unique($subTypes))),
+            ];
+        }
+
+        return $mapped;
+    }
+
+    private function inferPortPosition(string $name): ?string
+    {
+        $name = strtolower($name);
+
+        return match (true) {
+            str_contains($name, 'left') => 'left',
+            str_contains($name, 'right') => 'right',
+            str_contains($name, 'front') => 'front',
+            str_contains($name, 'rear') => 'rear',
+            str_contains($name, 'tail') => 'tail_',
+            default => null,
+        };
+    }
+
+    private function mapEquippedItem(?array $item): ?array
+    {
+        if (! $item) {
+            return null;
+        }
+
+        $name = Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Localization.English.Name')
+            ?? Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Localization.Name')
+            ?? Arr::get($item, 'className')
+            ?? Arr::get($item, 'ClassName');
+
+        $manufacturerName = Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Manufacturer.Localization.English.Name')
+            ?? Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Manufacturer.Localization.Name')
+            ?? Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Manufacturer.Name');
+
+        $manufacturerCode = Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Manufacturer.Code');
+
+        $equipped = [
+            'uuid' => $item['__ref'] ?? null,
+            'name' => $name,
+            'class_name' => $item['className'] ?? $item['ClassName'] ?? null,
+            'size' => Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Size'),
+            'mass' => Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Mass'),
+            'grade' => Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Grade'),
+            'class' => Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Class'),
+            'manufacturer' => ($manufacturerName || $manufacturerCode) ? [
+                'name' => $manufacturerName,
+                'code' => $manufacturerCode,
+            ] : null,
+            'type' => Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Type') ?? Arr::get($item, 'Type'),
+            'sub_type' => Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.SubType'),
+            'updated_at' => $item['updated_at'] ?? null,
+            'version' => $item['version'] ?? null,
+        ];
+
+        return $this->removeNullValues($equipped);
     }
 
     private function installItems(array $portSummary): Collection
