@@ -15,6 +15,7 @@ class ItemDescriptionParser
         'Attachment Point',
         'Attachments',
         'Badge',
+        'Battery Size',
         'Box',
         'Capacity',
         'Carrying Capacity',

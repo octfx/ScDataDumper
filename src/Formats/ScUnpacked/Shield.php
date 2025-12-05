@@ -36,12 +36,14 @@ final class Shield extends BaseFormat
                     break;
 
                 default:
-                    $return[ucfirst($key)] = $value;
+                    $return[$this->toPascalCase($key)] = $value;
             }
         }
 
+        $stunParams = $shield->get('stunParams')?->attributesToArray();
+
         return $return + [
-            'StunParams' => $shield->get('stunParams')?->attributesToArray(),
+            'StunParams' => $stunParams ? $this->transformArrayKeysToPascalCase($stunParams) : null,
             'Absorption' => new MinMaxList($shield->get('/ShieldAbsorption'), 'SShieldAbsorption', 6),
             'Resistance' => new MinMaxList($shield->get('/ShieldResistance'), 'SShieldResistance', 6),
         ];

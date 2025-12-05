@@ -88,7 +88,7 @@ final class InventoryContainer extends RootDocument
         }
 
         $unit = $this->getScuConversionUnit();
-        if (! $unit) {
+        if ($unit === null) {
             return null;
         }
 

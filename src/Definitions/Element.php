@@ -10,12 +10,17 @@ use Generator;
 use Octfx\ScDataDumper\Helper\XmlAccess;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
+use WeakMap;
 
 class Element
 {
     use XmlAccess;
 
-    protected static array $initializedPaths = [];
+    /**
+     * Tracks which DOMNodes have already been initialized.
+     * WeakMap is used so entries are freed when the DOMDocument is discarded.
+     */
+    protected static ?WeakMap $initialized = null;
 
     public function __construct(protected readonly DOMNode $node)
     {
@@ -32,7 +37,8 @@ class Element
      */
     public function initialize(DOMDocument $document): void
     {
-        self::$initializedPaths[$this->node->getNodePath()] = true;
+        self::$initialized ??= new WeakMap;
+        self::$initialized[$this->node] = true;
     }
 
     public function getNode(): DOMNode
@@ -116,6 +122,34 @@ class Element
         return $attributes;
     }
 
+    /**
+     * Checks if a child element or attribute exists relative to this element.
+     *
+     * @param  string  $key  XPath-like path scoped to this element (e.g. 'child/grandchild@attr')
+     * @param  string|null  $elementName  Expected element name; defaults to the last segment of $key
+     */
+    public function has(string $key, ?string $elementName = null): bool
+    {
+        if (str_contains($key, '.')) {
+            throw new RuntimeException('Element key contains invalid format');
+        }
+
+        $parts = explode('/', $key);
+        $elementName = $elementName ?? array_pop($parts);
+
+        $obj = $this->get($key, $key);
+
+        if ($obj === null) {
+            return false;
+        }
+
+        if (! is_object($obj)) {
+            return $obj !== $key;
+        }
+
+        return $obj instanceof self && $obj->nodeName === $elementName;
+    }
+
     public function __call(string $name, array $arguments)
     {
         return $this->node->{$name}(...$arguments);
@@ -145,13 +179,6 @@ class Element
      */
     protected function isInitialized(): bool
     {
-        // TODO: Find a way of saving the init state on the node directly
-        return false;
-
-        if ($this->node->getNodePath() === null) {
-            return false;
-        }
-
-        return self::$initializedPaths[$this->node->getNodePath()] ?? false;
+        return self::$initialized?->offsetExists($this->node) ?? false;
     }
 }

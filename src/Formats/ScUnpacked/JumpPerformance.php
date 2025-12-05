@@ -12,13 +12,37 @@ final class JumpPerformance extends BaseFormat
             return null;
         }
 
-        return array_filter($this->item->attributesToArray(), static function ($key) {
-            return ! str_starts_with($key, 'VFX') && ! str_starts_with($key, 'Shader') && ! str_ends_with($key, 'State');
-        }, ARRAY_FILTER_USE_KEY);
+        $allowedKeys = [
+            'driveSpeed',
+            'cooldownTime',
+            'stageOneAccelRate',
+            'stageTwoAccelRate',
+            'engageSpeed',
+            'interdictionEffectTime',
+            'calibrationRate',
+            'minCalibrationRequirement',
+            'maxCalibrationRequirement',
+            'calibrationProcessAngleLimit',
+            'calibrationWarningAngleLimit',
+            'calibrationDelayInSeconds',
+            'spoolUpTime',
+        ];
+
+        $values = [];
+
+        foreach ($allowedKeys as $key) {
+            $value = $this->item->get($key);
+
+            if ($value !== null) {
+                $values[$this->toPascalCase($key)] = $value;
+            }
+        }
+
+        return $values;
     }
 
     public function canTransform(): bool
     {
-        return $this->has('/stageOneAccelRate');
+        return $this->item !== null && $this->item->get('driveSpeed') !== null;
     }
 }

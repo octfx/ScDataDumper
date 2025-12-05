@@ -79,31 +79,41 @@ final class Item extends BaseFormat
                 'Durability' => new Durability($this->item),
                 'Emp' => new EMP($this->item),
                 'Food' => new Food($this->item),
-                'FuelIntake' => new HydrogenFuelIntake($this->item),
+                'HackingChip' => new HackingChip($this->item),
+                'Grenade' => new Grenade($this->item),
+                'FuelIntake' => new FuelIntake($this->item),
                 'FuelTank' => new FuelTank($this->item, 'FuelTank'),
+                'MiningLaser' => new MiningLaser($this->item),
+                'MiningModule' => new MiningModule($this->item),
                 'HeatConnection' => new HeatConnection($this->item),
                 'Helmet' => new Helmet($this->item),
                 'Ifcs' => new Ifcs($this->item),
                 'Interactions' => new Interactions($this->item),
                 'InventoryContainer' => new InventoryContainer($this->item),
                 'ResourceContainer' => new ResourceContainer($this->item),
+                'Seat' => new Seat($this->item),
                 'MeleeWeapon' => new MeleeWeapon($this->item),
                 'Missile' => new Missile($this->item),
                 'MissileRack' => new MissileRack($this->item),
                 'PowerConnection' => new PowerConnection($this->item),
                 'PowerPlant' => new PowerPlant($this->item),
-//                'ResourceNetwork' => new ResourceNetwork($this->item),
+                //                'ResourceNetwork' => new ResourceNetwork($this->item),
                 'ResourceNetwork' => new ResourceNetworkSimple($this->item),
                 'QuantumDrive' => new QuantumDrive($this->item),
                 'QuantumFuelTank' => new FuelTank($this->item, 'QuantumFuelTank'),
                 'QuantumInterdiction' => new QuantumInterdictionGenerator($this->item),
                 'Radar' => new Radar($this->item),
+                'SelfDestruct' => new SelfDestruct($this->item),
                 'Shield' => new Shield($this->item),
+                'SalvageModifier' => new SalvageModifier($this->item),
                 'SuitArmor' => new SuitArmor($this->item),
                 'TemperatureResistance' => new TemperatureResistance($this->item),
                 'RadiationResistance' => new RadiationResistance($this->item),
                 'Thruster' => new Thruster($this->item),
+                'TractorBeam' => new TractorBeam($this->item),
                 'Weapon' => new Weapon($this->item),
+                'WeaponAttachment' => new WeaponAttachment($this->item),
+                'WeaponModifier' => new WeaponModifier($this->item),
                 'WeaponRegenPool' => new WeaponRegenPool($this->item),
             ],
         ];
@@ -138,7 +148,7 @@ final class Item extends BaseFormat
             return 'UNKNOWN';
         }
 
-        if (empty(trim($minor)) || $minor === 'UNKNOWN') {
+        if ($minor === null || trim($minor) === '' || $minor === 'UNKNOWN') {
             return $major;
         }
 
@@ -218,19 +228,5 @@ final class Item extends BaseFormat
                 }
             }
         }
-    }
-
-    private function removeNullValues($array)
-    {
-        foreach ($array as $key => &$value) {
-            if (is_array($value)) {
-                $value = $this->removeNullValues($value);
-            }
-            if ($value === null || (is_array($value) && empty($value))) {
-                unset($array[$key]);
-            }
-        }
-
-        return $array;
     }
 }

@@ -103,4 +103,74 @@ abstract class BaseFormat
     {
         return json_encode($this->toArray(), JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     }
+
+    /**
+     * Converts snake_case or camelCase strings to PascalCase
+     *
+     * @param  string  $value  The string to convert (e.g., 'drive_speed' or 'driveSpeed')
+     * @return string PascalCase string (e.g., 'DriveSpeed')
+     */
+    protected function toPascalCase(string $value): string
+    {
+        if (ctype_upper($value[0]) && ! str_contains($value, '_') && ! str_contains($value, '-')) {
+            $acronyms = ['Uuid' => 'UUID', 'Scu' => 'SCU', 'Ifcs' => 'IFCS', 'Emp' => 'EMP'];
+
+            return $acronyms[$value] ?? $value;
+        }
+
+        $value = str_replace(['_', '-'], ' ', $value);
+        $result = str_replace(' ', '', ucwords($value));
+
+        $acronyms = ['Uuid' => 'UUID', 'Scu' => 'SCU', 'Ifcs' => 'IFCS', 'Emp' => 'EMP'];
+
+        return $acronyms[$result] ?? $result;
+    }
+
+    /**
+     * Recursively transforms all array keys to PascalCase
+     *
+     * @param  array  $data  The array with mixed case keys
+     * @return array Array with all keys in PascalCase
+     */
+    protected function transformArrayKeysToPascalCase(array $data): array
+    {
+        $result = [];
+
+        foreach ($data as $key => $value) {
+            $pascalKey = is_string($key) ? $this->toPascalCase($key) : $key;
+            $result[$pascalKey] = is_array($value)
+                ? $this->transformArrayKeysToPascalCase($value)
+                : $value;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Recursively removes null values and empty arrays from a data structure
+     * Modifies the array in-place for efficiency
+     *
+     * @param  array  $data  The array to clean
+     * @return array The cleaned array with null and empty array values removed
+     */
+    protected function removeNullValues(array $data): array
+    {
+        foreach ($data as $key => &$value) {
+            if (is_array($value)) {
+                $value = $this->removeNullValues($value);
+
+                if ($value === []) {
+                    unset($data[$key]);
+
+                    continue;
+                }
+            }
+
+            if ($value === null) {
+                unset($data[$key]);
+            }
+        }
+
+        return $data;
+    }
 }

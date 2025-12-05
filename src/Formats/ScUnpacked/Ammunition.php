@@ -23,18 +23,21 @@ final class Ammunition extends BaseFormat
 
         $projectiles = $ammo->get('projectileParams/BulletProjectileParams');
 
+        $lifetime = $ammo->get('lifetime');
+        $speed = $ammo->get('speed');
+
         return [
-            'UUID' => $ammo->get('__ref'),
             'Type' => $ammo->get('__type'),
-            'Speed' => $ammo->get('speed'),
-            'Range' => $ammo->get('lifetime') * $ammo->get('speed'),
+            'Speed' => $speed,
+            'Lifetime' => $lifetime,
+            'Range' => ($speed ?? 0) * ($lifetime ?? 0),
             'Size' => $ammo->get('size'),
             'ImpactDamage' => Damage::fromDamageInfo($projectiles?->get('damage/DamageInfo'))?->toArray(),
             'DetonationDamage' => Damage::fromDamageInfo($projectiles?->get('detonationParams/ProjectileDetonationParams/explosionParams/damage/DamageInfo'))?->toArray(),
             'Capacity' => $this->item->get('Components/SAmmoContainerComponentParams@maxAmmoCount') ?? $this->item->get('Components/SAmmoContainerComponentParams@maxRestockCount'),
             'BulletImpulseFalloff' => new BulletImpulseFalloff($projectiles),
             'BulletPierceability' => new BulletPierceability($projectiles),
-            'BulletElectron' => new BulletImpulseFalloff($projectiles),
+            'BulletElectron' => new BulletElectron($projectiles),
             'DamageDropMinDistance' => Damage::fromDamageInfo($projectiles?->get('damageDropParams/BulletDamageDropParams/damageDropMinDistance/DamageInfo')),
             'DamageDropPerMeter' => Damage::fromDamageInfo($projectiles?->get('damageDropParams/BulletDamageDropParams/damageDropPerMeter/DamageInfo')),
             'DamageDropMinDamage' => Damage::fromDamageInfo($projectiles?->get('damageDropParams/BulletDamageDropParams/damageDropMinDamage/DamageInfo')),

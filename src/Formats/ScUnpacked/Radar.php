@@ -20,9 +20,9 @@ final class Radar extends BaseFormat
         foreach ($radar->get('/signatureDetection') as $signature) {
             $signatures[] = [
                 'Sensitivity' => $signature->get('sensitivity'),
-                'piercing' => $signature->get('piercing'),
-                'permitPassiveDetection' => $signature->get('permitPassiveDetection'),
-                'permitActiveDetection' => $signature->get('permitActiveDetection'),
+                'Piercing' => $signature->get('piercing'),
+                'PermitPassiveDetection' => $signature->get('permitPassiveDetection'),
+                'PermitActiveDetection' => $signature->get('permitActiveDetection'),
             ];
         }
 
