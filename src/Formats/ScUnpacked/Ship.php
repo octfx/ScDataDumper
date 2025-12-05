@@ -5,12 +5,14 @@ namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 use Generator;
 use Illuminate\Support\Collection;
 use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\DocumentTypes\InventoryContainer;
 use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 use Octfx\ScDataDumper\Helper\Arr;
 use Octfx\ScDataDumper\Helper\VehicleWrapper;
 use Octfx\ScDataDumper\Services\PortClassifierService;
 use Octfx\ScDataDumper\Services\ServiceFactory;
+use Throwable;
 
 const G = 9.80665;
 
@@ -21,6 +23,18 @@ final class Ship extends BaseFormat
     private readonly PortClassifierService $portClassifierService;
 
     private readonly ?Vehicle $vehicle;
+
+    /**
+     * Health aggregation filters:
+     * - skip ItemPort parts that carry flags we consider "non-structural"
+     *   (e.g. invisible/uneditable attach points such as thrusters, tanks).
+     * - tweakable via properties so we can broaden/narrow without touching the
+     *   core summation logic.
+     */
+    private bool $healthSkipItemPorts = true;
+
+    /** @var string[] */
+    private array $healthExcludedPortFlags = ['uneditable', '$uneditable', 'invisible'];
 
     public function __construct(private readonly VehicleWrapper $vehicleWrapper)
     {
@@ -48,6 +62,7 @@ final class Ship extends BaseFormat
 
         $manufacturer = ServiceFactory::getManufacturerService()->getByReference($manufacturer);
         $itemService = ServiceFactory::getItemService();
+        $inventoryContainerService = ServiceFactory::getInventoryContainerService();
 
         $isVehicle = $this->item->get('Components/VehicleComponentParams@vehicleCareer') === '@vehicle_focus_ground' || $vehicleComponent->get('@SubType') === 'Vehicle_GroundVehicle';
         $isGravlev = $this->item->get('Components/VehicleComponentParams@isGravlevVehicle') === '1';
@@ -460,13 +475,164 @@ final class Ship extends BaseFormat
             })
             ->filter(fn ($x) => $x !== null);
 
+        $existingCargoGridUuids = $standardisedCargoGrids->pluck('uuid')->filter()->all();
+        $fallbackCargoContainers = [];
+        $expectedCargoGridPorts = $this->countCargoGridPorts($this->vehicleWrapper->loadout);
+        $remainingCargoGridSlots = max(0, $expectedCargoGridPorts - count($existingCargoGridUuids));
+
         // Add ResourceContainer-based cargo
         $cargoCapacity += collect($this->vehicleWrapper->loadout)
             ->filter(fn ($x) => (isset($x['Item']['Components']['ResourceContainer']) && $x['Item']['Type'] === 'Ship.Container.Cargo'))
             ->sum(fn ($x) => Arr::get($x, 'Item.Components.ResourceContainer.capacity.SStandardCargoUnit.standardCargoUnits', 0));
 
+        // Fallbacks for ships whose cargo grids are missing from the loadout
+        // 1) Convention-based cargo grid classes (e.g. ORIG_135c_CargoGrid, ORIG_890Jump_CargoGrid_Rear)
+        $classCandidates = [];
+        $modification = $vehicleComponent->get('modification');
+        if ($modification) {
+            $classCandidates[] = $modification . '_CargoGrid';
+        }
+        $vehicleClassName = $this->vehicleWrapper->entity->getClassName();
+        $classCandidates[] = $vehicleClassName . '_CargoGrid';
+
+        foreach ($this->collectCargoGridSuffixes($this->vehicleWrapper->loadout) as $suffix) {
+            $classCandidates[] = $vehicleClassName . '_CargoGrid_' . $suffix;
+        }
+
+        foreach (array_unique($classCandidates) as $className) {
+            if ($remainingCargoGridSlots <= 0 && $cargoCapacity > 0) {
+                break;
+            }
+
+            try {
+                $container = $inventoryContainerService->getByClassName($className);
+            } catch (Throwable) {
+                $container = null;
+            }
+
+            if (! $container || ! $container->isOpenContainer()) {
+                continue;
+            }
+
+            // Avoid double-counting grids already present in the loadout
+            if (in_array($container->getUuid(), $existingCargoGridUuids, true)) {
+                continue;
+            }
+
+            $existingCargoGridUuids[] = $container->getUuid();
+
+            $slotsToAdd = $remainingCargoGridSlots > 0 ? $remainingCargoGridSlots : 1;
+            for ($i = 0; $i < $slotsToAdd; $i++) {
+                $fallbackCargoContainers[] = $container;
+                $cargoCapacity += (float) ($container->getSCU() ?? 0);
+                $remainingCargoGridSlots = max(0, $remainingCargoGridSlots - 1);
+            }
+        }
+
+        // Also scan for any cargo grid class that shares the vehicle prefix (e.g. *_CargoGrid_Rear)
+        $vehiclePrefixContainers = $inventoryContainerService->findByClassPrefix($vehicleClassName . '_CargoGrid_');
+        usort($vehiclePrefixContainers, static fn ($a, $b) => ($b->getSCU() ?? 0) <=> ($a->getSCU() ?? 0));
+
+        foreach ($vehiclePrefixContainers as $container) {
+            if ($remainingCargoGridSlots <= 0 && $cargoCapacity > 0) {
+                break;
+            }
+
+            if (! $container->isOpenContainer()) {
+                continue;
+            }
+
+            if (in_array($container->getUuid(), $existingCargoGridUuids, true)) {
+                continue;
+            }
+
+            $existingCargoGridUuids[] = $container->getUuid();
+
+            $slotsToAdd = $remainingCargoGridSlots > 0 ? $remainingCargoGridSlots : 1;
+            for ($i = 0; $i < $slotsToAdd; $i++) {
+                $fallbackCargoContainers[] = $container;
+                $cargoCapacity += (float) ($container->getSCU() ?? 0);
+                $remainingCargoGridSlots = max(0, $remainingCargoGridSlots - 1);
+            }
+        }
+
+        // 3) If we still haven't found cargo grids, try the base implementation class prefix
+        if ($cargoCapacity <= 0 || ($remainingCargoGridSlots > 0 && empty($fallbackCargoContainers))) {
+            $vehicleDefinition = (string) $vehicleComponent->get('vehicleDefinition', '');
+            $baseClassName = $vehicleDefinition !== '' ? pathinfo($vehicleDefinition, PATHINFO_FILENAME) : null;
+            $baseClassFromName = str_contains($vehicleClassName, '_')
+                ? substr($vehicleClassName, 0, strrpos($vehicleClassName, '_'))
+                : null;
+
+            foreach (array_filter(array_unique([$baseClassName, $baseClassFromName])) as $baseCandidate) {
+                if ($baseCandidate === $vehicleClassName) {
+                    continue;
+                }
+
+                $basePrefixContainers = $inventoryContainerService->findByClassPrefix($baseCandidate . '_CargoGrid_');
+                usort($basePrefixContainers, static fn ($a, $b) => ($b->getSCU() ?? 0) <=> ($a->getSCU() ?? 0));
+
+                foreach ($basePrefixContainers as $container) {
+                    if ($remainingCargoGridSlots <= 0 && $cargoCapacity > 0) {
+                        break;
+                    }
+
+                    if (! $container->isOpenContainer()) {
+                        continue;
+                    }
+
+                    if (in_array($container->getUuid(), $existingCargoGridUuids, true)) {
+                        continue;
+                    }
+
+                    $existingCargoGridUuids[] = $container->getUuid();
+
+                    $slotsToAdd = $remainingCargoGridSlots > 0 ? $remainingCargoGridSlots : 1;
+                    for ($i = 0; $i < $slotsToAdd; $i++) {
+                        $fallbackCargoContainers[] = $container;
+                        $cargoCapacity += (float) ($container->getSCU() ?? 0);
+                        $remainingCargoGridSlots = max(0, $remainingCargoGridSlots - 1);
+                    }
+
+                    // Stop once we've filled all missing slots
+                    if ($remainingCargoGridSlots <= 0 && $cargoCapacity > 0) {
+                        break;
+                    }
+                }
+
+                if ($remainingCargoGridSlots <= 0 && $cargoCapacity > 0) {
+                    break;
+                }
+            }
+        }
+
+        // 2) As a last resort, use an inventory container attached directly to the vehicle component
+        if ($cargoCapacity <= 0) {
+            $inventoryContainerRef = $vehicleComponent->get('inventoryContainerParams');
+            if ($inventoryContainerRef) {
+                $container = $inventoryContainerService->getByReference($inventoryContainerRef);
+                if ($container && ! in_array($container->getUuid(), $existingCargoGridUuids, true)) {
+                    $fallbackCargoContainers[] = $container;
+                    $cargoCapacity = (float) ($container->getSCU() ?? 0);
+                }
+            }
+        }
+
         $cargoFallback = $this->vehicleWrapper->vehicle?->get('Cargo') ?? $this->item->get('Components/VehicleComponentParams@cargo');
         $summary['Cargo'] = $cargoCapacity > 0 ? $cargoCapacity : ($cargoFallback ?? $cargoCapacity);
+
+        if (! empty($fallbackCargoContainers)) {
+            $fallbackGrids = collect($fallbackCargoContainers)
+                ->filter()
+                ->map(static fn ($container) => $container->toArray())
+                ->filter()
+                ->reject(function ($grid) use ($standardisedCargoGrids) {
+                    return $standardisedCargoGrids->contains(fn ($existing) => ($existing['uuid'] ?? null) === ($grid['uuid'] ?? null));
+                });
+
+            $standardisedCargoGrids = $standardisedCargoGrids->merge($fallbackGrids);
+        }
+
         $summary['CargoGrids'] = $standardisedCargoGrids;
         $summary['CargoSizeLimits'] = $this->calculateCargoGridSizeLimits($standardisedCargoGrids);
 
@@ -523,7 +689,9 @@ final class Ship extends BaseFormat
 
         $data['vehicle_inventory'] = $vehicleInventory;
 
-        $summary['Health'] = $parts->filter(fn ($x) => ($x['MaximumDamage'] ?? 0) > 0)->sum(fn ($x) => $x['MaximumDamage']);
+        $summary['Health'] = $parts
+            ->filter(fn ($x) => $this->shouldIncludeInHealth($x))
+            ->sum(fn ($x) => $x['MaximumDamage']);
         $summary['DamageBeforeDestruction'] = $parts->filter(fn ($x) => ($x['ShipDestructionDamage'] ?? 0) > 0)->mapWithKeys(fn ($x) => [$x['Name'] => $x['ShipDestructionDamage']]);
         $summary['DamageBeforeDetach'] = $parts->filter(fn ($x) => ($x['PartDetachDamage'] ?? 0) > 0 && $x['ShipDestructionDamage'] === null)->mapWithKeys(fn ($x) => [$x['Name'] => $x['PartDetachDamage']]);
 
@@ -946,6 +1114,35 @@ final class Ship extends BaseFormat
     }
 
     /**
+     * Decide whether a part should contribute to the ship-level Health sum.
+     * We exclude small ItemPorts (thrusters, fuel intakes, etc.) when their
+     * port flags mark them as non-structural (uneditable/invisible).
+     */
+    private function shouldIncludeInHealth(array $part): bool
+    {
+        $damage = $part['MaximumDamage'] ?? 0;
+        if ($damage <= 0) {
+            return false;
+        }
+
+        $port = $part['Port'] ?? null;
+        if (! $port || ! is_array($port)) {
+            return true;
+        }
+
+        $flags = array_map('strtolower', $port['Flags'] ?? []);
+        $isItemPort = ! empty($port['PortName']) || ! empty($port['Types']);
+
+        $hasExcludedFlag = ! empty(array_intersect($flags, $this->healthExcludedPortFlags));
+
+        if ($this->healthSkipItemPorts && $isItemPort && $hasExcludedFlag) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Builds a summary of all port types on the ship
      *
      * @param  array  $parts  The ship parts to analyze
@@ -1349,5 +1546,86 @@ final class Ship extends BaseFormat
             'MinSize' => $minVolumeGrid['minSize'] ?? null,
             'MaxSize' => $maxVolumeGrid['maxSize'] ?? null,
         ];
+    }
+
+    /**
+     * Count item ports in the loadout whose names contain "cargogrid".
+     *
+     * @param array $entries
+     * @return int
+     */
+    private function countCargoGridPorts(array $entries): int
+    {
+        $count = 0;
+
+        $walker = static function (array $items) use (&$walker, &$count): void {
+            foreach ($items as $entry) {
+                $portName = strtolower($entry['portName'] ?? '');
+                if ($portName !== '' && str_contains($portName, 'cargogrid')) {
+                    $count++;
+                }
+
+                if (! empty($entry['entries']) && is_array($entry['entries'])) {
+                    $walker($entry['entries']);
+                }
+
+                $manualEntries = Arr::get($entry, 'Item.Components.SEntityComponentDefaultLoadoutParams.loadout.SItemPortLoadoutManualParams.entries', []);
+                if (! empty($manualEntries)) {
+                    $walker($manualEntries);
+                }
+            }
+        };
+
+        $walker($entries);
+
+        return $count;
+    }
+
+    /**
+     * Extract suffix tokens from cargogrid-related port names so we can try
+     * convention-based cargo grid classes (e.g. hardpoint_cargogrid_rear →
+     * <Class>_CargoGrid_Rear).
+     *
+     * @param  array  $entries
+     * @return string[]
+     */
+    private function collectCargoGridSuffixes(array $entries): array
+    {
+        $suffixes = [];
+
+        $walker = function (array $items) use (&$walker, &$suffixes): void {
+            foreach ($items as $entry) {
+                $portName = strtolower($entry['portName'] ?? '');
+
+                if ($portName !== '' && str_contains($portName, 'cargogrid')) {
+                    $suffix = substr($portName, strpos($portName, 'cargogrid') + strlen('cargogrid'));
+                    $suffix = ltrim($suffix, '_-');
+
+                    if ($suffix !== '') {
+                        $parts = array_filter(
+                            explode('_', $suffix),
+                            static fn ($part) => $part !== '' && ! ctype_digit($part)
+                        );
+
+                        if (! empty($parts)) {
+                            $suffixes[] = $this->toPascalCase(implode('_', $parts));
+                        }
+                    }
+                }
+
+                if (! empty($entry['entries']) && is_array($entry['entries'])) {
+                    $walker($entry['entries']);
+                }
+
+                $manualEntries = Arr::get($entry, 'Item.Components.SEntityComponentDefaultLoadoutParams.loadout.SItemPortLoadoutManualParams.entries', []);
+                if (! empty($manualEntries)) {
+                    $walker($manualEntries);
+                }
+            }
+        };
+
+        $walker($entries);
+
+        return array_values(array_unique($suffixes));
     }
 }

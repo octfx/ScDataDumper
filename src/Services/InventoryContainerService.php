@@ -51,7 +51,34 @@ final class InventoryContainerService extends BaseService
 
     public function getByClassName(string $className): ?InventoryContainer
     {
-        return $this->load($this->inventoryContainerPaths[$className]);
+        if (isset($this->inventoryContainerPaths[$className])) {
+            return $this->load($this->inventoryContainerPaths[$className]);
+        }
+
+        // Fallback: some cargo grids are missing type metadata, so resolve via class->uuid map
+        $uuid = self::$classToUuidMap[$className] ?? null;
+        $path = $uuid ? (self::$uuidToPathMap[$uuid] ?? null) : null;
+
+        if ($path && $this->isInventoryContainerFile($path)) {
+            try {
+                return $this->load($path);
+            } catch (RuntimeException) {
+                return null;
+            }
+        }
+
+        // Last resort: look up directly in the class-to-path map for InventoryContainer entries
+        try {
+            $allPaths = json_decode(file_get_contents($this->classToPathMapPath), true, 512, JSON_THROW_ON_ERROR);
+            $path = $allPaths['InventoryContainer'][$className] ?? null;
+            if ($path && $this->isInventoryContainerFile($path)) {
+                return $this->load($path);
+            }
+        } catch (RuntimeException|JsonException) {
+            return null;
+        }
+
+        return null;
     }
 
     protected function load(string $filePath): InventoryContainer
@@ -84,5 +111,46 @@ final class InventoryContainerService extends BaseService
         $firstLine = preg_replace('/^\xEF\xBB\xBF/', '', ltrim($firstLine));
 
         return str_starts_with($firstLine, '<InventoryContainer');
+    }
+
+    /**
+     * Return all inventory containers whose class name starts with the given prefix.
+     *
+     * Useful for cargo grid variants (e.g. ORIG_890Jump_CargoGrid_Rear).
+     *
+     * @return InventoryContainer[]
+     */
+    public function findByClassPrefix(string $prefix): array
+    {
+        $results = [];
+        $seen = [];
+
+        foreach (self::$classToUuidMap as $className => $uuid) {
+            if (! str_starts_with($className, $prefix)) {
+                continue;
+            }
+
+            if (str_ends_with(strtolower($className), 'template')) {
+                continue;
+            }
+
+            $path = self::$uuidToPathMap[$uuid] ?? null;
+            if (! $path || ! $this->isInventoryContainerFile($path)) {
+                continue;
+            }
+
+            try {
+                $container = $this->load($path);
+            } catch (RuntimeException) {
+                $container = null;
+            }
+
+            if ($container && ! isset($seen[$container->getUuid()])) {
+                $seen[$container->getUuid()] = true;
+                $results[] = $container;
+            }
+        }
+
+        return $results;
     }
 }
