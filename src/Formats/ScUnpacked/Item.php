@@ -148,7 +148,7 @@ final class Item extends BaseFormat
             return 'UNKNOWN';
         }
 
-        if (empty(trim($minor)) || $minor === 'UNKNOWN') {
+        if ($minor === null || trim($minor) === '' || $minor === 'UNKNOWN') {
             return $major;
         }
 

@@ -41,8 +41,12 @@ class ItemPort extends BaseFormat
             'MinSize' => $port->get('@MinSize') ?? $port->get('@minSize'),
             'MaxSize' => $port->get('@MaxSize') ?? $port->get('@maxSize'),
             'Flags' => $this->buildFlagsList($port),
-            'Tags' => array_filter(explode(' ', $port->get('@PortTags'))),
-            'RequiredTags' => array_filter(explode(' ', $port->get('@RequiredPortTags'))),
+            'Tags' => ($portTags = trim((string) ($port->get('@PortTags') ?? ''))) === ''
+                ? []
+                : array_filter(explode(' ', $portTags)),
+            'RequiredTags' => ($requiredTags = trim((string) ($port->get('@RequiredPortTags') ?? ''))) === ''
+                ? []
+                : array_filter(explode(' ', $requiredTags)),
             'Types' => $this->buildTypesList($port),
             'CompatibleTypes' => $this->buildCompatibleTypes($port),
             'EquippedItem' => $this->getEquippedItemUuid($port, $portName ?? ''),
@@ -122,8 +126,10 @@ class ItemPort extends BaseFormat
             return false;
         }
 
-        if (! empty($patternSubType) && strcasecmp($patternSubType, $typeSubType) !== 0) {
-            return false;
+        if (! empty($patternSubType)) {
+            if ($typeSubType === null || strcasecmp($patternSubType, (string) $typeSubType) !== 0) {
+                return false;
+            }
         }
 
         return true;
@@ -228,7 +234,8 @@ class ItemPort extends BaseFormat
 
     private function buildFlagsList($port): ?array
     {
-        $flags = explode(' ', $port->get('@Flags') ?? $port->get('@flags'));
+        $rawFlags = trim((string) ($port->get('@Flags') ?? $port->get('@flags') ?? ''));
+        $flags = $rawFlags === '' ? [] : explode(' ', $rawFlags);
 
         return array_filter(array_map('trim', $flags));
     }

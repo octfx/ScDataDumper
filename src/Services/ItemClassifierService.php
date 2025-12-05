@@ -255,11 +255,16 @@ final class ItemClassifierService
             $subType = null;
         }
 
-        if (! empty($type) && strcasecmp($type, $entityType) !== 0) {
-            return false;
+        if (! empty($type)) {
+            if ($entityType === null || strcasecmp($type, (string) $entityType) !== 0) {
+                return false;
+            }
         }
-        if (! empty($subType) && strcasecmp($subType, $entitySubType) !== 0) {
-            return false;
+
+        if (! empty($subType)) {
+            if ($entitySubType === null || strcasecmp($subType, (string) $entitySubType) !== 0) {
+                return false;
+            }
         }
 
         return true;
@@ -324,7 +329,11 @@ final class ItemClassifierService
 
     private function cleanClassification(?string $classification): ?string
     {
-        if (strpos($classification, '.UNDEFINED') === strlen($classification) - 10) {
+        if ($classification === null) {
+            return null;
+        }
+
+        if (str_ends_with($classification, '.UNDEFINED')) {
             $classification = substr($classification, 0, -10);
         }
 

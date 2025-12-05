@@ -37,7 +37,7 @@ class Element
      */
     public function initialize(DOMDocument $document): void
     {
-        self::$initialized ??= new WeakMap();
+        self::$initialized ??= new WeakMap;
         self::$initialized[$this->node] = true;
     }
 
@@ -125,7 +125,7 @@ class Element
     /**
      * Checks if a child element or attribute exists relative to this element.
      *
-     * @param  string       $key          XPath-like path scoped to this element (e.g. 'child/grandchild@attr')
+     * @param  string  $key  XPath-like path scoped to this element (e.g. 'child/grandchild@attr')
      * @param  string|null  $elementName  Expected element name; defaults to the last segment of $key
      */
     public function has(string $key, ?string $elementName = null): bool

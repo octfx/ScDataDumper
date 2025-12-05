@@ -126,6 +126,9 @@ final class InventoryContainerService extends BaseService
         $seen = [];
 
         foreach (self::$classToUuidMap as $className => $uuid) {
+            // Some class names are numeric-only; ensure we treat them as strings for prefix checks
+            $className = (string) $className;
+
             if (! str_starts_with($className, $prefix)) {
                 continue;
             }

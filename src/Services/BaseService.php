@@ -76,7 +76,13 @@ abstract class BaseService
         }
 
         if (empty(self::$classToUuidMap)) {
-            self::$classToUuidMap = json_decode(file_get_contents($this->classToUuidMapPath), true, 512, JSON_THROW_ON_ERROR);
+            $rawClassToUuidMap = json_decode(file_get_contents($this->classToUuidMapPath), true, 512, JSON_THROW_ON_ERROR);
+
+            // json_decode casts numeric-string object keys to ints; re-stringify to keep class names usable
+            self::$classToUuidMap = [];
+            foreach ($rawClassToUuidMap as $className => $uuid) {
+                self::$classToUuidMap[(string) $className] = $uuid;
+            }
         }
     }
 
