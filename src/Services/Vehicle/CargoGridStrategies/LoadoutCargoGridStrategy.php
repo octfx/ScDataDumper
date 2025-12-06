@@ -21,7 +21,8 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
         $cargoGrids = collect($vehicle->loadout)
             ->flatMap(function ($entry) {
                 return $this->extractCargoGrids($entry);
-            });
+            })
+            ->filter(fn ($item) => ! $this->isTemplateGrid($item));
 
         $capacity = $cargoGrids->sum(function ($item) {
             $dimX = Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.x', 0);
@@ -37,17 +38,27 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
 
         $standardisedGrids = $cargoGrids
             ->map(function ($item) use ($inventoryContainerService) {
+                $containerRef = Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.containerParams')
+                    ?? Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.__ref')
+                    ?? ($item['__ref'] ?? null);
+
                 // Prefer dedicated InventoryContainer documents when available
-                $container = $inventoryContainerService->getByReference($item['__ref'] ?? null);
+                $container = $inventoryContainerService->getByReference($containerRef);
 
                 if ($container === null) {
                     $className = $item['className'] ?? $item['ClassName'] ?? null;
                     if ($className !== null) {
+                        if (str_ends_with(strtolower($className), '_template')) {
+                            return null;
+                        }
                         $container = $inventoryContainerService->getByClassName($className);
                     }
                 }
 
                 if ($container !== null) {
+                    if (str_ends_with(strtolower($container->getClassName()), '_template')) {
+                        return null;
+                    }
                     $dimensions = $container->getInteriorDimensions();
 
                     return [
@@ -76,10 +87,15 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
                     return null;
                 }
 
+                $className = $item['className'] ?? $item['ClassName'] ?? '';
+                if (str_ends_with(strtolower($className), '_template')) {
+                    return null;
+                }
+
                 $scu = ($dimX * $dimY * $dimZ) / M_TO_SCU_UNIT;
 
                 return [
-                    'uuid' => $item['__ref'] ?? null,
+                    'uuid' => $containerRef,
                     'class' => $item['className'] ?? $item['ClassName'] ?? null,
                     'SCU' => $scu,
                     'capacity' => $scu,
@@ -153,7 +169,7 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
                 $name = strtolower($port['Name'] ?? '');
                 $type = strtolower(Arr::get($port, 'Types.SItemPortDefTypes.Type', ''));
 
-                if (($name !== '' && str_contains($name, 'cargogrid')) || $type === 'cargogrid') {
+                if (($name !== '' && preg_match('/cargo[ _-]?grid/', $name)) || $type === 'cargogrid') {
                     $count++;
                 }
 
@@ -166,7 +182,7 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
         $walker = static function (array $items) use (&$walker, &$scanPorts, &$count): void {
             foreach ($items as $entry) {
                 $portName = strtolower($entry['portName'] ?? '');
-                if ($portName !== '' && str_contains($portName, 'cargogrid')) {
+                if ($portName !== '' && preg_match('/cargo[ _-]?grid/', $portName)) {
                     $count++;
                 }
 
@@ -186,5 +202,19 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
         $walker($entries);
 
         return $count;
+    }
+
+    /**
+     * Detect template/placeholder cargo grids that should be ignored.
+     */
+    private function isTemplateGrid(array $item): bool
+    {
+        $className = strtolower($item['className'] ?? $item['ClassName'] ?? '');
+        if ($className !== '' && str_ends_with($className, '_template')) {
+            return true;
+        }
+
+        $path = strtolower($item['__path'] ?? '');
+        return $path !== '' && str_ends_with($path, '_cargogrid_template.xml');
     }
 }

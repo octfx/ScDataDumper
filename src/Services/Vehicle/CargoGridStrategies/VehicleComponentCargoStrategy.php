@@ -34,6 +34,11 @@ final class VehicleComponentCargoStrategy implements CargoGridStrategyInterface
             return;
         }
 
+        $className = strtolower($container->getClassName() ?? '');
+        if ($className !== '' && str_ends_with($className, '_template')) {
+            return;
+        }
+
         $uuid = $container->getUuid();
         if (in_array($uuid, $result->existingGridUuids, true)) {
             return;

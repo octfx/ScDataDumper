@@ -64,6 +64,11 @@ final class ConventionBasedCargoStrategy implements CargoGridStrategyInterface
                 break;
             }
 
+            // Skip templates
+            if (str_ends_with(strtolower($className), '_template')) {
+                continue;
+            }
+
             try {
                 $container = $inventoryContainerService->getByClassName($className);
             } catch (Throwable) {

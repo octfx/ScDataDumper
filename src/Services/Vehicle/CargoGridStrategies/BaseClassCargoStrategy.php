@@ -50,6 +50,10 @@ final class BaseClassCargoStrategy implements CargoGridStrategyInterface
                     continue;
                 }
 
+                if (str_ends_with(strtolower($container->getClassName()), '_template')) {
+                    continue;
+                }
+
                 $uuid = $container->getUuid();
                 if (in_array($uuid, $result->existingGridUuids, true)) {
                     continue;
