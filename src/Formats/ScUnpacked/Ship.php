@@ -8,6 +8,7 @@ use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 use Octfx\ScDataDumper\Helper\Arr;
+use Octfx\ScDataDumper\Helper\ItemDescriptionParser;
 use Octfx\ScDataDumper\Helper\VehicleWrapper;
 use Octfx\ScDataDumper\Services\PortClassifierService;
 use Octfx\ScDataDumper\Services\ServiceFactory;
@@ -94,18 +95,14 @@ final class Ship extends BaseFormat
         $manufacturer = $vehicleComponent->get('manufacturer');
 
         $manufacturer = ServiceFactory::getManufacturerService()->getByReference($manufacturer);
-        $itemService = ServiceFactory::getItemService();
-        $inventoryContainerService = ServiceFactory::getInventoryContainerService();
 
         $isVehicle = $this->item->get('Components/VehicleComponentParams@vehicleCareer') === '@vehicle_focus_ground' || $vehicleComponent->get('@SubType') === 'Vehicle_GroundVehicle';
         $isGravlevValue = $this->item->get('Components/VehicleComponentParams@isGravlevVehicle');
         $isGravlev = filter_var($isGravlevValue, FILTER_VALIDATE_BOOLEAN) || (is_numeric($isGravlevValue) && (float) $isGravlevValue > 0);
 
         // Star Citizen bounding boxes are stored as maxBoundingBoxSize@x/y/z but
-        // their axis assignment is not consistent between vehicles. The
-        // ground‑truth data (refs/mat-table.json) always lists dimensions as
-        // Length >= Width >= Height, so we normalise by sorting the three
-        // components descending before assigning Length/Width/Height.
+        // their axis assignment is not consistent between vehicles. We normalize
+        // dimensions to be Length >= Width >= Height.
         $dimensions = [
             (float) $vehicleComponent->get('maxBoundingBoxSize@x', 0),
             (float) $vehicleComponent->get('maxBoundingBoxSize@y', 0),
@@ -114,11 +111,17 @@ final class Ship extends BaseFormat
 
         rsort($dimensions, SORT_NUMERIC);
 
+        $descriptionData = ItemDescriptionParser::parse(
+            $vehicleComponent->get('/English@vehicleDescription') ?? $vehicleComponent->get('/Localization/English@Description', '')
+        );
+
         $data = [
             'UUID' => $this->item->getUuid(),
             'ClassName' => $this->item->getClassName(),
             'Name' => trim(Arr::get($vehicleComponentData, 'vehicleName') ?? $vehicleComponent->get('/Localization/English@Name') ?? $this->item->getClassName()),
             'Description' => $vehicleComponent->get('/English@vehicleDescription') ?? $vehicleComponent->get('/Localization/English@Description', ''),
+            'DescriptionData' => $descriptionData['data'] ?? null,
+            'DescriptionText' => $descriptionData['description'] ?? null,
 
             'Career' => $vehicleComponent->get('/English@vehicleCareer', ''),
             'Role' => $vehicleComponent->get('/English@vehicleRole', ''),
@@ -182,14 +185,6 @@ final class Ship extends BaseFormat
                 }
             }
         }
-
-        //        $loadoutEntries = [];
-        //
-        //        foreach ($this->item->get('/SEntityComponentDefaultLoadoutParams/loadout')?->children() ?? [] as $loadout) {
-        //            $loadoutEntries[] = (new Loadout($loadout))->toArray();
-        //        }
-        //
-        //        $data['LoadoutEntries'] = $loadoutEntries;
 
         $parts = collect();
 
