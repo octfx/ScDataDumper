@@ -33,6 +33,17 @@ final class Item extends BaseFormat
             $attach->get('Localization/English@Description', '')
         );
 
+        $entityTagsXml = $this->item->get('/tags')?->children();
+        $entityTags = [];
+
+        if ($entityTagsXml !== null) {
+            foreach ($entityTagsXml as $tag) {
+                if ($tag->getNode()->nodeName === 'Reference') {
+                    $entityTags[] = strtolower($tag->get('value'));
+                }
+            }
+        }
+
         $data = [
             'className' => $this->item->getClassName(),
             'reference' => $this->item->getUuid(),
@@ -44,6 +55,7 @@ final class Item extends BaseFormat
             'name' => $attach->get('Localization/English@Name'),
             'tags' => $attach->get('Tags'),
             'required_tags' => $attach->get('RequiredTags'),
+            'entity_tags' => $entityTags,
             'manufacturer' => $manufacturer?->getCode(),
             'classification' => $this->item->getClassification(),
             'stdItem' => [
@@ -51,11 +63,14 @@ final class Item extends BaseFormat
                 'ClassName' => $this->item->getClassName(),
                 'Size' => $attach->get('Size', 0),
                 'Grade' => $attach->get('Grade', 0),
+                // @deprecated use InventoryOccupancy.GridDimensions.Width, Height, Length
                 'Width' => $attach->get('inventoryOccupancyDimensions@x', 0),
                 'Height' => $attach->get('inventoryOccupancyDimensions@z', 0),
                 'Length' => $attach->get('inventoryOccupancyDimensions@y', 0),
+                // @deprecated use InventoryOccupancy.Volume.SCU
                 'Volume' => self::convertToScu($attach->get('inventoryOccupancyVolume')),
-                'Mass' => $this->item->get('SEntityPhysicsControllerParams.PhysType.SEntityRigidPhysicsControllerParams.Mass', 0),
+                'InventoryOccupancy' => new InventoryOccupancy($this->item),
+                'Mass' => $this->item->get('Components/SEntityPhysicsControllerParams/PhysType/SEntityRigidPhysicsControllerParams@Mass', 0),
                 'Type' => self::buildTypeName($attach->get('Type', 'UNKNOWN'), $attach->get('SubType', 'UNKNOWN')),
                 'Name' => $attach->get('Localization/English@Name', ''),
                 'Description' => $attach->get('Localization/English@Description', ''),
@@ -67,6 +82,7 @@ final class Item extends BaseFormat
                     'UUID' => $manufacturer->getUuid(),
                 ] : $defaultManufacturer,
                 'Tags' => $this->item->getTagList(),
+                'RequiredTags' => $this->item->getRequiredTagList(),
                 'Ports' => $this->buildPortsList(),
 
                 'Ammunition' => new Ammunition($this->item),
@@ -83,6 +99,7 @@ final class Item extends BaseFormat
                 'Grenade' => new Grenade($this->item),
                 'FuelIntake' => new FuelIntake($this->item),
                 'FuelTank' => new FuelTank($this->item, 'FuelTank'),
+                'FlightController' => new FlightController($this->item),
                 'MiningLaser' => new MiningLaser($this->item),
                 'MiningModule' => new MiningModule($this->item),
                 'HeatConnection' => new HeatConnection($this->item),
@@ -97,7 +114,7 @@ final class Item extends BaseFormat
                 'MissileRack' => new MissileRack($this->item),
                 'PowerConnection' => new PowerConnection($this->item),
                 'PowerPlant' => new PowerPlant($this->item),
-                //                'ResourceNetwork' => new ResourceNetwork($this->item),
+                // 'ResourceNetwork' => new ResourceNetwork($this->item),
                 'ResourceNetwork' => new ResourceNetworkSimple($this->item),
                 'QuantumDrive' => new QuantumDrive($this->item),
                 'QuantumFuelTank' => new FuelTank($this->item, 'QuantumFuelTank'),

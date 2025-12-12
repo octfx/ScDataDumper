@@ -47,6 +47,9 @@ final class ServiceFactory
         self::$services['MeleeCombatConfigService'] = new MeleeCombatConfigService($this->scDataPath);
         self::$services['MeleeCombatConfigService']->initialize();
 
+        self::$services['MiningLaserGlobalParamsService'] = new MiningLaserGlobalParamsService($this->scDataPath);
+        self::$services['MiningLaserGlobalParamsService']->initialize();
+
         self::$services['VehicleService'] = new VehicleService($this->scDataPath);
         self::$services['VehicleService']->initialize();
 
@@ -102,6 +105,11 @@ final class ServiceFactory
     public static function getMeleeCombatConfigService(): MeleeCombatConfigService
     {
         return self::getService('MeleeCombatConfigService');
+    }
+
+    public static function getMiningLaserGlobalParamsService(): MiningLaserGlobalParamsService
+    {
+        return self::getService('MiningLaserGlobalParamsService');
     }
 
     public static function getVehicleService(): VehicleService

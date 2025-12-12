@@ -12,7 +12,7 @@ class ItemDescriptionParserTest extends TestCase
     protected function setUp(): void
     {
         // Reset config for each test
-        ItemDescriptionParser::setConfig(new ItemDescriptionParserConfig());
+        ItemDescriptionParser::setConfig(new ItemDescriptionParserConfig);
     }
 
     #[Test]
@@ -57,7 +57,7 @@ class ItemDescriptionParserTest extends TestCase
             "Size: 3\n\nDescription",
             "Size: 3\r\n\r\nDescription",
             "Size: 3\r\rDescription",
-            "Size: 3\\n\\nDescription",
+            'Size: 3\\n\\nDescription',
         ];
 
         foreach ($tests as $input) {
@@ -141,7 +141,7 @@ class ItemDescriptionParserTest extends TestCase
     #[Test]
     public function it_allows_custom_manufacturer_fixes()
     {
-        $config = new ItemDescriptionParserConfig();
+        $config = new ItemDescriptionParserConfig;
         $config->addManufacturerFix('TEST', 'Test Corporation');
         ItemDescriptionParser::setConfig($config);
 

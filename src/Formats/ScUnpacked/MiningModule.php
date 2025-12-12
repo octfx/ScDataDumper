@@ -22,26 +22,27 @@ final class MiningModule extends BaseFormat
         $miningModifiers = $modifiersRoot?->get('ItemMiningModifierParams/MiningLaserModifier');
         $filterParams = $modifiersRoot?->get('MiningFilterItemModifierParams/filterParams');
 
+        $charges = $component?->get('@charges');
         $lifetime = $modifiersRoot?->get('ItemMiningModifierParams/modifierLifetime/ItemModifierTimedLife@lifetime');
         $type = $lifetime !== null ? 'Active' : 'Passive';
 
+        $damageMultiplier = $modifiersRoot?->get('ItemWeaponModifiersParams/weaponModifier/weaponStats@damageMultiplier');
+
         $data = [
             'Type' => $type,
+            'Charges' => $charges,
+            'Lifetime' => $lifetime,
             'Modifiers' => [
                 'AllChargeRates' => $filterParams?->get('filterModifier/FloatModifierMultiplicative@value'),
-                'CollectionPointRadius' => null,
+                'ClusterFactor' => $miningModifiers?->get('clusterFactorModifier/FloatModifierMultiplicative@value'),
+                'DamageMultiplier' => $damageMultiplier,
                 'Instability' => $miningModifiers?->get('laserInstability/FloatModifierMultiplicative@value'),
-                'Module' => null,
                 'OptimalChargeRate' => $miningModifiers?->get('optimalChargeWindowRateModifier/FloatModifierMultiplicative@value'),
                 'OptimalChargeWindow' => $miningModifiers?->get('optimalChargeWindowSizeModifier/FloatModifierMultiplicative@value'),
                 'OverchargeRate' => $miningModifiers?->get('catastrophicChargeWindowRateModifier/FloatModifierMultiplicative@value'),
                 'Resistance' => $miningModifiers?->get('resistanceModifier/FloatModifierMultiplicative@value'),
                 'ShatterDamage' => $miningModifiers?->get('shatterdamageModifier/FloatModifierMultiplicative@value'),
-                'ThrottleResponsivenessDelay' => null,
-                'ThrottleSpeed' => null,
-                'ExtractionRate' => null,
                 'InertMaterials' => $filterParams?->get('filterModifier/FloatModifierMultiplicative@value'),
-                'ModuleSlots' => null,
             ],
         ];
 
@@ -49,7 +50,13 @@ final class MiningModule extends BaseFormat
 
         $descriptionData = ItemDescriptionParser::parse($description, [
             'Item Type' => 'type',
+            'Charges' => 'Charges',
+            'Duration' => 'Lifetime',
+            'Lifetime' => 'Lifetime',
             'All Charge Rates' => 'AllChargeRates',
+            'Cluster Factor' => 'ClusterFactor',
+            'Damage' => 'DamageMultiplier',
+            'Damage Multiplier' => 'DamageMultiplier',
             'Collection Point Radius' => 'CollectionPointRadius',
             'Instability' => 'Instability',
             'Module Slots' => 'ModuleSlots',
@@ -67,12 +74,15 @@ final class MiningModule extends BaseFormat
 
         $parsed = $descriptionData['data'] ?? [];
 
-        // Fill missing values from description-derived data
-        $data['Type'] ??= $parsed['type'] ?? null;
-
-        foreach ($data['Modifiers'] as $key => $value) {
-            if ($value === null && array_key_exists($key, $parsed)) {
-                $data['Modifiers'][$key] = $parsed[$key];
+        foreach ($parsed as $key => $value) {
+            if ($key === 'type') {
+                $data['Type'] ??= $value;
+            } elseif ($key === 'Charges') {
+                $data['Charges'] ??= $value;
+            } elseif ($key === 'Lifetime') {
+                $data['Lifetime'] ??= $value;
+            } elseif (!array_key_exists($key, $data['Modifiers'])) {
+                $data['Modifiers'][$key] = $value;
             }
         }
 

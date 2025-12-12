@@ -36,7 +36,7 @@ class ItemPort extends BaseFormat
 
         $stdPort = [
             'PortName' => $portName,
-            'DisplayName' => $this instanceof VehiclePartPort ? $port->get('@display_name') : null,
+            'DisplayName' => $this instanceof VehiclePartPort ? $port->get('@display_name') : $port->get('@DisplayName'),
             'Size' => $port->get('@MaxSize') ?? $port->get('@maxSize'),
             'MinSize' => $port->get('@MinSize') ?? $port->get('@minSize'),
             'MaxSize' => $port->get('@MaxSize') ?? $port->get('@maxSize'),
@@ -51,7 +51,7 @@ class ItemPort extends BaseFormat
             'CompatibleTypes' => $this->buildCompatibleTypes($port),
             'EquippedItem' => $this->getEquippedItemUuid($port, $portName ?? ''),
             'Position' => $this->detectPosition(
-                $this instanceof VehiclePartPort ? $port->get('@display_name') : null
+                $this instanceof VehiclePartPort ? $port->get('@display_name') : $port->get('@DisplayName')
             ),
         ];
 

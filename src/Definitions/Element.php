@@ -88,17 +88,25 @@ class Element
     /**
      * Turns Element Attributes into an array
      */
-    public function attributesToArray(?array $ignore = []): array
+    public function attributesToArray(?array $ignore = [], ?bool $pascalCase = false): array
     {
         $attributes = [];
 
+        if ($pascalCase) {
+            $ignore = array_map([$this, 'toPascalCase'], $ignore);
+        }
+
         foreach ($this->node->attributes as $attribute) {
-            if (! $attribute) {
+            if (! $attribute || in_array($attribute->nodeName, ['__type', '__polymorphicType'], true)) {
                 continue;
             }
 
             $name = $attribute->nodeName;
             $value = $attribute->nodeValue;
+
+            if ($pascalCase) {
+                $name = $this->toPascalCase($name);
+            }
 
             if (! in_array($name, $ignore, true)) {
                 if (is_numeric($value)) {
@@ -116,8 +124,6 @@ class Element
                 }
             }
         }
-
-        unset($attributes['__type'], $attributes['__polymorphicType']);
 
         return $attributes;
     }
@@ -163,7 +169,7 @@ class Element
     /**
      * Returns all child elements and wraps it in DOMElementProxy
      */
-    public function children(): Generator|array
+    public function children(): Generator
     {
         foreach ($this->node->childNodes as $child) {
             if ($child->nodeType !== XML_ELEMENT_NODE) {
@@ -180,5 +186,21 @@ class Element
     protected function isInitialized(): bool
     {
         return self::$initialized?->offsetExists($this->node) ?? false;
+    }
+
+    protected function toPascalCase(string $value): string
+    {
+        if (ctype_upper($value[0]) && ! str_contains($value, '_') && ! str_contains($value, '-')) {
+            $acronyms = ['Uuid' => 'UUID', 'Scu' => 'SCU', 'Ifcs' => 'IFCS', 'Emp' => 'EMP'];
+
+            return $acronyms[$value] ?? $value;
+        }
+
+        $value = str_replace(['_', '-'], ' ', $value);
+        $result = str_replace(' ', '', ucwords($value));
+
+        $acronyms = ['Uuid' => 'UUID', 'Scu' => 'SCU', 'Ifcs' => 'IFCS', 'Emp' => 'EMP'];
+
+        return $acronyms[$result] ?? $result;
     }
 }

@@ -55,15 +55,25 @@ abstract class BaseFormat
      * Retrieve an element or attribute from `$this->item`.
      * Key defaults to `$this->elementKey` if not set.
      *
+     * @param mixed $default Value returned when the key is not found
+     * @param bool $local When true and the key has no path separator, treat it as a child of the current node
+     *
      * @return float|mixed|null|Element|string
      */
-    public function get(?string $key = null, $default = null): mixed
+    public function get(?string $key = null, $default = null, ?bool $local = false): mixed
     {
         if ($key === null && $this->elementKey === null) {
             throw new RuntimeException('Either $key must be provided or $elementKey set');
         }
 
-        return $this->item->get($key ?? $this->elementKey, $default);
+        $lookupKey = $key ?? $this->elementKey;
+
+        if ($local && $lookupKey !== null && ! str_contains($lookupKey, '/') && ! str_contains($lookupKey, '@')) {
+                // Force lookup to be treated as a child element of the current node, not an attribute on the root item
+                $lookupKey = '/'.$lookupKey;
+            }
+
+            return $this->item->get($lookupKey, $default);
     }
 
     /**
@@ -129,11 +139,19 @@ abstract class BaseFormat
     /**
      * Recursively transforms all array keys to PascalCase
      *
-     * @param  array  $data  The array with mixed case keys
+     * @param  array|BaseFormat|null  $data  The array with mixed case keys
      * @return array Array with all keys in PascalCase
      */
-    protected function transformArrayKeysToPascalCase(array $data): array
+    protected function transformArrayKeysToPascalCase(array|null|BaseFormat $data): array
     {
+        if ($data === null) {
+            return [];
+        }
+
+        if ($data instanceof self) {
+            return $data->toArray() ?? [];
+        }
+
         $result = [];
 
         foreach ($data as $key => $value) {

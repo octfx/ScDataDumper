@@ -17,7 +17,7 @@ use Octfx\ScDataDumper\Services\ServiceFactory;
 final class ScuCalculator
 {
     /** Conversion factor from cubic meters to SCU */
-    private const M_TO_SCU_UNIT = 1.953125;
+    private const float M_TO_SCU_UNIT = 1.953125;
 
     /**
      * Calculate SCU capacity from item data
@@ -45,7 +45,9 @@ final class ScuCalculator
         }
 
         // Try dimension-based calculation
-        return self::fromDimensions($item);
+        $inventoryContainer = self::fromDimensions($item);
+
+        return $inventoryContainer ?? self::fromDimensions($item, 'Components.SAttachableComponentParams.AttachDef.inventoryOccupancyDimensions');
     }
 
     /**
@@ -54,7 +56,7 @@ final class ScuCalculator
      * @param  array  $capacity  Capacity array with unit definitions
      * @return float|null SCU value or null
      */
-    private static function fromCapacity(array $capacity): ?float
+    public static function fromCapacity(array $capacity): ?float
     {
         $standard = Arr::get($capacity, 'SStandardCargoUnit.standardCargoUnits');
         if ($standard !== null) {
@@ -78,13 +80,14 @@ final class ScuCalculator
      * Calculate SCU from interior dimensions
      *
      * @param  array  $item  Item with dimension data
+     * @param  string|null  $baseKey  Base key for interior dimensions, defaults to 'inventoryContainer.interiorDimensions'
      * @return float|null SCU calculated from dimensions or null
      */
-    private static function fromDimensions(array $item): ?float
+    public static function fromDimensions(array $item, ?string $baseKey = 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions'): ?float
     {
-        $dimX = Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.x');
-        $dimY = Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.y');
-        $dimZ = Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.z');
+        $dimX = Arr::get($item, $baseKey.'.x', Arr::get($item, 'x'));
+        $dimY = Arr::get($item, $baseKey.'.y', Arr::get($item, 'y'));
+        $dimZ = Arr::get($item, $baseKey.'.z', Arr::get($item, 'z'));
 
         if ($dimX !== null && $dimY !== null && $dimZ !== null) {
             return ($dimX * $dimY * $dimZ) / self::M_TO_SCU_UNIT;

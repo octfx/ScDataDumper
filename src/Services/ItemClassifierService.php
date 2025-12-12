@@ -66,6 +66,10 @@ final class ItemClassifierService
                 'Classifier' => fn ($t, $s) => "Ship.$t.$s",
             ],
             [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'FlightController.*'),
+                'Classifier' => fn ($t, $s) => "Ship.$t.$s",
+            ],
+            [
                 'Matcher' => fn ($item) => self::typeMatch($item, 'PowerPlant.*'),
                 'Classifier' => fn ($t, $s) => "Ship.$t.$s",
             ],

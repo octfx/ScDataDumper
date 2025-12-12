@@ -45,13 +45,17 @@ class LoadManufacturers extends Command
 
         try {
             foreach ($service->iterator() as $manufacturer) {
-                $manufacturer = $manufacturer->toArray();
-                $manufacturers[] = [
-                    'code' => Arr::get($manufacturer, 'Code'),
-                    'name' => Arr::get($manufacturer, 'Localization.Name'),
-                    // 'description' => Arr::get($manufacturer, 'Localization.Description'),
-                    'reference' => Arr::get($manufacturer, '__ref'),
-                ];
+                try {
+                    $manufacturerArray = $manufacturer->toArray();
+                    $manufacturers[] = [
+                        'code' => Arr::get($manufacturerArray, 'Code'),
+                        'name' => Arr::get($manufacturerArray, 'Localization.Name'),
+                        // 'description' => Arr::get($manufacturerArray, 'Localization.Description'),
+                        'reference' => Arr::get($manufacturerArray, '__ref'),
+                    ];
+                } catch (RuntimeException $e) {
+                    $io->warning(sprintf('Skipped manufacturer: %s', $e->getMessage()));
+                }
 
                 $io->progressAdvance();
             }

@@ -18,19 +18,22 @@ final class HackingChip extends BaseFormat
             return null;
         }
 
-        $chipParams = $this->get('Components/HackingChipParams');
+        $maxCharges = $this->get('Components/HackingChipParams@maxCharges');
+        $errorChanceFromChipParams = $this->get('Components/HackingChipParams@errorChance');
+
         $removableValues = $this->get('Components/RemovableChipParams/values');
 
-        $maxCharges = $chipParams?->get('maxCharges')
-            ?? $this->extractValue($removableValues, 'maxCharges')
-            ?? $this->extractValue($removableValues, 'MaxCharges');
+        if ($maxCharges === null) {
+            $maxCharges = $this->extractValue($removableValues, 'maxCharges')
+                ?? $this->extractValue($removableValues, 'MaxCharges');
+        }
 
         $durationMultiplier = $this->extractValue($removableValues, 'Duration')
             ?? $this->extractValue($removableValues, 'duration');
 
         $errorChance = $this->extractValue($removableValues, 'ErrorChance')
             ?? $this->extractValue($removableValues, 'errorchance')
-            ?? $chipParams?->get('errorChance');
+            ?? $errorChanceFromChipParams;
 
         $accessTag = $this->item->get('Components/SAttachableComponentParams/AttachDef@Tags');
         if (is_string($accessTag) && trim($accessTag) === '') {
@@ -57,14 +60,13 @@ final class HackingChip extends BaseFormat
 
         $type = $this->item->getAttachType();
         $subType = $this->item->getAttachSubType();
-
         $isHackingChip = $type === 'RemovableChip'
             || ($type === 'FPS_Consumable' && $subType === 'Hacking');
 
-        return $isHackingChip && $this->has('Components');
+        return $isHackingChip && $this->has('/Components');
     }
 
-    private function extractValue(?Element $values, string $needle): ?float
+    private function extractValue(?Element $values, string $needle): float|string|null
     {
         if (! $values instanceof Element) {
             return null;

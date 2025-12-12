@@ -92,9 +92,16 @@ final class Ship extends BaseFormat
             $vehicleComponent = $this->vehicleWrapper->entity->getAttachDef();
         }
 
-        $manufacturer = $vehicleComponent->get('manufacturer');
+        $manufacturerRef = $vehicleComponent->get('manufacturer');
 
-        $manufacturer = ServiceFactory::getManufacturerService()->getByReference($manufacturer);
+        // Some actor-based vehicles (e.g. power suits) don't carry a valid manufacturer on AttachDef
+        // and lack VehicleComponentParams entirely. Fall back to the insurance display params
+        // which still hold the canonical manufacturer reference.
+        if ($manufacturerRef === null || $manufacturerRef === '00000000-0000-0000-0000-000000000000') {
+            $manufacturerRef = $this->item->get('StaticEntityClassData/SEntityInsuranceProperties/displayParams@manufacturer');
+        }
+
+        $manufacturer = ServiceFactory::getManufacturerService()->getByReference($manufacturerRef);
 
         $isVehicle = $this->item->get('Components/VehicleComponentParams@vehicleCareer') === '@vehicle_focus_ground' || $vehicleComponent->get('@SubType') === 'Vehicle_GroundVehicle';
         $isGravlevValue = $this->item->get('Components/VehicleComponentParams@isGravlevVehicle');
@@ -127,6 +134,7 @@ final class Ship extends BaseFormat
             'Role' => $vehicleComponent->get('/English@vehicleRole', ''),
 
             'Manufacturer' => $manufacturer ? [
+                'UUID' => $manufacturer->getUuid(),
                 'Code' => $manufacturer->getCode(),
                 'Name' => $manufacturer->get('Localization/English@Name'),
             ] : [],

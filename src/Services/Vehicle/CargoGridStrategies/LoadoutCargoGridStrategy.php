@@ -215,6 +215,7 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
         }
 
         $path = strtolower($item['__path'] ?? '');
+
         return $path !== '' && str_ends_with($path, '_cargogrid_template.xml');
     }
 }

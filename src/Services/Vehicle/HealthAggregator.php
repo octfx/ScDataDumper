@@ -82,6 +82,6 @@ final class HealthAggregator
 
         $hasExcludedFlag = ! empty(array_intersect($flags, $this->config->excludedPortFlags));
 
-        return !($this->config->skipItemPorts && $isItemPort && $hasExcludedFlag);
+        return ! ($this->config->skipItemPorts && $isItemPort && $hasExcludedFlag);
     }
 }

@@ -3,6 +3,7 @@
     "description": "PHP Tool for dumping SC data files",
     "type": "project",
     "require": {
+        "php": ">=8.4",
         "symfony/console": "^v8.0.0",
         "ext-dom": "*",
         "illuminate/collections": "^v12.40.2"

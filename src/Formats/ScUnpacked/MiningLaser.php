@@ -4,7 +4,7 @@ namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Formats\BaseFormat;
-use Octfx\ScDataDumper\Helper\ItemDescriptionParser;
+use Octfx\ScDataDumper\Helper\Arr;
 
 final class MiningLaser extends BaseFormat
 {
@@ -22,30 +22,6 @@ final class MiningLaser extends BaseFormat
             return null;
         }
 
-        $descriptionData = ItemDescriptionParser::parse(
-            $attachDef->get('Localization/English@Description', ''),
-            [
-                'Item Type' => 'item_type',
-                'Optimal Range' => 'optimal_range',
-                'Maximum Range' => 'maximum_range',
-                'Power Transfer' => 'power_transfer',
-                'Collection Throughput' => 'collection_throughput',
-                'Extraction Throughput' => 'extraction_throughput',
-                'All Charge Rates' => 'all_charge_rates',
-                'Collection Point Radius' => 'collection_point_radius',
-                'Instability' => 'instability',
-                'Module Slots' => 'module_slots',
-                'Module' => 'module',
-                'Optimal Charge Rate' => 'optimal_charge_rate',
-                'Optimal Charge Window' => 'optimal_charge_window',
-                'Overcharge Rate' => 'overcharge_rate',
-                'Resistance' => 'resistance',
-                'Shatter Damage' => 'shatter_damage',
-                'Throttle Responsiveness Delay' => 'throttle_responsiveness_delay',
-                'Throttle Speed' => 'throttle_speed',
-            ]
-        );
-
         $laserParams = $this->get();
         $weapon = $this->item->get('Components/SCItemWeaponComponentParams');
         $fireActions = $weapon?->get('/fireActions');
@@ -53,14 +29,37 @@ final class MiningLaser extends BaseFormat
         [$fractureAction, $extractionAction] = $this->identifyActions($fireActions);
 
         $powerTransfer = $this->extractDamagePerSecond($fractureAction);
+
         $extractionThroughput = $this->extractThroughput($extractionAction);
+
+        $laserParamsData = $laserParams?->get('/MiningLaserGlobalParams')?->attributesToArray(['__ref', '__path'],pascalCase: true);
+
+        $throttleMinimum = $laserParams?->get('@throttleMinimum');
+        $throttleHoldAccFactor = Arr::get($laserParamsData, 'ThrottleHoldAccFactor');
+
+        if ($throttleMinimum !== null && $throttleHoldAccFactor !== null) {
+            $minFactor = min($throttleMinimum, $throttleHoldAccFactor);
+        } elseif ($throttleMinimum !== null) {
+            $minFactor = $throttleMinimum;
+        } elseif ($throttleHoldAccFactor !== null) {
+            $minFactor = $throttleHoldAccFactor;
+        } else {
+            $minFactor = null;
+        }
+
+        $minPowerTransfer = $powerTransfer !== null && $minFactor !== null
+            ? $minFactor * $powerTransfer
+            : null;
 
         $data = [
             'PowerTransfer' => $powerTransfer,
+            'MinPowerTransfer' => $minPowerTransfer,
             'OptimalRange' => $fractureAction?->get('@fullDamageRange'),
             'MaximumRange' => $fractureAction?->get('@zeroDamageRange'),
             'ExtractionThroughput' => $extractionThroughput,
             'ModuleSlots' => $this->countModulePorts(),
+            'UsesPowerThrottle' => $laserParams?->get('@usesPowerThrottle'),
+            'GlobalParams' => $laserParamsData,
             'Modifiers' => [
                 'AllChargeRates' => $laserParams?->get('filterParams/filterModifier/FloatModifierMultiplicative@value'),
                 'CollectionPointRadius' => $this->extractCollectionRadius($extractionAction ?? $fractureAction),
@@ -71,6 +70,7 @@ final class MiningLaser extends BaseFormat
                 'OverchargeRate' => $laserParams?->get('miningLaserModifiers/catastrophicChargeWindowRateModifier/FloatModifierMultiplicative@value'),
                 'Resistance' => $laserParams?->get('miningLaserModifiers/resistanceModifier/FloatModifierMultiplicative@value'),
                 'ShatterDamage' => $laserParams?->get('miningLaserModifiers/shatterdamageModifier/FloatModifierMultiplicative@value'),
+                'ClusterFactor' => $laserParams?->get('miningLaserModifiers/clusterFactorModifier/FloatModifierMultiplicative@value'),
                 'ThrottleResponsivenessDelay' => $laserParams?->get('@throttleMinimum'),
                 'ThrottleSpeed' => $laserParams?->get('@throttleLerpSpeed'),
             ],
@@ -177,8 +177,15 @@ final class MiningLaser extends BaseFormat
         $count = 0;
 
         foreach ($ports->children() as $port) {
-            foreach ($port->get('Types')?->children() ?? [] as $type) {
-                if ($type->get('@Type') === 'MiningModifier') {
+            $typeNodes = $port->get('/CompatibleTypes')?->children();
+            if ($typeNodes === null || $typeNodes === []) {
+                $typeNodes = $port->get('/Types')?->children() ?? [];
+            }
+
+            foreach ($typeNodes as $type) {
+                $major = $type->get('@CompatibleType') ?? $type->get('@Type') ?? $type->get('@type');
+
+                if ($major !== null && strcasecmp($major, 'MiningModifier') === 0) {
                     $count++;
                     break;
                 }
