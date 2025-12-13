@@ -102,7 +102,7 @@ final class ResourceNetworkSimple extends BaseFormat
             ],
             default => [
                 'Type' => 'Other',
-                'Attributes' => $delta->attributesToArray(),
+                'Attributes' => $this->transformArrayKeysToPascalCase($delta->attributesToArray()),
             ],
         };
 
@@ -276,7 +276,7 @@ final class ResourceNetworkSimple extends BaseFormat
         $out = [];
 
         foreach ($states->children() as $state) {
-            $out[] = $state->attributesToArray();
+            $out[] = $this->transformArrayKeysToPascalCase($state->attributesToArray());
         }
 
         return $out;

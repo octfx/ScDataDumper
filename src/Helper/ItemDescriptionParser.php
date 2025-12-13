@@ -5,6 +5,11 @@ namespace Octfx\ScDataDumper\Helper;
 class ItemDescriptionParser
 {
     /**
+     * Configuration instance for the parser
+     */
+    private static ?ItemDescriptionParserConfig $config = null;
+
+    /**
      * Standard keywords extracted from SC item descriptions
      */
     public const STANDARD_KEYWORDS = [
@@ -15,6 +20,7 @@ class ItemDescriptionParser
         'Attachment Point',
         'Attachments',
         'Badge',
+        'Battery Size',
         'Box',
         'Capacity',
         'Carrying Capacity',
@@ -33,6 +39,7 @@ class ItemDescriptionParser
         'Extraction Laser Power',
         'Extraction Rate',
         'Extraction Throughput',
+        'Focus',
         'Grade',
         'HEI',
         'Inert Materials',
@@ -77,16 +84,20 @@ class ItemDescriptionParser
     ];
 
     /**
-     * Common manufacturer name corrections
-     * Maps abbreviated or incorrect names to their canonical forms
+     * Set custom configuration for the parser
      */
-    private const MANUFACTURER_FIXES = [
-        'Lighting Power Ltd.' => 'Lightning Power Ltd.',
-        'MISC' => 'Musashi Industrial & Starflight Concern',
-        'Nav-E7' => 'Nav-E7 Gadgets',
-        'RSI' => 'Roberts Space Industries',
-        'YORM' => 'Yorm',
-    ];
+    public static function setConfig(ItemDescriptionParserConfig $config): void
+    {
+        self::$config = $config;
+    }
+
+    /**
+     * Get parser configuration (lazy initialization)
+     */
+    private static function getConfig(): ItemDescriptionParserConfig
+    {
+        return self::$config ??= new ItemDescriptionParserConfig;
+    }
 
     /**
      * Parse structured data from item description text
@@ -121,7 +132,7 @@ class ItemDescriptionParser
         }
 
         $withColon = collect($parts)->filter(function (string $part) {
-            return preg_match('/\w:[\s| ]/u', $part) === 1;
+            return preg_match('/\w:/u', $part) === 1;
         })->implode("\n");
 
         // Handle both array formats: ['Size'] or ['Size' => 'size']
@@ -129,39 +140,60 @@ class ItemDescriptionParser
             $keywords = array_combine($keywords, $keywords);
         }
 
+        $keywords = self::filterRelevantKeywords($withColon, $keywords);
+
+        // Early return if no keywords remain
+        if (empty($keywords)) {
+            return [
+                'description' => $description,
+                'data' => null,
+            ];
+        }
+
         $match = preg_match_all(
-            '/('.implode('|', array_keys($keywords)).'):(?:\s| )?([µ\w_& (),.\\-°\/%%+-]*)(?:\n|\\\n|$)/m',
+            '/('.implode('|', array_keys($keywords)).'):[ \t]?(.+?)(?:\n|$)/mu',
             $withColon,
             $matches
         );
 
         if ($match === false || $match === 0) {
-            // Handle placeholder descriptions
-            if ($description === '<= PLACEHOLDER =>' || str_contains($description, '[PH]')) {
-                return [];
+            if (self::getConfig()->isPlaceholder($description)) {
+                return [
+                    'description' => '',
+                    'data' => null,
+                ];
             }
 
             return [
                 'description' => $description,
+                'data' => null,
             ];
         }
 
         $out = [];
         for ($i = 0, $iMax = count($matches[1]); $i < $iMax; $i++) {
             if (isset($keywords[$matches[1][$i]])) {
-                $value = trim($matches[2][$i]);
-                $out[$keywords[$matches[1][$i]]] = $value;
+                $value = self::sanitizeValue($matches[2][$i]);
+                if ($value !== '') {
+                    $out[$keywords[$matches[1][$i]]] = $value;
+                }
             }
         }
 
         // Apply manufacturer name corrections automatically
-        if (! empty($out['manufacturer'])) {
-            $out['manufacturer'] = self::MANUFACTURER_FIXES[$out['manufacturer']] ?? $out['manufacturer'];
+        // Check for both 'manufacturer' and 'Manufacturer' keys
+        foreach (['manufacturer', 'Manufacturer'] as $key) {
+            if (! empty($out[$key])) {
+                $fixed = self::getConfig()->getManufacturerFix($out[$key]);
+                if ($fixed !== null) {
+                    $out[$key] = $fixed;
+                }
+            }
         }
 
         return [
             'description' => self::getCleanText($description),
-            'data' => $out,
+            'data' => $out ?: null,
         ];
     }
 
@@ -182,26 +214,78 @@ class ItemDescriptionParser
 
         // Remove sections containing "keyword: value" patterns
         $exploded = array_filter($exploded, static function (string $part) {
-            return preg_match('/(：|\w:[\s| ])/u', $part) !== 1;
+            return preg_match('/(：|\w:)/u', $part) !== 1;
         });
 
         return trim(implode("\n\n", $exploded));
     }
 
     /**
+     * Pre-filter keywords to only those likely present in description
+     * Reduces regex complexity for descriptions with few keywords
+     *
+     * @param  string  $description  Description text to search
+     * @param  array  $keywords  All available keywords
+     * @return array Filtered keywords that appear in description
+     */
+    private static function filterRelevantKeywords(string $description, array $keywords): array
+    {
+        if (count($keywords) < 10) {
+            return $keywords;
+        }
+
+        $relevant = array_filter($keywords, static function ($key) use ($description) {
+            return stripos($description, $key) !== false;
+        }, ARRAY_FILTER_USE_KEY);
+
+        return $relevant ?: $keywords;
+    }
+
+    /**
+     * Sanitize extracted value
+     * Handles trailing punctuation, excess whitespace, invalid chars
+     *
+     * @param  string  $value  Raw value from regex extraction
+     * @return string Sanitized value
+     */
+    private static function sanitizeValue(string $value): string
+    {
+        $value = trim($value);
+
+        $value = rtrim($value, '.,;');
+
+        $value = preg_replace('/\s+/', ' ', $value);
+
+        $value = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $value);
+
+        return trim($value);
+    }
+
+    /**
      * Normalize description text
-     * - Converts escaped newlines to actual newlines
-     * - Normalizes various quote and space characters
+     * - Converts all newline formats to \n
+     * - Normalizes Unicode quotes, dashes, and spaces
+     * - Collapses excessive whitespace
      */
     private static function normalizeText(string $description): string
     {
-        $description = str_replace('\\n \\n', '\\n\\n', $description);
-        $description = trim(str_replace('\n', "\n", $description));
+        $config = self::getConfig();
 
-        return str_replace(
-            ["\u{2018}", "\u{2019}", '`', "\u{00B4}", "\u{00A0}"],
-            ['\'', '\'', '\'', '\'', ' '],
+        foreach ($config->getNewlineFormats() as $format) {
+            $description = str_replace($format, "\n", $description);
+        }
+
+        // Normalize double-escaped newlines with spaces (\\n \\n -> \n\n)
+        $description = preg_replace('/\\\n\s+\\\n/', "\n\n", $description);
+
+        $description = str_replace(
+            array_keys($config->getUnicodeReplacements()),
+            array_values($config->getUnicodeReplacements()),
             $description
         );
+
+        $description = preg_replace('/[ \t]+/', ' ', $description);
+
+        return trim($description);
     }
 }

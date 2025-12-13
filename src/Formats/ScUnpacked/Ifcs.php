@@ -28,8 +28,8 @@ final class Ifcs extends BaseFormat
             'Pitch' => $ifcs->get('maxAngularVelocity@x'),
             'Yaw' => $ifcs->get('maxAngularVelocity@z'),
             'Roll' => $ifcs->get('maxAngularVelocity@y'),
-            'MaxAngularVelocity' => (new Vec3($ifcs->get('/maxAngularVelocity')))->toArray(),
-            'Afterburner' => (new Afterburner($this->item))->toArray(),
+            'MaxAngularVelocity' => new Vec3($ifcs->get('/maxAngularVelocity')),
+            'Afterburner' => new Afterburner($this->item),
         ];
     }
 }

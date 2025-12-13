@@ -14,7 +14,7 @@ final class FactionService extends BaseService
 
     public function initialize(): void
     {
-        $this->factionPaths = array_filter(self::$uuidToPathMap, static fn (string $path) => str_contains($path, 'factions'.DIRECTORY_SEPARATOR) === true);
+        $this->factionPaths = array_filter(self::$uuidToPathMap, static fn (string $path) => str_contains($path, 'factions/') === true);
     }
 
     public function count(): int

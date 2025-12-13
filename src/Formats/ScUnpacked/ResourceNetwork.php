@@ -131,7 +131,7 @@ final class ResourceNetwork extends BaseFormat
             ],
             default => [
                 'Type' => $delta->nodeName,
-                'Attributes' => $delta->attributesToArray(),
+                'Attributes' => $this->transformArrayKeysToPascalCase($delta->attributesToArray()),
             ],
         };
 
@@ -228,7 +228,7 @@ final class ResourceNetwork extends BaseFormat
         $out = [];
 
         foreach ($values->children() as $value) {
-            $out[] = $value->attributesToArray();
+            $out[] = $this->transformArrayKeysToPascalCase($value->attributesToArray());
         }
 
         return $out;
@@ -243,7 +243,7 @@ final class ResourceNetwork extends BaseFormat
         $out = [];
 
         foreach ($states->children() as $state) {
-            $out[] = $state->attributesToArray();
+            $out[] = $this->transformArrayKeysToPascalCase($state->attributesToArray());
         }
 
         return $out;
@@ -256,8 +256,8 @@ final class ResourceNetwork extends BaseFormat
         }
 
         $data = [
-            'EM' => $signature->get('/EMSignature')?->attributesToArray(),
-            'IR' => $signature->get('/IRSignature')?->attributesToArray(),
+            'EM' => $this->transformArrayKeysToPascalCase($signature->get('/EMSignature')?->attributesToArray() ?? []),
+            'IR' => $this->transformArrayKeysToPascalCase($signature->get('/IRSignature')?->attributesToArray() ?? []),
         ];
 
         $data = $this->clean($data);
@@ -274,7 +274,7 @@ final class ResourceNetwork extends BaseFormat
         $out = [];
 
         foreach ($rangeParams->children() as $range) {
-            $out[] = $range->attributesToArray();
+            $out[] = $this->transformArrayKeysToPascalCase($range->attributesToArray());
         }
 
         return $out;
@@ -289,7 +289,7 @@ final class ResourceNetwork extends BaseFormat
         $out = [];
 
         foreach ($element->children() as $child) {
-            $out[] = $child->attributesToArray();
+            $out[] = $this->transformArrayKeysToPascalCase($child->attributesToArray());
         }
 
         return $out;

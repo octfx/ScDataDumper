@@ -19,7 +19,7 @@ final class MissileRack extends BaseFormat
 
         return [
             'Count' => count($rack->childNodes),
-            'Size' => (new Element($rack->getNode()->firstChild))->get('MaxSize'),
+            'Size' => new Element($rack->getNode()->firstChild)->get('MaxSize'),
         ];
     }
 

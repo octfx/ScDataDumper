@@ -35,4 +35,11 @@ class EntityClassDefinition extends RootDocument
 
         return array_filter(array_map(static fn ($tag) => trim($tag), explode(' ', $tags)));
     }
+
+    public function getRequiredTagList(): array
+    {
+        $tags = $this->get('Components/SAttachableComponentParams/AttachDef@RequiredTags', '') ?? '';
+
+        return array_filter(array_map(static fn ($tag) => trim($tag), explode(' ', $tags)));
+    }
 }

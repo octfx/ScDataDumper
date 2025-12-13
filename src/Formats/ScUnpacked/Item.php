@@ -33,6 +33,17 @@ final class Item extends BaseFormat
             $attach->get('Localization/English@Description', '')
         );
 
+        $entityTagsXml = $this->item->get('/tags')?->children();
+        $entityTags = [];
+
+        if ($entityTagsXml !== null) {
+            foreach ($entityTagsXml as $tag) {
+                if ($tag->getNode()->nodeName === 'Reference') {
+                    $entityTags[] = strtolower($tag->get('value'));
+                }
+            }
+        }
+
         $data = [
             'className' => $this->item->getClassName(),
             'reference' => $this->item->getUuid(),
@@ -44,6 +55,7 @@ final class Item extends BaseFormat
             'name' => $attach->get('Localization/English@Name'),
             'tags' => $attach->get('Tags'),
             'required_tags' => $attach->get('RequiredTags'),
+            'entity_tags' => $entityTags,
             'manufacturer' => $manufacturer?->getCode(),
             'classification' => $this->item->getClassification(),
             'stdItem' => [
@@ -51,11 +63,14 @@ final class Item extends BaseFormat
                 'ClassName' => $this->item->getClassName(),
                 'Size' => $attach->get('Size', 0),
                 'Grade' => $attach->get('Grade', 0),
+                // @deprecated use InventoryOccupancy.GridDimensions.Width, Height, Length
                 'Width' => $attach->get('inventoryOccupancyDimensions@x', 0),
                 'Height' => $attach->get('inventoryOccupancyDimensions@z', 0),
                 'Length' => $attach->get('inventoryOccupancyDimensions@y', 0),
+                // @deprecated use InventoryOccupancy.Volume.SCU
                 'Volume' => self::convertToScu($attach->get('inventoryOccupancyVolume')),
-                'Mass' => $this->item->get('SEntityPhysicsControllerParams.PhysType.SEntityRigidPhysicsControllerParams.Mass', 0),
+                'InventoryOccupancy' => new InventoryOccupancy($this->item),
+                'Mass' => $this->item->get('Components/SEntityPhysicsControllerParams/PhysType/SEntityRigidPhysicsControllerParams@Mass', 0),
                 'Type' => self::buildTypeName($attach->get('Type', 'UNKNOWN'), $attach->get('SubType', 'UNKNOWN')),
                 'Name' => $attach->get('Localization/English@Name', ''),
                 'Description' => $attach->get('Localization/English@Description', ''),
@@ -67,6 +82,7 @@ final class Item extends BaseFormat
                     'UUID' => $manufacturer->getUuid(),
                 ] : $defaultManufacturer,
                 'Tags' => $this->item->getTagList(),
+                'RequiredTags' => $this->item->getRequiredTagList(),
                 'Ports' => $this->buildPortsList(),
 
                 'Ammunition' => new Ammunition($this->item),
@@ -79,31 +95,42 @@ final class Item extends BaseFormat
                 'Durability' => new Durability($this->item),
                 'Emp' => new EMP($this->item),
                 'Food' => new Food($this->item),
-                'FuelIntake' => new HydrogenFuelIntake($this->item),
+                'HackingChip' => new HackingChip($this->item),
+                'Grenade' => new Grenade($this->item),
+                'FuelIntake' => new FuelIntake($this->item),
                 'FuelTank' => new FuelTank($this->item, 'FuelTank'),
+                'FlightController' => new FlightController($this->item),
+                'MiningLaser' => new MiningLaser($this->item),
+                'MiningModule' => new MiningModule($this->item),
                 'HeatConnection' => new HeatConnection($this->item),
                 'Helmet' => new Helmet($this->item),
                 'Ifcs' => new Ifcs($this->item),
                 'Interactions' => new Interactions($this->item),
                 'InventoryContainer' => new InventoryContainer($this->item),
                 'ResourceContainer' => new ResourceContainer($this->item),
+                'Seat' => new Seat($this->item),
                 'MeleeWeapon' => new MeleeWeapon($this->item),
                 'Missile' => new Missile($this->item),
                 'MissileRack' => new MissileRack($this->item),
                 'PowerConnection' => new PowerConnection($this->item),
                 'PowerPlant' => new PowerPlant($this->item),
-//                'ResourceNetwork' => new ResourceNetwork($this->item),
+                // 'ResourceNetwork' => new ResourceNetwork($this->item),
                 'ResourceNetwork' => new ResourceNetworkSimple($this->item),
                 'QuantumDrive' => new QuantumDrive($this->item),
                 'QuantumFuelTank' => new FuelTank($this->item, 'QuantumFuelTank'),
                 'QuantumInterdiction' => new QuantumInterdictionGenerator($this->item),
                 'Radar' => new Radar($this->item),
+                'SelfDestruct' => new SelfDestruct($this->item),
                 'Shield' => new Shield($this->item),
+                'SalvageModifier' => new SalvageModifier($this->item),
                 'SuitArmor' => new SuitArmor($this->item),
                 'TemperatureResistance' => new TemperatureResistance($this->item),
                 'RadiationResistance' => new RadiationResistance($this->item),
                 'Thruster' => new Thruster($this->item),
+                'TractorBeam' => new TractorBeam($this->item),
                 'Weapon' => new Weapon($this->item),
+                'WeaponAttachment' => new WeaponAttachment($this->item),
+                'WeaponModifier' => new WeaponModifier($this->item),
                 'WeaponRegenPool' => new WeaponRegenPool($this->item),
             ],
         ];
@@ -138,7 +165,7 @@ final class Item extends BaseFormat
             return 'UNKNOWN';
         }
 
-        if (empty(trim($minor)) || $minor === 'UNKNOWN') {
+        if ($minor === null || trim($minor) === '' || $minor === 'UNKNOWN') {
             return $major;
         }
 
@@ -218,19 +245,5 @@ final class Item extends BaseFormat
                 }
             }
         }
-    }
-
-    private function removeNullValues($array)
-    {
-        foreach ($array as $key => &$value) {
-            if (is_array($value)) {
-                $value = $this->removeNullValues($value);
-            }
-            if ($value === null || (is_array($value) && empty($value))) {
-                unset($array[$key]);
-            }
-        }
-
-        return $array;
     }
 }
