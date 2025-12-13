@@ -14,34 +14,59 @@ final class MeleeWeapon extends BaseFormat
             return null;
         }
 
-        $weapon = $this->get();
+        $melee = $this->get();
+        $attackConfig = $melee->get('@meleeCombatConfig');
 
-        $attributes = $weapon->attributesToArray(
-            [
-                'helper',
-                'audioTriggerName',
-                'matFxTriggerName',
-                'proceduralAnimationRecord',
-            ]
-        );
-
-        if ($attributes['meleeCombatConfig'] === '00000000-0000-0000-0000-000000000000') {
+        if ($attackConfig === null || $attackConfig === '00000000-0000-0000-0000-000000000000') {
             return null;
         }
 
         $out = [
-            ...$attributes,
-            'Modes' => [],
+            ...$melee->attributesToArray(
+                [
+                    'helper',
+                    'audioTriggerName',
+                    'matFxTriggerName',
+                    'proceduralAnimationRecord',
+                ], pascalCase: true
+            ),
+            'AttackConfig' => [],
         ];
 
-        foreach ($weapon->get('MeleeCombatConfig/attackCategoryParams')?->children() ?? [] as $attackCategory) {
-            $attributes = $attackCategory->attributesToArray(['cameraShakeParams']);
+        foreach ($melee->get('MeleeCombatConfig/attackCategoryParams')?->children() ?? [] as $attackCategory) {
+            $attributes = $attackCategory->attributesToArray([
+                'cameraShakeParams',
+                'fullbodyAnimation',
+            ], pascalCase: true);
+            $mode = $this->transformArrayKeysToPascalCase($attributes ?? []);
 
-            $attributes['Damage'] = Damage::fromDamageInfo($attackCategory->get('damageInfo'));
+            $damage = Damage::fromDamageInfo($attackCategory->get('/damageInfo'))?->toArray();
+            if ($damage !== null) {
+                $mode['Damage'] = $damage;
+                $mode['DamageTotal'] = $this->calculateDamageTotal($damage);
+            }
 
-            $out['Modes'][] = $attributes;
+            $mode = array_filter($mode, static fn ($value) => $value !== null && $value !== '');
+
+            if ($mode !== []) {
+                $out['AttackConfig'][] = $mode;
+            }
         }
 
         return $out;
+    }
+
+    private function calculateDamageTotal(array $damage): ?float
+    {
+        $values = array_filter(
+            $damage,
+            static fn ($value) => $value !== null && $value !== '' && is_numeric($value)
+        );
+
+        if ($values === []) {
+            return null;
+        }
+
+        return array_sum(array_map(static fn ($value) => (float) $value, $values));
     }
 }

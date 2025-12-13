@@ -2,6 +2,7 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
+use Exception;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 
@@ -28,10 +29,11 @@ final class Weapon extends BaseFormat
             'RateOfFire' => null,
             'Capacity' => is_array($ammunitionArray) ? ($ammunitionArray['Capacity'] ?? null) : null,
             'Magazine' => $this->buildMagazine(),
+            'Ammunition' => $ammunitionArray,
             'Attachments' => $this->buildAttachments(),
             'Modes' => [],
-            'Consumption' => (new WeaponConsumption($weapon))->toArray(),
-            'Knife' => $this->buildKnife(),
+            'Consumption' => new WeaponConsumption($weapon)->toArray(),
+            'Knife' => new MeleeWeapon($this->item),
         ];
 
         $damageReducer = static fn ($carry, $cur) => $carry + $cur;
@@ -60,18 +62,20 @@ final class Weapon extends BaseFormat
             $out['Modes'][] = $mode;
         }
 
+        // Calculate capacity from regen consumption if not available
+        $consumption = $out['Consumption'];
+        if (empty($out['Capacity']) && ! empty($consumption['RequestedAmmoLoad']) && ! empty($consumption['CostPerBullet'])) {
+            $out['Capacity'] = (int) floor($consumption['RequestedAmmoLoad'] / $consumption['CostPerBullet']);
+        }
+
         return $out;
     }
 
     private function resolveEffectiveRange(Element $weapon, ?array $ammunition): ?float
     {
-        $range = $weapon->get('effectiveRange', null);
+        $range = $weapon->get('effectiveRange');
 
-        if ($range !== null) {
-            return $range;
-        }
-
-        return $ammunition['Range'] ?? null;
+        return $range ?? $ammunition['Range'] ?? null;
     }
 
     private function buildMagazine(): array
@@ -97,6 +101,7 @@ final class Weapon extends BaseFormat
         }
 
         $attachments = [];
+        $itemService = \Octfx\ScDataDumper\Services\ServiceFactory::getItemService();
 
         foreach ($entries->children() as $entry) {
             $portName = $entry->get('@itemPortName');
@@ -106,42 +111,23 @@ final class Weapon extends BaseFormat
                 continue;
             }
 
+            $uuid = null;
+            if (! empty($className)) {
+                try {
+                    $item = $itemService->getByClassName($className);
+                    $uuid = $item?->getUuid();
+                } catch (Exception $e) {
+                    // Item not found or error loading - leave UUID as null
+                }
+            }
+
             $attachments[] = array_filter([
+                'UUID' => $uuid,
                 'Port' => $portName,
                 'ClassName' => $className ?: null,
             ]);
         }
 
         return $attachments;
-    }
-
-    private function buildKnife(): array
-    {
-        $data = $this->item->get('Components/SMeleeWeaponComponentParams');
-        $config = $this->item->get('combatConfig/attackCategoryParams')
-            ?? $this->item->get('Components/combatConfig/attackCategoryParams');
-
-        if ($data === null || $config === null) {
-            return [];
-        }
-
-        $out = [
-            'CanBeUsedForTakeDown' => $data->get('canBeUsedForTakeDown'),
-            'CanBlock' => $data->get('canBlock'),
-            'CanBeUsedInProne' => $data->get('canBeUsedInProne'),
-            'CanDodge' => $data->get('canDodge'),
-            'MeleeCombatConfig' => $data->get('meleeCombatConfig'),
-            'AttackConfig' => [],
-        ];
-
-        foreach ($config->children() as $attackCategory) {
-            $attributes = $attackCategory->attributesToArray(['cameraShakeParams']);
-            $mode = $attributes ? $this->transformArrayKeysToPascalCase($attributes) : [];
-            $mode['Damage'] = Damage::fromDamageInfo($attackCategory->get('damageInfo'))?->toArray();
-
-            $out['AttackConfig'][] = array_filter($mode, static fn ($v) => $v !== null && $v !== '');
-        }
-
-        return $out;
     }
 }
