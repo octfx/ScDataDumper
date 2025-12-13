@@ -18,29 +18,24 @@ final class WeaponModifier extends BaseFormat
         }
 
         $component = $this->get();
-        $weaponStats = $component?->get('modifier/weaponStats');
+        $weaponStats = $component?->get('/modifier/weaponStats');
 
         if ($weaponStats === null) {
             return null;
         }
 
         $data = [
-            //            'Metadata' => $this->buildMetadata($component),
+            ...$this->buildMetadata($component),
             'WeaponStats' => [
                 'Base' => $this->buildBaseStats($weaponStats),
-                'Recoil' => $this->buildRecoil($weaponStats->get('recoilModifier')),
-                'Spread' => $this->buildSpread($weaponStats->get('spreadModifier')),
-                'Aim' => $this->buildAim($weaponStats->get('aimModifier')),
-                'Regen' => $this->buildRegen($weaponStats->get('regenModifier')),
-                'Salvage' => $this->buildSalvage($weaponStats->get('salvageModifier')),
+                'Recoil' => $this->buildRecoil($weaponStats->get('/recoilModifier')),
+                'Spread' => $this->buildSpread($weaponStats->get('/spreadModifier')),
+                'Aim' => $this->buildAim($weaponStats->get('/aimModifier')),
+                'Regen' => $this->buildRegen($weaponStats->get('/regenModifier')),
+                'Salvage' => $this->buildSalvage($weaponStats->get('/salvageModifier')),
             ],
-            'Zeroing' => $this->buildZeroing($component->get('zeroingParams/SWeaponZeroingParams')),
-            'Reticle' => $this->buildReticle($component->get('reticleParams/SWeaponReticleParams')),
-            //            'AdsCameraOffset' => $this->buildVector($component->get('adsCameraOffset'), [
-            //                'x' => 'X',
-            //                'y' => 'Y',
-            //                'z' => 'Z',
-            //            ]),
+            'Zeroing' => $this->buildZeroing($component->get('/zeroingParams/SWeaponZeroingParams')),
+            'Reticle' => $this->buildReticle($component->get('/reticleParams/SWeaponReticleParams')),
         ];
 
         return $this->removeNullValues($data);
@@ -56,13 +51,8 @@ final class WeaponModifier extends BaseFormat
     private function buildMetadata(Element $component): array
     {
         return $this->mapAttributes($component, [
-            'uiReticleIndex' => 'UiReticleIndex',
-            'aimHelperYOffset' => 'AimHelperYOffset',
-            'adsNearClipPlaneMultiplier' => 'AdsNearClipPlaneMultiplier',
-            'barrelEffectsStrength' => 'BarrelEffectsStrength',
             'activateOnAttach' => 'ActivateOnAttach',
             'ignoreWear' => 'IgnoreWear',
-            'forceIronSightSetup' => 'ForceIronSightSetup',
         ]);
     }
 
@@ -81,7 +71,6 @@ final class WeaponModifier extends BaseFormat
             'heatGenerationMultiplier' => 'HeatGenerationMultiplier',
             'soundRadiusMultiplier' => 'SoundRadiusMultiplier',
             'chargeTimeMultiplier' => 'ChargeTimeMultiplier',
-            'useAlternateProjectileVisuals' => 'UseAlternateProjectileVisuals',
             'useAugmentedRealityProjectiles' => 'UseAugmentedRealityProjectiles',
         ]);
     }
@@ -108,15 +97,7 @@ final class WeaponModifier extends BaseFormat
             'animatedRecoilMultiplier' => 'AnimatedRecoilMultiplier',
         ]);
 
-        //        $data['HeadRotationMultiplier'] = $this->buildVector($recoil->get('headRotationMultiplier'), [
-        //            'x' => 'X',
-        //            'y' => 'Y',
-        //            'z' => 'Z',
-        //        ]);
-
         $data['AimRecoil'] = $this->buildAimRecoil($recoil->get('aimRecoilModifier'));
-        //        $data['HandsRecoil'] = $this->buildHandsRecoil($recoil->get('curveRecoil'));
-        //        $data['HeadRecoil'] = $this->buildHeadRecoil($recoil->get('curveRecoilHead'));
 
         return $this->removeNullValues($data);
     }
@@ -161,115 +142,6 @@ final class WeaponModifier extends BaseFormat
 
         $data['MinLimitsModifier'] = $this->buildVector($curve->get('minLimitsModifier'), ['x' => 'X', 'y' => 'Y', 'z' => 'Z']);
         $data['MaxLimitsModifier'] = $this->buildVector($curve->get('maxLimitsModifier'), ['x' => 'X', 'y' => 'Y', 'z' => 'Z']);
-
-        //        $noise = $curve->get('noiseCurvesModifier');
-        //        if ($noise instanceof Element) {
-        //            $data['NoiseCurvesModifier'] = $this->mapAttributes($noise, [
-        //                'yawNoiseMaxValueModifier' => 'YawNoiseMaxValueModifier',
-        //                'pitchNoiseMaxValueModifier' => 'PitchNoiseMaxValueModifier',
-        //                'rollNoiseMaxValueModifier' => 'RollNoiseMaxValueModifier',
-        //            ]);
-        //        }
-
-        return $this->removeNullValues($data);
-    }
-
-    private function buildHandsRecoil(?Element $curve): array
-    {
-        if ($curve === null) {
-            return [];
-        }
-
-        $data = $this->mapAttributes($curve, [
-            'recoilTimeModifier' => 'RecoilTimeModifier',
-            'minDecayTimeModifier' => 'MinDecayTimeModifier',
-            'maxDecayTimeModifier' => 'MaxDecayTimeModifier',
-        ]);
-
-        $position = $curve->get('positionModifiers');
-        if ($position instanceof Element) {
-            $data['PositionModifiers'] = $this->buildXYZCurveModifier($position);
-        }
-
-        $rotation = $curve->get('rotationModifiers');
-        if ($rotation instanceof Element) {
-            $data['RotationModifiers'] = $this->buildXYZCurveModifier($rotation);
-        }
-
-        $positionDecay = $curve->get('positionDecayModifiers');
-        if ($positionDecay instanceof Element) {
-            $data['PositionDecayModifiers'] = $this->buildDecayModifiers($positionDecay);
-        }
-
-        $rotationDecay = $curve->get('rotationDecayModifiers');
-        if ($rotationDecay instanceof Element) {
-            $data['RotationDecayModifiers'] = $this->buildDecayModifiers($rotationDecay);
-        }
-
-        return $this->removeNullValues($data);
-    }
-
-    private function buildHeadRecoil(?Element $curveHead): array
-    {
-        if ($curveHead === null) {
-            return [];
-        }
-
-        $data = $this->mapAttributes($curveHead, [
-            'headRecoilTimeModifier' => 'HeadRecoilTimeModifier',
-            'frequencyModifier' => 'FrequencyModifier',
-            'smoothingSpeedModifier' => 'SmoothingSpeedModifier',
-        ]);
-
-        $positionModifier = $curveHead->get('positionModifier');
-        if ($positionModifier instanceof Element) {
-            $data['PositionModifier'] = [
-                'OffsetModifier' => $this->buildVector($positionModifier->get('offsetModifier'), ['x' => 'X', 'y' => 'Y', 'z' => 'Z']),
-                'NoiseModifier' => $this->buildVector($positionModifier->get('noiseModifier'), ['x' => 'X', 'y' => 'Y', 'z' => 'Z']),
-            ];
-        }
-
-        $rotationModifier = $curveHead->get('rotationModifier');
-        if ($rotationModifier instanceof Element) {
-            $data['RotationModifier'] = [
-                'OffsetModifier' => $this->buildVector($rotationModifier->get('offsetModifier'), ['x' => 'X', 'y' => 'Y', 'z' => 'Z']),
-                'NoiseModifier' => $this->buildVector($rotationModifier->get('noiseModifier'), ['x' => 'X', 'y' => 'Y', 'z' => 'Z']),
-            ];
-        }
-
-        return $this->removeNullValues($data);
-    }
-
-    private function buildXYZCurveModifier(Element $modifier): array
-    {
-        $data = $this->mapAttributes($modifier, [
-            'xMaxValueModifier' => 'XMaxValueModifier',
-            'yMaxValueModifier' => 'YMaxValueModifier',
-            'zMaxValueModifier' => 'ZMaxValueModifier',
-        ]);
-
-        $data['MinLimitsModifier'] = $this->buildVector($modifier->get('minLimitsModifier'), ['x' => 'X', 'y' => 'Y', 'z' => 'Z']);
-        $data['MaxLimitsModifier'] = $this->buildVector($modifier->get('maxLimitsModifier'), ['x' => 'X', 'y' => 'Y', 'z' => 'Z']);
-
-        $noise = $modifier->get('noiseModifier');
-        if ($noise instanceof Element) {
-            $data['NoiseModifier'] = $this->mapAttributes($noise, [
-                'xNoiseModifier' => 'XNoiseModifier',
-                'yNoiseModifier' => 'YNoiseModifier',
-                'zNoiseModifier' => 'ZNoiseModifier',
-            ]);
-        }
-
-        return $this->removeNullValues($data);
-    }
-
-    private function buildDecayModifiers(Element $modifier): array
-    {
-        $data = [
-            'DecayTimeMultiplierModifier' => $this->buildVector($modifier->get('decayTimeMultiplierModifier'), ['x' => 'X', 'y' => 'Y', 'z' => 'Z']),
-            'DecayMaxValueModifier' => $this->buildVector($modifier->get('decayMaxValueModifier'), ['x' => 'X', 'y' => 'Y', 'z' => 'Z']),
-            'DecayMinScalingFactorModifier' => $this->buildVector($modifier->get('decayMinScalingFactorModifier'), ['x' => 'X', 'y' => 'Y', 'z' => 'Z']),
-        ];
 
         return $this->removeNullValues($data);
     }
