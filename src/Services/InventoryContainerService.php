@@ -23,7 +23,7 @@ final class InventoryContainerService extends BaseService
 
         $items = json_decode(file_get_contents($this->classToPathMapPath), true, 512, JSON_THROW_ON_ERROR);
 
-        $this->inventoryContainerPaths = array_intersect_key($items['InventoryContainer'], $classes);
+        $this->inventoryContainerPaths = array_intersect_key($items['InventoryContainer'] ?? [], $classes);
     }
 
     public function getByReference($uuid): ?InventoryContainer

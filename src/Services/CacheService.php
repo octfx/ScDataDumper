@@ -52,9 +52,9 @@ final class CacheService
                         if (isset($classMatches[1], $classMatches[2], $refMatches[1])) {
                             $classToPathMap[$classMatches[1]] ??= [];
 
-                            $classToPathMap[$classMatches[1]][$classMatches[2]] = $file->getRealPath();
+                            $classToPathMap[$classMatches[1]][$classMatches[2]] = str_replace('\\', '/', $file->getRealPath());
                             $uuidToClassMap[$refMatches[1]] = $classMatches[2];
-                            $uuidToPathMap[$refMatches[1]] = $file->getRealPath();
+                            $uuidToPathMap[$refMatches[1]] = str_replace('\\', '/', $file->getRealPath());
 
                             if (str_starts_with($firstLine, '<EntityClassDefinition')) {
                                 while (($line = fgets($ref)) !== false) {

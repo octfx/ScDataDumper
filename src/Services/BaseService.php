@@ -84,6 +84,28 @@ abstract class BaseService
                 self::$classToUuidMap[(string) $className] = $uuid;
             }
         }
+
+        $this->validateCachePaths();
+    }
+
+    /**
+     * Validate that cache paths use normalized forward slashes.
+     * Detects cache files generated on different platforms before the fix.
+     *
+     * @throws RuntimeException if cache contains Windows-style paths
+     */
+    private function validateCachePaths(): void
+    {
+        $samplePaths = array_slice(self::$uuidToPathMap, 0, 10);
+
+        foreach ($samplePaths as $path) {
+            if (str_contains($path, '\\')) {
+                throw new RuntimeException(
+                    'Cache files contain Windows-style paths with backslashes. '.
+                    'Please regenerate cache files.'
+                );
+            }
+        }
     }
 
     abstract public function initialize(): void;
