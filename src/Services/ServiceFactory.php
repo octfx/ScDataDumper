@@ -59,6 +59,9 @@ final class ServiceFactory
         self::$services['LoadoutFileService'] = new LoadoutFileService($this->scDataPath);
         self::$services['LoadoutFileService']->initialize();
 
+        self::$services['ConsumableSubtypeService'] = new ConsumableSubtypeService($this->scDataPath);
+        self::$services['ConsumableSubtypeService']->initialize();
+
         self::$initialized = true;
     }
 
@@ -125,6 +128,11 @@ final class ServiceFactory
     public static function getLoadoutFileService(): LoadoutFileService
     {
         return self::getService('LoadoutFileService');
+    }
+
+    public static function getConsumableSubtypeService(): ConsumableSubtypeService
+    {
+        return self::getService('ConsumableSubtypeService');
     }
 
     private static function getService(string $serviceName): mixed

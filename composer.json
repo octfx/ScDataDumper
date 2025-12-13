@@ -6,6 +6,7 @@
         "php": ">=8.4",
         "symfony/console": "^v8.0.0",
         "ext-dom": "*",
+        "ext-libxml": "*",
         "illuminate/collections": "^v12.40.2"
     },
     "license": "MIT",
