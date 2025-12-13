@@ -32,7 +32,7 @@ final class MiningLaser extends BaseFormat
 
         $extractionThroughput = $this->extractThroughput($extractionAction);
 
-        $laserParamsData = $laserParams?->get('/MiningLaserGlobalParams')?->attributesToArray(['__ref', '__path'],pascalCase: true);
+        $laserParamsData = $laserParams?->get('/MiningLaserGlobalParams')?->attributesToArray(['__ref', '__path'], pascalCase: true);
 
         $throttleMinimum = $laserParams?->get('@throttleMinimum');
         $throttleHoldAccFactor = Arr::get($laserParamsData, 'ThrottleHoldAccFactor');

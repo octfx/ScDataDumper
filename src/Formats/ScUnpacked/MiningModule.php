@@ -81,7 +81,7 @@ final class MiningModule extends BaseFormat
                 $data['Charges'] ??= $value;
             } elseif ($key === 'Lifetime') {
                 $data['Lifetime'] ??= $value;
-            } elseif (!array_key_exists($key, $data['Modifiers'])) {
+            } elseif (! array_key_exists($key, $data['Modifiers'])) {
                 $data['Modifiers'][$key] = $value;
             }
         }

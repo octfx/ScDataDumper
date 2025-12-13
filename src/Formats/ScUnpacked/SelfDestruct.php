@@ -21,7 +21,6 @@ final class SelfDestruct extends BaseFormat
             'disengageSelfDestructInteraction',
             '__type',
             '__polymorphicType',
-
         ]) ?? [];
 
         $data = [];

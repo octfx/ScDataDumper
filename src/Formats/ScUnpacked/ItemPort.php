@@ -84,17 +84,8 @@ class ItemPort extends BaseFormat
      */
     private static function typeMatch(array $types, string $typePattern): bool
     {
-        if ($types === null) {
-            return false;
-        }
+        return array_any($types, fn ($type) => self::matchSingleType($type, $typePattern));
 
-        foreach ($types as $type) {
-            if (self::matchSingleType($type, $typePattern)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**

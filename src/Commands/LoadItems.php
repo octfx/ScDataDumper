@@ -96,7 +96,7 @@ class LoadItems extends Command
             $fileName = strtolower($item->getClassName());
             $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
 
-            $stdItem = (new Item($item))->toArray();
+            $stdItem = new Item($item)->toArray();
 
             $index[] = $stdItem;
 

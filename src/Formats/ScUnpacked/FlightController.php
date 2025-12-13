@@ -14,14 +14,14 @@ final class FlightController extends BaseFormat
             return null;
         }
 
-        $recallParams = $this->get('ShipRecall/ShipRecallParams', local:true);
-        $collisionDetection = $this->get('collisionDetection', local:true);
+        $recallParams = $this->get('ShipRecall/ShipRecallParams', local: true);
+        $collisionDetection = $this->get('collisionDetection', local: true);
 
         return [
             'RecallParams' => $recallParams?->attributesToArray([
                 'AIModuleTag',
             ], true),
-            'CollisionDetection' => $collisionDetection?->attributesToArray(pascalCase: true)
+            'CollisionDetection' => $collisionDetection?->attributesToArray(pascalCase: true),
         ];
     }
 }

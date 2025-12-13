@@ -41,17 +41,15 @@ final class TractorBeam extends BaseFormat
             'AllowScrollingIntoBreakingRange' => $this->castBool($beam->get('@allowScrollingIntoBreakingRange')),
             'ShouldFireInHangars' => $this->castBool($beam->get('@shouldFireInHangars')),
             'ShouldTractorSelf' => $this->castBool($beam->get('@shouldTractorSelf')),
-            'Input' => $this->transformArrayKeysToPascalCase($beam->get('inputParams')?->attributesToArray() ?? []),
-            'Movement' => $this->transformArrayKeysToPascalCase($beam->get('movementParams')?->attributesToArray() ?? []),
-            'AttachDetach' => $this->transformArrayKeysToPascalCase($beam->get('attachDetachParams')?->attributesToArray() ?? []),
-            'Rotation' => $this->transformArrayKeysToPascalCase($beam->get('rotationParams')?->attributesToArray() ?? []),
-            'Grapple' => $this->transformArrayKeysToPascalCase($beam->get('grappleParams')?->attributesToArray() ?? []),
-            'Vehicle' => $this->transformArrayKeysToPascalCase($beam->get('vehicleParams')?->attributesToArray() ?? []),
-            'MultiTractor' => $this->transformArrayKeysToPascalCase($beam->get('multitractorParams')?->attributesToArray() ?? []),
-            'BeamStrength' => $this->transformArrayKeysToPascalCase($beam->get('beamStrengthValues')?->attributesToArray() ?? []),
-            'CargoModeOverride' => $this->transformArrayKeysToPascalCase(
-                $beam->get('attachDetachParams/cargoModeOverrideParams')?->attributesToArray() ?? []
-            ),
+            'Input' => $beam->get('inputParams')?->attributesToArray(pascalCase: true) ?? [],
+            'Movement' => $beam->get('movementParams')?->attributesToArray(pascalCase: true) ?? [],
+            'AttachDetach' => $beam->get('attachDetachParams')?->attributesToArray(pascalCase: true) ?? [],
+            'Rotation' => $beam->get('rotationParams')?->attributesToArray(pascalCase: true) ?? [],
+            'Grapple' => $beam->get('grappleParams')?->attributesToArray(pascalCase: true) ?? [],
+            'Vehicle' => $beam->get('vehicleParams')?->attributesToArray(pascalCase: true) ?? [],
+            'MultiTractor' => $beam->get('multitractorParams')?->attributesToArray(pascalCase: true) ?? [],
+            'BeamStrength' => $beam->get('beamStrengthValues')?->attributesToArray(pascalCase: true) ?? [],
+            'CargoModeOverride' => $beam->get('attachDetachParams/cargoModeOverrideParams')?->attributesToArray(pascalCase: true) ?? [],
         ];
 
         return $this->removeNullValues($data);

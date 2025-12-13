@@ -55,9 +55,8 @@ abstract class BaseFormat
      * Retrieve an element or attribute from `$this->item`.
      * Key defaults to `$this->elementKey` if not set.
      *
-     * @param mixed $default Value returned when the key is not found
-     * @param bool $local When true and the key has no path separator, treat it as a child of the current node
-     *
+     * @param  mixed  $default  Value returned when the key is not found
+     * @param  bool  $local  When true and the key has no path separator, treat it as a child of the current node
      * @return float|mixed|null|Element|string
      */
     public function get(?string $key = null, $default = null, ?bool $local = false): mixed
@@ -69,11 +68,11 @@ abstract class BaseFormat
         $lookupKey = $key ?? $this->elementKey;
 
         if ($local && $lookupKey !== null && ! str_contains($lookupKey, '/') && ! str_contains($lookupKey, '@')) {
-                // Force lookup to be treated as a child element of the current node, not an attribute on the root item
-                $lookupKey = '/'.$lookupKey;
-            }
+            // Force lookup to be treated as a child element of the current node, not an attribute on the root item
+            $lookupKey = '/'.$lookupKey;
+        }
 
-            return $this->item->get($lookupKey, $default);
+        return $this->item->get($lookupKey, $default);
     }
 
     /**
