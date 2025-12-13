@@ -68,6 +68,8 @@ final class Ammunition extends BaseFormat
             ],
             'Penetration' => [
                 'BasePenetrationDistance' => $penetrationParams?->get('@basePenetrationDistance'),
+                'NearRadius' => $penetrationParams?->get('@nearRadius'),
+                'FarRadius' => $penetrationParams?->get('@farRadius'),
                 'Angle' => $penetrationParams?->get('@angle'),
             ],
         ];
