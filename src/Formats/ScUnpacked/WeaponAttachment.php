@@ -23,57 +23,27 @@ final class WeaponAttachment extends BaseFormat
 
         $attachDef = $this->get();
 
-        $description = $attachDef->get('Localization/English@Description', '') ?? '';
+        $subType = $attachDef->get('@SubType');
+        $type = $attachDef->get('@Type');
 
-        $descriptionData = ItemDescriptionParser::parse($description, [
-            'Manufacturer' => 'Manufacturer',
-            'Item Type' => 'ItemType',
-            'Type' => 'Type',
-            'Attachment Point' => 'AttachmentPoint',
-            'Magnification' => 'Magnification',
-            'Capacity' => 'Capacity',
-            'Class' => 'UtilityClass',
-        ]);
+        $attachmentPoint = $this->deriveAttachmentPoint($subType, $type);
+        $itemType = $this->deriveItemType($attachmentPoint, $subType);
 
-        $parsed = $descriptionData['data'] ?? [];
+        $magnification = $this->getMagnificationData();
 
-        $type = $parsed['Type'] ?? $attachDef->get('SubType');
-        $attachmentPoint = $parsed['AttachmentPoint'] ?? null;
-        $itemType = $parsed['ItemType'] ?? null;
-
-        if ($attachDef->get('SubType') === 'IronSight' && empty($attachmentPoint)) {
-            $attachmentPoint = 'Optic';
-            $type = 'IronSight';
-        }
-
-        if (empty($type)) {
-            $type = $attachDef->get('SubType');
-        }
-
-        if ($type === 'Magazine') {
-            $attachmentPoint = $attachmentPoint ?? 'Magazine Well';
-        }
-
-        if ($attachmentPoint === null && $type === 'Utility') {
-            $attachmentPoint = 'Utility';
-        }
-
-        if ($attachmentPoint === 'Optic') {
-            $itemType = $itemType ?? 'Scope';
-        }
-
-        if ($attachmentPoint === null && $itemType === 'Ammo' && $type === 'Missile') {
-            $attachmentPoint = 'Barrel';
+        $utilityClass = null;
+        if ($subType === 'Utility') {
+            $description = $attachDef->get('Localization/English@Description', '') ?? '';
+            $utilityClass = $this->parseUtilityClassFromDescription($description);
         }
 
         $data = [
             'ItemType' => $itemType,
             'AttachmentPoint' => $attachmentPoint,
-            'Magnification' => $parsed['Magnification'] ?? null,
-            'Capacity' => $parsed['Capacity'] ?? null,
-            'UtilityClass' => $parsed['UtilityClass'] ?? null,
+            'Magnification' => $magnification,
+            'UtilityClass' => $utilityClass,
             'Ammo' => $this->loadAmmoData(),
-            'IronSight' => $attachDef->get('SubType') === 'IronSight' ? $this->loadIronSightData() : [],
+            'IronSight' => $subType === 'IronSight' ? $this->loadIronSightData() : [],
         ];
 
         return $this->removeNullValues($data);
@@ -120,5 +90,52 @@ final class WeaponAttachment extends BaseFormat
         ];
 
         return $this->removeNullValues($data);
+    }
+
+    private function getMagnificationData(): ?float
+    {
+        $aimModifier = $this->item->get('Components/SWeaponModifierComponentParams/modifier/weaponStats/aimModifier');
+
+        if ($aimModifier === null) {
+            return null;
+        }
+
+        return $aimModifier->get('@zoomScale');
+    }
+
+    private function deriveAttachmentPoint(string $subType, string $type): ?string
+    {
+        return match ($subType) {
+            'IronSight' => 'Optic',
+            'Magazine' => 'Magazine Well',
+            'Barrel' => 'Barrel',
+            'Utility' => 'Utility',
+            'Weapon' => $type === 'Light' ? 'Utility' : null,
+            default => null,
+        };
+    }
+
+    private function deriveItemType(?string $attachmentPoint, string $subType): ?string
+    {
+        if ($attachmentPoint === 'Optic') {
+            return 'Scope';
+        }
+
+        return match ($subType) {
+            'Magazine' => 'Magazine',
+            'Barrel' => 'Barrel',
+            default => null,
+        };
+    }
+
+    private function parseUtilityClassFromDescription(string $description): ?string
+    {
+        if (empty($description)) {
+            return null;
+        }
+
+        $parsed = ItemDescriptionParser::parse($description, ['Class' => 'UtilityClass']);
+
+        return $parsed['data']['UtilityClass'] ?? null;
     }
 }
