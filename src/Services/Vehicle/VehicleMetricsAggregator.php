@@ -20,15 +20,17 @@ final class VehicleMetricsAggregator
 
     /**
      * @param  array  $loadout  Nested loadout entries from VehicleWrapper
+     * @param  float  $powerRatio  User-selected power ratio (r in SPViewer); defaults to 1.0
      * @return array{emission: array{ir: float|null, em: float|null, em_with_shields: float|null, em_with_quantum: float|null}, fuel_capacity: float|null, quantum_fuel_capacity: float|null, fuel_intake_rate: float|null, fuel_usage: array<string, float>}
      */
-    public function aggregate(array $loadout): array
+    public function aggregate(array $loadout, float $powerRatio = 1.0): array
     {
         // Emission accumulators
         $irTotal = 0.0;
         $emCommon = 0.0;  // components active in both modes
         $emShields = 0.0; // shield generators only
         $emQuantum = 0.0; // quantum drive only
+        $emShieldsForQuantum = 0.0; // shields counted in quantum travel
 
         // Power (segments) & cooling
         $powerUsedSegments = 0.0;
@@ -93,7 +95,8 @@ final class VehicleMetricsAggregator
                         $state,
                         $deltas,
                         $entry['portName'] ?? null,
-                        $powerBaseSetting
+                        $powerBaseSetting,
+                        $powerRatio
                     );
                     $powerRangeModifier = $signatures['power_range_modifier'];
 
@@ -149,6 +152,7 @@ final class VehicleMetricsAggregator
                     // Bucket component EM based on type
                     if ($isShield) {
                         $emShields += $componentEm;
+                        $emShieldsForQuantum += $componentEm;
                     } elseif ($isQuantum) {
                         $emQuantum += $componentEm;
                     } else {
@@ -206,13 +210,13 @@ final class VehicleMetricsAggregator
             }
 
             // Weapon racks / lockers
-            $ports = Arr::get($item, 'stdItem.Ports', []);
+            $ports = $this->extractPorts($item);
             $className = strtolower(Arr::get($item, 'ClassName', Arr::get($item, 'className', '')));
             $isWeaponRack = str_contains($className, 'weapon_rack');
 
             foreach ($ports as $port) {
                 $types = $port['Types'] ?? [];
-                if (in_array('WeaponPersonal', $types, true)) {
+                if ($this->isWeaponPersonalPort($types)) {
                     $isWeaponRack = true;
                     $maxSize = $port['MaxSize'] ?? $port['Size'] ?? null;
                     $weaponSlotsTotal++;
@@ -238,9 +242,10 @@ final class VehicleMetricsAggregator
         $emCommon *= $armorEmMultiplier;
         $emShields *= $armorEmMultiplier;
         $emQuantum *= $armorEmMultiplier;
+        $emShieldsForQuantum *= $armorEmMultiplier;
 
         $emWithShields = $emCommon + $emShields;
-        $emWithQuantum = $emCommon + $emQuantum;
+        $emWithQuantum = $emCommon + $emQuantum + $emShieldsForQuantum;
 
         return [
             'emission' => [
@@ -379,5 +384,107 @@ final class VehicleMetricsAggregator
         $value = reset($first);
 
         return is_numeric($value) ? (float) $value : 0.0;
+    }
+
+    /**
+     * Normalize port definitions from either stdItem or raw Components.
+     */
+    private function extractPorts(array $item): array
+    {
+        $ports = Arr::get($item, 'stdItem.Ports', []);
+        if (! empty($ports)) {
+            return $ports;
+        }
+
+        $rawPorts = $rawPorts['SItemPortDef'] ?? Arr::get($item, 'Components.SItemPortContainerComponentParams.Ports', []);
+
+        if ($rawPorts === [] || $rawPorts === null) {
+            return [];
+        }
+
+        if (! is_array($rawPorts)) {
+            return [];
+        }
+
+        // Ensure list semantics
+        if (! array_is_list($rawPorts)) {
+            $rawPorts = [$rawPorts];
+        }
+
+        return array_map(function (array $port): array {
+            $types = $this->extractPortTypes($port);
+
+            return [
+                'PortName' => $port['Name'] ?? $port['@Name'] ?? null,
+                'MaxSize' => isset($port['MaxSize']) ? (float) $port['MaxSize'] : (isset($port['@MaxSize']) ? (float) $port['@MaxSize'] : null),
+                'Size' => isset($port['Size']) ? (float) $port['Size'] : (isset($port['@Size']) ? (float) $port['@Size'] : null),
+                'Types' => $types,
+            ];
+        }, $rawPorts);
+    }
+
+    /**
+     * Extract a flat list of type strings (e.g. "WeaponPersonal.Small") from a raw port definition.
+     */
+    private function extractPortTypes(array $port): array
+    {
+        $types = [];
+        $rawTypes = Arr::get($port, 'Types.SItemPortDefTypes', []);
+
+        if ($rawTypes === [] || $rawTypes === null) {
+            return $types;
+        }
+
+        if (! array_is_list($rawTypes)) {
+            $rawTypes = [$rawTypes];
+        }
+
+        foreach ($rawTypes as $rawType) {
+            $major = $rawType['Type'] ?? $rawType['@Type'] ?? $rawType['@type'] ?? null;
+            if ($major === null) {
+                continue;
+            }
+
+            // Collect subtypes from nested elements
+            $subTypes = [];
+            $rawSubTypes = $rawType['SubTypes'] ?? $rawType['@SubTypes'] ?? $rawType['@subtypes'] ?? null;
+            if (is_array($rawSubTypes)) {
+                // Could be list under ['SItemPortDefType']
+                $subTypeEntries = $rawSubTypes['SItemPortDefType'] ?? $rawSubTypes;
+                if (! array_is_list($subTypeEntries)) {
+                    $subTypeEntries = [$subTypeEntries];
+                }
+                foreach ($subTypeEntries as $subEntry) {
+                    if (is_array($subEntry)) {
+                        $value = $subEntry['value'] ?? $subEntry['@value'] ?? null;
+                        if (! empty($value)) {
+                            $subTypes[] = $value;
+                        }
+                    } elseif (is_string($subEntry) && $subEntry !== '') {
+                        $subTypes[] = $subEntry;
+                    }
+                }
+            } elseif (is_string($rawSubTypes) && $rawSubTypes !== '') {
+                $subTypes = array_filter(array_map('trim', explode(',', $rawSubTypes)));
+            }
+
+            if ($subTypes === []) {
+                $types[] = $major;
+            } else {
+                foreach ($subTypes as $sub) {
+                    $types[] = $major.'.'.$sub;
+                }
+            }
+        }
+
+        return $types;
+    }
+
+    /**
+     * Detect whether a port accepts personal weapons (any subtype).
+     */
+    private function isWeaponPersonalPort(array $types): bool
+    {
+        return array_any($types, fn ($type) => str_starts_with(strtolower((string) $type), 'weaponpersonal'));
     }
 }

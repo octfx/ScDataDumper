@@ -405,7 +405,7 @@ final class Ship extends BaseFormat
 
         if (! empty($crossSectionValues)) {
             $data['cross_section'] = array_map(
-                fn (float $value): float => $value * $crossSectionMultiplier,
+                static fn (float $value): float => $value * $crossSectionMultiplier,
                 $crossSectionValues
             );
         }

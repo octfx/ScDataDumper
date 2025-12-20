@@ -14,9 +14,10 @@ final class ItemSignatureCalculator
      * @param  array  $deltas  Normalised list of deltas belonging to the state
      * @param  string|null  $portName  Port name (used to scale cooler IR)
      * @param  float|null  $powerValue  Current power value for range lookup
+     * @param  float  $powerRatio  User-selected power ratio (r in SPViewer); defaults to 1.0
      * @return array{em_nominal: float, em_scaled: float, ir_nominal: float, ir_total: float, power_range_modifier: float}
      */
-    public function calculate(array $components, ?array $state, array $deltas, ?string $portName = null, ?float $powerValue = null): array
+    public function calculate(array $components, ?array $state, array $deltas, ?string $portName = null, ?float $powerValue = null, float $powerRatio = 1.0): array
     {
         if ($state === null) {
             return [
@@ -36,19 +37,16 @@ final class ItemSignatureCalculator
 
         $irScale = 1.0;
         if ($portName !== null && str_contains(strtolower($portName), 'cooler')) {
-            $coolerFraction = $this->firstConversionMinFraction($deltas);
-            if ($coolerFraction !== null) {
-                $irScale = $coolerFraction;
-            }
+            $irScale = $powerRatio;
         }
 
-        $startIr = (float) Arr::get($components, 'HeatController.Signature.StartIREmission', 0.0);
+        $startIr = $this->startIrIfEnabled($components);
 
         $irTotal = ($irNom * $irScale) + $startIr;
 
         return [
             'em_nominal' => $emNom,
-            'em_scaled' => $emNom * $powerRangeModifier,
+            'em_scaled' => $emNom * $powerRangeModifier * $powerRatio,
             'ir_nominal' => $irNom,
             'ir_total' => $irTotal,
             'power_range_modifier' => $powerRangeModifier,
@@ -81,17 +79,15 @@ final class ItemSignatureCalculator
         return 1.0;
     }
 
-    private function firstConversionMinFraction(array $deltas): ?float
+    private function startIrIfEnabled(array $components): float
     {
-        foreach ($deltas as $delta) {
-            if (isset($delta['ItemResourceDeltaConversion'])) {
-                $minFraction = Arr::get($delta['ItemResourceDeltaConversion'], 'minimumConsumptionFraction');
-                if (is_numeric($minFraction)) {
-                    return (float) $minFraction;
-                }
-            }
+        $enableHeat = Arr::get($components, 'HeatController.EnableHeat');
+        $enableSignature = Arr::get($components, 'HeatController.Signature.EnableSignature');
+
+        if (! $enableHeat || ! $enableSignature) {
+            return 0.0;
         }
 
-        return null;
+        return (float) Arr::get($components, 'HeatController.Signature.StartIREmission', 0.0);
     }
 }
