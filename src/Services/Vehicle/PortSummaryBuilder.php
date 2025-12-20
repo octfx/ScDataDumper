@@ -215,7 +215,7 @@ final class PortSummaryBuilder
 
         $stopPredicate = null;
         if (! empty($config['excludeChildren'])) {
-            $stopPredicate = fn ($x) => in_array($x['Category'] ?? '', $config['excludeChildren'], true);
+            $stopPredicate = static fn ($x) => in_array($x['Category'] ?? '', $config['excludeChildren'], true);
         }
 
         $options = new PortFinderOptions(

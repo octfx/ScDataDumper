@@ -10,11 +10,11 @@ use Octfx\ScDataDumper\Helper\Arr;
  *
  * Handles port building from Elements (XML nodes), array definitions, and parts hierarchy.
  */
-final class PortSystemBuilder
+final readonly class PortSystemBuilder
 {
     public function __construct(
-        private readonly PortMapper $portMapper,
-        private readonly CompatibleTypesExtractor $typesExtractor
+        private PortMapper $portMapper,
+        private CompatibleTypesExtractor $typesExtractor
     ) {}
 
     /**
@@ -50,8 +50,8 @@ final class PortSystemBuilder
                 // Backfill missing size or compatibility data
                 $existing = $ports[$existingIndex];
 
-                $needsMin = ! isset($existing['sizes']['min']) || $existing['sizes']['min'] === null;
-                $needsMax = ! isset($existing['sizes']['max']) || $existing['sizes']['max'] === null;
+                $needsMin = ! isset($existing['sizes']['min']);
+                $needsMax = ! isset($existing['sizes']['max']);
                 $needsCompatibleTypes = empty($existing['compatible_types'] ?? []);
 
                 if ($needsMin || $needsMax) {

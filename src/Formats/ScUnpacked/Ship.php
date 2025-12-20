@@ -69,7 +69,6 @@ final class Ship extends BaseFormat
         $this->healthAggregator = new HealthAggregator;
         $this->vehicleMetricsAggregator = new VehicleMetricsAggregator(
             new EquippedItemWalker,
-            includeRequestedDefaults: true,
         );
     }
 
@@ -191,59 +190,6 @@ final class Ship extends BaseFormat
             $data['Mass'] = $this->item->get('SSCActorPhysicsControllerComponentParams/physType/SEntityActorPhysicsControllerParams@Mass');
         }
 
-        $extractSignatureValues = static function (?Element $signatures): array {
-            if (! $signatures) {
-                return [];
-            }
-
-            $values = [];
-            foreach ($signatures->children() as $child) {
-                $value = $child->get('value', null);
-
-                if ($value === null) {
-                    $nodeValue = trim((string) $child->nodeValue);
-                    $value = is_numeric($nodeValue) ? (float) $nodeValue : null;
-                }
-
-                if ($value !== null) {
-                    $values[] = (float) $value;
-                }
-            }
-
-            return $values;
-        };
-
-        $signatureParams = $this->vehicleWrapper->entity->get('Components/SSCSignatureSystemParams');
-
-        if ($signatureParams) {
-            $signatureValues = $extractSignatureValues($signatureParams->get('/baseSignatureParams/SSCSignatureSystemBaseSignatureParams/signatures'));
-            $maxSignatureValues = $extractSignatureValues($signatureParams->get('/baseSignatureParams/SSCSignatureSystemBaseSignatureParams/maxSignatures'));
-            $crossSectionValues = $extractSignatureValues(
-                $signatureParams->get('/radarProperties/SSCRadarContactProperites/crossSectionParams/SSCSignatureSystemManualCrossSectionParams/crossSection')
-            );
-            $radarProps = $signatureParams->get('/radarProperties/SSCRadarContactProperites')?->attributesToArray() ?? [];
-
-            $ir = $signatureValues[0] ?? null;
-            $emIdle = $signatureValues[1] ?? null;
-
-            $emMax = $maxSignatureValues[1]
-                ?? Arr::get($radarProps, 'emMax')
-                ?? Arr::get($radarProps, 'maxEm')
-                ?? Arr::get($radarProps, 'maxSignatureEm');
-
-            if ($emMax === null && $emIdle !== null) {
-                $emMax = $emIdle;
-            }
-
-            if ($ir !== null || $emIdle !== null || $emMax !== null) {
-                $data['emission'] = [
-                    'ir' => $ir,
-                    'em_idle' => $emIdle,
-                    'em_max' => $emMax,
-                ];
-            }
-        }
-
         $portSummary = $this->portSummaryBuilder->build($vehicleParts);
         // Keep port collections intact but expose them as a plain array so services with array
         // type hints (e.g. PropulsionSystemAggregator) can consume them without type errors.
@@ -361,6 +307,13 @@ final class Ship extends BaseFormat
             ];
         }
 
+        $signatureParams = $this->vehicleWrapper->entity->get('Components/SSCSignatureSystemParams');
+
+        if ($signatureParams) {
+            $data['cross_section'] = $signatureParams->get('/radarProperties/SSCRadarContactProperites/crossSectionParams/SSCSignatureSystemManualCrossSectionParams/crossSection')?->attributesToArray() ?? [];
+            $data['cross_section'] = array_map(static fn ($x) => (float) $x * $crossSectionMultiplier, $data['cross_section']);
+        }
+
         $cargoResult = $this->cargoGridResolver->resolveCargoGrids($this->vehicleWrapper);
 
         $summary['Cargo'] = $cargoResult->totalCapacity;
@@ -407,33 +360,33 @@ final class Ship extends BaseFormat
                 'quantum_spool_time' => $summary['QuantumTravel']['SpoolTime'] ?? null,
                 'quantum_fuel_capacity' => $metrics['quantum_fuel_capacity'] !== null ? $metrics['quantum_fuel_capacity'] / 1000 : null,
                 'quantum_range' => isset($summary['QuantumTravel']['Range']) ? $summary['QuantumTravel']['Range'] / 1000 : null,
-                'quantum_fuel_per_au' => $metrics['quantum_efficiency']['fuel_per_au'] ?? null,
-                'quantum_trips_per_tank_au' => $metrics['quantum_efficiency']['trips_per_tank_au'] ?? null,
             ];
         }
 
-        // Emission: prefer recursive aggregation; fall back to signature system values if missing
         $data['emission'] = $data['emission'] ?? [];
 
         if ($metrics['emission']['ir'] !== null) {
             $data['emission']['ir'] = $metrics['emission']['ir'];
         }
 
-        if ($metrics['emission']['em_min'] !== null) {
-            $data['emission']['em_idle'] = $metrics['emission']['em_min'];
-        }
-
-        if ($metrics['emission']['em_max'] !== null) {
-            $data['emission']['em_max'] = $metrics['emission']['em_max'];
+        if ($metrics['emission']['em'] !== null) {
+            // EM Signature with quantum drive active
+            $data['emission']['em_quantum'] = $metrics['emission']['em_with_quantum'];
+            // EM Signature with shields active
+            $data['emission']['em_shields'] = $metrics['emission']['em_with_shields'];
         }
 
         $data['heat'] = $metrics['heat'];
         $data['power'] = $metrics['power'];
         $data['shields_total'] = $metrics['shields'];
+        // deprecated, use shields_total.hp
         $data['shield_hp'] = $metrics['shields']['hp'] ?? 0;
         $data['distortion'] = $metrics['distortion'];
         $data['ammo'] = $metrics['ammo'];
         $data['weapon_storage'] = $metrics['weapon_storage'];
+
+        // Debug
+        // $data['metrics'] = $metrics;
 
         // Acceleration estimates based on thrust capacity and mass
         $totalMass = $data['Mass'] ?? null;

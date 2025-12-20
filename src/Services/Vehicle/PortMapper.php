@@ -64,6 +64,8 @@ final class PortMapper
 
         $manufacturerCode = Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Manufacturer.Code');
 
+        [$powerConsumption, $coolingConsumption, $emEmission] = $this->computeResourceStats($item);
+
         return [
             'uuid' => $item['__ref'] ?? null,
             'name' => $name,
@@ -78,8 +80,9 @@ final class PortMapper
             ] : null,
             'type' => Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Type') ?? Arr::get($item, 'Type'),
             'sub_type' => Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.SubType'),
-            'updated_at' => $item['updated_at'] ?? null,
-            'version' => $item['version'] ?? null,
+            'power_consumption' => $powerConsumption,
+            'cooling_consumption' => $coolingConsumption,
+            'em_emission' => $emEmission,
         ];
     }
 
@@ -98,5 +101,99 @@ final class PortMapper
             str_contains($name, 'tail') => 'tail',
             default => null,
         };
+    }
+
+    /**
+     * Compute per-item resource stats (power, coolant consumption and EM emission).
+     */
+    private function computeResourceStats(array $item): array
+    {
+        $power = 0.0;
+        $coolant = 0.0;
+
+        $resource = Arr::get($item, 'Components.ItemResourceComponentParams');
+        if (! $resource || ! is_array($resource)) {
+            return [null, null, null];
+        }
+
+        $state = $this->extractSingleState($resource['states'] ?? null);
+        if (! $state) {
+            return [null, null, null];
+        }
+
+        $em = (float) Arr::get($state, 'signatureParams.EMSignature.nominalSignature', 0.0);
+
+        $deltas = $state['deltas'] ?? [];
+        if (! is_array($deltas)) {
+            $deltas = [];
+        }
+        if (! array_is_list($deltas)) {
+            $deltas = [$deltas];
+        }
+
+        foreach ($deltas as $delta) {
+            if (! is_array($delta)) {
+                continue;
+            }
+
+            if (isset($delta['ItemResourceDeltaConsumption'])) {
+                $consumption = $delta['ItemResourceDeltaConsumption']['consumption'] ?? [];
+                $res = $consumption['resource'] ?? null;
+                $rate = $this->extractRate($consumption['resourceAmountPerSecond'] ?? []);
+                if ($res === 'Power') {
+                    $power += $rate;
+                }
+                if ($res === 'Coolant') {
+                    $coolant += $rate;
+                }
+            }
+
+            if (isset($delta['ItemResourceDeltaConversion'])) {
+                $consumption = $delta['ItemResourceDeltaConversion']['consumption'] ?? [];
+                $res = $consumption['resource'] ?? null;
+                $rate = $this->extractRate($consumption['resourceAmountPerSecond'] ?? []);
+                if ($res === 'Power') {
+                    $power += $rate;
+                }
+                if ($res === 'Coolant') {
+                    $coolant += $rate;
+                }
+            }
+        }
+
+        return [
+            $power > 0 ? $power : null,
+            $coolant > 0 ? $coolant : null,
+            $em > 0 ? $em : null,
+        ];
+    }
+
+    private function extractSingleState(mixed $states): ?array
+    {
+        if (is_array($states) && array_key_exists('ItemResourceState', $states)) {
+            return $states['ItemResourceState'];
+        }
+
+        if (is_array($states) && isset($states[0]) && is_array($states[0])) {
+            return $states[0];
+        }
+
+        return null;
+    }
+
+    private function extractRate(array $resourceAmountPerSecond): float
+    {
+        if ($resourceAmountPerSecond === []) {
+            return 0.0;
+        }
+
+        $first = reset($resourceAmountPerSecond);
+        if (! is_array($first)) {
+            return 0.0;
+        }
+
+        $value = reset($first);
+
+        return is_numeric($value) ? (float) $value : 0.0;
     }
 }
