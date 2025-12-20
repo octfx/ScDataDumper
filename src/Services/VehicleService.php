@@ -104,7 +104,7 @@ final class VehicleService extends BaseService
         $this->loadImplementations();
         $items = json_decode(file_get_contents($this->classToPathMapPath), true, 512, JSON_THROW_ON_ERROR)['EntityClassDefinition'] ?? [];
 
-        $items = array_filter($items, static fn (string $path) => str_contains($path, 'entities/spaceships') || str_contains($path, 'entities/groundvehicles') || str_contains($path, 'actor/actors'));
+        $items = array_filter($items, static fn (string $path) => str_contains($path, 'entities'.DIRECTORY_SEPARATOR.'spaceships') || str_contains($path, 'entities'.DIRECTORY_SEPARATOR.'groundvehicles') || str_contains($path, 'actor'.DIRECTORY_SEPARATOR.'actors'));
         $items = array_filter($items, function (string $path): bool {
             $name = basename($path, '.xml');
             $parts = array_map('strtolower', explode('_', $name));

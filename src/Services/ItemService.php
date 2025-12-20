@@ -25,7 +25,7 @@ final class ItemService extends BaseService
     {
         $items = json_decode(file_get_contents($this->classToPathMapPath), true, 512, JSON_THROW_ON_ERROR)['EntityClassDefinition'] ?? [];
 
-        $items = array_filter($items, static fn ($path) => ! str_contains($path, 'entities/spaceships') && ! str_contains($path, 'entities/groundvehicles'));
+        $items = array_filter($items, static fn ($path) => ! str_contains($path, 'entities'.DIRECTORY_SEPARATOR.'spaceships') && ! str_contains($path, 'entities'.DIRECTORY_SEPARATOR.'groundvehicles'));
 
         // Testing
         // $items = array_filter($items, static fn ($path) => str_contains($path, '987_jacket'));
