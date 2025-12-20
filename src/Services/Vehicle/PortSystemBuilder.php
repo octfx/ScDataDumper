@@ -18,6 +18,68 @@ final class PortSystemBuilder
     ) {}
 
     /**
+     * Merge ports built from elements with ports extracted from parts.
+     *
+     * - Adds part ports that are missing from the port list.
+     * - Backfills missing size and compatible type information for existing ports.
+     *
+     * @param  array  $ports  Ports already built (e.g. from Elements)
+     * @param  array  $partsPortDefs  Ports extracted from parts
+     * @return array Merged ports
+     */
+    public function mergeWithPartPorts(array $ports, array $partsPortDefs): array
+    {
+        if (empty($partsPortDefs)) {
+            return $ports;
+        }
+
+        $existingPortNames = array_map(
+            static fn ($p) => strtolower($p['name'] ?? ''),
+            $ports
+        );
+
+        foreach ($partsPortDefs as $partPort) {
+            $portName = strtolower($partPort['name'] ?? '');
+            if (! $portName) {
+                continue;
+            }
+
+            $existingIndex = array_search($portName, $existingPortNames, true);
+
+            if ($existingIndex !== false) {
+                // Backfill missing size or compatibility data
+                $existing = $ports[$existingIndex];
+
+                $needsMin = ! isset($existing['sizes']['min']) || $existing['sizes']['min'] === null;
+                $needsMax = ! isset($existing['sizes']['max']) || $existing['sizes']['max'] === null;
+                $needsCompatibleTypes = empty($existing['compatible_types'] ?? []);
+
+                if ($needsMin || $needsMax) {
+                    $ports[$existingIndex]['sizes'] ??= [];
+                    if ($needsMin) {
+                        $ports[$existingIndex]['sizes']['min'] = $partPort['sizes']['min'] ?? null;
+                    }
+                    if ($needsMax) {
+                        $ports[$existingIndex]['sizes']['max'] = $partPort['sizes']['max'] ?? null;
+                    }
+                }
+
+                if ($needsCompatibleTypes && ! empty($partPort['compatible_types'] ?? [])) {
+                    $ports[$existingIndex]['compatible_types'] = $partPort['compatible_types'];
+                }
+
+                continue;
+            }
+
+            // Add ports from parts that aren't already represented
+            $ports[] = $partPort;
+            $existingPortNames[] = $portName;
+        }
+
+        return $ports;
+    }
+
+    /**
      * Build ports from Element nodes
      *
      * @param  iterable  $ports  Port Element nodes

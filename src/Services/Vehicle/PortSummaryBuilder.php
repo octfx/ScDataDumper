@@ -3,6 +3,7 @@
 namespace Octfx\ScDataDumper\Services\Vehicle;
 
 use Illuminate\Support\Collection;
+use Octfx\ScDataDumper\Services\PortClassifierService;
 use Octfx\ScDataDumper\ValueObjects\PortFinderOptions;
 
 /**
@@ -15,7 +16,8 @@ final class PortSummaryBuilder
     private array $categoryDefinitions;
 
     public function __construct(
-        private readonly PortFinder $portFinder
+        private readonly PortFinder $portFinder,
+        private readonly PortClassifierService $portClassifier
     ) {
         $this->categoryDefinitions = [
             'pilotHardpoints' => [
@@ -111,6 +113,84 @@ final class PortSummaryBuilder
                 'excludeChildren' => [],
             ],
         ];
+    }
+
+    /**
+     * Enrich port summary entries with installed items from loadout
+     *
+     * @param  array<string, Collection>  $portSummary
+     * @return array<string, Collection>
+     */
+    public function attachInstalledItems(array $portSummary, array $loadout): array
+    {
+        $loadouts = collect($loadout);
+
+        return collect($portSummary)
+            ->mapWithKeys(function ($items, $portName) use ($loadouts) {
+                return [
+                    $portName => collect($items)->map(function ($item) use ($loadouts) {
+                        $loadout = $loadouts->first(fn ($x) => $x['portName'] === $item['Name']);
+
+                        if ($loadout && isset($loadout['Item'])) {
+                            $item['InstalledItem'] = $loadout['Item'];
+                        }
+
+                        return $item;
+                    }),
+                ];
+            })
+            ->all();
+    }
+
+    /**
+     * Attach loadout items and classify ports on parts tree.
+     *
+     * @return array Parts tree with InstalledItem and Category fields
+     */
+    public function preparePartsWithClassification(array $parts, array $loadout): array
+    {
+        $loadouts = collect($loadout);
+
+        return array_map(function ($part) use ($loadouts) {
+            if (isset($part['Parts'])) {
+                $part['Parts'] = $this->preparePartsWithClassification($part['Parts'], $loadouts->toArray());
+            }
+
+            $loadout = $loadouts->first(fn ($x) => $x['portName'] === ($part['Name'] ?? null));
+
+            if ($loadout && isset($loadout['Item'])) {
+                $part['InstalledItem'] = $loadout['Item'];
+            }
+
+            $classification = $this->portClassifier->classifyPort(
+                $part['Port'] ?? null,
+                $part['InstalledItem'] ?? null
+            );
+
+            $part['Category'] = $classification[1] ?? null;
+
+            return $part;
+        }, $parts);
+    }
+
+    /**
+     * Flatten parts tree to a collection.
+     *
+     * @return Collection<int, array>
+     */
+    public function flattenParts(array $parts): Collection
+    {
+        $flat = collect();
+
+        foreach ($parts as $part) {
+            $flat->push($part);
+
+            if (isset($part['Parts'])) {
+                $flat = $flat->concat($this->flattenParts($part['Parts']));
+            }
+        }
+
+        return $flat;
     }
 
     /**

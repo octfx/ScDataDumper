@@ -30,6 +30,15 @@ final class Armor extends BaseFormat
                 'Infrared' => $armor->get('signalInfrared'),
                 'Electromagnetic' => $armor->get('signalElectromagnetic'),
             ],
+            'PenetrationResistance' => [
+                'Base' => $armor->get('armorPenetrationResistance@basePenetrationReduction'),
+                'Physical' => $armor->get('armorPenetrationResistance/penetrationAbsorptionForType@DamagePhysical'),
+                'Energy' => $armor->get('armorPenetrationResistance/penetrationAbsorptionForType@DamageEnergy'),
+                'Distortion' => $armor->get('armorPenetrationResistance/penetrationAbsorptionForType@DamageDistortion'),
+                'Thermal' => $armor->get('armorPenetrationResistance/penetrationAbsorptionForType@DamageThermal'),
+                'Biochemical' => $armor->get('armorPenetrationResistance/penetrationAbsorptionForType@DamageBiochemical'),
+                'Stun' => $armor->get('armorPenetrationResistance/penetrationAbsorptionForType@DamageStun'),
+            ],
         ];
     }
 
