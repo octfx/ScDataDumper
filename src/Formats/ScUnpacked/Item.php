@@ -94,6 +94,7 @@ final class Item extends BaseFormat
                 'Distortion' => new Distortion($this->item),
                 'Durability' => new Durability($this->item),
                 'Emp' => new EMP($this->item),
+                'Emission' => $this->extractEmission(),
                 'Food' => new Food($this->item),
                 'HackingChip' => new HackingChip($this->item),
                 'Grenade' => new Grenade($this->item),
@@ -134,7 +135,6 @@ final class Item extends BaseFormat
                 'WeaponModifier' => new WeaponModifier($this->item),
                 'WeaponRegenPool' => new WeaponRegenPool($this->item),
             ],
-            'Emission' => $this->extractEmission(),
         ];
 
         $this->processArray($data);
@@ -162,8 +162,8 @@ final class Item extends BaseFormat
         }
 
         return [
-            'em' => $em,
-            'ir' => $irTotal,
+            'Em' => $em,
+            'Ir' => $irTotal,
         ];
     }
 
