@@ -103,6 +103,7 @@ final class Item extends BaseFormat
                 'MiningLaser' => new MiningLaser($this->item),
                 'MiningModule' => new MiningModule($this->item),
                 'HeatConnection' => new HeatConnection($this->item),
+                'Temperature' => new Temperature($this->item),
                 'Helmet' => new Helmet($this->item),
                 'Ifcs' => new Ifcs($this->item),
                 'Interactions' => new Interactions($this->item),

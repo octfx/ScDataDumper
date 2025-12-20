@@ -49,7 +49,7 @@ final class InventoryOccupancy extends BaseFormat
 
         return $this->removeNull(
             [
-                'GridDimensions' => $this->removeNull($grid),
+                'Dimensions' => $this->removeNull($grid),
                 'UIDimensions' => $ui->toArray(),
                 // 'LocalBounds' => $this->removeNull($localBounds),
                 'Volume' => $volume,

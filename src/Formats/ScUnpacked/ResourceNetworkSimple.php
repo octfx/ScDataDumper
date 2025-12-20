@@ -29,6 +29,7 @@ final class ResourceNetworkSimple extends BaseFormat
             'IsRelay' => (bool) $component->get('isRelay'),
             'DefaultPriority' => $component->get('defaultPriority'),
             'States' => $this->parseStates($component->get('/states')),
+            'Repair' => $component->get('/selfRepair')?->attributesToArray(['__type'], pascalCase: true),
         ];
 
         $data = $this->clean($data);
