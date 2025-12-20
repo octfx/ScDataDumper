@@ -9,11 +9,14 @@ use Octfx\ScDataDumper\Helper\Arr;
 /**
  * Aggregates emissions and fuel-related metrics by traversing installed items.
  */
-final readonly class VehicleMetricsAggregator
+final class VehicleMetricsAggregator
 {
     public function __construct(
-        private EquippedItemWalker $walker,
-    ) {}
+        private readonly EquippedItemWalker $walker,
+        private ?ItemSignatureCalculator $signatureCalculator = null,
+    ) {
+        $this->signatureCalculator ??= new ItemSignatureCalculator;
+    }
 
     /**
      * @param  array  $loadout  Nested loadout entries from VehicleWrapper
@@ -77,10 +80,6 @@ final readonly class VehicleMetricsAggregator
                 $state = $this->extractSingleState($resource['states'] ?? null);
 
                 if ($state !== null) {
-                    $sig = $state['signatureParams'] ?? [];
-                    $emNom = (float) Arr::get($sig, 'EMSignature.nominalSignature', 0.0);
-                    $irNom = (float) Arr::get($sig, 'IRSignature.nominalSignature', 0.0);
-
                     $deltas = $this->normalizeDeltas($state['deltas'] ?? null);
 
                     $powerBaseSetting = $this->firstNumeric($components, [
@@ -89,10 +88,14 @@ final readonly class VehicleMetricsAggregator
                         'EntityComponentPowerConnection.PowerBaseRequest',
                     ]);
 
-                    $powerRangeModifier = $this->powerRangeModifier(
-                        $powerBaseSetting,
-                        $state['rangeParams'] ?? []
+                    $signatures = $this->signatureCalculator->calculate(
+                        $components,
+                        $state,
+                        $deltas,
+                        $entry['portName'] ?? null,
+                        $powerBaseSetting
                     );
+                    $powerRangeModifier = $signatures['power_range_modifier'];
 
                     foreach ($deltas as $delta) {
                         // Consumption
@@ -138,33 +141,10 @@ final readonly class VehicleMetricsAggregator
                         }
                     }
 
-                    // IR accumulation: nominal IR scaled for coolers by their power ratio (minFraction)
-                    if ($irNom > 0) {
-                        $irScale = 1.0;
-                        $coolerFraction = null;
-                        foreach ($deltas as $delta) {
-                            if (isset($delta['ItemResourceDeltaConversion'])) {
-                                $minFraction = Arr::get($delta['ItemResourceDeltaConversion'], 'minimumConsumptionFraction');
-                                if ($minFraction !== null) {
-                                    $coolerFraction = (float) $minFraction;
-                                    break;
-                                }
-                            }
-                        }
-                        if ($coolerFraction !== null && str_contains(strtolower($entry['portName'] ?? ''), 'cooler')) {
-                            $irScale = $coolerFraction;
-                        }
-                        $irTotal += $irNom * $irScale;
-                    }
-
-                    $heatSignature = Arr::get($components, 'HeatController.Signature');
-                    if (is_array($heatSignature)) {
-                        $startIr = (float) Arr::get($heatSignature, 'StartIREmission', 0.0);
-                        $irTotal += $startIr;
-                    }
+                    $irTotal += $signatures['ir_total'];
 
                     // EM accumulation: nominal signature scaled by power-range modifier
-                    $componentEm = $emNom * $powerRangeModifier;
+                    $componentEm = $signatures['em_scaled'];
 
                     // Bucket component EM based on type
                     if ($isShield) {
@@ -273,9 +253,9 @@ final readonly class VehicleMetricsAggregator
             'quantum_fuel_capacity' => $quantumFuelCapacity > 0 ? $quantumFuelCapacity : null,
             'fuel_intake_rate' => $fuelIntakeRate > 0 ? $fuelIntakeRate : null,
             'fuel_usage' => $fuelUsage,
-            'heat' => [
-                'base_generation' => $coolerPowerUsed,
-                'cooling_rate' => $coolingCapacity > 0 ? $coolingCapacity : null,
+            'cooling' => [
+                'cooling_capacity' => $coolerPowerMax,
+                'cooling_usage' => $coolerPowerUsed,
                 'cooling_usage_pct' => $coolingUsagePct,
             ],
             'power' => [
@@ -399,31 +379,5 @@ final readonly class VehicleMetricsAggregator
         $value = reset($first);
 
         return is_numeric($value) ? (float) $value : 0.0;
-    }
-
-    private function powerRangeModifier(?float $value, array $ranges): float
-    {
-        $registerRanges = array_values(array_filter(
-            $ranges,
-            static fn ($range) => isset($range['RegisterRange'])
-        ));
-
-        usort($registerRanges, static fn ($a, $b) => ($a['Start'] ?? 0) <=> ($b['Start'] ?? 0));
-
-        if ($registerRanges === [] || $value === null) {
-            return 1.0;
-        }
-
-        foreach ($registerRanges as $idx => $range) {
-            $start = $range['Start'] ?? 0.0;
-            $modifier = (float) ($range['Modifier'] ?? 1.0);
-            $nextStart = $registerRanges[$idx + 1]['Start'] ?? null;
-
-            if ($value >= $start && ($nextStart === null || $value < $nextStart)) {
-                return $modifier;
-            }
-        }
-
-        return 1.0;
     }
 }

@@ -9,6 +9,12 @@ use Octfx\ScDataDumper\Helper\Arr;
  */
 final class PortMapper
 {
+    public function __construct(
+        private ?ItemSignatureCalculator $signatureCalculator = null,
+    ) {
+        $this->signatureCalculator ??= new ItemSignatureCalculator;
+    }
+
     /**
      * Map port data to standardized format
      *
@@ -64,7 +70,7 @@ final class PortMapper
 
         $manufacturerCode = Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Manufacturer.Code');
 
-        [$powerConsumption, $coolingConsumption, $emEmission] = $this->computeResourceStats($item);
+        [$powerConsumption, $coolingConsumption, $emEmission, $irEmission] = $this->computeResourceStats($item);
 
         return [
             'uuid' => $item['__ref'] ?? null,
@@ -83,6 +89,7 @@ final class PortMapper
             'power_consumption' => $powerConsumption,
             'cooling_consumption' => $coolingConsumption,
             'em_emission' => $emEmission,
+            'ir_emission' => $irEmission,
         ];
     }
 
@@ -113,23 +120,22 @@ final class PortMapper
 
         $resource = Arr::get($item, 'Components.ItemResourceComponentParams');
         if (! $resource || ! is_array($resource)) {
-            return [null, null, null];
+            return [null, null, null, null];
         }
 
         $state = $this->extractSingleState($resource['states'] ?? null);
         if (! $state) {
-            return [null, null, null];
+            return [null, null, null, null];
         }
 
-        $em = (float) Arr::get($state, 'signatureParams.EMSignature.nominalSignature', 0.0);
-
-        $deltas = $state['deltas'] ?? [];
-        if (! is_array($deltas)) {
-            $deltas = [];
-        }
-        if (! array_is_list($deltas)) {
-            $deltas = [$deltas];
-        }
+        $deltas = $this->normalizeDeltas($state['deltas'] ?? null);
+        $signatures = $this->signatureCalculator->calculate(
+            $item['Components'] ?? [],
+            $state,
+            $deltas,
+            Arr::get($item, 'portName'),
+            Arr::get($item, 'Components.EntityComponentPowerConnection.PowerBase')
+        );
 
         foreach ($deltas as $delta) {
             if (! is_array($delta)) {
@@ -164,7 +170,8 @@ final class PortMapper
         return [
             $power > 0 ? $power : null,
             $coolant > 0 ? $coolant : null,
-            $em > 0 ? $em : null,
+            $signatures['em_scaled'] > 0 ? $signatures['em_scaled'] : null,
+            $signatures['ir_total'] > 0 ? $signatures['ir_total'] : null,
         ];
     }
 
@@ -195,5 +202,21 @@ final class PortMapper
         $value = reset($first);
 
         return is_numeric($value) ? (float) $value : 0.0;
+    }
+
+    /**
+     * Ensure deltas are always an array of associative arrays.
+     */
+    private function normalizeDeltas(mixed $deltas): array
+    {
+        if ($deltas === null) {
+            return [];
+        }
+
+        if (is_array($deltas) && array_is_list($deltas)) {
+            return $deltas;
+        }
+
+        return [is_array($deltas) ? $deltas : []];
     }
 }

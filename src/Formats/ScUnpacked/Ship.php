@@ -376,7 +376,7 @@ final class Ship extends BaseFormat
             $data['emission']['em_shields'] = $metrics['emission']['em_with_shields'];
         }
 
-        $data['heat'] = $metrics['heat'];
+        $data['cooling'] = $metrics['cooling'];
         $data['power'] = $metrics['power'];
         $data['shields_total'] = $metrics['shields'];
         // deprecated, use shields_total.hp

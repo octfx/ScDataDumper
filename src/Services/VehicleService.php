@@ -127,7 +127,7 @@ final class VehicleService extends BaseService
     public function iterator(?string $filter = null): Generator
     {
         foreach ($this->vehicles as $path) {
-            if (stripos($path, $filter) === false) {
+            if ($filter && stripos($path, $filter) === false) {
                 continue;
             }
 

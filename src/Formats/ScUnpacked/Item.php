@@ -134,11 +134,37 @@ final class Item extends BaseFormat
                 'WeaponModifier' => new WeaponModifier($this->item),
                 'WeaponRegenPool' => new WeaponRegenPool($this->item),
             ],
+            'Emission' => $this->extractEmission(),
         ];
 
         $this->processArray($data);
 
         return $this->removeNullValues($data);
+    }
+
+    /**
+     * Extract nominal EM/IR signatures for the item so consumers can access them
+     * directly without re-parsing components.
+     */
+    private function extractEmission(): ?array
+    {
+        $em = (float) ($this->item->get('Components/ItemResourceComponentParams/states/ItemResourceState/signatureParams/EMSignature@nominalSignature', 0));
+        $ir = (float) ($this->item->get('Components/ItemResourceComponentParams/states/ItemResourceState/signatureParams/IRSignature@nominalSignature', 0));
+        $startIr = (float) ($this->item->get('Components/HeatController/Signature@StartIREmission', 0));
+
+        $irTotal = $ir + $startIr;
+
+        $em = $em > 0 ? $em : null;
+        $irTotal = $irTotal > 0 ? $irTotal : null;
+
+        if ($em === null && $irTotal === null) {
+            return null;
+        }
+
+        return [
+            'em' => $em,
+            'ir' => $irTotal,
+        ];
     }
 
     public static function convertToScu(EntityClassDefinition|Element|null $item): ?float
