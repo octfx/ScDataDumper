@@ -6,6 +6,7 @@ namespace Octfx\ScDataDumper\Commands;
 
 use Exception;
 use Octfx\ScDataDumper\Services\CacheService;
+use Octfx\ScDataDumper\Services\ConsumableSubtypeService;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -56,6 +57,12 @@ class GenerateCache extends Command
                 DIRECTORY_SEPARATOR,
                 PHP_OS_FAMILY
             ),
+            sprintf(
+                '%s%sconsumable-subType-cache-%s.json',
+                $input->getArgument('path'),
+                DIRECTORY_SEPARATOR,
+                PHP_OS_FAMILY
+            ),
         ];
 
         $allExist = array_reduce($cacheFiles, static fn ($carry, $item) => $carry && file_exists($item), true);
@@ -72,6 +79,12 @@ class GenerateCache extends Command
         $start = microtime(true);
         try {
             $service->makeCacheFiles();
+
+            // Generate ConsumableSubtype cache
+            $io->section('Generating ConsumableSubtype cache');
+            $consumableService = new ConsumableSubtypeService($input->getArgument('path'));
+            $consumableService->initialize();
+            $io->success('Generated ConsumableSubtype cache with '.$consumableService->getCount().' entries');
         } catch (Exception $e) {
             $io->error($e->getMessage());
 

@@ -31,9 +31,15 @@ RUN echo 'memory_limit = 2G' >> "$PHP_INI_DIR/php.ini"
 RUN echo 'opcache.enable_cli = 1' >> "$PHP_INI_DIR/php.ini"
 
 # Copy the app dependencies from the previous install stage.
-COPY --from=deps app/vendor/ /var/www/html/vendor
+COPY --from=deps /app/vendor/ /var/www/html/vendor
+
 # Copy the app files from the app directory.
 COPY . /var/www/html
+
+# Fix ownership and permissions so php-fpm (www-data) can read the code
+RUN chown -R www-data:www-data /var/www/html \
+    && find /var/www/html -type d -exec chmod 755 {} \; \
+    && find /var/www/html -type f -exec chmod 644 {} \;
 
 # Switch to a non-privileged user (defined in the base image) that the app will run under.
 # See https://docs.docker.com/go/dockerfile-user-best-practices/

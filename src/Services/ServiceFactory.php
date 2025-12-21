@@ -47,6 +47,9 @@ final class ServiceFactory
         self::$services['MeleeCombatConfigService'] = new MeleeCombatConfigService($this->scDataPath);
         self::$services['MeleeCombatConfigService']->initialize();
 
+        self::$services['MiningLaserGlobalParamsService'] = new MiningLaserGlobalParamsService($this->scDataPath);
+        self::$services['MiningLaserGlobalParamsService']->initialize();
+
         self::$services['VehicleService'] = new VehicleService($this->scDataPath);
         self::$services['VehicleService']->initialize();
 
@@ -55,6 +58,9 @@ final class ServiceFactory
 
         self::$services['LoadoutFileService'] = new LoadoutFileService($this->scDataPath);
         self::$services['LoadoutFileService']->initialize();
+
+        self::$services['ConsumableSubtypeService'] = new ConsumableSubtypeService($this->scDataPath);
+        self::$services['ConsumableSubtypeService']->initialize();
 
         self::$initialized = true;
     }
@@ -104,6 +110,11 @@ final class ServiceFactory
         return self::getService('MeleeCombatConfigService');
     }
 
+    public static function getMiningLaserGlobalParamsService(): MiningLaserGlobalParamsService
+    {
+        return self::getService('MiningLaserGlobalParamsService');
+    }
+
     public static function getVehicleService(): VehicleService
     {
         return self::getService('VehicleService');
@@ -117,6 +128,11 @@ final class ServiceFactory
     public static function getLoadoutFileService(): LoadoutFileService
     {
         return self::getService('LoadoutFileService');
+    }
+
+    public static function getConsumableSubtypeService(): ConsumableSubtypeService
+    {
+        return self::getService('ConsumableSubtypeService');
     }
 
     private static function getService(string $serviceName): mixed

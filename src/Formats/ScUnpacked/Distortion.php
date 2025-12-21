@@ -2,6 +2,7 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
+use Illuminate\Support\Arr;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class Distortion extends BaseFormat
@@ -14,6 +15,12 @@ final class Distortion extends BaseFormat
             return null;
         }
 
-        return $this->get()?->attributesToArray();
+        $attributes = $this->get()?->attributesToArray();
+
+        $return = $attributes ? $this->transformArrayKeysToPascalCase($attributes) : null;
+
+        $return['ShutdownTime'] = (Arr::get($return, 'Maximum', 0) / max(1, Arr::get($return, 'DecayRate', 1))) + Arr::get($return, 'DecayDelay', 0);
+
+        return $return;
     }
 }

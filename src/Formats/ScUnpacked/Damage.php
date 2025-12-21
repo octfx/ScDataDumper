@@ -41,6 +41,6 @@ final class Damage extends BaseFormat
 
     public function canTransform(): bool
     {
-        return $this->item?->nodeName === 'DamageInfo';
+        return $this->item?->nodeName === 'DamageInfo' || $this->item?->nodeName === 'damageInfo';
     }
 }

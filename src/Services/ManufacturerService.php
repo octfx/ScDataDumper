@@ -19,7 +19,25 @@ final class ManufacturerService extends BaseService
 
     public function initialize(): void
     {
-        $this->manufacturerPaths = array_filter(self::$uuidToPathMap, static fn (string $path) => str_contains($path, 'scitemmanufacturer') === true);
+        // Only keep real SCItemManufacturer documents and ignore other files that happen to live in the folder
+        $this->manufacturerPaths = array_filter(
+            self::$uuidToPathMap,
+            static function (string $path): bool {
+                if (str_contains($path, 'scitemmanufacturer') !== true) {
+                    return false;
+                }
+
+                $handle = @fopen($path, 'rb');
+                if (! $handle) {
+                    return false;
+                }
+
+                $firstLine = fgets($handle) ?: '';
+                fclose($handle);
+
+                return (bool) preg_match('/^<SCItemManufacturer\\./', ltrim($firstLine));
+            }
+        );
     }
 
     public function iterator(): Generator

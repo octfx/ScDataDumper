@@ -3,6 +3,7 @@
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\Formats\BaseFormat;
+use Octfx\ScDataDumper\ValueObjects\ScuCalculator;
 
 final class CargoGrid extends BaseFormat
 {
@@ -21,7 +22,7 @@ final class CargoGrid extends BaseFormat
             'Width' => $grid->get('dimensions@x'),
             'Height' => $grid->get('dimensions@z'),
             'Depth' => $grid->get('dimensions@y'),
-            'Capacity' => ($grid->get('dimensions@x') * $grid->get('dimensions@y') * $grid->get('dimensions@z')) / M_TO_SCU_UNIT,
-        ] + $attribs;
+            'Capacity' => ($grid->get('dimensions@x') * $grid->get('dimensions@y') * $grid->get('dimensions@z')) / ScuCalculator::M_TO_SCU_UNIT,
+        ] + ($attribs ? $this->transformArrayKeysToPascalCase($attribs) : []);
     }
 }

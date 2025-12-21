@@ -14,6 +14,11 @@ final class Thruster extends BaseFormat
             return null;
         }
 
-        return $this->get()?->attributesToArray();
+        $attributes = $this->get()?->attributesToArray([
+            'nozzleAnimation',
+            'thrusterAnimDriver',
+        ]);
+
+        return $attributes ? $this->transformArrayKeysToPascalCase($attributes) : null;
     }
 }

@@ -4,45 +4,37 @@ namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\Formats\BaseFormat;
 
+/**
+ * Factory wrapper that dispatches to PersonalWeapon or VehicleWeapon based on type.
+ */
 final class Weapon extends BaseFormat
 {
-    protected ?string $elementKey = 'Components/SCItemWeaponComponentParams';
+    private AbstractWeapon $delegate;
+
+    public function __construct($item)
+    {
+        parent::__construct($item);
+        $this->delegate = $this->resolveFormatter();
+    }
 
     public function toArray(): ?array
     {
-        if (! $this->canTransform()) {
-            return null;
+        return $this->delegate->toArray();
+    }
+
+    public function canTransform(): bool
+    {
+        return $this->delegate->canTransform();
+    }
+
+    private function resolveFormatter(): AbstractWeapon
+    {
+        $type = $this->item?->get('Components/SAttachableComponentParams/AttachDef@Type');
+
+        if ($type === 'WeaponPersonal') {
+            return new PersonalWeapon($this->item);
         }
 
-        $weapon = $this->get();
-
-        $ammunition = new Ammunition($this->item);
-
-        $out = [
-            'Modes' => [],
-            'Ammunition' => $ammunition->toArray(),
-            'Consumption' => (new WeaponConsumption($weapon))->toArray(),
-        ];
-
-        $damageReducer = static fn ($carry, $cur) => $carry + $cur;
-
-        foreach ($weapon->get('/fireActions')?->children() as $action) {
-            $mode = new WeaponMode($action);
-            if (! $mode->canTransform()) {
-                continue;
-            }
-
-            $mode = $mode->toArray();
-
-            $impact = array_reduce($out['Ammunition']['ImpactDamage'] ?? [], $damageReducer, 0);
-            $detonation = array_reduce($out['Ammunition']['DetonationDamage'] ?? [], $damageReducer, 0);
-
-            $mode['DamagePerShot'] = ($impact + $detonation) * ($mode['PelletsPerShot'] ?? 0);
-            $mode['DamagePerSecond'] = $mode['DamagePerShot'] * (($mode['RoundsPerMinute'] ?? 0) / 60.0);
-
-            $out['Modes'][] = $mode;
-        }
-
-        return $out;
+        return new VehicleWeapon($this->item);
     }
 }
