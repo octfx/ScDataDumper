@@ -35,6 +35,11 @@ final class Temperature extends BaseFormat
             $data['ItemResourceParams'] = $itemResourceParams;
         }
 
+        $cTemp = $this->calculateCTemperatures($signatureParams, $itemResourceParams);
+        if ($cTemp !== null) {
+            $data['Calculated'] = $cTemp;
+        }
+
         return $data === [] ? null : $this->transformArrayKeysToPascalCase($data);
     }
 
@@ -70,5 +75,80 @@ final class Temperature extends BaseFormat
         $filtered = array_intersect_key($data, array_flip($allowed));
 
         return $filtered === [] ? null : $filtered;
+    }
+
+    /**
+     * Produces:
+     * - CoolingThreshold: ItemResourceParams.MinCoolingTemperature
+     * - IrThreshold:      SignatureParams.MinimumTemperatureForIR
+     * - Overheat:         ItemResourceParams.OverheatWarningTemperature
+     * - Max:              ItemResourceParams.OverheatTemperature
+     * - Recovery:         ItemResourceParams.OverheatRecoveryTemperature
+     *
+     * Values are returned in Celsius
+     */
+    private function calculateCTemperatures(?array $signatureParams, ?array $itemResourceParams): ?array
+    {
+        $out = ['Unit' => 'C'];
+
+        $minCoolingK = $this->arrayGetInsensitive($itemResourceParams, 'MinCoolingTemperature');
+        $minIrK = $this->arrayGetInsensitive($signatureParams, 'MinimumTemperatureForIR');
+        $warnK = $this->arrayGetInsensitive($itemResourceParams, 'OverheatWarningTemperature');
+        $overheatK = $this->arrayGetInsensitive($itemResourceParams, 'OverheatTemperature');
+        $recoveryK = $this->arrayGetInsensitive($itemResourceParams, 'OverheatRecoveryTemperature');
+
+        $coolingC = $this->tempToC($minCoolingK);
+        $irC = $this->tempToC($minIrK);
+        $overheatC = $this->tempToC($warnK);
+        $maxC = $this->tempToC($overheatK);
+        $recoveryC = $this->tempToC($recoveryK);
+
+        if ($coolingC !== null) {
+            $out['CoolingThreshold'] = $coolingC;
+        }
+        if ($irC !== null) {
+            $out['IrThreshold'] = $irC;
+        }
+        if ($overheatC !== null) {
+            $out['Overheat'] = $overheatC;
+        }
+        if ($maxC !== null) {
+            $out['Max'] = $maxC;
+        }
+        if ($recoveryC !== null) {
+            $out['Recovery'] = $recoveryC;
+        }
+
+        return count($out) > 1 ? $out : null;
+    }
+
+    private function arrayGetInsensitive(?array $arr, string $key): mixed
+    {
+        if (! is_array($arr) || $arr === []) {
+            return null;
+        }
+
+        return array_find($arr, fn ($v, $k) => is_string($k) && strcasecmp($k, $key) === 0);
+    }
+
+    /**
+     * Convert either Kelvin or Celsius-ish input to Celsius:
+     * - If value > 200, assume Kelvin and convert to Celsius
+     * - Else assume it is already Celsius
+     */
+    private function tempToC(mixed $value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (! is_numeric($value)) {
+            return null;
+        }
+
+        $t = (float) $value;
+        $c = ($t > 200.0) ? ($t - 273.15) : $t;
+
+        return round($c, 1);
     }
 }

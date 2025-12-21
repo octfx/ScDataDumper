@@ -2,9 +2,9 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
+use Illuminate\Support\Arr;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Formats\BaseFormat;
-use Octfx\ScDataDumper\Helper\Arr;
 
 final class MiningLaser extends BaseFormat
 {
@@ -51,7 +51,9 @@ final class MiningLaser extends BaseFormat
             ? $minFactor * $powerTransfer
             : null;
 
-        $data = [
+        $data = $laserParams->attributesToArray([
+            'globalParams',
+        ], true) + [
             'PowerTransfer' => $powerTransfer,
             'MinPowerTransfer' => $minPowerTransfer,
             'OptimalRange' => $fractureAction?->get('@fullDamageRange'),

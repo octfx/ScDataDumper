@@ -17,6 +17,7 @@ final class Durability extends BaseFormat
             'Health' => $this->get('Components/SHealthComponentParams@Health'),
             'Salvageable' => $this->get('Components/SHealthComponentParams@IsSalvagable'),
             'Repairable' => $this->get('Components/SHealthComponentParams@IsRepairable'),
+            'Resistance' => new DamageResistance($this->get('Components/SHealthComponentParams/DamageResistances'), '/DamageResistance'),
         ];
     }
 

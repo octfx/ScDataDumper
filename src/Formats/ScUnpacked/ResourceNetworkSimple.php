@@ -9,7 +9,7 @@ final class ResourceNetworkSimple extends BaseFormat
 {
     protected ?string $elementKey = 'Components/ItemResourceComponentParams';
 
-    private const UNIT_FACTORS = [
+    private const array UNIT_FACTORS = [
         'SStandardResourceUnit' => 1.0,
         'SPowerSegmentResourceUnit' => 1.0,
         'SCentiResourceUnit' => 0.01,
@@ -30,6 +30,7 @@ final class ResourceNetworkSimple extends BaseFormat
             'DefaultPriority' => $component->get('defaultPriority'),
             'States' => $this->parseStates($component->get('/states')),
             'Repair' => $component->get('/selfRepair')?->attributesToArray(['__type'], pascalCase: true),
+            'Usage' => $this->buildUsage(),
         ];
 
         $data = $this->clean($data);
@@ -63,6 +64,9 @@ final class ResourceNetworkSimple extends BaseFormat
             'Deltas' => $this->parseDeltas($state->get('/deltas')),
             'Signature' => $this->parseSignature($state->get('/signatureParams')),
             'LinkedInteractionStates' => $this->parseLinkedInteractionStates($state->get('/linkedInteractionStates')),
+            'PowerRanges' => $this->parsePowerRanges(
+                $state->get('/powerRanges') ?? $state->get('/rangeParams')
+            ),
         ];
 
         $data = $this->clean($data);
@@ -283,6 +287,21 @@ final class ResourceNetworkSimple extends BaseFormat
         return $out;
     }
 
+    private function parsePowerRanges(?Element $powerRanges): array
+    {
+        if (! $powerRanges) {
+            return [];
+        }
+
+        $out = [];
+
+        foreach ($powerRanges->children() as $range) {
+            $out[] = $this->transformArrayKeysToPascalCase($range->attributesToArray());
+        }
+
+        return $out;
+    }
+
     private function parseSignature(?Element $signature): ?array
     {
         if (! $signature) {
@@ -327,5 +346,73 @@ final class ResourceNetworkSimple extends BaseFormat
         }
 
         return $value;
+    }
+
+    private function buildUsage(): ?array
+    {
+        $onlineState = null;
+
+        foreach ($this->item->get('Components/ItemResourceComponentParams/states')?->children() as $state) {
+            if ($state->get('@name') === 'Online') {
+                $onlineState = $state;
+                break;
+            }
+        }
+
+        if ($onlineState === null) {
+            return null;
+        }
+
+        $isGenerator = $onlineState->has('/deltas/ItemResourceDeltaGeneration');
+        $powerDelta = null;
+
+        foreach ($onlineState->get('/deltas')?->children() as $delta) {
+            if ($delta->get('/consumption@resource') === 'Power' || ($isGenerator && $delta->get('/generation@resource') === 'Power')) {
+                $powerDelta = $delta;
+                break;
+            }
+        }
+
+        $key = 'SPowerSegmentResourceUnit@units';
+        if ($powerDelta?->has('/consumption/resourceAmountPerSecond/SStandardResourceUnit')) {
+            $key = 'SStandardResourceUnit@standardResourceUnits';
+        }
+
+        $minConsumptionFraction = (float) ($powerDelta?->get('@minimumConsumptionFraction', 1) ?? 1);
+
+        $powerUsageMax = $isGenerator ?
+            $powerDelta?->get('/generation/resourceAmountPerSecond/SPowerSegmentResourceUnit@units', 0) :
+            $powerDelta?->get('/consumption/resourceAmountPerSecond/'.$key, 0);
+        $powerUsageMin = $powerUsageMax * $minConsumptionFraction;
+
+        $lowPowerRange = null;
+
+        foreach ($onlineState->get('/powerRanges')?->children() as $range) {
+            if ($range->getNode()->nodeName === 'low' && ((int) $range->get('@registerRange')) === 1) {
+                $lowPowerRange = (float) ($range->get('@modifier', 1));
+                break;
+            }
+
+            if ($range->getNode()->nodeName === 'medium' && ((int) $range->get('@registerRange')) === 1) {
+                $lowPowerRange = (float) ($range->get('@modifier', 1));
+                break;
+            }
+
+            if ($range->getNode()->nodeName === 'high' && ((int) $range->get('@registerRange')) === 1) {
+                $lowPowerRange = (float) ($range->get('@modifier', 1));
+                break;
+            }
+        }
+
+        return [
+            'Power' => [
+                'Minimum' => $powerUsageMin,
+                'Maximum' => $powerUsageMax,
+            ],
+            'Coolant' => [
+                'Minimum' => $powerUsageMin * $lowPowerRange,
+                'Maximum' => $powerUsageMax,
+            ],
+        ];
     }
 }

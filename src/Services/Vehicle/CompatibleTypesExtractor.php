@@ -2,8 +2,8 @@
 
 namespace Octfx\ScDataDumper\Services\Vehicle;
 
+use Illuminate\Support\Arr;
 use Octfx\ScDataDumper\Definitions\Element;
-use Octfx\ScDataDumper\Helper\Arr;
 
 /**
  * Extract compatible types from port definitions

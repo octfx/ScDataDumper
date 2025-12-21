@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Services\Vehicle;
 
-use Octfx\ScDataDumper\Helper\Arr;
+use Illuminate\Support\Arr;
 
 /**
  * Aggregates emissions and fuel-related metrics by traversing installed items.

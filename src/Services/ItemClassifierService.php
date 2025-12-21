@@ -2,8 +2,8 @@
 
 namespace Octfx\ScDataDumper\Services;
 
+use Illuminate\Support\Arr;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
-use Octfx\ScDataDumper\Helper\Arr;
 
 final class ItemClassifierService
 {

@@ -2,7 +2,7 @@
 
 namespace Octfx\ScDataDumper\Services\Vehicle;
 
-use Octfx\ScDataDumper\Helper\Arr;
+use Illuminate\Support\Arr;
 
 /**
  * Maps port information to standardized format

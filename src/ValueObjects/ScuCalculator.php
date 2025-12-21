@@ -2,7 +2,7 @@
 
 namespace Octfx\ScDataDumper\ValueObjects;
 
-use Octfx\ScDataDumper\Helper\Arr;
+use Illuminate\Support\Arr;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
 /**

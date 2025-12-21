@@ -2,10 +2,10 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
+use Illuminate\Support\Arr;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 use Octfx\ScDataDumper\Formats\BaseFormat;
-use Octfx\ScDataDumper\Helper\Arr;
 use Octfx\ScDataDumper\Helper\ItemDescriptionParser;
 use Octfx\ScDataDumper\Helper\VehicleWrapper;
 use Octfx\ScDataDumper\Services\PortClassifierService;

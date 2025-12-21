@@ -14,8 +14,19 @@ final class EMP extends BaseFormat
             return null;
         }
 
-        $attributes = $this->get()?->attributesToArray();
-
-        return $attributes ? $this->transformArrayKeysToPascalCase($attributes) : null;
+        return $this->get()?->attributesToArray([
+            'chargingTag',
+            'chargedTag',
+            'startChargingTrigger',
+            'stopChargingTrigger',
+            'startChargedTrigger',
+            'stopChargedTrigger',
+            'startUnleashTrigger',
+            'stopUnleashTrigger',
+            'idleState',
+            'chargingState',
+            'chargedState',
+            'releasingState',
+        ], pascalCase: true);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
+use Illuminate\Support\Arr;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 
@@ -29,19 +30,30 @@ class Missile extends BaseFormat
             $clusterData = null;
         }
 
+        $base = $ordnance->attributesToArray([
+            'maxArmableOverride',
+            'dragAreaRadius',
+            'centreOfPressureOffsetY',
+            'maxAltitudeForAudioRtpc',
+        ], true);
+
+        $damage = new Damage($ordnance->get('explosionParams/damage/DamageInfo'))->toArray();
+
+        $damageTotal = array_reduce($damage, static fn ($carry, $item) => $carry + $item, 0.0);
+
+        $gcs = new GCSParams($this->item)->toArray();
+
+        $distance = Arr::get($base, 'MaxLifetime', 0.0) * Arr::get($gcs, 'LinearSpeed', 0.0);
+
         return [
-            ...$ordnance->attributesToArray([
-                'maxArmableOverride',
-                'projectileProximity',
-                'dragAreaRadius',
-                'centreOfPressureOffsetY',
-                'maxAltitudeForAudioRtpc',
-            ], true),
-            'GCS' => new GCSParams($this->item),
+            ...$base,
+            'Distance' => ((bool) Arr::get($base, 'EnableLifetime', false)) ? $distance : null,
+            'GCS' => $gcs,
             'IsCluster' => $isCluster,
             'Cluster' => $clusterData,
             'Targeting' => new TargetingParams($this->item),
-            'Damage' => new Damage($ordnance->get('explosionParams/damage/DamageInfo')),
+            'Damage' => $damage,
+            'DamageTotal' => $damageTotal,
             'ExplosionMinRadius' => $ordnance->get('explosionParams@minRadius'),
             'ExplosionMaxRadius' => $ordnance->get('explosionParams@maxRadius'),
         ];

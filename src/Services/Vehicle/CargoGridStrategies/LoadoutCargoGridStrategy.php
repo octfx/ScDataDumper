@@ -2,8 +2,8 @@
 
 namespace Octfx\ScDataDumper\Services\Vehicle\CargoGridStrategies;
 
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
-use Octfx\ScDataDumper\Helper\Arr;
 use Octfx\ScDataDumper\Helper\VehicleWrapper;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use Octfx\ScDataDumper\ValueObjects\CargoGridResult;

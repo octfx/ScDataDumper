@@ -5,14 +5,15 @@ declare(strict_types=1);
 namespace Tests\Vehicle;
 
 use Octfx\ScDataDumper\Services\Vehicle\EquippedItemWalker;
+use Octfx\ScDataDumper\Services\Vehicle\ItemSignatureCalculator;
 use Octfx\ScDataDumper\Services\Vehicle\VehicleMetricsAggregator;
 use PHPUnit\Framework\TestCase;
 
 final class VehicleMetricsAggregatorTest extends TestCase
 {
-    private function makeAggregator(bool $includeRequestedDefaults = true): VehicleMetricsAggregator
+    private function makeAggregator(): VehicleMetricsAggregator
     {
-        return new VehicleMetricsAggregator(new EquippedItemWalker, $includeRequestedDefaults);
+        return new VehicleMetricsAggregator(new EquippedItemWalker, new ItemSignatureCalculator);
     }
 
     public function test_aggregates_fuel_and_quantum_capacities(): void
@@ -119,15 +120,25 @@ final class VehicleMetricsAggregatorTest extends TestCase
                 'portName' => 'power_plant',
                 'Item' => [
                     'Components' => [
-                        'EntityComponentPowerConnection' => [
-                            'PowerBase' => 10,
-                            'PowerDrawRequest' => 50,
-                            'PowerToEM' => 2,
-                        ],
-                        'EntityComponentHeatConnection' => [
-                            'ThermalEnergyBase' => 3,
-                            'ThermalEnergyDraw' => 1,
-                            'TemperatureToIR' => 4,
+                        'ItemResourceComponentParams' => [
+                            'states' => [
+                                'ItemResourceState' => [
+                                    'signatureParams' => [
+                                        'EMSignature' => ['nominalSignature' => 2],
+                                        'IRSignature' => ['nominalSignature' => 3],
+                                    ],
+                                    'deltas' => [
+                                        'ItemResourceDeltaConsumption' => [
+                                            'consumption' => [
+                                                'resource' => 'Power',
+                                                'resourceAmountPerSecond' => [
+                                                    'SPowerSegmentResourceUnit' => ['units' => 10],
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                 ],
@@ -136,9 +147,8 @@ final class VehicleMetricsAggregatorTest extends TestCase
 
         $result = $this->makeAggregator()->aggregate($loadout);
 
-        self::assertSame(20.0, $result['emission']['em_min']); // 10 * 2
-        self::assertSame(100.0, $result['emission']['em_max']); // 50 * 2 (draw request used)
-        self::assertSame(12.0, $result['emission']['ir']); // (3 * 4) idle
+        self::assertSame(2.0, $result['emission']['em']); // nominal EM only
+        self::assertSame(3.0, $result['emission']['ir']);  // nominal IR
     }
 
     public function test_em_includes_nominal_signature_and_armor_multiplier(): void
@@ -148,17 +158,20 @@ final class VehicleMetricsAggregatorTest extends TestCase
                 'portName' => 'power_plant',
                 'Item' => [
                     'Components' => [
-                        'EntityComponentPowerConnection' => [
-                            'PowerBase' => 10,
-                            'PowerDraw' => 20,
-                            'PowerToEM' => 2,
-                        ],
-                        'ResourceNetworkSimple' => [
+                        'ItemResourceComponentParams' => [
                             'states' => [
-                                [
+                                'ItemResourceState' => [
                                     'signatureParams' => [
-                                        'EMSignature' => [
-                                            'nominalSignature' => 100,
+                                        'EMSignature' => ['nominalSignature' => 10],
+                                    ],
+                                    'deltas' => [
+                                        'ItemResourceDeltaConsumption' => [
+                                            'consumption' => [
+                                                'resource' => 'Power',
+                                                'resourceAmountPerSecond' => [
+                                                    'SPowerSegmentResourceUnit' => ['units' => 10],
+                                                ],
+                                            ],
                                         ],
                                     ],
                                 ],
@@ -187,10 +200,8 @@ final class VehicleMetricsAggregatorTest extends TestCase
 
         $result = $this->makeAggregator()->aggregate($loadout);
 
-        // (10*2 + 100) * 1.1 = 132
-        self::assertEqualsWithDelta(132.0, $result['emission']['em_min'], 0.001);
-        // (20*2 + 100) * 1.1 = 154
-        self::assertEqualsWithDelta(154.0, $result['emission']['em_max'], 0.001);
+        // 10 * 1.1 = 11
+        self::assertEqualsWithDelta(11.0, $result['emission']['em'], 0.001);
     }
 
     public function test_ir_uses_temperature_signature_and_armor(): void
@@ -200,13 +211,23 @@ final class VehicleMetricsAggregatorTest extends TestCase
                 'portName' => 'cooling_item',
                 'Item' => [
                     'Components' => [
-                        'EntityComponentHeatConnection' => [
-                            'ThermalEnergyBase' => 5,
-                            'ThermalEnergyDraw' => 5,
-                        ],
-                        'Temperature' => [
-                            'SignatureParams' => [
-                                'TemperatureToIR' => 4,
+                        'ItemResourceComponentParams' => [
+                            'states' => [
+                                'ItemResourceState' => [
+                                    'signatureParams' => [
+                                        'IRSignature' => ['nominalSignature' => 5],
+                                    ],
+                                    'deltas' => [
+                                        'ItemResourceDeltaConsumption' => [
+                                            'consumption' => [
+                                                'resource' => 'Power',
+                                                'resourceAmountPerSecond' => [
+                                                    'SPowerSegmentResourceUnit' => ['units' => 1],
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                ],
                             ],
                         ],
                     ],
@@ -232,10 +253,8 @@ final class VehicleMetricsAggregatorTest extends TestCase
 
         $result = $this->makeAggregator()->aggregate($loadout);
 
-        // IR idle = 5 * 4 * 1.1 = 22
-        self::assertEqualsWithDelta(22.0, $result['emission']['ir'], 0.001);
-        // Heat totals should reflect base/draw
-        self::assertEqualsWithDelta(10.0, $result['heat']['max'], 0.001);
+        // IR = 5 * 1.1 = 5.5
+        self::assertEqualsWithDelta(5.5, $result['emission']['ir'], 0.001);
     }
 
     public function test_exclude_requested_defaults_when_disabled(): void
@@ -245,17 +264,32 @@ final class VehicleMetricsAggregatorTest extends TestCase
                 'portName' => 'power_plant',
                 'Item' => [
                     'Components' => [
-                        'EntityComponentPowerConnection' => [
-                            'PowerDrawRequest' => 50,
-                            'PowerToEM' => 2,
+                        'ItemResourceComponentParams' => [
+                            'states' => [
+                                'ItemResourceState' => [
+                                    'signatureParams' => [
+                                        'EMSignature' => ['nominalSignature' => 5],
+                                    ],
+                                    'deltas' => [
+                                        'ItemResourceDeltaConsumption' => [
+                                            'consumption' => [
+                                                'resource' => 'Power',
+                                                'resourceAmountPerSecond' => [
+                                                    'SPowerSegmentResourceUnit' => ['units' => 1],
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                 ],
             ],
         ];
 
-        $result = $this->makeAggregator(includeRequestedDefaults: false)->aggregate($loadout);
+        $result = $this->makeAggregator()->aggregate($loadout);
 
-        self::assertNull($result['emission']['em_max']);
+        self::assertNotNull($result['emission']['em']);
     }
 }

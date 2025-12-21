@@ -101,6 +101,7 @@ final class Item extends BaseFormat
                 'FuelIntake' => new FuelIntake($this->item),
                 'FuelTank' => new FuelTank($this->item, 'FuelTank'),
                 'FlightController' => new FlightController($this->item),
+                'JumpDrive' => new JumpDrive($this->item),
                 'MiningLaser' => new MiningLaser($this->item),
                 'MiningModule' => new MiningModule($this->item),
                 'HeatConnection' => new HeatConnection($this->item),
@@ -124,16 +125,19 @@ final class Item extends BaseFormat
                 'Radar' => new Radar($this->item),
                 'SelfDestruct' => new SelfDestruct($this->item),
                 'Shield' => new Shield($this->item),
+                'ShieldController' => new ShieldController($this->item),
                 'SalvageModifier' => new SalvageModifier($this->item),
                 'SuitArmor' => new SuitArmor($this->item),
                 'TemperatureResistance' => new TemperatureResistance($this->item),
                 'RadiationResistance' => new RadiationResistance($this->item),
                 'Thruster' => new Thruster($this->item),
                 'TractorBeam' => new TractorBeam($this->item),
+                'Turret' => new Turret($this->item),
                 'Weapon' => new Weapon($this->item),
                 'WeaponAttachment' => new WeaponAttachment($this->item),
                 'WeaponModifier' => new WeaponModifier($this->item),
                 'WeaponRegenPool' => new WeaponRegenPool($this->item),
+                'WeaponDefensive' => new WeaponDefensive($this->item),
             ],
         ];
 
@@ -148,21 +152,63 @@ final class Item extends BaseFormat
      */
     private function extractEmission(): ?array
     {
-        $em = (float) ($this->item->get('Components/ItemResourceComponentParams/states/ItemResourceState/signatureParams/EMSignature@nominalSignature', 0));
-        $ir = (float) ($this->item->get('Components/ItemResourceComponentParams/states/ItemResourceState/signatureParams/IRSignature@nominalSignature', 0));
+        $onlineState = null;
+
+        foreach (($this->item->get('Components/ItemResourceComponentParams/states')?->children() ?? []) as $state) {
+            if ($state->get('@name') === 'Online') {
+                $onlineState = $state;
+                break;
+            }
+        }
+
+        if ($onlineState === null) {
+            return null;
+        }
+
+        $em = (float) ($onlineState->get('/signatureParams/EMSignature@nominalSignature', 0));
+        $emDecay = (float) ($onlineState->get('/signatureParams/EMSignature@decayRate', 0));
+
+        $powerDelta = null;
+
+        foreach ($onlineState->get('/deltas')?->children() as $delta) {
+            if ($delta->get('/consumption@resource') === 'Power') {
+                $powerDelta = $delta;
+                break;
+            }
+        }
+
+        $minConsumptionFraction = (float) ($powerDelta?->get('@minimumConsumptionFraction', 1) ?? 1);
+
+        $lowPowerRange = null;
+
+        foreach ($onlineState->get('/powerRanges')?->children() as $range) {
+            if ($range->getNode()->nodeName === 'low' && ((int) $range->get('@registerRange')) === 1) {
+                $lowPowerRange = (float) ($range->get('@modifier', 1));
+                break;
+            }
+
+            if ($range->getNode()->nodeName === 'medium' && ((int) $range->get('@registerRange')) === 1) {
+                $lowPowerRange = (float) ($range->get('@modifier', 1));
+                break;
+            }
+
+            if ($range->getNode()->nodeName === 'high' && ((int) $range->get('@registerRange')) === 1) {
+                $lowPowerRange = (float) ($range->get('@modifier', 1));
+                break;
+            }
+        }
+
+        $ir = (float) ($onlineState->get('/signatureParams/IRSignature@nominalSignature', 0));
         $startIr = (float) ($this->item->get('Components/HeatController/Signature@StartIREmission', 0));
 
         $irTotal = $ir + $startIr;
 
-        $em = $em > 0 ? $em : null;
-        $irTotal = $irTotal > 0 ? $irTotal : null;
-
-        if ($em === null && $irTotal === null) {
-            return null;
-        }
-
         return [
-            'Em' => $em,
+            'Em' => [
+                'Maximum' => $em,
+                'Minimum' => $em * $minConsumptionFraction * $lowPowerRange,
+                'Decay' => $emDecay,
+            ],
             'Ir' => $irTotal,
         ];
     }

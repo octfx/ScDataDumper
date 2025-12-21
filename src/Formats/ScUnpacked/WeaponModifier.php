@@ -58,7 +58,9 @@ final class WeaponModifier extends BaseFormat
 
     private function buildBaseStats(Element $weaponStats): array
     {
-        return $this->mapAttributes($weaponStats, [
+        return [
+            'MuzzleFlash' => $this->get()?->get('@barrelEffectsStrength'),
+        ] + $this->mapAttributes($weaponStats, [
             'fireRate' => 'FireRate',
             'fireRateMultiplier' => 'FireRateMultiplier',
             'damageMultiplier' => 'DamageMultiplier',

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Services\Vehicle;
 
-use Octfx\ScDataDumper\Helper\Arr;
+use Illuminate\Support\Arr;
 
 final class ItemSignatureCalculator
 {

@@ -50,6 +50,7 @@ final class TractorBeam extends BaseFormat
             'MultiTractor' => $beam->get('multitractorParams')?->attributesToArray(pascalCase: true) ?? [],
             'BeamStrength' => $beam->get('beamStrengthValues')?->attributesToArray(pascalCase: true) ?? [],
             'CargoModeOverride' => $beam->get('attachDetachParams/cargoModeOverrideParams')?->attributesToArray(pascalCase: true) ?? [],
+            'Towing' => $beam->get('towingBeamParams/SWeaponActionFireTractorBeamTowingParams')?->attributesToArray(pascalCase: true) ?? [],
         ];
 
         return $this->removeNullValues($data);
@@ -57,7 +58,7 @@ final class TractorBeam extends BaseFormat
 
     public function canTransform(): bool
     {
-        return $this->item?->getAttachType() === 'TractorBeam' && parent::canTransform();
+        return ($this->item?->getAttachType() === 'TractorBeam' || $this->item?->getAttachType() === 'TowingBeam') && parent::canTransform();
     }
 
     private function castBool(mixed $value): ?bool

@@ -2,6 +2,7 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
+use Illuminate\Support\Arr;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class Shield extends BaseFormat
@@ -40,12 +41,16 @@ final class Shield extends BaseFormat
             }
         }
 
-        $stunParams = $shield->get('stunParams')?->attributesToArray();
+        $stunParams = $shield->get('/stunParams')?->attributesToArray();
 
-        return $return + [
+        $return += [
             'StunParams' => $stunParams ? $this->transformArrayKeysToPascalCase($stunParams) : null,
-            'Absorption' => new MinMaxList($shield->get('/ShieldAbsorption'), 'SShieldAbsorption', 6),
-            'Resistance' => new MinMaxList($shield->get('/ShieldResistance'), 'SShieldResistance', 6),
+            'Absorption' => new MinMaxList($shield->get('/ShieldAbsorption'), '/SShieldAbsorption'),
+            'Resistance' => new MinMaxList($shield->get('/ShieldResistance'), '/SShieldResistance'),
         ];
+
+        $return['RegenerationTime'] = Arr::get($return, 'MaxShieldHealth', 0) / Arr::get($return, 'MaxShieldRegen', 1);
+
+        return $return;
     }
 }

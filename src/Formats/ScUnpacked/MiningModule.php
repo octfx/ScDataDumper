@@ -19,14 +19,25 @@ final class MiningModule extends BaseFormat
         /** @var Element|null $component */
         $component = $this->get();
         $modifiersRoot = $component?->get('/modifiers');
-        $miningModifiers = $modifiersRoot?->get('ItemMiningModifierParams/MiningLaserModifier');
-        $filterParams = $modifiersRoot?->get('MiningFilterItemModifierParams/filterParams');
+
+        $miningParamsRoot = $modifiersRoot?->get('/ItemMiningModifierParams')
+            ?? $modifiersRoot?->get('/ItemMineableRockModifierParams');
+
+        $miningModifiers = $modifiersRoot?->get('/ItemMiningModifierParams/MiningLaserModifier')
+            ?? $modifiersRoot?->get('/ItemMineableRockModifierParams/MiningLaserModifier');
+
+        $filterParams = $modifiersRoot?->get('/MiningFilterItemModifierParams/filterParams');
 
         $charges = $component?->get('@charges');
-        $lifetime = $modifiersRoot?->get('ItemMiningModifierParams/modifierLifetime/ItemModifierTimedLife@lifetime');
-        $type = $lifetime !== null ? 'Active' : 'Passive';
 
-        $damageMultiplier = $modifiersRoot?->get('ItemWeaponModifiersParams/weaponModifier/weaponStats@damageMultiplier');
+        $lifetime = $miningParamsRoot?->get('/modifierLifetime/ItemModifierTimedLife@lifetime')
+            ?? $modifiersRoot?->get('/ItemMiningModifierParams/modifierLifetime/ItemModifierTimedLife@lifetime')
+            ?? $modifiersRoot?->get('/ItemMineableRockModifierParams/modifierLifetime/ItemModifierTimedLife@lifetime');
+
+        $activationMethod = $component?->get('@activationMethod');
+        $type = $this->inferType($activationMethod, $lifetime);
+
+        $damageMultiplier = $modifiersRoot?->get('/ItemWeaponModifiersParams/weaponModifier/weaponStats@damageMultiplier');
 
         $data = [
             'Type' => $type,
@@ -46,7 +57,10 @@ final class MiningModule extends BaseFormat
             ],
         ];
 
-        $description = $this->item->get('Components/SAttachableComponentParams/AttachDef/Localization/English@Description', '') ?? '';
+        $description = $this->item->get(
+            'Components/SAttachableComponentParams/AttachDef/Localization/English@Description',
+            ''
+        ) ?? '';
 
         $descriptionData = ItemDescriptionParser::parse($description, [
             'Item Type' => 'type',
@@ -91,7 +105,22 @@ final class MiningModule extends BaseFormat
 
     public function canTransform(): bool
     {
-        return $this->item?->getAttachType() === 'MiningModifier'
+        return ($this->item?->getAttachType() === 'MiningModifier' || $this->item?->getAttachType() === 'Gadget')
             && $this->has($this->elementKey);
+    }
+
+    private function inferType(?string $activationMethod, mixed $lifetime): string
+    {
+        if (is_string($activationMethod) && $activationMethod !== '') {
+            $m = strtolower($activationMethod);
+
+            if (str_contains($m, 'passive') || $m === 'none' || str_contains($m, 'alwayson')) {
+                return 'Passive';
+            }
+
+            return 'Active';
+        }
+
+        return $lifetime !== null ? 'Active' : 'Passive';
     }
 }

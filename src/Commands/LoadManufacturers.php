@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Commands;
 
+use Illuminate\Support\Arr;
 use JsonException;
-use Octfx\ScDataDumper\Helper\Arr;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
