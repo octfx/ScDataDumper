@@ -17,7 +17,7 @@ use Octfx\ScDataDumper\Services\ServiceFactory;
 final class ScuCalculator
 {
     /** Conversion factor from cubic meters to SCU */
-    private const float M_TO_SCU_UNIT = 1.953125;
+    public const float M_TO_SCU_UNIT = 1.953125;
 
     /**
      * Calculate SCU capacity from item data

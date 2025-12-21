@@ -7,6 +7,7 @@ use Illuminate\Support\Collection;
 use Octfx\ScDataDumper\Helper\VehicleWrapper;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use Octfx\ScDataDumper\ValueObjects\CargoGridResult;
+use Octfx\ScDataDumper\ValueObjects\ScuCalculator;
 
 /**
  * Extract cargo grids from the vehicle loadout
@@ -29,7 +30,7 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
             $dimY = Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.y', 0);
             $dimZ = Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.z', 0);
 
-            return ($dimX * $dimY * $dimZ) / M_TO_SCU_UNIT;
+            return ($dimX * $dimY * $dimZ) / ScuCalculator::M_TO_SCU_UNIT;
         });
 
         $result->addCapacity($capacity);
@@ -92,7 +93,7 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
                     return null;
                 }
 
-                $scu = ($dimX * $dimY * $dimZ) / M_TO_SCU_UNIT;
+                $scu = ($dimX * $dimY * $dimZ) / ScuCalculator::M_TO_SCU_UNIT;
 
                 return [
                     'uuid' => $containerRef,

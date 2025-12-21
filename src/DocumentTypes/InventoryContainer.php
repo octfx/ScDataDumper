@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\DocumentTypes;
 
 use Octfx\ScDataDumper\Definitions\Element;
-
-define('M_TO_SCU_UNIT', 1.953125);
+use Octfx\ScDataDumper\ValueObjects\ScuCalculator;
 
 final class InventoryContainer extends RootDocument
 {
@@ -125,7 +124,7 @@ final class InventoryContainer extends RootDocument
         if ($this->isOpenContainer()) {
             ['x' => $x, 'y' => $y, 'z' => $z] = $this->getInteriorDimensions();
 
-            return round(($x * $y * $z) / M_TO_SCU_UNIT, 2);
+            return round(($x * $y * $z) / ScuCalculator::M_TO_SCU_UNIT, 2);
         }
 
         /** @var Element|null $capacity */
