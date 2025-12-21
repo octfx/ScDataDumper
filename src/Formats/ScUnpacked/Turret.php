@@ -20,7 +20,16 @@ final class Turret extends BaseFormat
 
         $turret = $this->get();
 
-        $data = $turret?->attributesToArray([], true) ?? [];
+        $data = $turret?->attributesToArray(['toggleTurretPositionInteraction',
+            'defaultMovementTag',
+            'recenterIfUnused',
+            'healthModifierRecord',
+            'switchToCachedOperatorModeOnExit',
+            'operatorModeOnEnter',
+            'jointConvergence',
+            'intoxicationModifierRef',
+            'hudParamsOverride',
+            'autoDeployHelmetTargetingMode', ], true) ?? [];
 
         $movements = [];
 
@@ -39,7 +48,10 @@ final class Turret extends BaseFormat
 
     private function parseMovement(Element $movement): array
     {
-        $data = $movement->attributesToArray([], true);
+        $data = $movement->attributesToArray([
+            'movementTag',
+
+        ], true);
 
         $pitch = $this->parseAxis($movement->get('/pitchAxis'));
         $yaw = $this->parseAxis($movement->get('/yawAxis'));
@@ -79,12 +91,19 @@ final class Turret extends BaseFormat
             return null;
         }
 
-        $data = $axisParams->attributesToArray([], true);
+        $data = $axisParams->attributesToArray([
+            'enableIKRotationalSpeed',
+            'rotateStartedAudioCooldown',
+            'rotateStoppedAudioCooldown',
+            'rotationDirectionChangedAudioCooldown',
+            'rotationSpeedAudioAveragingFrames',
+            'minMovementAngleForAudio',
+        ], true);
 
         $angleLimits = [];
 
         foreach ($axisParams->get('/angleLimits')?->children() ?? [] as $limit) {
-            $angleLimits[] = $limit->attributesToArray([], true) + ['Type' => $limit->nodeName];
+            $angleLimits[] = $limit->attributesToArray([], true);
         }
 
         if ($angleLimits !== []) {
