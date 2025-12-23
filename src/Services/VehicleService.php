@@ -8,9 +8,11 @@ use DOMXPath;
 use Generator;
 use JsonException;
 use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 use Octfx\ScDataDumper\DocumentTypes\VehicleDefinition;
+use Octfx\ScDataDumper\Formats\ScUnpacked\Item as ScUnpackedItem;
 use Octfx\ScDataDumper\Helper\VehicleWrapper;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -119,7 +121,7 @@ final class VehicleService extends BaseService
         });
 
         // Testing
-        // $items = array_filter($items, static fn (string $path) => str_contains($path, 'atls'));
+        $items = array_filter($items, static fn (string $path) => str_contains($path, '890'));
 
         $this->vehicles = $items;
     }
@@ -308,24 +310,47 @@ final class VehicleService extends BaseService
     private function buildManualLoadoutEntry(RootDocument|Element $cigLoadoutEntry): array
     {
         $entry = [
-            'portName' => $cigLoadoutEntry->get('itemPortName'),
-            'className' => $cigLoadoutEntry->get('entityClassName'),
-            'classReference' => $cigLoadoutEntry->get('entityClassReference'),
+            'portName' => $cigLoadoutEntry->get('@itemPortName'),
+            'className' => $cigLoadoutEntry->get('@entityClassName'),
+            'classReference' => $cigLoadoutEntry->get('@entityClassReference'),
             'entries' => [],
         ];
 
-        if (! empty($entry['className'])) {
-            $entry['Item'] = ServiceFactory::getItemService()->getByClassName($entry['className'])?->toArray();
+        $assignItem = static function (?EntityClassDefinition $entity) use (&$entry): void {
+            if ($entity === null) {
+                return;
+            }
+
+            $entry['ItemRaw'] = $entity->toArray();
+            $entry['Item'] = new ScUnpackedItem($entity)->toArray();
             $entry['Item']['Type'] = (new ItemClassifierService)->classify($entry['Item']);
+        };
+
+        //        $installedItem = $cigLoadoutEntry->get('InstalledItem');
+        //
+        //        if ($installedItem) {
+        //            $installedNode = $installedItem->getNode()?->firstChild;
+        //
+        //            if ($installedNode) {
+        //                $entity = EntityClassDefinition::fromNode($installedNode);
+        //                $assignItem($entity);
+        //            }
+        //        }
+
+        if (empty($entry['Item']) && ! empty($entry['className'])) {
+            $entity = ServiceFactory::getItemService()->getByClassName($entry['className']);
+
+            $assignItem($entity);
         }
 
-        if (! empty($entry['classReference']) && $entry['classReference'] !== '00000000-0000-0000-0000-000000000000') {
-            $entry['Item'] = ServiceFactory::getItemService()->getByReference($entry['classReference'])?->toArray();
-            $entry['Item']['Type'] = (new ItemClassifierService)->classify($entry['Item']);
+        if (empty($entry['Item']) && ! empty($entry['classReference']) && $entry['classReference'] !== '00000000-0000-0000-0000-000000000000') {
+            $entity = ServiceFactory::getItemService()->getByReference($entry['classReference']);
+
+            $assignItem($entity);
         }
 
-        if ($cigLoadoutEntry->get('loadout/SItemPortLoadoutManualParams/entries') !== null) {
-            foreach ($cigLoadoutEntry->get('loadout/SItemPortLoadoutManualParams/entries')->children() as $e) {
+        if ($cigLoadoutEntry->get('/loadout/SItemPortLoadoutManualParams/entries') !== null) {
+            foreach ($cigLoadoutEntry->get('/loadout/SItemPortLoadoutManualParams/entries')->children() as $e) {
                 $entry['entries'][] = $this->buildManualLoadoutEntry($e);
             }
         }

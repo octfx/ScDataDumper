@@ -5,42 +5,100 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Services\Vehicle;
 
 use Illuminate\Support\Arr;
+use Octfx\ScDataDumper\Helper\VehicleWrapper;
 
 /**
  * Aggregates emissions and fuel-related metrics by traversing installed items.
  */
-final class VehicleMetricsAggregator
+final readonly class VehicleMetricsAggregator
 {
     public function __construct(
-        private readonly EquippedItemWalker $walker,
-        private ?ItemSignatureCalculator $signatureCalculator = null,
-    ) {
-        $this->signatureCalculator ??= new ItemSignatureCalculator;
-    }
+        private EquippedItemWalker $walker,
+        private VehicleWrapper $wrapper,
+    ) {}
 
     /**
      * @param  array  $loadout  Nested loadout entries from VehicleWrapper
-     * @param  float  $powerRatio  User-selected power ratio (r in SPViewer); defaults to 1.0
-     * @return array{emission: array{ir: float|null, em: float|null, em_with_shields: float|null, em_with_quantum: float|null}, fuel_capacity: float|null, quantum_fuel_capacity: float|null, fuel_intake_rate: float|null, fuel_usage: array<string, float>}
+     * @return array{
+     *   emission: array{ir: float|null, em: float|null, em_with_shields: float|null, em_with_quantum: float|null},
+     *   fuel_capacity: float|null,
+     *   quantum_fuel_capacity: float|null,
+     *   fuel_intake_rate: float|null,
+     *   fuel_usage: array<string, float>
+     * }
      */
-    public function aggregate(array $loadout, float $powerRatio = 1.0): array
+    public function aggregate(array $loadout): array
     {
+        $pools = $this->wrapper->entity->get('Components/SItemPortContainerComponentParams/resourceNetworkPowerPools/itemPools');
+
+        $powerPools = [];
+        $weaponPoolMax = null;
+        $maxShields = 0;
+        foreach ($pools?->children() ?? [] as $pool) {
+            $itemType = $pool->get('@itemType');
+
+            if ($itemType === 'WeaponGun') {
+                $weaponPoolMax = $pool->get('@poolSize');
+            }
+
+            if ($itemType === 'Shield') {
+                $maxShields = $pool->get('@maxItemCount');
+            }
+
+            $powerPools[$itemType] = [
+                'type' => $pool->get('@__polymorphicType'),
+                'item_type' => $itemType,
+                'size' => $pool->get('@poolSize') ?? $pool->get('@maxItemCount'),
+            ];
+        }
+
         // Emission accumulators
         $irTotal = 0.0;
-        $emCommon = 0.0;  // components active in both modes
-        $emShields = 0.0; // shield generators only
-        $emQuantum = 0.0; // quantum drive only
-        $emShieldsForQuantum = 0.0; // shields counted in quantum travel
+
+        $itemCounts = [
+            'coolers' => 0,
+            'shields' => 0,
+            'quantum' => 0,
+            'powerplants' => 0,
+            'weapons' => 0,
+        ];
+
+        $em = [
+            'coolers' => 0.0,
+            'shields' => 0.0,
+            'quantum' => 0.0,
+            'weapons' => 0.0,
+            'powerplants' => 0.0,
+            'rest' => 0.0,
+        ];
 
         // Power (segments) & cooling
-        $powerUsedSegments = 0.0;
-        $powerMaxSegments = 0.0;
-        $powerGenerationSegments = 0.0;
-        $coolingCapacity = 0.0;          // SCItemCoolerParams.CoolingRate
-        $coolerPowerUsed = 0.0;          // Power the coolers currently draw
-        $coolerPowerMax = 0.0;           // Max draw inferred via minimumConsumptionFraction
+        $powerSegmentsUsage = [
+            'shields' => 0.0,
+            'quantum' => 0.0,
+            'weapons' => 0.0,
+            'flightcontrollers' => 0.0,
+            'rest' => 0.0,
+        ];
 
-        // Other ship metrics we keep from the previous implementation
+        $powerGenerationSegments = 0.0; // raw sum of Generation.Power across powerplants
+        $powerGeneratorEM = 0.0;
+
+        /** @var array<int, array{segments: float, size: int}> $powerPlants */
+        $powerPlants = [];
+
+        $coolingCapacity = 0.0;
+        $coolerSegmentsUsage = [
+            'shields' => 0.0,
+            'quantum' => 0.0,
+            'weapons' => 0.0,
+            'rest' => 0.0,
+        ];
+
+        $coolantGenerationSegments = 0.0; // Max draw from ResourceNetwork.Usage.Power.Maximum if present
+        $weaponSegmentsRaw = 0.0;
+
+        // Other ship metrics
         $fuelCapacity = 0.0;
         $quantumFuelCapacity = 0.0;
         $fuelIntakeRate = 0.0;
@@ -50,10 +108,16 @@ final class VehicleMetricsAggregator
         $missileCount = 0.0;
         $missileRackAmmo = 0.0;
         $quantumFuelRate = 0.0;
-        $weaponRacks = 0;
+
+        // Weapon storage
+        $weaponLockers = 0;
         $weaponSlotsTotal = 0;
         $weaponSlotsRifle = 0;
         $weaponSlotsPistol = 0;
+
+        /** @var array<int, array{name: string|null, class_name: string|null, port: string|null, slots_total: int, slots_rifle: int, slots_pistol: int}> */
+        $weaponStorageByLocker = [];
+
         $armorIrMultiplier = 1.0;
         $armorEmMultiplier = 1.0;
 
@@ -66,241 +130,354 @@ final class VehicleMetricsAggregator
 
         foreach ($this->walker->walk($loadout) as $entry) {
             $item = $entry['Item'];
-            $components = $item['Components'] ?? [];
-            $attachType = Arr::get($entry['Item'], 'Components.SAttachableComponentParams.AttachDef.Type')
-                ?? Arr::get($entry['Item'], 'Type');
+
+            $stdItem = is_array($item['stdItem'] ?? null) ? $item['stdItem'] : null;
+
+            $attachType = Arr::get($item, 'type') ?? Arr::get($stdItem ?? [], 'Type');
             $lowerType = strtolower((string) $attachType);
+
             $isShield = str_contains($lowerType, 'shield');
             $isQuantum = str_contains($lowerType, 'quantumdrive') || $attachType === 'QuantumDrive';
+            $isGenerator = str_contains($lowerType, 'powerplant');
 
-            // Cooling capacity
-            $coolingCapacity += (float) Arr::get($components, 'SCItemCoolerParams.CoolingRate', 0.0);
+            $isCooler = str_contains($lowerType, 'cooler')
+                || str_contains(strtolower((string) ($entry['portName'] ?? '')), 'cooler');
 
-            // ResourceNetwork
-            $resource = $components['ItemResourceComponentParams'] ?? null;
-            if ($resource !== null) {
-                $state = $this->extractSingleState($resource['states'] ?? null);
+            $resourceNetwork = Arr::get($stdItem, 'ResourceNetwork') ?: null;
 
-                if ($state !== null) {
-                    $deltas = $this->normalizeDeltas($state['deltas'] ?? null);
-
-                    $powerBaseSetting = $this->firstNumeric($components, [
-                        'EntityComponentPowerConnection.PowerBase',
-                        'EntityComponentPowerConnection.PowerBaseDefault',
-                        'EntityComponentPowerConnection.PowerBaseRequest',
-                    ]);
-
-                    $signatures = $this->signatureCalculator->calculate(
-                        $components,
-                        $state,
-                        $deltas,
-                        $entry['portName'] ?? null,
-                        $powerBaseSetting,
-                        $powerRatio
-                    );
-                    $powerRangeModifier = $signatures['power_range_modifier'];
-
-                    foreach ($deltas as $delta) {
-                        // Consumption
-                        if (isset($delta['ItemResourceDeltaConsumption'])) {
-                            $consumption = $delta['ItemResourceDeltaConsumption'];
-                            $res = Arr::get($consumption, 'consumption.resource');
-                            $rate = $this->extractRate($consumption['consumption']['resourceAmountPerSecond'] ?? []);
-                            $minFraction = (float) ($consumption['minimumConsumptionFraction'] ?? 1.0);
-
-                            if ($res === 'Power') {
-                                $powerUsedSegments += $rate;
-                            }
-                        }
-
-                        // Conversion
-                        if (isset($delta['ItemResourceDeltaConversion'])) {
-                            $conversion = $delta['ItemResourceDeltaConversion'];
-                            $consumption = $conversion['consumption'] ?? [];
-                            $res = Arr::get($consumption, 'resource');
-                            $rate = $this->extractRate($consumption['resourceAmountPerSecond'] ?? []);
-                            $minFraction = (float) ($conversion['minimumConsumptionFraction'] ?? 1.0);
-
-                            if ($res === 'Power') {
-                                $powerUsedSegments += $rate;
-
-                                if (str_contains(strtolower($entry['portName'] ?? ''), 'cooler')) {
-                                    $coolerPowerUsed += $rate;
-                                    $coolerPowerMax += $rate / max($minFraction, 1e-6);
-                                }
-                            }
-
-                            $generation = $conversion['generation'] ?? [];
-                            if (($generation['resource'] ?? null) === 'Coolant') {
-                            }
-                        }
-
-                        // Generation (e.g. power plant)
-                        if (isset($delta['ItemResourceDeltaGeneration'])) {
-                            $generation = $delta['ItemResourceDeltaGeneration'];
-                            if (Arr::get($generation, 'generation.resource') === 'Power') {
-                                $powerGenerationSegments += $this->extractRate($generation['generation']['resourceAmountPerSecond'] ?? []);
-                            }
-                        }
-                    }
-
-                    $irTotal += $signatures['ir_total'];
-
-                    // EM accumulation: nominal signature scaled by power-range modifier
-                    $componentEm = $signatures['em_scaled'];
-
-                    // Bucket component EM based on type
-                    if ($isShield) {
-                        $emShields += $componentEm;
-                        $emShieldsForQuantum += $componentEm;
-                    } elseif ($isQuantum) {
-                        $emQuantum += $componentEm;
-                    } else {
-                        $emCommon += $componentEm;
-                    }
-                }
+            if ($isGenerator) {
+                $powerGeneratorEM += Arr::get($stdItem, 'Emission.Em.Maximum', 0.0);
             }
 
-            // Armor signal multipliers
+            if (is_array($resourceNetwork)) {
+                // EM Aggregation
+                if ($isQuantum) {
+                    $em['quantum'] += Arr::get($stdItem, 'Emission.Em.Maximum', 0.0);
+                    $itemCounts['quantum']++;
+                } elseif ($isShield) {
+                    if ($itemCounts['shields'] <= $maxShields) {
+                        $em['shields'] += Arr::get($stdItem, 'Emission.Em.Maximum', 0.0);
+                    }
+                } elseif ($isCooler) {
+                    $em['coolers'] += Arr::get($stdItem, 'Emission.Em.Maximum', 0.0);
+                    $itemCounts['coolers']++;
+                } elseif (str_starts_with(Arr::get($entry, 'Item.classification', ''), 'Ship.Turret') || str_starts_with(Arr::get($entry, 'Item.classification', ''), 'Ship.Weapon')) {
+                    $em['weapons'] += Arr::get($stdItem, 'Emission.Em.Maximum', 0.0);
+                    $itemCounts['weapons']++;
+                    // $weaponSegmentsRaw += Arr::get($resourceNetwork, 'Usage.Power.Maximum', 0.0);
+                } elseif ($isGenerator) {
+                    $em['powerplants'] += Arr::get($stdItem, 'Emission.Em.Maximum', 0.0);
+                    $itemCounts['powerplants']++;
+
+                    // per-plant segments and size for multi-plant "max segments" calculation
+                    $genSegments = (float) Arr::get($resourceNetwork, 'Generation.Power', 0.0);
+                    $plantSize = Arr::get($entry, 'Item.size');
+                    if ($genSegments > 0) {
+                        $powerPlants[] = ['segments' => $genSegments, 'size' => $plantSize];
+                    }
+                } else {
+                    $em['rest'] += Arr::get($stdItem, 'Emission.Em.Maximum', 0.0);
+                }
+
+                // Cooler and Power Usage
+                if ($isQuantum) {
+                    $coolerSegmentsUsage['quantum'] += Arr::get($resourceNetwork, 'Usage.Coolant.Maximum', 0.0);
+                    $powerSegmentsUsage['quantum'] += Arr::get($resourceNetwork, 'Usage.Power.Maximum', 0.0);
+                } elseif ($isShield) {
+                    if ($itemCounts['shields'] <= $maxShields) {
+                        $itemCounts['shields']++;
+                        $coolerSegmentsUsage['shields'] += Arr::get($resourceNetwork, 'Usage.Coolant.Maximum', 0.0);
+                        $powerSegmentsUsage['shields'] += Arr::get($resourceNetwork, 'Usage.Power.Maximum', 0.0);
+                    }
+                } elseif (str_starts_with(Arr::get($entry, 'Item.classification', ''), 'Ship.Turret') || str_starts_with(Arr::get($entry, 'Item.classification', ''), 'Ship.Weapon')) {
+                    $coolerSegmentsUsage['weapons'] += Arr::get($resourceNetwork, 'Usage.Coolant.Maximum', 0.0);
+                    $powerSegmentsUsage['weapons'] += Arr::get($resourceNetwork, 'Usage.Power.Maximum', 0.0);
+                } elseif ($lowerType === 'flightcontroller') {
+                    $powerSegmentsUsage['flightcontrollers'] += Arr::get($resourceNetwork, 'Usage.Power.Maximum', 0.0);
+                } else {
+                    if (! $isCooler && ! $isGenerator) {
+                        $coolerSegmentsUsage['rest'] += Arr::get($resourceNetwork, 'Usage.Power.Maximum', 0.0);
+                    } else {
+                        $coolantGenerationSegments += Arr::get($resourceNetwork, 'Generation.Coolant', 0.0);
+                    }
+
+                    if (! $isGenerator) {
+                        $powerSegmentsUsage['rest'] += Arr::get($resourceNetwork, 'Usage.Power.Maximum', 0.0);
+                    }
+                }
+
+                // debug
+                $powerGenerationSegments += Arr::get($resourceNetwork, 'Generation.Power', 0.0);
+
+                $irTotal += $this->firstNumeric($stdItem, ['Emission.Ir', 'Emission.IR']) ?? 0.0;
+            }
+
             if ($attachType === 'Armor') {
-                $armorIrMultiplier *= (float) Arr::get($components, 'SCItemVehicleArmorParams.signalInfrared', 1.0);
-                $armorEmMultiplier *= (float) Arr::get($components, 'SCItemVehicleArmorParams.signalElectromagnetic', 1.0);
+                $armorIrMultiplier *= (float) Arr::get($stdItem ?? [], 'Armor.SignalMultipliers.Infrared', 1.0);
+                $armorEmMultiplier *= (float) Arr::get($stdItem ?? [], 'Armor.SignalMultipliers.Electromagnetic', 1.0);
             }
 
             // Fuel capacities
             if (in_array($attachType, ['FuelTank', 'ExternalFuelTank'], true)) {
-                $fuelCapacity += $this->fuelCapacityFromItem($components);
+                $fuelCapacity += $this->fuelCapacityFromItem($stdItem);
             } elseif ($attachType === 'QuantumFuelTank') {
-                $quantumFuelCapacity += $this->fuelCapacityFromItem($components);
-            }
-            if ($attachType === 'QuantumDrive') {
-                $quantumFuelRate = $this->firstNumeric($components, ['SCItemQuantumDriveParams.quantumFuelRequirement']) ?? $quantumFuelRate;
+                $quantumFuelCapacity += $this->fuelCapacityFromItem($stdItem);
             }
 
-            // Fuel intake
-            $fuelIntakeRate += (float) Arr::get($components, 'SCItemFuelIntakeParams.fuelPushRate', 0);
+            // Quantum drive fuel requirement
+            if ($attachType === 'QuantumDrive') {
+                $quantumFuelRate = $this->firstNumeric($stdItem, [
+                    'QuantumDrive.QuantumFuelRequirement',
+                ]) ?? $quantumFuelRate;
+            }
+
+            $fuelIntakeRate += (float) (
+                Arr::get($stdItem ?? [], 'FuelIntake.FlowRates.FuelPushRate', null)
+                ?? Arr::get($stdItem ?? [], 'FuelIntake.FlowRates.fuelPushRate', 0.0)
+            );
 
             // Thruster fuel usage grouped by thruster type
-            $thrusterType = Arr::get($components, 'SCItemThrusterParams.thrusterType');
+            $thrusterType = Arr::get($stdItem ?? [], 'Thruster.ThrusterType');
             if ($thrusterType !== null) {
-                $usage = $this->thrusterFuelUsage($components);
+                $usage = $this->thrusterFuelUsage($stdItem);
                 $bucket = $this->mapThrusterType((string) $thrusterType);
-
                 if ($bucket !== null) {
                     $fuelUsage[$bucket] += $usage;
                 }
             }
 
             // Shields
-            $shieldHp += (float) Arr::get($components, 'SCItemShieldGeneratorParams.MaxShieldHealth', 0);
-            $shieldRegen += (float) Arr::get($components, 'SCItemShieldGeneratorParams.MaxShieldRegen', 0);
+            $shieldHp += (float) Arr::get($stdItem ?? [], 'Shield.MaxShieldHealth', 0.0);
+            $shieldRegen += (float) Arr::get($stdItem ?? [], 'Shield.MaxShieldRegen', 0.0);
 
             // Distortion pool
-            $distortionPool += (float) Arr::get($components, 'SDistortionParams.Maximum', 0);
+            $distortionPool += (float) Arr::get($stdItem ?? [], 'Distortion.Maximum', 0.0);
 
-            // Ammunition
-            // $ammoRounds += (float) Arr::get($components, 'SAmmoContainerComponentParams.maxAmmoCount', 0);
-
-            $type = Arr::get($item, 'Type');
+            // Ammunition / missiles
+            $type = Arr::get($stdItem ?? [], 'Type', Arr::get($item, 'Type'));
             if (is_string($type) && str_starts_with(strtolower($type), 'missile')) {
                 $missileCount++;
             }
-            if (is_string($type) && str_starts_with(strtolower($type), 'missilerack')) {
-                $missileRackAmmo += (float) Arr::get($components, 'SAmmoContainerComponentParams.maxAmmoCount', 0) ?: Arr::get($components, 'SCItemMissileLauncherParams.maxAmmoCount', 0) ?: 0;
+
+            // Missile rack capacity
+            if (is_string($type) && str_starts_with(strtolower($type), 'missilelauncher')) {
+                $missileRackAmmo += (float) Arr::get($stdItem ?? [], 'MissileRack.Count', 0.0);
             }
 
-            // Weapon racks / lockers
+            // Weapon racks / lockers (capacity overview)
             $ports = $this->extractPorts($item);
-            $className = strtolower(Arr::get($item, 'ClassName', Arr::get($item, 'className', '')));
-            $isWeaponRack = str_contains($className, 'weapon_rack');
+            $className = strtolower((string) Arr::get($stdItem ?? [], 'ClassName', Arr::get($item, 'ClassName', Arr::get($item, 'className', ''))));
+
+            $isWeaponLocker = str_contains($className, 'weapon_rack') || str_contains($className, 'weapon_locker');
+
+            $lockerSlotsTotal = 0;
+            $lockerSlotsRifle = 0;
+            $lockerSlotsPistol = 0;
 
             foreach ($ports as $port) {
                 $types = $port['Types'] ?? [];
                 if ($this->isWeaponPersonalPort($types)) {
-                    $isWeaponRack = true;
+                    $isWeaponLocker = true;
+
                     $maxSize = $port['MaxSize'] ?? $port['Size'] ?? null;
+
                     $weaponSlotsTotal++;
-                    if ($maxSize !== null && $maxSize <= 2) {
+                    $lockerSlotsTotal++;
+
+                    if ($maxSize !== null && (float) $maxSize <= 2) {
                         $weaponSlotsPistol++;
+                        $lockerSlotsPistol++;
                     } else {
                         $weaponSlotsRifle++;
+                        $lockerSlotsRifle++;
                     }
                 }
             }
 
-            if ($isWeaponRack) {
-                $weaponRacks++;
+            if ($isWeaponLocker) {
+                $weaponLockers++;
+
+                $weaponStorageByLocker[] = [
+                    'name' => Arr::get($stdItem ?? [], 'Name')
+                        ?? Arr::get($item, 'name')
+                            ?? Arr::get($item, 'Name'),
+                    'class_name' => $className !== '' ? $className : null,
+                    'port' => is_string($entry['portName'] ?? null) ? $entry['portName'] : null,
+                    'slots_total' => $lockerSlotsTotal,
+                    'slots_rifle' => $lockerSlotsRifle,
+                    'slots_pistol' => $lockerSlotsPistol,
+                ];
             }
         }
 
+        $availablePowerSegments = $this->availablePowerSegmentsFromPlants($powerPlants);
+        if ($availablePowerSegments === null && $powerGenerationSegments > 0) {
+            // single-plant or missing sizes
+            $availablePowerSegments = (int) round($powerGenerationSegments);
+        }
+
+        $powerSegmentsUsage['weapons'] = min($weaponPoolMax ?? $powerSegmentsUsage['weapons'], $powerSegmentsUsage['weapons']);
+
+        $powerSegmentsUsage['weapons'] = min($weaponPoolMax ?? $powerSegmentsUsage['weapons'], $powerSegmentsUsage['weapons']);
+        $coolerSegmentsUsage['weapons'] = 0; // min($weaponPoolMax ?? $coolerSegmentsUsage['weapons'], $coolerSegmentsUsage['weapons']);
+
+        $powerSegmentsUsage = collect($powerSegmentsUsage);
+        $coolerSegmentsUsage = collect($coolerSegmentsUsage);
+
+        $coolerSegmentsUsageShields = $coolerSegmentsUsage->filter(fn ($value, $key) => $key !== 'quantum')->sum();
+        $coolerSegmentsUsageQuantum = $coolerSegmentsUsage->filter(fn ($value, $key) => $key !== 'shields')->sum();
+
+        $powerSegmentsUsageShields = $powerSegmentsUsage->filter(fn ($value, $key) => $key !== 'quantum')->sum();
+        $powerSegmentsUsageQuantum = $powerSegmentsUsage->filter(fn ($value, $key) => $key !== 'shields')->sum();
+
+        $coolerSegmentsUsageShields += $powerSegmentsUsageShields;
+        $coolerSegmentsUsageQuantum += $powerSegmentsUsageQuantum;
+
+        $emPerSegment = ($itemCounts['powerplants'] > 0 && $availablePowerSegments > 0)
+            ? ($powerGeneratorEM / $availablePowerSegments)
+            : 0.0;
+
         // Cooling load
-        $coolingUsagePct = ($coolerPowerMax > 0)
-            ? ($coolerPowerUsed / $coolerPowerMax) * 100
-            : null;
+        $coolingUsageShieldsPct = ($coolantGenerationSegments > 0) ? ($coolerSegmentsUsageShields / $coolantGenerationSegments) : 0.0;
+        $coolingUsageQuantumPct = ($coolantGenerationSegments > 0) ? ($coolerSegmentsUsageQuantum / $coolantGenerationSegments) : 0.0;
 
         $irTotal *= $armorIrMultiplier;
-        $emCommon *= $armorEmMultiplier;
-        $emShields *= $armorEmMultiplier;
-        $emQuantum *= $armorEmMultiplier;
-        $emShieldsForQuantum *= $armorEmMultiplier;
 
-        $emWithShields = $emCommon + $emShields;
-        $emWithQuantum = $emCommon + $emQuantum + $emShieldsForQuantum;
+        $irTotalShields = round($irTotal * $coolingUsageShieldsPct);
+        $irTotalQuantum = round($irTotal * $coolingUsageQuantumPct);
+
+        $em = collect($em);
+
+        $emShields = $em->filter(fn ($value, $key) => $key !== 'quantum' && $key !== 'powerplants')
+            ->map(fn ($v) => $v)
+            ->push($emPerSegment * $powerSegmentsUsageShields)
+            ->sum();
+
+        $emQuantum = $em->filter(fn ($value, $key) => $key !== 'shields' && $key !== 'powerplants')
+            ->map(fn ($v) => $v)
+            ->push($emPerSegment * $powerSegmentsUsageQuantum)
+            ->sum();
 
         return [
             'emission' => [
-                'ir' => $irTotal > 0 ? $irTotal : null,
-                'em' => $emWithShields > 0 ? $emWithShields : null,
-                'em_with_shields' => $emWithShields > 0 ? $emWithShields : null,
-                'em_with_quantum' => $emWithQuantum > 0 ? $emWithQuantum : null,
+                'ir_shields' => $irTotalShields > 0 ? round($irTotalShields) : null,
+                'ir_quantum' => $irTotalQuantum > 0 ? round($irTotalQuantum) : null,
+                'em_shields' => $emShields > 0 ? round($emShields * $armorEmMultiplier) : null,
+                'em_quantum' => $emQuantum > 0 ? round($emQuantum * $armorEmMultiplier) : null,
+                'em_groups_quantum' => [
+                    ...$em->filter(fn ($value, $key) => $key !== 'shields' && $key !== 'powerplants')->map(fn ($v) => $v * $armorEmMultiplier)->map(fn ($v) => round($v)),
+                    'power_plants' => round($emPerSegment * $powerSegmentsUsageQuantum * $armorEmMultiplier),
+                ],
+                'em_groups_shields' => [
+                    ...$em->filter(fn ($value, $key) => $key !== 'quantum' && $key !== 'powerplants')->map(fn ($v) => $v * $armorEmMultiplier)->map(fn ($v) => round($v)),
+                    'power_plants' => round($emPerSegment * $powerSegmentsUsageShields * $armorEmMultiplier),
+                ],
             ],
+
             'fuel_capacity' => $fuelCapacity > 0 ? $fuelCapacity : null,
             'quantum_fuel_capacity' => $quantumFuelCapacity > 0 ? $quantumFuelCapacity : null,
             'fuel_intake_rate' => $fuelIntakeRate > 0 ? $fuelIntakeRate : null,
             'fuel_usage' => $fuelUsage,
+
             'cooling' => [
-                'cooling_capacity' => $coolerPowerMax,
-                'cooling_usage' => $coolerPowerUsed,
-                'cooling_usage_pct' => $coolingUsagePct,
+                'cooling_capacity' => $coolantGenerationSegments - 1,
+                'cooling_usage_shields_pct' => round($coolingUsageShieldsPct * 100, 2),
+                'cooling_usage_quantum_pct' => round($coolingUsageQuantumPct * 100, 2),
+                'cooling_rate' => $coolingCapacity > 0 ? $coolingCapacity : null,
             ],
+
             'power' => [
-                'used_segments' => $powerUsedSegments > 0 ? $powerUsedSegments : null,
-                // 'max_segments' => $powerMaxSegments > 0 ? $powerMaxSegments : null,
-                'generation_segments' => $powerGenerationSegments > 0 ? $powerGenerationSegments : null,
+                'used_segments_shields' => $powerSegmentsUsageShields,
+                'used_segments_quantum' => $powerSegmentsUsageQuantum,
+                'generation_segments' => ($availablePowerSegments !== null && $availablePowerSegments > 0) ? $availablePowerSegments : null,
             ],
+
+            'power_pools' => $powerPools,
+
             'shields' => [
                 'hp' => $shieldHp > 0 ? $shieldHp : null,
-                // TODO: Factor?
                 'regen' => $shieldRegen > 0 ? $shieldRegen * 0.66 : null,
             ],
+
             'distortion' => [
                 'pool' => $distortionPool > 0 ? $distortionPool : null,
             ],
+
             'ammo' => [
-                // 'rounds' => $ammoRounds > 0 ? $ammoRounds : null,
                 'missiles' => $missileCount > 0 ? $missileCount : null,
                 'missile_rack_capacity' => $missileRackAmmo > 0 ? $missileRackAmmo : null,
             ],
+
             'weapon_storage' => [
-                'racks' => $weaponRacks > 0 ? $weaponRacks : null,
+                'lockers' => $weaponLockers > 0 ? $weaponLockers : null,
+
                 'slots_total' => $weaponSlotsTotal > 0 ? $weaponSlotsTotal : null,
                 'slots_rifle' => $weaponSlotsRifle > 0 ? $weaponSlotsRifle : null,
                 'slots_pistol' => $weaponSlotsPistol > 0 ? $weaponSlotsPistol : null,
+
+                'by_locker' => $weaponStorageByLocker !== [] ? $weaponStorageByLocker : null,
             ],
         ];
     }
 
-    private function fuelCapacityFromItem(array $components): float
+    /**
+     * multi-powerplant segments:
+     * Segments = Σ round(Xi / n) + (n-1) * Σ Si
+     *
+     * Xi = per-plant Generation.Power (single-plant segments)
+     * Si = per-plant size integer (S0->0, S1->1, S2->2, ...)
+     *
+     * @param  array<int, array{segments: float, size: int}>  $plants
+     */
+    private function availablePowerSegmentsFromPlants(array $plants): ?int
     {
-        $scu = (float) Arr::get($components, 'ResourceContainer.capacity.SStandardCargoUnit.standardCargoUnits', 0);
+        $n = count($plants);
+        if ($n === 0) {
+            return null;
+        }
+
+        $base = 0;
+        $sizeSum = 0;
+
+        foreach ($plants as $p) {
+            $seg = (float) ($p['segments'] ?? 0.0);
+            if ($seg <= 0) {
+                continue;
+            }
+            $base += (int) round($seg / $n);
+            $sizeSum += (int) ($p['size'] ?? 0);
+        }
+
+        if ($base <= 0) {
+            return null;
+        }
+
+        $bonus = ($n - 1) * $sizeSum;
+
+        return $base + $bonus;
+    }
+
+    /**
+     * Fuel capacity from either stdItem (ResourceContainer.Capacity.*) or old Components.
+     */
+    private function fuelCapacityFromItem(array $data): float
+    {
+        $scu = $this->firstNumeric($data, [
+            'ResourceContainer.Capacity.SCU',
+        ]) ?? 0.0;
 
         return $scu * 1000;
     }
 
-    private function thrusterFuelUsage(array $components): float
+    private function thrusterFuelUsage(array $data): float
     {
-        $burnPer10k = (float) Arr::get($components, 'SCItemThrusterParams.fuelBurnRatePer10KNewton', 0);
-        $thrust = (float) Arr::get($components, 'SCItemThrusterParams.thrustCapacity', 0);
+        $burnPer10k = $this->firstNumeric($data, [
+            'Thruster.FuelBurnRatePer10KNewton',
+        ]) ?? 0.0;
+
+        $thrust = $this->firstNumeric($data, [
+            'Thruster.ThrustCapacity',
+        ]) ?? 0.0;
 
         return ($burnPer10k / 1e4) * $thrust;
     }
@@ -331,82 +508,27 @@ final class VehicleMetricsAggregator
         return null;
     }
 
-    private function extractSingleState(mixed $states): ?array
-    {
-        if (is_array($states) && array_key_exists('ItemResourceState', $states)) {
-            return $states['ItemResourceState'];
-        }
-
-        $outState = null;
-        foreach ($states as $state) {
-            if (($state['name'] ?? '') === 'Online') {
-                $outState = $state;
-            }
-
-            if (($state['name'] ?? '') === 'Travelling') {
-                return $state;
-            }
-        }
-
-        return $outState;
-    }
-
-    /**
-     * Ensure deltas are always an array of associative arrays.
-     */
-    private function normalizeDeltas(mixed $deltas): array
-    {
-        if ($deltas === null) {
-            return [];
-        }
-
-        if (is_array($deltas) && array_is_list($deltas)) {
-            return $deltas;
-        }
-
-        return [is_array($deltas) ? $deltas : []];
-    }
-
-    /**
-     * Extract a numeric rate from resourceAmountPerSecond block.
-     */
-    private function extractRate(array $resourceAmountPerSecond): float
-    {
-        if ($resourceAmountPerSecond === []) {
-            return 0.0;
-        }
-
-        $first = reset($resourceAmountPerSecond);
-        if (! is_array($first)) {
-            return 0.0;
-        }
-
-        $value = reset($first);
-
-        return is_numeric($value) ? (float) $value : 0.0;
-    }
-
     /**
      * Normalize port definitions from either stdItem or raw Components.
      */
     private function extractPorts(array $item): array
     {
         $ports = Arr::get($item, 'stdItem.Ports', []);
-        if (! empty($ports)) {
+        if (is_array($ports) && $ports !== []) {
             return $ports;
         }
 
-        $rawPorts = $rawPorts['SItemPortDef'] ?? Arr::get($item, 'Components.SItemPortContainerComponentParams.Ports', []);
-
-        if ($rawPorts === [] || $rawPorts === null) {
+        $rawPorts = Arr::get($item, 'Components.SItemPortContainerComponentParams.Ports', []);
+        if ($rawPorts === [] || ! is_array($rawPorts)) {
             return [];
         }
+
+        $rawPorts = $rawPorts['SItemPortDef'] ?? $rawPorts;
 
         if (! is_array($rawPorts)) {
             return [];
         }
 
-        // Ensure list semantics
         if (! array_is_list($rawPorts)) {
             $rawPorts = [$rawPorts];
         }
@@ -430,7 +552,6 @@ final class VehicleMetricsAggregator
     {
         $types = [];
         $rawTypes = Arr::get($port, 'Types.SItemPortDefTypes', []);
-
         if ($rawTypes === [] || $rawTypes === null) {
             return $types;
         }
@@ -445,15 +566,15 @@ final class VehicleMetricsAggregator
                 continue;
             }
 
-            // Collect subtypes from nested elements
             $subTypes = [];
             $rawSubTypes = $rawType['SubTypes'] ?? $rawType['@SubTypes'] ?? $rawType['@subtypes'] ?? null;
+
             if (is_array($rawSubTypes)) {
-                // Could be list under ['SItemPortDefType']
                 $subTypeEntries = $rawSubTypes['SItemPortDefType'] ?? $rawSubTypes;
                 if (! array_is_list($subTypeEntries)) {
                     $subTypeEntries = [$subTypeEntries];
                 }
+
                 foreach ($subTypeEntries as $subEntry) {
                     if (is_array($subEntry)) {
                         $value = $subEntry['value'] ?? $subEntry['@value'] ?? null;

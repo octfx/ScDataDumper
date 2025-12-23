@@ -26,13 +26,13 @@ class Afterburner extends BaseFormat
             'AccelerationMultiplierNegative' => new Vec3($afterburner->get('/afterburnAccelMultiplierNegative')),
             'AngularMultiplier' => new Vec3($afterburner->get('/afterburnAngVelocityMultiplier'), [
                 'x' => 'Pitch',
-                'y' => 'Yaw',
-                'z' => 'Roll',
+                'y' => 'Roll',
+                'z' => 'Yaw',
             ]),
             'AngularAccelerationMultiplier' => new Vec3($afterburner->get('/afterburnAngAccelMultiplier'), [
                 'x' => 'Pitch',
-                'y' => 'Yaw',
-                'z' => 'Roll',
+                'y' => 'Roll',
+                'z' => 'Yaw',
             ]),
         ];
 

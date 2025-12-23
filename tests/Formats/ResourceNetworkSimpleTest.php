@@ -4,7 +4,7 @@ namespace Tests\Formats;
 
 use DOMDocument;
 use Octfx\ScDataDumper\Definitions\Element;
-use Octfx\ScDataDumper\Formats\ScUnpacked\ResourceNetworkSimple;
+use Octfx\ScDataDumper\Formats\ScUnpacked\ResourceNetwork;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -34,7 +34,7 @@ XML;
         $doc->loadXML($xml);
 
         $element = new Element($doc->documentElement);
-        $format = new ResourceNetworkSimple($element);
+        $format = new ResourceNetwork($element);
 
         $result = $format->toArray();
 

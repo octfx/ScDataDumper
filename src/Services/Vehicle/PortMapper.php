@@ -3,17 +3,15 @@
 namespace Octfx\ScDataDumper\Services\Vehicle;
 
 use Illuminate\Support\Arr;
+use Octfx\ScDataDumper\Formats\ScUnpacked\Item as ScUnpackedItem;
+use Octfx\ScDataDumper\Services\ServiceFactory;
 
 /**
  * Maps port information to standardized format
  */
 final class PortMapper
 {
-    public function __construct(
-        private ?ItemSignatureCalculator $signatureCalculator = null,
-    ) {
-        $this->signatureCalculator ??= new ItemSignatureCalculator;
-    }
+    private array $itemCache = [];
 
     /**
      * Map port data to standardized format
@@ -25,7 +23,7 @@ final class PortMapper
      */
     public function mapPort(array $portInfo, ?array $loadout, array $childPorts): array
     {
-        $equippedItem = $this->mapEquippedItem($loadout['Item'] ?? null);
+        $equippedItem = $this->mapEquippedItem($loadout);
 
         $mapped = [
             'name' => $portInfo['name'] ?? null,
@@ -35,7 +33,7 @@ final class PortMapper
                 'max' => $portInfo['max'] ?? null,
             ],
             'class_name' => $loadout['className'] ?? null,
-            'health' => Arr::get($loadout, 'Item.Components.SHealthComponentParams.Health'),
+            'health' => Arr::get($loadout, 'Item.stdItem.Durability.Health'),
             'compatible_types' => $portInfo['types'] ?? [],
         ];
 
@@ -47,50 +45,58 @@ final class PortMapper
             $mapped['ports'] = $childPorts;
         }
 
+        if (! empty($loadout['entries'])) {
+            $mapped['entries'] = array_map(static fn ($entry) => Arr::get($entry, 'Item'), $loadout['entries']);
+        }
+
         return $mapped;
     }
 
     /**
      * Map equipped item to standardized format
      */
-    public function mapEquippedItem(?array $item): ?array
+    public function mapEquippedItem(?array $loadout): ?array
     {
-        if (! $item) {
+        if (! $loadout) {
             return null;
         }
 
-        $name = Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Localization.English.Name')
-            ?? Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Localization.Name')
-            ?? Arr::get($item, 'className')
-            ?? Arr::get($item, 'ClassName');
+        $cacheKey = $loadout['classReference'] ?? null;
 
-        $manufacturerName = Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Manufacturer.Localization.English.Name')
-            ?? Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Manufacturer.Localization.Name')
-            ?? Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Manufacturer.Name');
+        if ($cacheKey === '00000000-0000-0000-0000-000000000000') {
+            $cacheKey = null;
+        }
 
-        $manufacturerCode = Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Manufacturer.Code');
+        if ($cacheKey !== null && array_key_exists($cacheKey, $this->itemCache)) {
+            return $this->itemCache[$cacheKey];
+        }
 
-        [$powerConsumption, $coolingConsumption, $emEmission, $irEmission] = $this->computeResourceStats($item);
+        $itemService = ServiceFactory::getItemService();
+        $entity = null;
 
-        return [
-            'uuid' => $item['__ref'] ?? null,
-            'name' => $name,
-            'class_name' => $item['className'] ?? $item['ClassName'] ?? null,
-            'size' => Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Size'),
-            'mass' => Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Mass'),
-            'grade' => Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Grade'),
-            'class' => Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Class'),
-            'manufacturer' => ($manufacturerName || $manufacturerCode) ? [
-                'name' => $manufacturerName,
-                'code' => $manufacturerCode,
-            ] : null,
-            'type' => Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.Type') ?? Arr::get($item, 'Type'),
-            'sub_type' => Arr::get($item, 'Components.SAttachableComponentParams.AttachDef.SubType'),
-            'power_consumption' => $powerConsumption,
-            'cooling_consumption' => $coolingConsumption,
-            'em_emission' => $emEmission,
-            'ir_emission' => $irEmission,
-        ];
+        $classReference = $loadout['classReference'] ?? null;
+        if (! empty($classReference) && $classReference !== '00000000-0000-0000-0000-000000000000') {
+            $entity = $itemService->getByReference($classReference);
+        }
+
+        if ($entity === null) {
+            $className = $loadout['className'] ?? null;
+            if (! empty($className)) {
+                $entity = $itemService->getByClassName($className);
+            }
+        }
+
+        if ($entity === null) {
+            return null;
+        }
+
+        $mapped = new ScUnpackedItem($entity)->toArray();
+
+        if ($cacheKey !== null) {
+            $this->itemCache[$cacheKey] = $mapped;
+        }
+
+        return $mapped;
     }
 
     /**
@@ -108,115 +114,5 @@ final class PortMapper
             str_contains($name, 'tail') => 'tail',
             default => null,
         };
-    }
-
-    /**
-     * Compute per-item resource stats (power, coolant consumption and EM emission).
-     */
-    private function computeResourceStats(array $item): array
-    {
-        $power = 0.0;
-        $coolant = 0.0;
-
-        $resource = Arr::get($item, 'Components.ItemResourceComponentParams');
-        if (! $resource || ! is_array($resource)) {
-            return [null, null, null, null];
-        }
-
-        $state = $this->extractSingleState($resource['states'] ?? null);
-        if (! $state) {
-            return [null, null, null, null];
-        }
-
-        $deltas = $this->normalizeDeltas($state['deltas'] ?? null);
-        $signatures = $this->signatureCalculator->calculate(
-            $item['Components'] ?? [],
-            $state,
-            $deltas,
-            Arr::get($item, 'portName'),
-            Arr::get($item, 'Components.EntityComponentPowerConnection.PowerBase')
-        );
-
-        foreach ($deltas as $delta) {
-            if (! is_array($delta)) {
-                continue;
-            }
-
-            if (isset($delta['ItemResourceDeltaConsumption'])) {
-                $consumption = $delta['ItemResourceDeltaConsumption']['consumption'] ?? [];
-                $res = $consumption['resource'] ?? null;
-                $rate = $this->extractRate($consumption['resourceAmountPerSecond'] ?? []);
-                if ($res === 'Power') {
-                    $power += $rate;
-                }
-                if ($res === 'Coolant') {
-                    $coolant += $rate;
-                }
-            }
-
-            if (isset($delta['ItemResourceDeltaConversion'])) {
-                $consumption = $delta['ItemResourceDeltaConversion']['consumption'] ?? [];
-                $res = $consumption['resource'] ?? null;
-                $rate = $this->extractRate($consumption['resourceAmountPerSecond'] ?? []);
-                if ($res === 'Power') {
-                    $power += $rate;
-                }
-                if ($res === 'Coolant') {
-                    $coolant += $rate;
-                }
-            }
-        }
-
-        return [
-            $power > 0 ? $power : null,
-            $coolant > 0 ? $coolant : null,
-            $signatures['em_scaled'] > 0 ? $signatures['em_scaled'] : null,
-            $signatures['ir_total'] > 0 ? $signatures['ir_total'] : null,
-        ];
-    }
-
-    private function extractSingleState(mixed $states): ?array
-    {
-        if (is_array($states) && array_key_exists('ItemResourceState', $states)) {
-            return $states['ItemResourceState'];
-        }
-
-        if (is_array($states) && isset($states[0]) && is_array($states[0])) {
-            return $states[0];
-        }
-
-        return null;
-    }
-
-    private function extractRate(array $resourceAmountPerSecond): float
-    {
-        if ($resourceAmountPerSecond === []) {
-            return 0.0;
-        }
-
-        $first = reset($resourceAmountPerSecond);
-        if (! is_array($first)) {
-            return 0.0;
-        }
-
-        $value = reset($first);
-
-        return is_numeric($value) ? (float) $value : 0.0;
-    }
-
-    /**
-     * Ensure deltas are always an array of associative arrays.
-     */
-    private function normalizeDeltas(mixed $deltas): array
-    {
-        if ($deltas === null) {
-            return [];
-        }
-
-        if (is_array($deltas) && array_is_list($deltas)) {
-            return $deltas;
-        }
-
-        return [is_array($deltas) ? $deltas : []];
     }
 }

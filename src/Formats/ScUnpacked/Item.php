@@ -117,8 +117,7 @@ final class Item extends BaseFormat
                 'MissileRack' => new MissileRack($this->item),
                 'PowerConnection' => new PowerConnection($this->item),
                 'PowerPlant' => new PowerPlant($this->item),
-                // 'ResourceNetwork' => new ResourceNetwork($this->item),
-                'ResourceNetwork' => new ResourceNetworkSimple($this->item),
+                'ResourceNetwork' => new ResourceNetwork($this->item),
                 'QuantumDrive' => new QuantumDrive($this->item),
                 'QuantumFuelTank' => new FuelTank($this->item, 'QuantumFuelTank'),
                 'QuantumInterdiction' => new QuantumInterdictionGenerator($this->item),
@@ -252,7 +251,7 @@ final class Item extends BaseFormat
         $loadoutMap = $this->buildLoadoutMap();
 
         foreach ($this->item->get('Components/SItemPortContainerComponentParams/Ports')?->childNodes ?? [] as $port) {
-            $port = (new ItemPort($port, $loadoutMap))->toArray();
+            $port = new ItemPort($port, $loadoutMap)->toArray();
 
             if ($port !== null) {
                 $ports[] = $port;

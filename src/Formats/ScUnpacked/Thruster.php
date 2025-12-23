@@ -19,6 +19,22 @@ final class Thruster extends BaseFormat
             'thrusterAnimDriver',
         ]);
 
-        return $attributes ? $this->transformArrayKeysToPascalCase($attributes) : null;
+        $thruster = $this->get();
+
+        $legacyBurnRate = $thruster?->get('fuelBurnRatePer10KNewton');
+        $resourceBurnRate = $thruster?->get('fuelBurnRatePer10KNewtonRN/SStandardResourceUnit@standardResourceUnits');
+
+        $burnRatePerMnLegacy = $legacyBurnRate !== null ? (float) $legacyBurnRate * 100 : null;
+        $burnRatePerMnStandardResource = $resourceBurnRate !== null ? (float) $resourceBurnRate * 100 : null;
+        $burnRatePerMnMicroUnits = $resourceBurnRate !== null ? (float) $resourceBurnRate * 100 * 1_000_000 : null;
+
+        $burnRatePerMn = $burnRatePerMnStandardResource ?? $burnRatePerMnLegacy;
+
+        $data = $attributes ? $this->transformArrayKeysToPascalCase($attributes) : [];
+        $data['BurnRatePerMN'] = $burnRatePerMn;
+        $data['BurnRatePerMNStandardResourceUnits'] = $burnRatePerMnStandardResource;
+        $data['BurnRatePerMNMicroUnits'] = $burnRatePerMnMicroUnits;
+
+        return $data === [] ? null : $data;
     }
 }

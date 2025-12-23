@@ -130,10 +130,10 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
         $grids = collect();
 
         if (
-            Arr::get($loadout, 'Item.Components.SAttachableComponentParams.AttachDef.Type') === 'CargoGrid' &&
-            isset($loadout['Item']['Components']['SCItemInventoryContainerComponentParams'])
+            Arr::get($loadout, 'ItemRaw.Components.SAttachableComponentParams.AttachDef.Type') === 'CargoGrid' &&
+            isset($loadout['ItemRaw']['Components']['SCItemInventoryContainerComponentParams'])
         ) {
-            $grids->push($loadout['Item']);
+            $grids->push($loadout['ItemRaw']);
         }
 
         if (! empty($loadout['entries']) && is_array($loadout['entries'])) {
@@ -142,7 +142,7 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
             }
         }
 
-        $manualEntries = Arr::get($loadout, 'Item.Components.SEntityComponentDefaultLoadoutParams.loadout.SItemPortLoadoutManualParams.entries', []);
+        $manualEntries = Arr::get($loadout, 'ItemRaw.Components.SEntityComponentDefaultLoadoutParams.loadout.SItemPortLoadoutManualParams.entries', []);
         foreach ($manualEntries as $entry) {
             if (isset($entry['InstalledItem'])) {
                 $grids = $grids->merge($this->extractCargoGrids(['Item' => $entry['InstalledItem']]));
@@ -187,13 +187,13 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
                     $count++;
                 }
 
-                $scanPorts(Arr::get($entry, 'Item.Components.SItemPortContainerComponentParams.Ports', []));
+                $scanPorts(Arr::get($entry, 'ItemRaw.Components.SItemPortContainerComponentParams.Ports', []));
 
                 if (! empty($entry['entries']) && is_array($entry['entries'])) {
                     $walker($entry['entries']);
                 }
 
-                $manualEntries = Arr::get($entry, 'Item.Components.SEntityComponentDefaultLoadoutParams.loadout.SItemPortLoadoutManualParams.entries', []);
+                $manualEntries = Arr::get($entry, 'ItemRaw.Components.SEntityComponentDefaultLoadoutParams.loadout.SItemPortLoadoutManualParams.entries', []);
                 if (! empty($manualEntries)) {
                     $walker($manualEntries);
                 }

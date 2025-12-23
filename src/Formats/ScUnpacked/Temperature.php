@@ -20,6 +20,10 @@ final class Temperature extends BaseFormat
 
         $data = $temperature->attributesToArray([], true);
 
+        if ((bool) ($data['Enable'] ?? 0) === false) {
+            return null;
+        }
+
         $coolingMultiplier = $temperature->get('/coolingEqualizationParams/CoolingEqualizationMultiplier@coolingEqualizationMultiplier');
         if ($coolingMultiplier !== null) {
             $data['CoolingEqualizationMultiplier'] = (float) $coolingMultiplier;

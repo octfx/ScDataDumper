@@ -92,6 +92,18 @@ final class PortSummaryBuilder
                 'category' => 'Maneuvering thrusters',
                 'excludeChildren' => [],
             ],
+            'upThrusters' => [
+                'predicate' => fn ($x) => $this->isDirectionalManeuverThruster($x, ['bottom', 'down', 'lower']),
+                'excludeChildren' => [],
+            ],
+            'downThrusters' => [
+                'predicate' => fn ($x) => $this->isDirectionalManeuverThruster($x, ['top', 'upper', 'up']),
+                'excludeChildren' => [],
+            ],
+            'strafeThrusters' => [
+                'predicate' => fn ($x) => $this->isStrafeThruster($x),
+                'excludeChildren' => [],
+            ],
             'hydrogenFuelIntakes' => [
                 'category' => 'Fuel intakes',
                 'excludeChildren' => [],
@@ -246,5 +258,88 @@ final class PortSummaryBuilder
         }
 
         return static fn ($x) => false;
+    }
+
+    private function isDirectionalManeuverThruster(array $item, array $tokens): bool
+    {
+        if (! $this->isManeuverThruster($item)) {
+            return false;
+        }
+
+        if ($this->matchesPortName($item, ['vtol'])) {
+            return false;
+        }
+
+        return $this->matchesPortName($item, $tokens);
+    }
+
+    private function isStrafeThruster(array $item): bool
+    {
+        if (! $this->isManeuverThruster($item)) {
+            return false;
+        }
+
+        if ($this->matchesPortName($item, ['vtol'])) {
+            return false;
+        }
+
+        if ($this->matchesPortName($item, ['side', 'strafe', 'lateral'])) {
+            return true;
+        }
+
+        $name = $this->getPortName($item);
+        if ($name === '') {
+            return false;
+        }
+
+        $hasLeftRight = str_contains($name, 'left') || str_contains($name, 'right');
+        $hasVertical = str_contains($name, 'top') || str_contains($name, 'bottom') || str_contains($name, 'upper') || str_contains($name, 'lower');
+
+        return $hasLeftRight && ! $hasVertical;
+    }
+
+    private function isManeuverThruster(array $item): bool
+    {
+        if (($item['Category'] ?? null) === 'Maneuvering thrusters') {
+            return true;
+        }
+
+        $installed = $item['InstalledItem'] ?? null;
+        if (! is_array($installed)) {
+            return false;
+        }
+
+        $classification = $installed['classification'] ?? null;
+
+        return is_string($classification) && str_contains($classification, 'ManneuverThruster');
+    }
+
+    private function matchesPortName(array $item, array $tokens): bool
+    {
+        $name = $this->getPortName($item);
+        if ($name === '') {
+            return false;
+        }
+
+        return array_any($tokens, fn ($token) => $token !== '' && str_contains($name, $token));
+    }
+
+    private function getPortName(array $item): string
+    {
+        $name = $item['PortName'] ?? null;
+
+        if (! $name && isset($item['Port']) && is_array($item['Port'])) {
+            $name = $item['Port']['PortName'] ?? $item['Port']['Name'] ?? null;
+        }
+
+        if (! $name) {
+            $name = $item['Name'] ?? null;
+        }
+
+        if (! $name && isset($item['Port']) && is_array($item['Port'])) {
+            $name = $item['Port']['DisplayName'] ?? null;
+        }
+
+        return strtolower((string) $name);
     }
 }

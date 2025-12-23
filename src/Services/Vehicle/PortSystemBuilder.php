@@ -97,7 +97,7 @@ final readonly class PortSystemBuilder
             $childPorts = [];
             if ($loadout && ! empty($loadout['entries'])) {
                 $childPorts = $this->buildFromArrayDefs(
-                    Arr::get($loadout, 'Item.Components.SItemPortContainerComponentParams.Ports', []),
+                    Arr::get($loadout, 'Item.stdItems.Ports', []),
                     $loadout['entries']
                 );
             }
@@ -134,7 +134,7 @@ final readonly class PortSystemBuilder
                 $childPorts = [];
                 if (! empty($loadout['entries'])) {
                     $childPorts = $this->buildFromArrayDefs(
-                        Arr::get($loadout, 'Item.Components.SItemPortContainerComponentParams.Ports', []),
+                        Arr::get($loadout, 'Item.stdItem.Ports', []),
                         $loadout['entries']
                     );
                 }
@@ -163,7 +163,7 @@ final readonly class PortSystemBuilder
         $loadoutCollection = collect($loadouts);
 
         foreach ($portDefs as $port) {
-            $portName = $port['Name'] ?? $port['name'] ?? null;
+            $portName = $port['Name'] ?? $port['PortName'] ?? $port['name'] ?? null;
 
             if ($portName === null) {
                 continue;
@@ -174,7 +174,7 @@ final readonly class PortSystemBuilder
             $childPorts = [];
             if ($loadout && ! empty($loadout['entries'])) {
                 $childPorts = $this->buildFromArrayDefs(
-                    Arr::get($loadout, 'Item.Components.SItemPortContainerComponentParams.Ports', []),
+                    Arr::get($loadout, 'Item.stdItem.Ports', []),
                     $loadout['entries']
                 );
             }

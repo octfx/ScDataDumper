@@ -22,8 +22,15 @@ final class InventoryContainerService extends BaseService
         $classes = array_filter($classes, static fn ($type) => in_array($type, ['InventoryContainer', 'CargoGrid'], true));
 
         $items = json_decode(file_get_contents($this->classToPathMapPath), true, 512, JSON_THROW_ON_ERROR);
+        $inventoryContainers = $items['InventoryContainer'] ?? [];
+        $cargoGrids = $items['CargoGrid'] ?? [];
 
-        $this->inventoryContainerPaths = array_intersect_key($items['InventoryContainer'] ?? [], $classes);
+        $this->inventoryContainerPaths = array_merge(
+            $inventoryContainers,
+            $cargoGrids,
+            array_intersect_key($inventoryContainers, $classes),
+            array_intersect_key($cargoGrids, $classes)
+        );
     }
 
     public function getByReference($uuid): ?InventoryContainer
@@ -125,7 +132,12 @@ final class InventoryContainerService extends BaseService
         $results = [];
         $seen = [];
 
-        foreach (self::$classToUuidMap as $className => $uuid) {
+        $classNames = array_unique(array_merge(
+            array_keys($this->inventoryContainerPaths),
+            array_keys(self::$classToUuidMap)
+        ));
+
+        foreach ($classNames as $className) {
             // Some class names are numeric-only; ensure we treat them as strings for prefix checks
             $className = (string) $className;
 
@@ -137,7 +149,13 @@ final class InventoryContainerService extends BaseService
                 continue;
             }
 
-            $path = self::$uuidToPathMap[$uuid] ?? null;
+            $path = $this->inventoryContainerPaths[$className] ?? null;
+
+            if (! $path && isset(self::$classToUuidMap[$className])) {
+                $uuid = self::$classToUuidMap[$className];
+                $path = self::$uuidToPathMap[$uuid] ?? null;
+            }
+
             if (! $path || ! $this->isInventoryContainerFile($path)) {
                 continue;
             }

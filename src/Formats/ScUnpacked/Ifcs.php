@@ -21,14 +21,15 @@ final class Ifcs extends BaseFormat
                 'linearLimiterType',
                 'thrusterImbalanceMessage',
                 'intoxicationModifierRef',
-            ]
+            ],
+            pascalCase: true
         );
 
         return $attributes + [
             'Pitch' => $ifcs->get('maxAngularVelocity@x'),
             'Yaw' => $ifcs->get('maxAngularVelocity@z'),
             'Roll' => $ifcs->get('maxAngularVelocity@y'),
-            'MaxAngularVelocity' => new Vec3($ifcs->get('/maxAngularVelocity')),
+
             'Afterburner' => new Afterburner($this->item),
             'AfterburnerNew' => new AfterburnerNew($this->item),
             'Gravlev' => new GravlevParams($this->item),

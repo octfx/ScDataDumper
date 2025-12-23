@@ -142,13 +142,13 @@ final class ConventionBasedCargoStrategy implements CargoGridStrategyInterface
                     }
                 }
 
-                $scanPorts(Arr::get($entry, 'Item.Components.SItemPortContainerComponentParams.Ports', []));
+                $scanPorts(Arr::get($entry, 'ItemRaw.Components.SItemPortContainerComponentParams.Ports', []));
 
                 if (! empty($entry['entries']) && is_array($entry['entries'])) {
                     $walker($entry['entries']);
                 }
 
-                $manualEntries = Arr::get($entry, 'Item.Components.SEntityComponentDefaultLoadoutParams.loadout.SItemPortLoadoutManualParams.entries', []);
+                $manualEntries = Arr::get($entry, 'ItemRaw.Components.SEntityComponentDefaultLoadoutParams.loadout.SItemPortLoadoutManualParams.entries', []);
                 if (! empty($manualEntries)) {
                     $walker($manualEntries);
                 }

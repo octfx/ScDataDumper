@@ -51,6 +51,10 @@ final class ItemClassifierService
                 'Matcher' => fn ($item) => self::typeMatch($item, 'Missile.*'),
                 'Classifier' => fn ($t, $s) => "Ship.$t.$s",
             ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Turret.*'),
+                'Classifier' => fn ($t, $s) => "Ship.$t.$s",
+            ],
 
             // Ship components
             [
@@ -305,6 +309,11 @@ final class ItemClassifierService
     {
         if ($entity === null) {
             return null;
+        }
+
+        // Already classified entity
+        if (is_array($entity) && Arr::has($entity, 'stdItem')) {
+            return Arr::get($entity, 'classification');
         }
 
         [$type, $subType] = self::getTypeAndSubType($entity);

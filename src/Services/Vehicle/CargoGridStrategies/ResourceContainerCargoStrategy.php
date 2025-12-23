@@ -4,6 +4,7 @@ namespace Octfx\ScDataDumper\Services\Vehicle\CargoGridStrategies;
 
 use Illuminate\Support\Arr;
 use Octfx\ScDataDumper\Helper\VehicleWrapper;
+use Octfx\ScDataDumper\Services\ItemClassifierService;
 use Octfx\ScDataDumper\ValueObjects\CargoGridResult;
 
 /**
@@ -17,12 +18,14 @@ final class ResourceContainerCargoStrategy implements CargoGridStrategyInterface
 {
     public function resolve(VehicleWrapper $vehicle, CargoGridResult $result): void
     {
+        $classifier = new ItemClassifierService;
+
         $resourceContainerCapacity = collect($vehicle->loadout)
             ->filter(fn ($x) => (
-                isset($x['Item']['Components']['ResourceContainer']) &&
-                ($x['Item']['Type'] ?? '') === 'Ship.Container.Cargo'
+                isset($x['ItemRaw']['Components']['ResourceContainer']) &&
+                $classifier->classify($x['ItemRaw'] ?? null) === 'Ship.Container.Cargo'
             ))
-            ->sum(fn ($x) => Arr::get($x, 'Item.Components.ResourceContainer.capacity.SStandardCargoUnit.standardCargoUnits', 0));
+            ->sum(fn ($x) => Arr::get($x, 'ItemRaw.Components.ResourceContainer.capacity.SStandardCargoUnit.standardCargoUnits', 0));
 
         if ($resourceContainerCapacity > 0) {
             $result->addCapacity($resourceContainerCapacity);

@@ -25,9 +25,7 @@ final class FuelIntake extends BaseFormat
             return null;
         }
 
-        return [
-            'FlowRates' => $flow,
-        ];
+        return $flow;
     }
 
     public function canTransform(): bool
