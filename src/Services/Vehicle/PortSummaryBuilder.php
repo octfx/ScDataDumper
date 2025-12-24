@@ -3,7 +3,7 @@
 namespace Octfx\ScDataDumper\Services\Vehicle;
 
 use Illuminate\Support\Collection;
-use Octfx\ScDataDumper\Services\PortClassifierService;
+use Octfx\ScDataDumper\Helper\Arr;
 use Octfx\ScDataDumper\ValueObjects\PortFinderOptions;
 
 /**
@@ -17,10 +17,12 @@ final class PortSummaryBuilder
 
     public function __construct(
         private readonly PortFinder $portFinder,
-        private readonly PortClassifierService $portClassifier
     ) {
         $this->categoryDefinitions = [
-            'pilotHardpoints' => [
+            'armor' => [
+                'category' => 'Armor',
+            ],
+            'weaponHardpoints' => [
                 'category' => 'Weapon hardpoints',
                 'excludeChildren' => ['Manned turrets', 'Remote turrets', 'Mining turrets', 'Utility turrets'],
             ],
@@ -38,6 +40,10 @@ final class PortSummaryBuilder
             ],
             'mannedTurrets' => [
                 'category' => 'Manned turrets',
+                'excludeChildren' => [],
+            ],
+            'pdcTurrets' => [
+                'category' => 'PDC turrets',
                 'excludeChildren' => [],
             ],
             'remoteTurrets' => [
@@ -120,8 +126,14 @@ final class PortSummaryBuilder
                 'category' => 'Quantum fuel tanks',
                 'excludeChildren' => [],
             ],
+            'flightControllers' => [
+                'category' => 'Flight controllers',
+            ],
+            'radars' => ['category' => 'Radars'],
+            'lifeSupport' => ['category' => 'Life support'],
+            'seats' => ['categories' => ['Seats'/* , 'Seat access' */]],
             'avionics' => [
-                'categories' => ['Scanners', 'Pings', 'Radars', 'Transponders', 'FlightControllers'],
+                'categories' => ['Scanners', 'Pings', 'Transponders'],
                 'excludeChildren' => [],
             ],
         ];
@@ -152,57 +164,6 @@ final class PortSummaryBuilder
                 ];
             })
             ->all();
-    }
-
-    /**
-     * Attach loadout items and classify ports on parts tree.
-     *
-     * @return array Parts tree with InstalledItem and Category fields
-     */
-    public function preparePartsWithClassification(array $parts, array $loadout): array
-    {
-        $loadouts = collect($loadout);
-
-        return array_map(function ($part) use ($loadouts) {
-            if (isset($part['Parts'])) {
-                $part['Parts'] = $this->preparePartsWithClassification($part['Parts'], $loadouts->toArray());
-            }
-
-            $loadout = $loadouts->first(fn ($x) => $x['portName'] === ($part['Name'] ?? null));
-
-            if ($loadout && isset($loadout['Item'])) {
-                $part['InstalledItem'] = $loadout['Item'];
-            }
-
-            $classification = $this->portClassifier->classifyPort(
-                $part['Port'] ?? null,
-                $part['InstalledItem'] ?? null
-            );
-
-            $part['Category'] = $classification[1] ?? null;
-
-            return $part;
-        }, $parts);
-    }
-
-    /**
-     * Flatten parts tree to a collection.
-     *
-     * @return Collection<int, array>
-     */
-    public function flattenParts(array $parts): Collection
-    {
-        $flat = collect();
-
-        foreach ($parts as $part) {
-            $flat->push($part);
-
-            if (isset($part['Parts'])) {
-                $flat = $flat->concat($this->flattenParts($part['Parts']));
-            }
-        }
-
-        return $flat;
     }
 
     /**
@@ -250,11 +211,11 @@ final class PortSummaryBuilder
         }
 
         if (isset($config['category'])) {
-            return static fn ($x) => ($x['Category'] ?? '') === $config['category'];
+            return static fn ($part) => Arr::get($part, 'Port.Category') === $config['category'];
         }
 
         if (isset($config['categories'])) {
-            return static fn ($x) => in_array($x['Category'] ?? '', $config['categories'], true);
+            return static fn ($part) => in_array(Arr::get($part, 'Port.Category', ''), $config['categories'], true);
         }
 
         return static fn ($x) => false;

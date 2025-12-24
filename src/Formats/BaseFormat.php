@@ -122,7 +122,7 @@ abstract class BaseFormat
     protected function toPascalCase(string $value): string
     {
         if (ctype_upper($value[0]) && ! str_contains($value, '_') && ! str_contains($value, '-')) {
-            $acronyms = ['Uuid' => 'UUID', 'Scu' => 'SCU', 'Ifcs' => 'IFCS', 'Emp' => 'EMP'];
+            $acronyms = ['Uuid' => 'UUID', 'Scu' => 'SCU', 'Ifcs' => 'IFCS', 'Emp' => 'EMP', 'StdItem' => 'stdItem'];
 
             return $acronyms[$value] ?? $value;
         }
@@ -130,7 +130,7 @@ abstract class BaseFormat
         $value = str_replace(['_', '-'], ' ', $value);
         $result = str_replace(' ', '', ucwords($value));
 
-        $acronyms = ['Uuid' => 'UUID', 'Scu' => 'SCU', 'Ifcs' => 'IFCS', 'Emp' => 'EMP'];
+        $acronyms = ['Uuid' => 'UUID', 'Scu' => 'SCU', 'Ifcs' => 'IFCS', 'Emp' => 'EMP', 'StdItem' => 'stdItem'];
 
         return $acronyms[$result] ?? $result;
     }

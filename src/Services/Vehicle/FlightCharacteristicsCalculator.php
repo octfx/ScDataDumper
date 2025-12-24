@@ -14,7 +14,7 @@ use Illuminate\Support\Arr;
  * - Timing calculations using IFCS speeds and thrust-derived acceleration
  * - Agility metrics
  */
-final class FlightCharacteristicsCalculator
+final class FlightCharacteristicsCalculator implements VehicleDataCalculator
 {
     /** Gravitational constant for G-force calculations */
     private const float G = 9.80665;
@@ -27,7 +27,7 @@ final class FlightCharacteristicsCalculator
      * @param  array  $thrustCapacity  Thrust capacity array with Main, Retro, Vtol, Maneuvering keys
      * @return array|null Flight characteristics array, or null if no IFCS data
      */
-    public function calculate(?array $ifcsLoadoutEntry, float $mass, array $thrustCapacity): ?array
+    public function calculateCharacteristics(?array $ifcsLoadoutEntry, float $mass, array $thrustCapacity): ?array
     {
         if (! $ifcsLoadoutEntry || ! isset($ifcsLoadoutEntry['Item']['stdItem']['Ifcs'])) {
             return null;
@@ -294,5 +294,37 @@ final class FlightCharacteristicsCalculator
         }
 
         return $default;
+    }
+
+    public function canCalculate(VehicleDataContext $context): bool
+    {
+        return $context->isSpaceship && ! $context->isGravlev;
+    }
+
+    public function calculate(VehicleDataContext $context): array
+    {
+        $thrustCapacity = $context->intermediateResults['Propulsion']['ThrustCapacity'] ?? [];
+
+        $flightCharacteristics = $this->calculateCharacteristics(
+            $context->ifcsLoadoutEntry,
+            $context->mass,
+            $thrustCapacity
+        );
+
+        if ($flightCharacteristics === null) {
+            return [];
+        }
+
+        $agility = $this->extractAgilityData($flightCharacteristics);
+
+        return [
+            'FlightCharacteristics' => $flightCharacteristics,
+            'agility' => $agility,
+        ];
+    }
+
+    public function getPriority(): int
+    {
+        return 30;
     }
 }

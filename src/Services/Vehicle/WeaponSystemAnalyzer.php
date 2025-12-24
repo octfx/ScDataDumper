@@ -10,7 +10,7 @@ use Illuminate\Support\Collection;
  * Calculates weapon fittings, identifies turret types (gimbals, ball turrets, etc.),
  * and analyzes weapon mounting configurations.
  */
-final class WeaponSystemAnalyzer
+final class WeaponSystemAnalyzer implements VehicleDataCalculator
 {
     /**
      * Analyze turrets and return weapon fitting data
@@ -120,5 +120,26 @@ final class WeaponSystemAnalyzer
         }
 
         return $sizes;
+    }
+
+    public function canCalculate(VehicleDataContext $context): bool
+    {
+        return true;
+    }
+
+    public function calculate(VehicleDataContext $context): array
+    {
+        $mannedTurrets = $context->portSummary['mannedTurrets'] ?? collect([]);
+        $remoteTurrets = $context->portSummary['remoteTurrets'] ?? collect([]);
+
+        return [
+            'MannedTurrets' => $this->analyzeTurrets($mannedTurrets),
+            'RemoteTurrets' => $this->analyzeTurrets($remoteTurrets),
+        ];
+    }
+
+    public function getPriority(): int
+    {
+        return 40;
     }
 }

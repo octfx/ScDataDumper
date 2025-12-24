@@ -11,7 +11,7 @@ use Illuminate\Support\Collection;
  * Calculates fuel capacity, intake rates, fuel usage, thrust capacity,
  * and derived metrics for the propulsion system.
  */
-final class PropulsionSystemAggregator
+final class PropulsionSystemAggregator implements VehicleDataCalculator
 {
     /**
      * Aggregate propulsion system data from port summary
@@ -42,12 +42,12 @@ final class PropulsionSystemAggregator
 
     private function calculateFuelCapacity(Collection $fuelTanks): float
     {
-        return $fuelTanks->sum(fn ($x) => Arr::get($x, 'InstalledItem.stdItem.FuelTank.Capacity', 0) * 1000);
+        return $fuelTanks->sum(fn ($x) => Arr::get($x, 'Port.InstalledItem.stdItem.FuelTank.Capacity', 0) * 1000);
     }
 
     private function calculateFuelIntakeRate(Collection $fuelIntakes): float
     {
-        return $fuelIntakes->sum(fn ($x) => Arr::get($x, 'InstalledItem.stdItem.FuelIntake.FuelPushRate', 0));
+        return $fuelIntakes->sum(fn ($x) => Arr::get($x, 'Port.InstalledItem.stdItem.FuelIntake.FuelPushRate', 0));
     }
 
     private function calculateFuelUsage(array $portSummary): array
@@ -63,20 +63,37 @@ final class PropulsionSystemAggregator
     private function calculateThrustCapacity(array $portSummary): array
     {
         return [
-            'Main' => $portSummary['mainThrusters']->sum(fn ($x) => Arr::get($x, 'InstalledItem.stdItem.Thruster.ThrustCapacity', 0)),
-            'Retro' => $portSummary['retroThrusters']->sum(fn ($x) => Arr::get($x, 'InstalledItem.stdItem.Thruster.ThrustCapacity', 0)),
-            'Vtol' => $portSummary['vtolThrusters']->sum(fn ($x) => Arr::get($x, 'InstalledItem.stdItem.Thruster.ThrustCapacity', 0)),
-            'Maneuvering' => $portSummary['maneuveringThrusters']->sum(fn ($x) => Arr::get($x, 'InstalledItem.stdItem.Thruster.ThrustCapacity', 0)),
-            'Up' => $portSummary['upThrusters']->sum(fn ($x) => Arr::get($x, 'InstalledItem.stdItem.Thruster.ThrustCapacity', 0)),
-            'Down' => $portSummary['downThrusters']->sum(fn ($x) => Arr::get($x, 'InstalledItem.stdItem.Thruster.ThrustCapacity', 0)),
-            'Strafe' => $portSummary['strafeThrusters']->sum(fn ($x) => Arr::get($x, 'InstalledItem.stdItem.Thruster.ThrustCapacity', 0)),
+            'Main' => $portSummary['mainThrusters']->sum(fn ($x) => Arr::get($x, 'Port.InstalledItem.stdItem.Thruster.ThrustCapacity', 0)),
+            'Retro' => $portSummary['retroThrusters']->sum(fn ($x) => Arr::get($x, 'Port.InstalledItem.stdItem.Thruster.ThrustCapacity', 0)),
+            'Vtol' => $portSummary['vtolThrusters']->sum(fn ($x) => Arr::get($x, 'Port.InstalledItem.stdItem.Thruster.ThrustCapacity', 0)),
+            'Maneuvering' => $portSummary['maneuveringThrusters']->sum(fn ($x) => Arr::get($x, 'Port.InstalledItem.stdItem.Thruster.ThrustCapacity', 0)),
+            'Up' => $portSummary['upThrusters']->sum(fn ($x) => Arr::get($x, 'Port.InstalledItem.stdItem.Thruster.ThrustCapacity', 0)),
+            'Down' => $portSummary['downThrusters']->sum(fn ($x) => Arr::get($x, 'Port.InstalledItem.stdItem.Thruster.ThrustCapacity', 0)),
+            'Strafe' => $portSummary['strafeThrusters']->sum(fn ($x) => Arr::get($x, 'Port.InstalledItem.stdItem.Thruster.ThrustCapacity', 0)),
         ];
     }
 
     private function sumThrusterFuelUsage(Collection $thrusters): float
     {
-        return $thrusters->sum(fn ($x) => (Arr::get($x, 'InstalledItem.stdItem.Thruster.FuelBurnRatePer10KNewton', 0) / 1e4) *
-            Arr::get($x, 'InstalledItem.stdItem.Thruster.ThrustCapacity', 0)
+        return $thrusters->sum(fn ($x) => (Arr::get($x, 'Port.InstalledItem.stdItem.Thruster.FuelBurnRatePer10KNewton', 0) / 1e4) *
+            Arr::get($x, 'Port.InstalledItem.stdItem.Thruster.ThrustCapacity', 0)
         );
+    }
+
+    public function canCalculate(VehicleDataContext $context): bool
+    {
+        return true;
+    }
+
+    public function calculate(VehicleDataContext $context): array
+    {
+        return [
+            'Propulsion' => $this->aggregate($context->portSummary),
+        ];
+    }
+
+    public function getPriority(): int
+    {
+        return 20;
     }
 }

@@ -3,6 +3,7 @@
 namespace Octfx\ScDataDumper\Services\Vehicle;
 
 use Illuminate\Support\Collection;
+use Octfx\ScDataDumper\Helper\Arr;
 use Octfx\ScDataDumper\ValueObjects\PortFinderOptions;
 
 /**
@@ -75,11 +76,11 @@ final class PortFinder
     {
         $results = collect();
 
-        if (! isset($item['Ports'])) {
+        if (! Arr::has($item, 'stdItem.Ports')) {
             return $results;
         }
 
-        foreach ($item['Ports'] as $port) {
+        foreach (Arr::get($item, 'stdItem.Ports') as $port) {
             if ($options->shouldStop($port)) {
                 continue;
             }

@@ -3,26 +3,30 @@
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 use Octfx\ScDataDumper\Helper\ItemDescriptionParser;
 use Octfx\ScDataDumper\Helper\VehicleWrapper;
+use Octfx\ScDataDumper\Services\ItemClassifierService;
 use Octfx\ScDataDumper\Services\PortClassifierService;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use Octfx\ScDataDumper\Services\Vehicle\CargoGridResolver;
-use Octfx\ScDataDumper\Services\Vehicle\CompatibleTypesExtractor;
 use Octfx\ScDataDumper\Services\Vehicle\DriveCharacteristics\DriveCharacteristicsCalculator;
-use Octfx\ScDataDumper\Services\Vehicle\EquippedItemWalker;
+use Octfx\ScDataDumper\Services\Vehicle\DriveCharacteristics\DriveCharacteristicsVehicleCalculator;
+use Octfx\ScDataDumper\Services\Vehicle\EmissionAggregator;
 use Octfx\ScDataDumper\Services\Vehicle\FlightCharacteristicsCalculator;
 use Octfx\ScDataDumper\Services\Vehicle\HealthAggregator;
 use Octfx\ScDataDumper\Services\Vehicle\PortFinder;
-use Octfx\ScDataDumper\Services\Vehicle\PortMapper;
 use Octfx\ScDataDumper\Services\Vehicle\PortSummaryBuilder;
-use Octfx\ScDataDumper\Services\Vehicle\PortSystemBuilder;
 use Octfx\ScDataDumper\Services\Vehicle\PropulsionSystemAggregator;
 use Octfx\ScDataDumper\Services\Vehicle\QuantumTravelCalculator;
-use Octfx\ScDataDumper\Services\Vehicle\VehicleMetricsAggregator;
+use Octfx\ScDataDumper\Services\Vehicle\ResourceAggregator;
+use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartBuilder;
+use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartWalker;
+use Octfx\ScDataDumper\Services\Vehicle\VehicleDataContext;
+use Octfx\ScDataDumper\Services\Vehicle\VehicleDataOrchestrator;
 use Octfx\ScDataDumper\Services\Vehicle\WeaponSystemAnalyzer;
 use Octfx\ScDataDumper\ValueObjects\ScuCalculator;
 
@@ -32,23 +36,9 @@ final class Ship extends BaseFormat
 
     private readonly CargoGridResolver $cargoGridResolver;
 
-    private readonly FlightCharacteristicsCalculator $flightCharacteristicsCalculator;
-
-    private readonly PropulsionSystemAggregator $propulsionAggregator;
-
-    private readonly DriveCharacteristicsCalculator $driveCharacteristicsCalculator;
-
-    private readonly PortSystemBuilder $portSystemBuilder;
-
     private readonly PortSummaryBuilder $portSummaryBuilder;
 
-    private readonly QuantumTravelCalculator $quantumTravelCalculator;
-
-    private readonly WeaponSystemAnalyzer $weaponSystemAnalyzer;
-
-    private readonly HealthAggregator $healthAggregator;
-
-    private readonly VehicleMetricsAggregator $vehicleMetricsAggregator;
+    private readonly StandardisedPartBuilder $standardisedPartBuilder;
 
     private readonly ?Vehicle $vehicle;
 
@@ -59,17 +49,13 @@ final class Ship extends BaseFormat
         $this->vehicle = $this->vehicleWrapper->vehicle;
 
         $this->cargoGridResolver = new CargoGridResolver;
-        $this->flightCharacteristicsCalculator = new FlightCharacteristicsCalculator;
-        $this->propulsionAggregator = new PropulsionSystemAggregator;
-        $this->driveCharacteristicsCalculator = new DriveCharacteristicsCalculator;
-        $this->portSystemBuilder = new PortSystemBuilder(new PortMapper, new CompatibleTypesExtractor);
-        $this->portSummaryBuilder = new PortSummaryBuilder(new PortFinder, new PortClassifierService);
-        $this->quantumTravelCalculator = new QuantumTravelCalculator;
-        $this->weaponSystemAnalyzer = new WeaponSystemAnalyzer;
-        $this->healthAggregator = new HealthAggregator;
-        $this->vehicleMetricsAggregator = new VehicleMetricsAggregator(
-            new EquippedItemWalker,
-            $this->vehicleWrapper
+        $this->portSummaryBuilder = new PortSummaryBuilder(new PortFinder);
+        $entityPorts = $this->vehicleWrapper->entity->get('Components/SItemPortContainerComponentParams/Ports');
+        $this->standardisedPartBuilder = new StandardisedPartBuilder(
+            ServiceFactory::getItemService(),
+            new ItemClassifierService,
+            new PortClassifierService,
+            $entityPorts
         );
     }
 
@@ -154,53 +140,57 @@ final class Ship extends BaseFormat
             ],
         ];
 
-        $vehicleParts = [];
-        foreach ($this->vehicle?->get('//Parts')?->children() ?? [] as $part) {
-            if ($part->get('skipPart') === '1') {
-                continue;
-            }
-
-            $part = new Part($part)->toArray();
-            $vehicleParts[] = $part;
-        }
-
-        $vehicleParts = $this->portSummaryBuilder->preparePartsWithClassification(
-            $vehicleParts,
+        // Build standardised parts with loadout
+        $standardisedParts = $this->standardisedPartBuilder->buildPartList(
+            $this->vehicle?->get('//Parts')?->children() ?? [],
             $this->vehicleWrapper->loadout
         );
-
-        $data['parts'] = $this->mapParts($vehicleParts);
-
-        $portsElement = $this->vehicleWrapper->entity->get('Components/SItemPortContainerComponentParams/Ports');
-        $ports = [];
-        if ($portsElement) {
-            $ports = $this->portSystemBuilder->buildFromElements(
-                $portsElement->children(),
-                collect($this->vehicleWrapper->loadout)
-            );
+        if (! empty($standardisedParts)) {
+            $data['Parts'] = $standardisedParts;
         }
 
-        // Extract ports from Vehicle Parts hierarchy that don't have loadout entries
-        $partsPortDefs = $this->portSystemBuilder->extractFromParts($vehicleParts);
-        $ports = $this->portSystemBuilder->mergeWithPartPorts($ports, $partsPortDefs);
-        if (! empty($ports)) {
-            $data['ports'] = $ports;
+        $walker = new StandardisedPartWalker;
+
+        $data['Mass'] = 0.0;
+        foreach ($walker->walkParts($standardisedParts) as $part) {
+            $data['Mass'] += Arr::get($part, 'part.Mass', 0.0);
         }
 
-        $parts = $this->portSummaryBuilder->flattenParts($vehicleParts);
+        $portSummary = $this->portSummaryBuilder->build($standardisedParts);
 
-        $mass = $parts->sum(fn ($x) => (float) ($x['Mass'] ?? 0));
+        $context = new VehicleDataContext(
+            standardisedParts: $standardisedParts,
+            portSummary: $portSummary,
+            ifcsLoadoutEntry: Arr::has($portSummary, 'flightControllers.0') ? Arr::get($portSummary['flightControllers'][0], 'Port.InstalledItem.stdItem') : null,
+            mass: $data['Mass'],
+            loadoutMass: 0.0, // calculated by ResourceAggregator
+            isVehicle: $isVehicle,
+            isGravlev: $isGravlev,
+            isSpaceship: ! ($isVehicle || $isGravlev),
+            intermediateResults: [],
+        );
 
-        $data['Mass'] = $mass > 0 ? $mass : null;
-        if ($data['Mass'] === null) {
-            $data['Mass'] = $this->item->get('SSCActorPhysicsControllerComponentParams/physType/SEntityActorPhysicsControllerParams@Mass');
-        }
+        $calculators = [
+            new EmissionAggregator($walker, $this->vehicleWrapper),
+            new ResourceAggregator($walker),
+            new PropulsionSystemAggregator,
+            new QuantumTravelCalculator,
+            new FlightCharacteristicsCalculator,
+            new HealthAggregator($walker),
+            new WeaponSystemAnalyzer,
+            new DriveCharacteristicsVehicleCalculator(
+                new DriveCharacteristicsCalculator,
+                $this->vehicleWrapper
+            ),
+        ];
 
-        $portSummary = $this->portSummaryBuilder->build($vehicleParts);
+        $orchestrator = new VehicleDataOrchestrator($calculators);
+        $calculatedData = $orchestrator->calculate($context);
 
-        // Keep port collections intact but expose them as a plain array so services with array
-        // type hints (e.g. PropulsionSystemAggregator) can consume them without type errors.
-        $portSummary = $this->portSummaryBuilder->attachInstalledItems($portSummary, $this->vehicleWrapper->loadout);
+        $data['LoadoutMass'] = $calculatedData['LoadoutMass'] ?? null;
+        $data['MassTotal'] = $data['Mass'] + ($data['LoadoutMass'] ?? 0);
+
+        // collect($portSummary)->map(fn ($collection, $key) => $collection->count())->dd();
 
         // Crew roles derived from installed turrets
         $weaponCrew = ($portSummary['mannedTurrets']->count() ?? 0) + ($portSummary['remoteTurrets']->count() ?? 0);
@@ -215,12 +205,14 @@ final class Ship extends BaseFormat
         // Seats and beds from installed items
         $seatCount = 0;
         $bedCount = 0;
-        $walker = new EquippedItemWalker;
-        foreach ($walker->walk($this->vehicleWrapper->loadout) as $entry) {
+        $walker = new StandardisedPartWalker;
+
+        foreach ($walker->walkItems($standardisedParts) as $entry) {
             $item = $entry['Item'];
-            $type = $item['type'] ?? null;
-            $name = strtolower($item['name'] ?? '');
-            $className = strtolower($item['className'] ?? '');
+
+            $type = $item['Type'] ?? $item['type'] ?? null;
+            $name = strtolower($item['stdItem']['Name'] ?? $item['name'] ?? '');
+            $className = strtolower($item['stdItem']['ClassName'] ?? $item['className'] ?? '');
 
             if ($type === 'Seat') {
                 $seatCount++;
@@ -239,61 +231,28 @@ final class Ship extends BaseFormat
         $data['Beds'] = $bedCount ?: null;
 
         $summary = [
-            'QuantumTravel' => $this->quantumTravelCalculator->calculate($portSummary),
-            'Propulsion' => $this->propulsionAggregator->aggregate($portSummary),
-            'Thrusters' => $this->buildThrusterSummary($portSummary),
+            // 'Thrusters' => $this->buildThrusterSummary($portSummary),
         ];
-
-        // Aggregate emissions and fuel from installed items only
-        $metrics = $this->vehicleMetricsAggregator->aggregate($this->vehicleWrapper->loadout);
 
         $crossSectionValues = [];
 
-        if ($isGravlev || ! $isVehicle) {
-            $ifcs = collect($this->vehicleWrapper->loadout)
-                ->first(fn ($entry) => Arr::has($entry, 'Item.stdItem.Ifcs'));
-
-            $flightCharacteristics = $this->flightCharacteristicsCalculator->calculate(
-                $ifcs,
-                $data['Mass'],
-                $summary['Propulsion']['ThrustCapacity']
-            );
-
-            if ($flightCharacteristics) {
-                $summary['FlightCharacteristics'] = $flightCharacteristics;
-                $data['agility'] = $this->flightCharacteristicsCalculator->extractAgilityData($flightCharacteristics);
+        // Shield Face Type
+        foreach ($walker->walkItems($standardisedParts) as $entry) {
+            if (Arr::has($entry, 'Item.stdItem.ShieldController')) {
+                $data['ShieldController'] = Arr::get($entry, 'Item.stdItem.ShieldController');
+                break;
             }
         }
-
-        if ($isVehicle) {
-            unset($summary['Propulsion'], $summary['QuantumTravel']);
-
-            $driveCharacteristics = $this->driveCharacteristicsCalculator->calculate(
-                $this->vehicleWrapper->vehicle,
-                $data['Mass']
-            );
-
-            if ($driveCharacteristics) {
-                $summary['DriveCharacteristics'] = $driveCharacteristics;
-            }
-        }
-
-        foreach ($this->vehicleWrapper->loadout as $loadoutEntry) {
-            if (Arr::has($loadoutEntry, 'Item.Components.SCItemShieldEmitterParams.FaceType')) {
-                $faceType = Arr::get($loadoutEntry, 'Item.Components.SCItemShieldEmitterParams.FaceType');
-                $data['ShieldFaceType'] = $faceType;
-            }
-        }
-
-        $armorEntry = collect($this->vehicleWrapper->loadout)
-            ->first(fn ($x) => ($x['portName'] ?? null) === 'hardpoint_armor' && Arr::has($x, 'Item.stdItem.Armor'));
 
         $crossSectionMultiplier = 1;
 
-        if ($armorEntry) {
-            $armor = Arr::get($armorEntry, 'Item.stdItem.Armor', []);
+        if ($portSummary['armor']->count() > 0) {
+            $armor = Arr::get($portSummary['armor']->first(), 'Port.InstalledItem.stdItem', []);
 
-            $data['armor'] = $armor;
+            $data['armor'] = [
+                'Health' => Arr::get($armor, 'Durability.Health'),
+                ...Arr::get($armor, 'Armor', []),
+            ];
         }
 
         $signatureParams = $this->vehicleWrapper->entity->get('Components/SSCSignatureSystemParams');
@@ -312,86 +271,91 @@ final class Ship extends BaseFormat
         $cargoSizeLimits = $this->cargoGridResolver->calculateCargoGridSizeLimits($cargoResult->grids);
         $summary['CargoSizeLimits'] = $this->transformArrayKeysToPascalCase($cargoSizeLimits);
 
-        $personalInventory = collect($this->vehicleWrapper->loadout)
-            ->filter(fn ($entry) => isset($entry['Item']['Components']['SCItemInventoryContainerComponentParams']))
-            ->filter(fn ($entry) => str_contains(strtolower($entry['portName'] ?? ''), 'personal'))
-            ->sum(fn ($entry) => ScuCalculator::fromItem($entry['Item']) ?? 0.);
-
-        $data['personal_inventory'] = $personalInventory;
-
-        $vehicleInventory = collect($this->vehicleWrapper->loadout)
-            ->filter(fn ($entry) => isset($entry['Item']['Components']['SCItemInventoryContainerComponentParams']))
-            ->reject(fn ($entry) => str_contains(strtolower($entry['portName'] ?? ''), 'personal'))
-            ->reject(fn ($entry) => Arr::get($entry, 'Item.Components.SAttachableComponentParams.AttachDef.Type') === 'CargoGrid'
-                || Arr::get($entry, 'Item.Type') === 'Ship.Container.Cargo')
-            ->sum(fn ($entry) => ScuCalculator::fromItem($entry['Item']) ?? 0.);
-
-        $data['vehicle_inventory'] = $vehicleInventory;
-
-        $summary = array_merge($summary, $this->healthAggregator->aggregateHealth($parts));
-
-        if (! empty($summary['Propulsion'])) {
-            $data['fuel'] = [
-                'capacity' => $metrics['fuel_capacity'] !== null ? $metrics['fuel_capacity'] / 1000 : null,
-                'intake_rate' => $metrics['fuel_intake_rate'] ?? null,
-                'usage' => [
-                    'main' => $metrics['fuel_usage']['Main'] ?? null,
-                    'retro' => $metrics['fuel_usage']['Retro'] ?? null,
-                    'vtol' => $metrics['fuel_usage']['Vtol'] ?? null,
-                    'maneuvering' => $metrics['fuel_usage']['Maneuvering'] ?? null,
-                ],
-            ];
-        }
-
-        if (! empty($summary['QuantumTravel'])) {
-            $data['quantum'] = [
-                'quantum_speed' => $summary['QuantumTravel']['Speed'] ?? null,
-                'quantum_spool_time' => $summary['QuantumTravel']['SpoolTime'] ?? null,
-                'quantum_fuel_capacity' => $metrics['quantum_fuel_capacity'] !== null ? $metrics['quantum_fuel_capacity'] / 1000 : null,
-                'quantum_range' => isset($summary['QuantumTravel']['Range']) ? $summary['QuantumTravel']['Range'] / 1000 : null,
-            ];
-        }
-
-        $data['emission'] = $data['emission'] ?? $metrics['emission'] ?? [];
-
-        //        if ($metrics['emission']['ir'] !== null) {
-        //            $data['emission']['ir'] = $metrics['emission']['ir'];
-        //        }
+        //        $personalInventory = collect($this->vehicleWrapper->loadout)
+        //            ->filter(fn ($entry) => isset($entry['Item']['Components']['SCItemInventoryContainerComponentParams']))
+        //            ->filter(fn ($entry) => str_contains(strtolower($entry['portName'] ?? ''), 'personal'))
+        //            ->sum(fn ($entry) => ScuCalculator::fromItem($entry['Item']) ?? 0.);
         //
-        //        if ($metrics['emission']['em'] !== null) {
-        //            // EM Signature with quantum drive active
-        //            $data['emission']['em_quantum'] = $metrics['emission']['em_with_quantum'];
-        //            // EM Signature with shields active
-        //            $data['emission']['em_shields'] = $metrics['emission']['em_with_shields'];
-        //        }
+        //        $data['personal_inventory'] = $personalInventory;
+        //
+        //        $vehicleInventory = collect($this->vehicleWrapper->loadout)
+        //            ->filter(fn ($entry) => isset($entry['Item']['Components']['SCItemInventoryContainerComponentParams']))
+        //            ->reject(fn ($entry) => str_contains(strtolower($entry['portName'] ?? ''), 'personal'))
+        //            ->reject(fn ($entry) => Arr::get($entry, 'Item.Components.SAttachableComponentParams.AttachDef.Type') === 'CargoGrid'
+        //                || Arr::get($entry, 'Item.Type') === 'Ship.Container.Cargo')
+        //            ->sum(fn ($entry) => ScuCalculator::fromItem($entry['Item']) ?? 0.);
+        //
+        //        $data['vehicle_inventory'] = $vehicleInventory;
 
-        $data['cooling'] = $metrics['cooling'];
-        $data['power'] = $metrics['power'];
-        $data['power_pools'] = $metrics['power_pools'];
-        $data['shields_total'] = $metrics['shields'];
-        // deprecated, use shields_total.hp
-        $data['shield_hp'] = $metrics['shields']['hp'] ?? 0;
-        $data['distortion'] = $metrics['distortion'];
-        $data['ammo'] = $metrics['ammo'];
-        $data['weapon_storage'] = $metrics['weapon_storage'];
-
-        // Debug
-        // $data['metrics'] = $metrics;
-
-        //        // Acceleration estimates based on thrust capacity and mass
-        //        $totalMass = $data['Mass'] ?? null;
-        //        if ($totalMass && ! empty($summary['Propulsion']['ThrustCapacity'])) {
-        //            $thrust = $summary['Propulsion']['ThrustCapacity'];
-        //            $data['acceleration'] = [
-        //                'forward' => $thrust['Main'] > 0 ? $thrust['Main'] / $totalMass : null,
-        //                'retro' => $thrust['Retro'] > 0 ? $thrust['Retro'] / $totalMass : null,
-        //                'vtol' => $thrust['Vtol'] > 0 ? $thrust['Vtol'] / $totalMass : null,
-        //                'maneuvering' => $thrust['Maneuvering'] > 0 ? $thrust['Maneuvering'] / $totalMass : null,
+        // Add orchestrator calculated data to the output
+        //        if (! empty($calculatedData['Propulsion'])) {
+        //            $data['fuel'] = [
+        //                'capacity' => isset($calculatedData['Propulsion']['FuelCapacity']) ? $calculatedData['Propulsion']['FuelCapacity'] / 1000 : null,
+        //                'intake_rate' => $calculatedData['Propulsion']['FuelIntakeRate'] ?? null,
+        //                'usage' => [
+        //                    'main' => $calculatedData['Propulsion']['FuelUsage']['Main'] ?? null,
+        //                    'retro' => $calculatedData['Propulsion']['FuelUsage']['Retro'] ?? null,
+        //                    'vtol' => $calculatedData['Propulsion']['FuelUsage']['Vtol'] ?? null,
+        //                    'maneuvering' => $calculatedData['Propulsion']['FuelUsage']['Maneuvering'] ?? null,
+        //                ],
         //            ];
         //        }
 
-        $summary['MannedTurrets'] = $this->weaponSystemAnalyzer->analyzeTurrets($portSummary['mannedTurrets']);
-        $summary['RemoteTurrets'] = $this->weaponSystemAnalyzer->analyzeTurrets($portSummary['remoteTurrets']);
+        //        if (! empty($calculatedData['QuantumTravel'])) {
+        //            $data['quantum'] = [
+        //                'quantum_speed' => $calculatedData['QuantumTravel']['Speed'] ?? null,
+        //                'quantum_spool_time' => $calculatedData['QuantumTravel']['SpoolTime'] ?? null,
+        //                'quantum_fuel_capacity' => isset($calculatedData['QuantumTravel']['FuelCapacity']) ? $calculatedData['QuantumTravel']['FuelCapacity'] / 1000 : null,
+        //                'quantum_range' => isset($calculatedData['QuantumTravel']['Range']) ? $calculatedData['QuantumTravel']['Range'] / 1000 : null,
+        //            ];
+        //        }
+        $data['emission'] = $data['emission'] ?? $calculatedData['emission'] ?? [];
+        $data['cooling'] = $calculatedData['cooling'] ?? [];
+        $data['power'] = $calculatedData['power'] ?? [];
+        $data['power_pools'] = $calculatedData['power_pools'] ?? [];
+        $data['shields_total'] = $calculatedData['shields_total'] ?? [];
+        // deprecated, use shields_total.hp
+        $data['shield_hp'] = $calculatedData['shields_total']['hp'] ?? 0;
+        $data['distortion'] = $calculatedData['distortion'] ?? [];
+        $data['ammo'] = $calculatedData['ammo'] ?? [];
+        $data['weapon_storage'] = $calculatedData['weapon_storage'] ?? [];
+
+        // Add calculator data to summary
+        if (! empty($calculatedData['Health'])) {
+            $summary['Health'] = $calculatedData['Health'];
+        }
+        if (! empty($calculatedData['DamageBeforeDestruction'])) {
+            $summary['DamageBeforeDestruction'] = $calculatedData['DamageBeforeDestruction'];
+        }
+        if (! empty($calculatedData['DamageBeforeDetach'])) {
+            $summary['DamageBeforeDetach'] = $calculatedData['DamageBeforeDetach'];
+        }
+        if (! empty($calculatedData['FlightCharacteristics'])) {
+            $summary['FlightCharacteristics'] = $calculatedData['FlightCharacteristics'];
+        }
+        if (! empty($calculatedData['agility'])) {
+            $data['agility'] = $calculatedData['agility'];
+        }
+        if (! empty($calculatedData['MannedTurrets'])) {
+            $summary['MannedTurrets'] = $calculatedData['MannedTurrets'];
+        }
+        if (! empty($calculatedData['RemoteTurrets'])) {
+            $summary['RemoteTurrets'] = $calculatedData['RemoteTurrets'];
+        }
+        if (! empty($calculatedData['Propulsion'])) {
+            $summary['Propulsion'] = $calculatedData['Propulsion'];
+        }
+        if (! empty($calculatedData['QuantumTravel'])) {
+            $summary['QuantumTravel'] = $calculatedData['QuantumTravel'];
+        }
+        if (! empty($calculatedData['DriveCharacteristics'])) {
+            $summary['DriveCharacteristics'] = $calculatedData['DriveCharacteristics'];
+        }
+
+        $equipmentLists = $this->buildEquipmentListsByCategory($portSummary);
+        if (! empty($equipmentLists)) {
+            $data['EquipmentByCategory'] = $equipmentLists;
+        }
 
         if (! empty($crossSectionValues)) {
             $data['cross_section'] = array_map(
@@ -409,18 +373,6 @@ final class Ship extends BaseFormat
         return $this->removeNullValues($data);
     }
 
-    private function mapParts(array $parts): array
-    {
-        return array_map(function ($part) {
-            return [
-                'name' => $part['Name'] ?? null,
-                'display_name' => $part['Port']['DisplayName'] ?? $part['Name'] ?? null,
-                'damage_max' => $part['MaximumDamage'] ?? null,
-                'children' => isset($part['Parts']) ? $this->mapParts($part['Parts']) : [],
-            ];
-        }, $parts);
-    }
-
     private function buildThrusterSummary(array $portSummary): array
     {
         $groups = [
@@ -431,7 +383,7 @@ final class Ship extends BaseFormat
         ];
 
         $mapThruster = static function (array $entry): array {
-            $installed = $entry['InstalledItem'] ?? [];
+            $installed = Arr::get($entry, 'Port.InstalledItem') ?? [];
 
             $thrustCapacity = Arr::get($installed, 'stdItem.Thruster.ThrustCapacity');
             $thrustMn = $thrustCapacity !== null ? $thrustCapacity / 1_000_000 : null;
@@ -458,6 +410,78 @@ final class Ship extends BaseFormat
                 ->values()
                 ->all();
         }, $groups);
+    }
+
+    private function buildEquipmentListsByCategory(array $portSummary): array
+    {
+        $result = [];
+
+        foreach ($portSummary as $category => $items) {
+            $itemsArray = $items instanceof Collection
+                ? $items->all()
+                : $items;
+
+            if (empty($itemsArray)) {
+                continue;
+            }
+
+            $categoryItems = [];
+            foreach ($itemsArray as $entry) {
+                $stdItem = $entry['Port']['InstalledItem']['stdItem'] ?? null;
+
+                if (! $stdItem) {
+                    continue;
+                }
+
+                $categoryItems[] = $this->extractItemData($stdItem);
+            }
+
+            if (! empty($categoryItems)) {
+                $result[$category] = $categoryItems;
+            }
+        }
+
+        return $result;
+    }
+
+    private function extractItemData(array $stdItem): array
+    {
+        $data = [
+            'Name' => $stdItem['Name'] ?? null,
+            'Type' => $stdItem['Type'] ?? null,
+            'Size' => $stdItem['Size'] ?? null,
+            'ManufacturerName' => $stdItem['Manufacturer']['Name'] ?? null,
+            'UUID' => $stdItem['UUID'] ?? null,
+            'ClassName' => $stdItem['ClassName'] ?? null,
+            'Grade' => $stdItem['Grade'] ?? null,
+            ...(str_starts_with($stdItem['Type'], 'Power') ? [
+                'PowerGeneration' => Arr::get($stdItem, 'ResourceNetwork.Generation.Power'),
+            ] : [
+                'PowerUsage' => Arr::get($stdItem, 'ResourceNetwork.Usage.Power.Maximum'),
+            ]),
+            ...(str_starts_with($stdItem['Type'], 'Cooler') ? [
+                'CoolantGeneration' => Arr::get($stdItem, 'ResourceNetwork.Generation.Coolant'),
+            ] : [
+                'CoolantUsage' => Arr::get($stdItem, 'ResourceNetwork.Usage.Coolant.Maximum'),
+            ]),
+            'EmissionEM' => Arr::get($stdItem, 'Emission.Em.Maximum'),
+            'EmissionIR' => Arr::get($stdItem, 'Emission.Ir'),
+        ];
+
+        if (isset($stdItem['Ports']) && is_array($stdItem['Ports'])) {
+            $ports = [];
+            foreach ($stdItem['Ports'] as $port) {
+                $childItem = $port['InstalledItem']['stdItem'] ?? null;
+                if ($childItem) {
+                    $ports[] = $this->extractItemData($childItem);
+                }
+            }
+            if (! empty($ports)) {
+                $data['Ports'] = $ports;
+            }
+        }
+
+        return $data;
     }
 
     private function processArray(&$array): void

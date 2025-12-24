@@ -11,12 +11,14 @@ use Octfx\ScDataDumper\ValueObjects\HealthAggregationConfig;
  * Calculates total health, damage before destruction, and damage before detach
  * with configurable filtering for structural vs non-structural parts.
  */
-final class HealthAggregator
+final class HealthAggregator implements VehicleDataCalculator
 {
     private HealthAggregationConfig $config;
 
-    public function __construct(?HealthAggregationConfig $config = null)
-    {
+    public function __construct(
+        private readonly StandardisedPartWalker $walker,
+        ?HealthAggregationConfig $config = null
+    ) {
         $this->config = $config ?? new HealthAggregationConfig;
     }
 
@@ -28,35 +30,39 @@ final class HealthAggregator
      */
     public function aggregateHealth(Collection $parts): array
     {
+        $health = 0.0;
+        $destructionParts = [];
+        $detachParts = [];
+
+        foreach ($this->walker->walkParts($parts) as $entry) {
+            $part = $entry['part'];
+
+            if ($this->shouldIncludeInHealth($part)) {
+                $health += $part['MaximumDamage'] ?? 0;
+            }
+
+            if (($part['ShipDestructionDamage'] ?? 0) > 0) {
+                $destructionParts[] = [
+                    'Name' => $part['Name'],
+                    'HP' => $part['MaximumDamage'] ?? 0,
+                    'DestructionDamage' => $part['ShipDestructionDamage'],
+                ];
+            }
+
+            if (($part['PartDetachDamage'] ?? 0) > 0 && $part['ShipDestructionDamage'] === null) {
+                $detachParts[] = [
+                    'Name' => $part['Name'],
+                    'HP' => $part['MaximumDamage'] ?? 0,
+                    'DetachDamage' => $part['PartDetachDamage'],
+                ];
+            }
+        }
+
         return [
-            'Health' => $parts
-                ->filter(fn ($x) => $this->shouldIncludeInHealth($x))
-                ->sum(fn ($x) => $x['MaximumDamage']),
-            'DamageBeforeDestruction' => $this->extractDestructionDamage($parts),
-            'DamageBeforeDetach' => $this->extractDetachDamage($parts),
+            'Health' => $health,
+            'DamageBeforeDestruction' => $destructionParts,
+            'DamageBeforeDetach' => $detachParts,
         ];
-    }
-
-    /**
-     * Extract damage before destruction data
-     */
-    private function extractDestructionDamage(Collection $parts): array
-    {
-        return $parts
-            ->filter(fn ($x) => ($x['ShipDestructionDamage'] ?? 0) > 0)
-            ->mapWithKeys(fn ($x) => [$x['Name'] => $x['ShipDestructionDamage']])
-            ->toArray();
-    }
-
-    /**
-     * Extract damage before detach data
-     */
-    private function extractDetachDamage(Collection $parts): array
-    {
-        return $parts
-            ->filter(fn ($x) => ($x['PartDetachDamage'] ?? 0) > 0 && $x['ShipDestructionDamage'] === null)
-            ->mapWithKeys(fn ($x) => [$x['Name'] => $x['PartDetachDamage']])
-            ->toArray();
     }
 
     /**
@@ -83,5 +89,20 @@ final class HealthAggregator
         $hasExcludedFlag = ! empty(array_intersect($flags, $this->config->excludedPortFlags));
 
         return ! ($this->config->skipItemPorts && $isItemPort && $hasExcludedFlag);
+    }
+
+    public function canCalculate(VehicleDataContext $context): bool
+    {
+        return true;
+    }
+
+    public function calculate(VehicleDataContext $context): array
+    {
+        return $this->aggregateHealth(collect($context->standardisedParts));
+    }
+
+    public function getPriority(): int
+    {
+        return 40;
     }
 }

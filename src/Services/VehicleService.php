@@ -7,13 +7,10 @@ use DOMElement;
 use DOMXPath;
 use Generator;
 use JsonException;
-use Octfx\ScDataDumper\Definitions\Element;
-use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
-use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 use Octfx\ScDataDumper\DocumentTypes\VehicleDefinition;
-use Octfx\ScDataDumper\Formats\ScUnpacked\Item as ScUnpackedItem;
 use Octfx\ScDataDumper\Helper\VehicleWrapper;
+use Octfx\ScDataDumper\Services\Vehicle\LoadoutBuilder;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RuntimeException;
@@ -121,7 +118,7 @@ final class VehicleService extends BaseService
         });
 
         // Testing
-        $items = array_filter($items, static fn (string $path) => str_contains($path, '890'));
+        $items = array_filter($items, static fn (string $path) => str_contains($path, 'x1'));
 
         $this->vehicles = $items;
     }
@@ -172,7 +169,11 @@ final class VehicleService extends BaseService
 
         $loadout = [];
         if ($manualLoadout) {
-            $loadout = $this->buildManualLoadout($manualLoadout);
+            $loadoutBuilder = new LoadoutBuilder(
+                ServiceFactory::getItemService(),
+                new ItemClassifierService
+            );
+            $loadout = $loadoutBuilder->build($manualLoadout);
         }
 
         $vehicle->initXPath();
@@ -295,66 +296,5 @@ final class VehicleService extends BaseService
         }
 
         $this->implementations = $implementations;
-    }
-
-    public function buildManualLoadout(RootDocument|Element $manual): array
-    {
-        $entries = [];
-        foreach ($manual->get('/entries')?->children() as $cigEntry) {
-            $entries[] = $this->buildManualLoadoutEntry($cigEntry);
-        }
-
-        return $entries;
-    }
-
-    private function buildManualLoadoutEntry(RootDocument|Element $cigLoadoutEntry): array
-    {
-        $entry = [
-            'portName' => $cigLoadoutEntry->get('@itemPortName'),
-            'className' => $cigLoadoutEntry->get('@entityClassName'),
-            'classReference' => $cigLoadoutEntry->get('@entityClassReference'),
-            'entries' => [],
-        ];
-
-        $assignItem = static function (?EntityClassDefinition $entity) use (&$entry): void {
-            if ($entity === null) {
-                return;
-            }
-
-            $entry['ItemRaw'] = $entity->toArray();
-            $entry['Item'] = new ScUnpackedItem($entity)->toArray();
-            $entry['Item']['Type'] = (new ItemClassifierService)->classify($entry['Item']);
-        };
-
-        //        $installedItem = $cigLoadoutEntry->get('InstalledItem');
-        //
-        //        if ($installedItem) {
-        //            $installedNode = $installedItem->getNode()?->firstChild;
-        //
-        //            if ($installedNode) {
-        //                $entity = EntityClassDefinition::fromNode($installedNode);
-        //                $assignItem($entity);
-        //            }
-        //        }
-
-        if (empty($entry['Item']) && ! empty($entry['className'])) {
-            $entity = ServiceFactory::getItemService()->getByClassName($entry['className']);
-
-            $assignItem($entity);
-        }
-
-        if (empty($entry['Item']) && ! empty($entry['classReference']) && $entry['classReference'] !== '00000000-0000-0000-0000-000000000000') {
-            $entity = ServiceFactory::getItemService()->getByReference($entry['classReference']);
-
-            $assignItem($entity);
-        }
-
-        if ($cigLoadoutEntry->get('/loadout/SItemPortLoadoutManualParams/entries') !== null) {
-            foreach ($cigLoadoutEntry->get('/loadout/SItemPortLoadoutManualParams/entries')->children() as $e) {
-                $entry['entries'][] = $this->buildManualLoadoutEntry($e);
-            }
-        }
-
-        return $entry;
     }
 }
