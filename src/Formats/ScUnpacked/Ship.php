@@ -310,6 +310,7 @@ final class Ship extends BaseFormat
         //            ];
         //        }
         $data['emission'] = $data['emission'] ?? $calculatedData['emission'] ?? [];
+        // $data['emission_budgeted'] = $calculatedData['power_budgeting'] ?? null;
         $data['cooling'] = $calculatedData['cooling'] ?? [];
         $data['power'] = $calculatedData['power'] ?? [];
         $data['power_pools'] = $calculatedData['power_pools'] ?? [];

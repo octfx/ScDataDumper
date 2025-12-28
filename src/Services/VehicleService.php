@@ -118,7 +118,7 @@ final class VehicleService extends BaseService
         });
 
         // Testing
-        $items = array_filter($items, static fn (string $path) => str_contains($path, 'x1'));
+        // $items = array_filter($items, static fn (string $path) => str_contains($path, 'aegs_gladius.xml'));
 
         $this->vehicles = $items;
     }
