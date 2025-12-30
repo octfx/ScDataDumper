@@ -7,6 +7,7 @@ namespace Octfx\ScDataDumper\Commands;
 use Exception;
 use Octfx\ScDataDumper\Services\CacheService;
 use Octfx\ScDataDumper\Services\ConsumableSubtypeService;
+use Octfx\ScDataDumper\Services\TagDatabaseService;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -85,6 +86,11 @@ class GenerateCache extends Command
             $consumableService = new ConsumableSubtypeService($input->getArgument('path'));
             $consumableService->initialize();
             $io->success('Generated ConsumableSubtype cache with '.$consumableService->getCount().' entries');
+
+            $io->section('Generating Tag Database cache');
+            $tagDatabaseService = new TagDatabaseService($input->getArgument('path'));
+            $tagDatabaseService->initialize();
+            $io->success('Generated Tag Database cache');
         } catch (Exception $e) {
             $io->error($e->getMessage());
 

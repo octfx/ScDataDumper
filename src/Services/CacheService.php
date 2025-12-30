@@ -11,14 +11,14 @@ use RecursiveIteratorIterator;
 use SplFileInfo;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
-final class CacheService
+final readonly class CacheService
 {
     /**
      * @param  string  $scDataDir  Path to unforged SC Data, i.e. folder Containing `Data` and `Engine` folder
      */
     public function __construct(
-        private readonly string $scDataDir,
-        private readonly SymfonyStyle $io
+        private string $scDataDir,
+        private SymfonyStyle $io
     ) {}
 
     /**

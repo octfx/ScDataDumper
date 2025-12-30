@@ -33,6 +33,9 @@ final class ServiceFactory
         self::$services['LocalizationService'] = new LocalizationService($this->scDataPath);
         self::$services['LocalizationService']->initialize();
 
+        self::$services['TagDatabaseService'] = new TagDatabaseService($this->scDataPath);
+        self::$services['TagDatabaseService']->initialize();
+
         self::$services['ItemClassifierService'] = new ItemClassifierService;
 
         self::$services['RadarSystemService'] = new RadarSystemService($this->scDataPath);
@@ -83,6 +86,11 @@ final class ServiceFactory
     public static function getLocalizationService(): LocalizationService
     {
         return self::getService('LocalizationService');
+    }
+
+    public static function getTagDatabaseService(): TagDatabaseService
+    {
+        return self::getService('TagDatabaseService');
     }
 
     public static function getItemClassifierService(): ItemClassifierService
