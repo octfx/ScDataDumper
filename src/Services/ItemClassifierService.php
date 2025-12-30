@@ -141,10 +141,10 @@ final class ItemClassifierService
                 'Matcher' => fn ($item) => self::typeMatch($item, 'CargoGrid.*'),
                 'Classifier' => fn ($t, $s) => "Ship.$t",
             ],
-            [
-                'Matcher' => fn ($item) => self::typeMatch($item, 'Cargo.*'),
-                'Classifier' => fn ($t, $s) => 'Ship.CargoGrid',
-            ],
+            //            [
+            //                'Matcher' => fn ($item) => self::typeMatch($item, 'Cargo.*'),
+            //                'Classifier' => fn ($t, $s) => 'Ship.CargoGrid',
+            //            ],
             [
                 'Matcher' => fn ($item) => self::typeMatch($item, 'Container.Cargo'),
                 'Classifier' => fn ($t, $s) => "Ship.$t.$s",

@@ -375,11 +375,11 @@ final readonly class EmissionAggregator implements VehicleDataCalculator
             'power_pools' => $powerPools,
 
             'cooling' => [
-                'cooling_capacity' => $coolantGenerationSegments,
-                'cooling_usage_shields_pct' => round($coolingUsageShieldsPct * 100, 2),
-                'cooling_usage_quantum_pct' => round($coolingUsageQuantumPct * 100, 2),
-                'coolerSegmentsUsageShields' => [...$coolerSegmentsUsage->filter(fn ($value, $key) => $key !== 'QuantumDrive' && $value > 0)->toArray(), 'PowerPlant' => $powerSegmentsUsageShields],
-                'coolerSegmentsUsageQuantum' => [...$coolerSegmentsUsage->filter(fn ($value, $key) => $key !== 'Shield' && $value > 0)->toArray(), 'PowerPlant' => $powerSegmentsUsageQuantum],
+                'generation_segments' => $coolantGenerationSegments,
+                'usage_shields_pct' => round($coolingUsageShieldsPct * 100, 2),
+                'usage_quantum_pct' => round($coolingUsageQuantumPct * 100, 2),
+                'used_segments_shields' => [...$coolerSegmentsUsage->filter(fn ($value, $key) => $key !== 'QuantumDrive' && $value > 0)->toArray(), 'PowerPlant' => $powerSegmentsUsageShields],
+                'used_segments_quantum' => [...$coolerSegmentsUsage->filter(fn ($value, $key) => $key !== 'Shield' && $value > 0)->toArray(), 'PowerPlant' => $powerSegmentsUsageQuantum],
             ],
         ];
     }

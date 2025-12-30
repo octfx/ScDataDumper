@@ -116,7 +116,7 @@ final readonly class ResourceAggregator implements VehicleDataCalculator
         }
 
         return [
-            'LoadoutMass' => $loadoutMass,
+            'mass_loadout' => $loadoutMass,
 
             'shields_total' => [
                 'hp' => $shieldHp > 0 ? $shieldHp : null,
@@ -251,7 +251,7 @@ final readonly class ResourceAggregator implements VehicleDataCalculator
     private function getEmptyResources(): array
     {
         return [
-            'LoadoutMass' => 0.0,
+            'mass_loadout' => 0.0,
             'shields_total' => [
                 'hp' => null,
                 'regen' => null,

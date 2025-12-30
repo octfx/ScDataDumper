@@ -3,7 +3,6 @@
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Illuminate\Support\Arr;
-use Illuminate\Support\Collection;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 use Octfx\ScDataDumper\Formats\BaseFormat;
@@ -18,6 +17,7 @@ use Octfx\ScDataDumper\Services\Vehicle\DriveCharacteristics\DriveCharacteristic
 use Octfx\ScDataDumper\Services\Vehicle\EmissionAggregator;
 use Octfx\ScDataDumper\Services\Vehicle\FlightCharacteristicsCalculator;
 use Octfx\ScDataDumper\Services\Vehicle\HealthAggregator;
+use Octfx\ScDataDumper\Services\Vehicle\InventoryContainerResolver;
 use Octfx\ScDataDumper\Services\Vehicle\PortFinder;
 use Octfx\ScDataDumper\Services\Vehicle\PortSummaryBuilder;
 use Octfx\ScDataDumper\Services\Vehicle\PropulsionSystemAggregator;
@@ -28,13 +28,14 @@ use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartWalker;
 use Octfx\ScDataDumper\Services\Vehicle\VehicleDataContext;
 use Octfx\ScDataDumper\Services\Vehicle\VehicleDataOrchestrator;
 use Octfx\ScDataDumper\Services\Vehicle\WeaponSystemAnalyzer;
-use Octfx\ScDataDumper\ValueObjects\ScuCalculator;
 
 final class Ship extends BaseFormat
 {
     protected ?string $elementKey = 'Components/SAttachableComponentParams/AttachDef';
 
     private readonly CargoGridResolver $cargoGridResolver;
+
+    private readonly InventoryContainerResolver $inventoryContainerResolver;
 
     private readonly PortSummaryBuilder $portSummaryBuilder;
 
@@ -49,6 +50,7 @@ final class Ship extends BaseFormat
         $this->vehicle = $this->vehicleWrapper->vehicle;
 
         $this->cargoGridResolver = new CargoGridResolver;
+        $this->inventoryContainerResolver = new InventoryContainerResolver;
         $this->portSummaryBuilder = new PortSummaryBuilder(new PortFinder);
         $entityPorts = $this->vehicleWrapper->entity->get('Components/SItemPortContainerComponentParams/Ports');
         $this->standardisedPartBuilder = new StandardisedPartBuilder(
@@ -146,7 +148,7 @@ final class Ship extends BaseFormat
             $this->vehicleWrapper->loadout
         );
         if (! empty($standardisedParts)) {
-            $data['Parts'] = $standardisedParts;
+            $data['parts'] = $this->buildPartsTree($standardisedParts);
         }
 
         $walker = new StandardisedPartWalker;
@@ -161,7 +163,7 @@ final class Ship extends BaseFormat
         $context = new VehicleDataContext(
             standardisedParts: $standardisedParts,
             portSummary: $portSummary,
-            ifcsLoadoutEntry: Arr::has($portSummary, 'flightControllers.0') ? Arr::get($portSummary['flightControllers'][0], 'Port.InstalledItem.stdItem') : null,
+            ifcsLoadoutEntry: Arr::get($portSummary, 'flightControllers.0.Port.InstalledItem.stdItem'),
             mass: $data['Mass'],
             loadoutMass: 0.0, // calculated by ResourceAggregator
             isVehicle: $isVehicle,
@@ -187,8 +189,8 @@ final class Ship extends BaseFormat
         $orchestrator = new VehicleDataOrchestrator($calculators);
         $calculatedData = $orchestrator->calculate($context);
 
-        $data['LoadoutMass'] = $calculatedData['LoadoutMass'] ?? null;
-        $data['MassTotal'] = $data['Mass'] + ($data['LoadoutMass'] ?? 0);
+        $data['MassLoadout'] = $calculatedData['mass_loadout'] ?? null;
+        $data['MassTotal'] = $data['Mass'] + ($data['MassLoadout'] ?? 0);
 
         // collect($portSummary)->map(fn ($collection, $key) => $collection->count())->dd();
 
@@ -250,7 +252,9 @@ final class Ship extends BaseFormat
             $armor = Arr::get($portSummary['armor']->first(), 'Port.InstalledItem.stdItem', []);
 
             $data['armor'] = [
+                'UUID' => Arr::get($armor, 'UUID'),
                 'Health' => Arr::get($armor, 'Durability.Health'),
+                'ResistanceMultipliers' => array_map(static fn ($mult) => $mult['Multiplier'], Arr::get($armor, 'Durability.Resistance', [])),
                 ...Arr::get($armor, 'Armor', []),
             ];
         }
@@ -270,6 +274,16 @@ final class Ship extends BaseFormat
         });
         $cargoSizeLimits = $this->cargoGridResolver->calculateCargoGridSizeLimits($cargoResult->grids);
         $summary['CargoSizeLimits'] = $this->transformArrayKeysToPascalCase($cargoSizeLimits);
+
+        $inventoryResult = $this->inventoryContainerResolver->resolveInventoryContainers($this->vehicleWrapper);
+        if ($inventoryResult->stowageCapacity > 0) {
+            $summary['Stowage'] = $inventoryResult->stowageCapacity;
+        }
+        if ($inventoryResult->containers->isNotEmpty()) {
+            $summary['InventoryContainers'] = $inventoryResult->containers->map(function ($container) {
+                return $this->transformArrayKeysToPascalCase($container);
+            });
+        }
 
         //        $personalInventory = collect($this->vehicleWrapper->loadout)
         //            ->filter(fn ($entry) => isset($entry['Item']['Components']['SCItemInventoryContainerComponentParams']))
@@ -353,9 +367,9 @@ final class Ship extends BaseFormat
             $summary['DriveCharacteristics'] = $calculatedData['DriveCharacteristics'];
         }
 
-        $equipmentLists = $this->buildEquipmentListsByCategory($portSummary);
-        if (! empty($equipmentLists)) {
-            $data['EquipmentByCategory'] = $equipmentLists;
+        $loadout = $this->buildLoadout($standardisedParts);
+        if (! empty($loadout)) {
+            $data['loadout'] = $loadout;
         }
 
         if (! empty($crossSectionValues)) {
@@ -374,117 +388,6 @@ final class Ship extends BaseFormat
         return $this->removeNullValues($data);
     }
 
-    private function buildThrusterSummary(array $portSummary): array
-    {
-        $groups = [
-            'Main' => $portSummary['mainThrusters'] ?? collect(),
-            'Retro' => $portSummary['retroThrusters'] ?? collect(),
-            'Vtol' => $portSummary['vtolThrusters'] ?? collect(),
-            'Maneuvering' => $portSummary['maneuveringThrusters'] ?? collect(),
-        ];
-
-        $mapThruster = static function (array $entry): array {
-            $installed = Arr::get($entry, 'Port.InstalledItem') ?? [];
-
-            $thrustCapacity = Arr::get($installed, 'stdItem.Thruster.ThrustCapacity');
-            $thrustMn = $thrustCapacity !== null ? $thrustCapacity / 1_000_000 : null;
-
-            $burnRatePerMn = Arr::get($installed, 'stdItem.Thruster.BurnRatePerMNMicroUnits');
-
-            return [
-                'Name' => Arr::get($installed, 'stdItem.Name'),
-                'PortName' => Arr::get($entry, 'Port.PortName'),
-                'Classification' => Arr::get($installed, 'classification'),
-                'ClassNames' => Arr::get($installed, 'className'),
-                'Size' => Arr::get($installed, 'stdItem.Size'),
-                'ThrustMN' => $thrustMn,
-                'BurnRatePerMN' => $burnRatePerMn,
-            ];
-        };
-
-        return array_map(static function ($thrusters) use ($mapThruster) {
-            return collect($thrusters)
-                ->map($mapThruster)
-                ->filter(static function (array $thruster): bool {
-                    return array_any($thruster, fn ($value) => $value !== null && $value !== '');
-                })
-                ->values()
-                ->all();
-        }, $groups);
-    }
-
-    private function buildEquipmentListsByCategory(array $portSummary): array
-    {
-        $result = [];
-
-        foreach ($portSummary as $category => $items) {
-            $itemsArray = $items instanceof Collection
-                ? $items->all()
-                : $items;
-
-            if (empty($itemsArray)) {
-                continue;
-            }
-
-            $categoryItems = [];
-            foreach ($itemsArray as $entry) {
-                $stdItem = $entry['Port']['InstalledItem']['stdItem'] ?? null;
-
-                if (! $stdItem) {
-                    continue;
-                }
-
-                $categoryItems[] = $this->extractItemData($stdItem);
-            }
-
-            if (! empty($categoryItems)) {
-                $result[$category] = $categoryItems;
-            }
-        }
-
-        return $result;
-    }
-
-    private function extractItemData(array $stdItem): array
-    {
-        $data = [
-            'Name' => $stdItem['Name'] ?? null,
-            'Type' => $stdItem['Type'] ?? null,
-            'Size' => $stdItem['Size'] ?? null,
-            'ManufacturerName' => $stdItem['Manufacturer']['Name'] ?? null,
-            'UUID' => $stdItem['UUID'] ?? null,
-            'ClassName' => $stdItem['ClassName'] ?? null,
-            'Grade' => $stdItem['Grade'] ?? null,
-            ...(str_starts_with($stdItem['Type'], 'Power') ? [
-                'PowerGeneration' => Arr::get($stdItem, 'ResourceNetwork.Generation.Power'),
-            ] : [
-                'PowerUsage' => Arr::get($stdItem, 'ResourceNetwork.Usage.Power.Maximum'),
-            ]),
-            ...(str_starts_with($stdItem['Type'], 'Cooler') ? [
-                'CoolantGeneration' => Arr::get($stdItem, 'ResourceNetwork.Generation.Coolant'),
-            ] : [
-                'CoolantUsage' => Arr::get($stdItem, 'ResourceNetwork.Usage.Coolant.Maximum'),
-            ]),
-            'EmissionEM' => Arr::get($stdItem, 'Emission.Em.Maximum'),
-            'EmissionIR' => Arr::get($stdItem, 'Emission.Ir'),
-        ];
-
-        if (isset($stdItem['Ports']) && is_array($stdItem['Ports'])) {
-            $ports = [];
-            foreach ($stdItem['Ports'] as $port) {
-                $childItem = $port['InstalledItem']['stdItem'] ?? null;
-                if ($childItem) {
-                    $ports[] = $this->extractItemData($childItem);
-                }
-            }
-            if (! empty($ports)) {
-                $data['Ports'] = $ports;
-            }
-        }
-
-        return $data;
-    }
-
     private function processArray(&$array): void
     {
         foreach ($array as &$value) {
@@ -498,5 +401,174 @@ final class Ship extends BaseFormat
                 }
             }
         }
+    }
+
+    /**
+     * Convert Types array to itemTypes format.
+     * Example: ['WeaponGun', 'WeaponGun.Ballistic'] -> [{type: 'WeaponGun'}, {type: 'WeaponGun', subType: 'Ballistic'}]
+     */
+    private function buildItemTypes(array $types): array
+    {
+        $result = [];
+        $seen = [];
+
+        foreach ($types as $typeString) {
+            $parts = explode('.', $typeString, 2);
+            $majorType = $parts[0];
+            $subType = $parts[1] ?? null;
+
+            $key = $majorType.'|'.($subType ?? '');
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+
+            $entry = ['type' => $majorType];
+            if ($subType !== null) {
+                $entry['subType'] = $subType;
+            }
+
+            $result[] = $entry;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Determine if children are editable.
+     * If no children exist, match parent's editable status.
+     * If children exist, check if any are editable.
+     */
+    private function determineEditableChildren(?array $nestedLoadout, bool $parentEditable): bool
+    {
+        if ($nestedLoadout === null || empty($nestedLoadout)) {
+            return $parentEditable;
+        }
+
+        return array_any($nestedLoadout, fn ($childEntry) => ($childEntry['editable'] ?? false) === true);
+    }
+
+    /**
+     * Recursively build nested loadout from ports.
+     */
+    private function buildNestedLoadout(array $ports): array
+    {
+        $result = [];
+
+        foreach ($ports as $childPort) {
+            $entry = $this->buildLoadoutEntry($childPort);
+            if ($entry !== null) {
+                $result[] = $entry;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Build a single loadout entry from port data.
+     */
+    private function buildLoadoutEntry(array $port): ?array
+    {
+        $portName = $port['PortName'] ?? null;
+        if ($portName === null) {
+            return null;
+        }
+
+        $installedItem = $port['InstalledItem']['stdItem'] ?? null;
+        $uneditable = $port['Uneditable'] ?? false;
+
+        $entry = [
+            'HardpointName' => $portName,
+        ];
+
+        if ($installedItem) {
+            $entry['ClassName'] = $installedItem['ClassName'] ?? null;
+            $entry['UUID'] = $installedItem['UUID'] ?? null;
+            $entry['Name'] = $installedItem['Name'] ?? null;
+            $entry['ManufacturerName'] = $installedItem['Manufacturer']['Name'] ?? null;
+            $entry['Type'] = $installedItem['Type'] ?? null;
+            $entry['Grade'] = $installedItem['Grade'] ?? null;
+        }
+
+        $nestedLoadout = null;
+        if ($installedItem && isset($installedItem['Ports']) && is_array($installedItem['Ports'])) {
+            $nestedLoadout = $this->buildNestedLoadout($installedItem['Ports']);
+        }
+
+        if ($nestedLoadout !== null && ! empty($nestedLoadout)) {
+            $entry['Loadout'] = $nestedLoadout;
+        }
+
+        $entry['Editable'] = ! $uneditable;
+        $entry['EditableChildren'] = $this->determineEditableChildren($nestedLoadout, ! $uneditable);
+        $entry['ItemTypes'] = $this->buildItemTypes($port['Types'] ?? []);
+        $entry['MaxSize'] = (int) ($port['MaxSize'] ?? 0);
+        $entry['MinSize'] = (int) ($port['MinSize'] ?? 0);
+
+        $requiredTags = $port['RequiredTags'] ?? [];
+        if (! empty($requiredTags)) {
+            $tags = is_array($requiredTags)
+                ? implode(' ', array_filter($requiredTags))
+                : trim((string) $requiredTags);
+
+            if ($tags !== '') {
+                $entry['RequiredTags'] = $tags;
+            }
+        }
+
+        return $entry;
+    }
+
+    private function buildPartsTree(array $parts): array
+    {
+        $result = [];
+
+        foreach ($parts as $part) {
+            $displayName = $part['DisplayName']
+                ?? Arr::get($part, 'Port.DisplayName')
+                ?? $part['Name']
+                ?? null;
+
+            $damageMax = $part['MaximumDamage'] ?? 0.0;
+            if (($damageMax === null || (int) $damageMax === 0) && empty($part['Parts'])) {
+                continue;
+            }
+
+            $result[] = [
+                'name' => $part['Name'] ?? null,
+                'display_name' => $displayName,
+                'damage_max' => $damageMax,
+                'children' => $this->buildPartsTree($part['Parts'] ?? []),
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Build loadout array from standardised parts.
+     * Flattens all categories into a single loadout array.
+     */
+    private function buildLoadout(array $standardisedParts): array
+    {
+        $loadout = [];
+        $walker = new StandardisedPartWalker;
+
+        foreach ($walker->walkParts($standardisedParts) as $entry) {
+            $part = $entry['part'];
+            $port = $part['Port'] ?? null;
+
+            if ($port === null) {
+                continue;
+            }
+
+            $loadoutEntry = $this->buildLoadoutEntry($port);
+            if ($loadoutEntry !== null) {
+                $loadout[] = $loadoutEntry;
+            }
+        }
+
+        return $loadout;
     }
 }

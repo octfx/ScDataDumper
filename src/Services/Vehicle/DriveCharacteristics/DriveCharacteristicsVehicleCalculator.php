@@ -23,7 +23,7 @@ final readonly class DriveCharacteristicsVehicleCalculator implements VehicleDat
 
     public function calculate(VehicleDataContext $context): array
     {
-        $loadoutMass = $context->intermediateResults['LoadoutMass'] ?? 0.0;
+        $loadoutMass = $context->intermediateResults['mass_loadout'] ?? 0.0;
         $totalMass = $context->mass + $loadoutMass;
 
         $result = $this->calculator->calculate(

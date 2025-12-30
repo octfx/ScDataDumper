@@ -81,6 +81,10 @@ final class StandardisedPartBuilder
 
         $standardisedPart = [
             'Name' => $name,
+            'DisplayName' => $part->get('@display_name')
+                ?? $part->get('@DisplayName')
+                ?? $part->get('display_name')
+                ?? $part->get('DisplayName'),
             'Mass' => $mass,
             'MaximumDamage' => $damageMax > 0 ? $damageMax : null,
             'ShipDestructionDamage' => $this->calculateShipDestructionDamage($part, $damageMax),
@@ -176,6 +180,10 @@ final class StandardisedPartBuilder
 
         return [
             'Name' => $portName,
+            'DisplayName' => $portDef?->get('@display_name')
+                ?? $portDef?->get('@DisplayName')
+                ?? $portDef?->get('display_name')
+                ?? $portDef?->get('DisplayName'),
             'Mass' => null,
             'MaximumDamage' => null,
             'ShipDestructionDamage' => null,
@@ -203,13 +211,15 @@ final class StandardisedPartBuilder
             'MaxSize' => (int) ($portData['MaxSize'] ?? $portData['Size'] ?? 0),
             'Types' => $types,
             'Flags' => $flags,
+            'RequiredTags' => $portData['RequiredTags'] ?? [],
             'Category' => null,
             'Loadout' => $loadoutEntry['className'] ?? null,
             'InstalledItem' => $this->buildInstalledItem($loadoutEntry),
         ];
 
         $port['Uneditable'] = in_array('$uneditable', $port['Flags'], true)
-            || in_array('uneditable', $port['Flags'], true);
+            || in_array('uneditable', $port['Flags'], true)
+            || in_array('invisible', $port['Flags'], true);
 
         $port['Category'] = $this->portClassifier->classifyPort($port, $port['InstalledItem'] ?? null);
         $port['Category'] = $port['Category'][1] ?? null;
@@ -230,6 +240,7 @@ final class StandardisedPartBuilder
             'MaxSize' => (int) ($itemPort->get('@maxSize') ?? $itemPort->get('@MaxSize') ?? 0),
             'Types' => $this->extractTypes($itemPort),
             'Flags' => $this->extractFlags($itemPort),
+            'RequiredTags' => $this->extractRequiredTags($itemPort),
             'Category' => null, // Will be set by PortClassifier
             'Loadout' => $loadoutEntry['className'] ?? null,
             'InstalledItem' => null,
@@ -372,6 +383,16 @@ final class StandardisedPartBuilder
         $rawFlags = trim((string) ($itemPort->get('@Flags') ?? $itemPort->get('@flags') ?? ''));
 
         return $rawFlags === '' ? [] : array_filter(explode(' ', $rawFlags));
+    }
+
+    /**
+     * Extract required tags from ItemPort.
+     */
+    private function extractRequiredTags(Element $itemPort): array
+    {
+        $rawTags = trim((string) ($itemPort->get('@RequiredPortTags') ?? ''));
+
+        return $rawTags === '' ? [] : array_filter(explode(' ', $rawTags));
     }
 
     /**

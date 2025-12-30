@@ -29,11 +29,11 @@ final class FlightCharacteristicsCalculator implements VehicleDataCalculator
      */
     public function calculateCharacteristics(?array $ifcsLoadoutEntry, float $mass, array $thrustCapacity): ?array
     {
-        if (! $ifcsLoadoutEntry || ! isset($ifcsLoadoutEntry['Item']['stdItem']['Ifcs'])) {
+        if (! $ifcsLoadoutEntry || ! Arr::has($ifcsLoadoutEntry, 'Ifcs')) {
             return null;
         }
 
-        $ifcs = $ifcsLoadoutEntry['Item']['stdItem']['Ifcs'];
+        $ifcs = $ifcsLoadoutEntry['Ifcs'];
         [$afterburnerMode, $afterburner, $afterburnerLegacy, $afterburnerNew] = $this->resolveAfterburner($ifcs);
 
         $speeds = [
