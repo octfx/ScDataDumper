@@ -44,6 +44,8 @@ final class Item extends BaseFormat
             }
         }
 
+        $entityTagNames = ServiceFactory::getTagDatabaseService();
+
         $data = [
             'className' => $this->item->getClassName(),
             'reference' => $this->item->getUuid(),
@@ -56,6 +58,10 @@ final class Item extends BaseFormat
             'tags' => $attach->get('Tags'),
             'required_tags' => $attach->get('RequiredTags'),
             'entity_tags' => $entityTags,
+            'entity_tag_map' => array_map(static fn ($tag) => [
+                'tag' => $tag,
+                'name' => $entityTagNames->getTagName($tag),
+            ], $entityTags),
             'manufacturer' => $manufacturer?->getCode(),
             'classification' => $this->item->getClassification(),
             'stdItem' => [
