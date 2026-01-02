@@ -240,6 +240,20 @@ final class ItemClassifierService
                 'Classifier' => fn ($t, $s) => 'FPS.Clothing.Gloves',
             ],
 
+            // Consumables
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'FPS_Consumable.Medical'),
+                'Classifier' => fn ($t, $s) => 'FPS.Consumable.Medical',
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'FPS_Consumable.MedPack'),
+                'Classifier' => fn ($t, $s) => 'FPS.Consumable.Medical',
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'FPS_Consumable.Hacking'),
+                'Classifier' => fn ($t, $s) => 'FPS.Consumable.Hacking',
+            ],
+
             // Default catch all
             [
                 'Matcher' => fn ($item) => self::typeMatch($item, '*.*'),

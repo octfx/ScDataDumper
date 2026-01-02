@@ -110,6 +110,24 @@ final class ConsumableSubtype
     }
 
     /**
+     * Get total health change per microSCU (may combine multiple effects)
+     */
+    public function getHealthChangePerMicroScu(): ?float
+    {
+        $total = 0.0;
+        $hasHealth = false;
+
+        foreach ($this->data['effects'] ?? [] as $effect) {
+            if ($effect['type'] === 'Health') {
+                $total += (float) ($effect['healthChange'] ?? 0.0);
+                $hasHealth = true;
+            }
+        }
+
+        return $hasHealth ? $total : null;
+    }
+
+    /**
      * Get all buff effects (positive) with durations
      *
      * @return array<array{Type: string, Duration: ?int}>|null

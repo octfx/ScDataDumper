@@ -63,8 +63,8 @@ final class WeaponAttachment extends BaseFormat
         }
 
         $data = [
-            'AmmunitionUuid' => $ammo->get('ammoParamsRecord'),
-            'InitialAmmoCount' => $ammo->get('initialAmmoCount'),
+            'AmmunitionUuid' => $ammo->get('@ammoParamsRecord'),
+            'InitialAmmoCount' => $ammo->get('@initialAmmoCount'),
             'MaxAmmoCount' => $max,
         ];
 
@@ -75,18 +75,20 @@ final class WeaponAttachment extends BaseFormat
     {
         $aimModifier = $this->item->get('Components/SWeaponModifierComponentParams/modifier/weaponStats/aimModifier');
         $zeroingParams = $this->item->get('Components/SWeaponModifierComponentParams/zeroingParams/SWeaponZeroingParams');
+        $scopeParams = $this->item->get('Components/SWeaponModifierComponentParams/scopeAttachmentParams/SScopeAttachmentParams');
 
         if ($aimModifier === null && $zeroingParams === null) {
             return [];
         }
 
         $data = [
-            'DefaultRange' => $zeroingParams?->get('defaultRange'),
-            'MaxRange' => $zeroingParams?->get('maxRange'),
-            'RangeIncrement' => $zeroingParams?->get('rangeIncrement'),
-            'AutoZeroingTime' => $zeroingParams?->get('autoZeroingTime'),
-            'ZoomScale' => $aimModifier?->get('zoomScale'),
-            'ZoomTimeScale' => $aimModifier?->get('zoomTimeScale'),
+            'ScopeType' => $scopeParams?->get('@scopeType'),
+            'DefaultRange' => $zeroingParams?->get('@defaultRange'),
+            'MaxRange' => $zeroingParams?->get('@maxRange'),
+            'RangeIncrement' => $zeroingParams?->get('@rangeIncrement'),
+            'AutoZeroingTime' => $zeroingParams?->get('@autoZeroingTime'),
+            'ZoomScale' => $aimModifier?->get('@zoomScale'),
+            'ZoomTimeScale' => $aimModifier?->get('@zoomTimeScale'),
         ];
 
         return $this->removeNullValues($data);
@@ -96,11 +98,7 @@ final class WeaponAttachment extends BaseFormat
     {
         $aimModifier = $this->item->get('Components/SWeaponModifierComponentParams/modifier/weaponStats/aimModifier');
 
-        if ($aimModifier === null) {
-            return null;
-        }
-
-        return $aimModifier->get('@zoomScale');
+        return $aimModifier?->get('@zoomScale');
     }
 
     private function deriveAttachmentPoint(string $subType, string $type): ?string

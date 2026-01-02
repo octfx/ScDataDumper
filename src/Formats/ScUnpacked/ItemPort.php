@@ -55,7 +55,7 @@ class ItemPort extends BaseFormat
             ),
         ];
 
-        $stdPort['Uneditable'] = in_array('$uneditable', $stdPort['Flags'], true) || in_array('uneditable', $stdPort['Flags'], true);
+        $stdPort['Uneditable'] = in_array('$uneditable', $stdPort['Flags'], true) || in_array('uneditable', $stdPort['Flags'], true) || in_array('invisible', $stdPort['Flags'], true);
 
         return $stdPort;
     }

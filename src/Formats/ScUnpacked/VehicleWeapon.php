@@ -58,12 +58,12 @@ final class VehicleWeapon extends AbstractWeapon
             $cycleTotalTime = null;
         } else {
             $cycleFireTime = $timeToOverheat ?? 0.0;
-            $cycleDamage = $damagePerShot * ($shotsToOverheat ?? 0.0);
+            $cycleDamage = $damagePerShot * $shotsToOverheat;
             $cycleTotalTime = $cycleFireTime + $fixTime;
 
             $cycles = ($cycleTotalTime > 0) ? floor($window / $cycleTotalTime) : 0;
             $remTime = $window - ($cycles * $cycleTotalTime);
-            $remShots = min($shotsPerSec * max(0.0, $remTime), $shotsToOverheat ?? 0.0);
+            $remShots = min($shotsPerSec * max(0.0, $remTime), $shotsToOverheat);
             $remDamage = $remShots * $damagePerShot;
             $sustainedDamage = ($cycles * $cycleDamage) + $remDamage;
             $sustainedDps = $window > 0 ? $sustainedDamage / $window : null;

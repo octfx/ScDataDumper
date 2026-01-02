@@ -8,9 +8,11 @@ use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
-final class Food extends BaseFormat
+class Food extends BaseFormat
 {
     protected ?string $elementKey = 'Components/SCItemConsumableParams';
+
+    protected const array MEDICAL_SUBTYPES = ['medical', 'medpack'];
 
     public function toArray(): ?array
     {
@@ -18,6 +20,15 @@ final class Food extends BaseFormat
             return null;
         }
 
+        if ($this->isMedicalSubtype()) {
+            return null;
+        }
+
+        return $this->buildConsumableData();
+    }
+
+    protected function buildConsumableData(): array
+    {
         /** @var Element $consumable */
         $consumable = $this->get();
 
@@ -26,6 +37,7 @@ final class Food extends BaseFormat
         $volume = $this->parseConsumableVolume($consumable);
 
         $nutrition = $this->calculateNutrition($defaultContents, $volume);
+        $health = $this->calculateHealth($defaultContents, $volume);
         $buffs = $this->calculateBuffs($defaultContents);
         $debuffs = $this->calculateDebuffs($defaultContents);
         $medicalEffects = $this->calculateMedicalEffects($defaultContents);
@@ -37,6 +49,7 @@ final class Food extends BaseFormat
 
         return $this->removeNullValues([
             'Nutrition' => $nutrition,
+            'Health' => $health,
             'Buffs' => $buffs,
             'Debuffs' => $debuffs,
             'MedicalEffects' => $medicalEffects,
@@ -62,7 +75,7 @@ final class Food extends BaseFormat
      * @param  int  $volume  Volume in microSCU
      * @return array{Hunger: array|null, Thirst: array|null, BloodDrugLevel: array|null}|null
      */
-    private function calculateNutrition(array $defaultContents, int $volume): ?array
+    protected function calculateNutrition(array $defaultContents, int $volume): ?array
     {
         $hungerTotal = 0.0;
         $hungerPerMicroSCU = null;
@@ -122,12 +135,54 @@ final class Food extends BaseFormat
     }
 
     /**
+     * Calculate health change values from consumable subtypes
+     *
+     * @param  array  $defaultContents  Array of {uuid, ratio}
+     * @param  int  $volume  Volume in microSCU
+     * @return array{Total: float, PerMicroSCU: float}|null
+     */
+    protected function calculateHealth(array $defaultContents, int $volume): ?array
+    {
+        $healthTotal = 0.0;
+        $healthPerMicroSCU = 0.0;
+        $hasHealth = false;
+
+        $consumableService = ServiceFactory::getConsumableSubtypeService();
+
+        foreach ($defaultContents as $content) {
+            $subtype = $consumableService->getByUuid($content['uuid']);
+
+            if ($subtype === null) {
+                continue;
+            }
+
+            $healthChange = $subtype->getHealthChangePerMicroScu();
+
+            if ($healthChange !== null) {
+                $perMicroScu = $healthChange * $content['ratio'];
+                $healthPerMicroSCU += $perMicroScu;
+                $healthTotal += $perMicroScu * $volume;
+                $hasHealth = true;
+            }
+        }
+
+        if (! $hasHealth) {
+            return null;
+        }
+
+        return [
+            'Total' => round($healthTotal, 2),
+            'PerMicroSCU' => round($healthPerMicroSCU, 4),
+        ];
+    }
+
+    /**
      * Calculate buff effects from consumable subtypes
      *
      * @param  array  $defaultContents  Array of {uuid, ratio}
      * @return array<array{Type: string, Duration: ?int}>|null
      */
-    private function calculateBuffs(array $defaultContents): ?array
+    protected function calculateBuffs(array $defaultContents): ?array
     {
         $buffs = [];
         $consumableService = ServiceFactory::getConsumableSubtypeService();
@@ -155,7 +210,7 @@ final class Food extends BaseFormat
      * @param  array  $defaultContents  Array of {uuid, ratio}
      * @return array<array{Type: string, Duration: ?int}>|null
      */
-    private function calculateDebuffs(array $defaultContents): ?array
+    protected function calculateDebuffs(array $defaultContents): ?array
     {
         $debuffs = [];
         $consumableService = ServiceFactory::getConsumableSubtypeService();
@@ -188,7 +243,7 @@ final class Food extends BaseFormat
      *     ImpactResistance: string[]
      * }|null
      */
-    private function calculateMedicalEffects(array $defaultContents): ?array
+    protected function calculateMedicalEffects(array $defaultContents): ?array
     {
         $medical = [
             'PainMasking' => [],
@@ -232,7 +287,7 @@ final class Food extends BaseFormat
      *
      * @return array<array{uuid: string, ratio: float}>
      */
-    private function parseDefaultContents(Element $consumable): array
+    protected function parseDefaultContents(Element $consumable): array
     {
         $contents = [];
         $defaultContentsNode = $consumable->get('/defaultContents');
@@ -261,7 +316,7 @@ final class Food extends BaseFormat
     /**
      * Parse consumableVolume to get microSCU value
      */
-    private function parseConsumableVolume(Element $consumable): int
+    protected function parseConsumableVolume(Element $consumable): int
     {
         $volumeNode = $consumable->get('/consumableVolume');
 
@@ -276,5 +331,16 @@ final class Food extends BaseFormat
         }
 
         return (int) $microSCUNode->get('@microSCU', 0);
+    }
+
+    protected function isMedicalSubtype(): bool
+    {
+        $subType = (string) $this->get('Components/SAttachableComponentParams/AttachDef@SubType', '');
+
+        if ($subType === '') {
+            return false;
+        }
+
+        return in_array(strtolower($subType), self::MEDICAL_SUBTYPES, true);
     }
 }

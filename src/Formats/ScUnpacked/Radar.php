@@ -15,6 +15,12 @@ final class Radar extends BaseFormat
 
     /**
      * IR = 0, CS = 2, EM = 1, RS = 4, dB = 3
+     * https://cstone.space/resources/knowledge-base/89-know-your-hardware-the-complete-list-of-ship-installed-radars-and-their-ir-em-cs-and-rs-values
+     * IR = Infrared
+     * CS = Cross-Section
+     * EM = Electromagnetic
+     * RS = Radar Signature
+     * dB = Decibel
      */
     private const array SIGNATURE_INDEX_MAP = [
         'IR' => 0,

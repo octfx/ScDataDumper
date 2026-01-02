@@ -176,6 +176,12 @@ final class ConsumableSubtypeService extends BaseService
                         'statPointChange' => (float) $effectNode->getAttribute('statPointChange'),
                         'statCooldownChange' => (float) ($effectNode->getAttribute('statCooldownChange') ?: 0),
                     ];
+                } elseif ($effectType === 'ConsumableEffectHealth') {
+                    // Direct health modification
+                    $data['effects'][] = [
+                        'type' => 'Health',
+                        'healthChange' => (float) $effectNode->getAttribute('healthChange'),
+                    ];
                 } elseif ($effectType === 'ConsumableEffectAddBuffEffect') {
                     // Buff/Debuff effect
                     $buffType = $effectNode->getAttribute('buffType');

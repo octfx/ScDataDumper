@@ -102,6 +102,7 @@ final class Item extends BaseFormat
                 'Emp' => new EMP($this->item),
                 'Emission' => $this->extractEmission(),
                 'Food' => new Food($this->item),
+                'Medical' => new Medical($this->item),
                 'HackingChip' => new HackingChip($this->item),
                 'Grenade' => new Grenade($this->item),
                 'FuelIntake' => new FuelIntake($this->item),
@@ -256,7 +257,7 @@ final class Item extends BaseFormat
 
         $loadoutMap = $this->buildLoadoutMap();
 
-        foreach ($this->item->get('Components/SItemPortContainerComponentParams/Ports')?->childNodes ?? [] as $port) {
+        foreach ($this->item->get('Components/SItemPortContainerComponentParams[not(ancestor::InstalledItem)]/Ports')?->childNodes ?? [] as $port) {
             $port = new ItemPort($port, $loadoutMap)->toArray();
 
             if ($port !== null) {
@@ -287,13 +288,19 @@ final class Item extends BaseFormat
         $itemService = ServiceFactory::getItemService();
 
         foreach ($loadoutEntries->children() ?? [] as $entry) {
-            $entityClassName = $entry->get('@entityClassName');
+            $itemUuid = null;
 
-            if (empty($entityClassName)) {
-                continue;
+            $entityClassName = $entry->get('@entityClassName');
+            if (! empty($entityClassName)) {
+                $itemUuid = $itemService->getUuidByClassName($entityClassName);
             }
 
-            $itemUuid = $itemService->getUuidByClassName($entityClassName);
+            if ($itemUuid === null) {
+                $entityClassReference = $entry->get('@entityClassReference');
+                if (! empty($entityClassReference) && $entityClassReference !== '00000000-0000-0000-0000-000000000000') {
+                    $itemUuid = $entityClassReference;
+                }
+            }
 
             if ($itemUuid === null) {
                 continue;
