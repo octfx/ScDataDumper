@@ -18,6 +18,7 @@ final class PowerPlant extends BaseFormat
 
         return [
             'Output' => $powerPlant->get('PowerDraw'),
+            'Generation' => $this->get('Components/ItemResourceComponentParams/states/ItemResourceState/deltas/ItemResourceDeltaGeneration/generation/resourceAmountPerSecond/SPowerSegmentResourceUnit@units'),
         ];
     }
 

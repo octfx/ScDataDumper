@@ -2,11 +2,21 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
+use DOMNode;
+use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class DamageResistance extends BaseFormat
 {
     protected ?string $elementKey = '/damageResistance';
+
+    public function __construct(DOMNode|Element|RootDocument|null $item, ?string $key = '/damageResistance')
+    {
+        parent::__construct($item);
+
+        $this->elementKey = $key;
+    }
 
     public function toArray(): ?array
     {

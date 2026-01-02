@@ -54,11 +54,11 @@ class LoadVehicles extends Command
         $start = microtime(true);
 
         $index = [];
+        $nameFilter = $input->getOption('filter');
+        $nameFilter = is_string($nameFilter) && $nameFilter !== '' ? strtolower($nameFilter) : null;
 
-        foreach ($service->iterator() as $vehicle) {
-            $scUnpackedShip = (new Ship($vehicle))->toArray();
-
-            $index[] = $scUnpackedShip;
+        foreach ($service->iterator($nameFilter) as $vehicle) {
+            $scUnpackedShip = new Ship($vehicle)->toArray();
 
             $out = [
                 'Raw' => [
@@ -70,6 +70,8 @@ class LoadVehicles extends Command
             ];
 
             $fileName = strtolower($vehicle->entity->getClassName());
+
+            $index[] = $scUnpackedShip;
             $filePath = sprintf('%s%s%s-raw.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
 
             if (! $overwrite && file_exists($filePath)) {
@@ -163,6 +165,12 @@ class LoadVehicles extends Command
             null,
             InputOption::VALUE_NONE,
             'Overwrite existing vehicle JSON files'
+        );
+        $this->addOption(
+            'filter',
+            'f',
+            InputOption::VALUE_OPTIONAL,
+            'Only export vehicles with this substring in their class name (case-insensitive)'
         );
         $this->addOption(
             'scUnpackedFormat',

@@ -76,7 +76,35 @@ abstract class BaseService
         }
 
         if (empty(self::$classToUuidMap)) {
-            self::$classToUuidMap = json_decode(file_get_contents($this->classToUuidMapPath), true, 512, JSON_THROW_ON_ERROR);
+            $rawClassToUuidMap = json_decode(file_get_contents($this->classToUuidMapPath), true, 512, JSON_THROW_ON_ERROR);
+
+            // json_decode casts numeric-string object keys to ints; re-stringify to keep class names usable
+            self::$classToUuidMap = [];
+            foreach ($rawClassToUuidMap as $className => $uuid) {
+                self::$classToUuidMap[(string) $className] = $uuid;
+            }
+        }
+
+        $this->validateCachePaths();
+    }
+
+    /**
+     * Validate that cache paths use normalized forward slashes.
+     * Detects cache files generated on different platforms before the fix.
+     *
+     * @throws RuntimeException if cache contains Windows-style paths
+     */
+    private function validateCachePaths(): void
+    {
+        $samplePaths = array_slice(self::$uuidToPathMap, 0, 10);
+
+        foreach ($samplePaths as $path) {
+            if (str_contains($path, '\\')) {
+                throw new RuntimeException(
+                    'Cache files contain Windows-style paths with backslashes. '.
+                    'Please regenerate cache files.'
+                );
+            }
         }
     }
 

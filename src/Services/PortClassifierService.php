@@ -4,7 +4,7 @@ namespace Octfx\ScDataDumper\Services;
 
 use Octfx\ScDataDumper\Formats\ScUnpacked\ItemPort;
 
-class PortClassifierService
+final class PortClassifierService
 {
     /**
      * Classifies a port based on its characteristics.
@@ -49,6 +49,10 @@ class PortClassifierService
         }
 
         if (ItemPort::accepts($port, 'Turret.*')) {
+            if (self::fuzzyNameMatch($port, 'pdc', $installedItem)) {
+                return ['Weapons', 'PDC turrets'];
+            }
+
             return ['Weapons', self::fuzzyNameMatch($port, 'remote', $installedItem) ? 'Remote turrets' : 'Weapon hardpoints'];
         }
 
@@ -103,6 +107,9 @@ class PortClassifierService
         }
         if (ItemPort::accepts($port, 'WeaponRegenPool')) {
             return ['Systems', 'Weapon regen pool'];
+        }
+        if (ItemPort::accepts($port, 'LifeSupportGenerator') || self::fuzzyNameMatch($port, 'lifesupport', $installedItem)) {
+            return ['Systems', 'Life support'];
         }
 
         // Propulsion
@@ -180,7 +187,7 @@ class PortClassifierService
             return ['Avionics', 'Self destructs'];
         }
         if (ItemPort::accepts($port, 'FlightController')) {
-            return ['Avionics', 'FlightControllers'];
+            return ['Avionics', 'Flight controllers'];
         }
 
         // Cargo
@@ -275,10 +282,13 @@ class PortClassifierService
         }
 
         switch ($type) {
-            case 'WeaponGun.Gun':
+            case 'Ship.LifeSupportGenerator':
+                return ['Systems', 'Life support'];
+
+            case 'Ship.WeaponGun.Gun':
                 return ['Weapons', 'Weapon hardpoints'];
 
-            case 'TurretBase.MannedTurret':
+            case 'Ship.TurretBase.MannedTurret':
                 // Check if any of the ports have a WeaponMining.Gun installed
                 $hasMiningGun = false;
                 if (! empty($installedItem['Ports'])) {
@@ -296,7 +306,7 @@ class PortClassifierService
 
                 return ['Weapons', 'Manned turrets'];
 
-            case 'Container.Cargo':
+            case 'Ship.Container.Cargo':
                 return ['Cargo', 'Cargo containers'];
         }
 

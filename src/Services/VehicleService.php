@@ -7,11 +7,10 @@ use DOMElement;
 use DOMXPath;
 use Generator;
 use JsonException;
-use Octfx\ScDataDumper\Definitions\Element;
-use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 use Octfx\ScDataDumper\DocumentTypes\VehicleDefinition;
 use Octfx\ScDataDumper\Helper\VehicleWrapper;
+use Octfx\ScDataDumper\Services\Vehicle\LoadoutBuilder;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RuntimeException;
@@ -104,7 +103,7 @@ final class VehicleService extends BaseService
         $this->loadImplementations();
         $items = json_decode(file_get_contents($this->classToPathMapPath), true, 512, JSON_THROW_ON_ERROR)['EntityClassDefinition'] ?? [];
 
-        $items = array_filter($items, static fn (string $path) => str_contains($path, 'entities/spaceships') || str_contains($path, 'entities/groundvehicles') || str_contains($path, 'actor/actors'));
+        $items = array_filter($items, static fn (string $path) => str_contains($path, 'entities'.DIRECTORY_SEPARATOR.'spaceships') || str_contains($path, 'entities'.DIRECTORY_SEPARATOR.'groundvehicles') || str_contains($path, 'actor'.DIRECTORY_SEPARATOR.'actors'));
         $items = array_filter($items, function (string $path): bool {
             $name = basename($path, '.xml');
             $parts = array_map('strtolower', explode('_', $name));
@@ -119,14 +118,18 @@ final class VehicleService extends BaseService
         });
 
         // Testing
-        // $items = array_filter($items, static fn (string $path) => str_contains($path, 'atls'));
+        // $items = array_filter($items, static fn (string $path) => str_contains($path, 'aegs_gladius.xml'));
 
         $this->vehicles = $items;
     }
 
-    public function iterator(): Generator
+    public function iterator(?string $filter = null): Generator
     {
         foreach ($this->vehicles as $path) {
+            if ($filter && stripos($path, $filter) === false) {
+                continue;
+            }
+
             $vehicle = $this->load($path);
             if ($vehicle === null) {
                 continue;
@@ -166,7 +169,11 @@ final class VehicleService extends BaseService
 
         $loadout = [];
         if ($manualLoadout) {
-            $loadout = $this->buildManualLoadout($manualLoadout);
+            $loadoutBuilder = new LoadoutBuilder(
+                ServiceFactory::getItemService(),
+                new ItemClassifierService
+            );
+            $loadout = $loadoutBuilder->build($manualLoadout);
         }
 
         $vehicle->initXPath();
@@ -289,43 +296,5 @@ final class VehicleService extends BaseService
         }
 
         $this->implementations = $implementations;
-    }
-
-    public function buildManualLoadout(RootDocument|Element $manual): array
-    {
-        $entries = [];
-        foreach ($manual->get('/entries')?->children() as $cigEntry) {
-            $entries[] = $this->buildManualLoadoutEntry($cigEntry);
-        }
-
-        return $entries;
-    }
-
-    private function buildManualLoadoutEntry(RootDocument|Element $cigLoadoutEntry): array
-    {
-        $entry = [
-            'portName' => $cigLoadoutEntry->get('itemPortName'),
-            'className' => $cigLoadoutEntry->get('entityClassName'),
-            'classReference' => $cigLoadoutEntry->get('entityClassReference'),
-            'entries' => [],
-        ];
-
-        if (! empty($entry['className'])) {
-            $entry['Item'] = ServiceFactory::getItemService()->getByClassName($entry['className'])?->toArray();
-            $entry['Item']['Type'] = (new ItemClassifierService)->classify($entry['Item']);
-        }
-
-        if (! empty($entry['classReference']) && $entry['classReference'] !== '00000000-0000-0000-0000-000000000000') {
-            $entry['Item'] = ServiceFactory::getItemService()->getByReference($entry['classReference'])?->toArray();
-            $entry['Item']['Type'] = (new ItemClassifierService)->classify($entry['Item']);
-        }
-
-        if ($cigLoadoutEntry->get('loadout/SItemPortLoadoutManualParams/entries') !== null) {
-            foreach ($cigLoadoutEntry->get('loadout/SItemPortLoadoutManualParams/entries')->children() as $e) {
-                $entry['entries'][] = $this->buildManualLoadoutEntry($e);
-            }
-        }
-
-        return $entry;
     }
 }

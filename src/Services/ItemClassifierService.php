@@ -2,8 +2,8 @@
 
 namespace Octfx\ScDataDumper\Services;
 
+use Illuminate\Support\Arr;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
-use Octfx\ScDataDumper\Helper\Arr;
 
 final class ItemClassifierService
 {
@@ -51,6 +51,10 @@ final class ItemClassifierService
                 'Matcher' => fn ($item) => self::typeMatch($item, 'Missile.*'),
                 'Classifier' => fn ($t, $s) => "Ship.$t.$s",
             ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Turret.*'),
+                'Classifier' => fn ($t, $s) => "Ship.$t.$s",
+            ],
 
             // Ship components
             [
@@ -63,6 +67,10 @@ final class ItemClassifierService
             ],
             [
                 'Matcher' => fn ($item) => self::typeMatch($item, 'EMP.*'),
+                'Classifier' => fn ($t, $s) => "Ship.$t.$s",
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'FlightController.*'),
                 'Classifier' => fn ($t, $s) => "Ship.$t.$s",
             ],
             [
@@ -133,10 +141,10 @@ final class ItemClassifierService
                 'Matcher' => fn ($item) => self::typeMatch($item, 'CargoGrid.*'),
                 'Classifier' => fn ($t, $s) => "Ship.$t",
             ],
-            [
-                'Matcher' => fn ($item) => self::typeMatch($item, 'Cargo.*'),
-                'Classifier' => fn ($t, $s) => 'Ship.CargoGrid',
-            ],
+            //            [
+            //                'Matcher' => fn ($item) => self::typeMatch($item, 'Cargo.*'),
+            //                'Classifier' => fn ($t, $s) => 'Ship.CargoGrid',
+            //            ],
             [
                 'Matcher' => fn ($item) => self::typeMatch($item, 'Container.Cargo'),
                 'Classifier' => fn ($t, $s) => "Ship.$t.$s",
@@ -232,6 +240,20 @@ final class ItemClassifierService
                 'Classifier' => fn ($t, $s) => 'FPS.Clothing.Gloves',
             ],
 
+            // Consumables
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'FPS_Consumable.Medical'),
+                'Classifier' => fn ($t, $s) => 'FPS.Consumable.Medical',
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'FPS_Consumable.MedPack'),
+                'Classifier' => fn ($t, $s) => 'FPS.Consumable.Medical',
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'FPS_Consumable.Hacking'),
+                'Classifier' => fn ($t, $s) => 'FPS.Consumable.Hacking',
+            ],
+
             // Default catch all
             [
                 'Matcher' => fn ($item) => self::typeMatch($item, '*.*'),
@@ -255,11 +277,16 @@ final class ItemClassifierService
             $subType = null;
         }
 
-        if (! empty($type) && strcasecmp($type, $entityType) !== 0) {
-            return false;
+        if (! empty($type)) {
+            if ($entityType === null || strcasecmp($type, (string) $entityType) !== 0) {
+                return false;
+            }
         }
-        if (! empty($subType) && strcasecmp($subType, $entitySubType) !== 0) {
-            return false;
+
+        if (! empty($subType)) {
+            if ($entitySubType === null || strcasecmp($subType, (string) $entitySubType) !== 0) {
+                return false;
+            }
         }
 
         return true;
@@ -298,6 +325,11 @@ final class ItemClassifierService
             return null;
         }
 
+        // Already classified entity
+        if (is_array($entity) && Arr::has($entity, 'stdItem')) {
+            return Arr::get($entity, 'classification');
+        }
+
         [$type, $subType] = self::getTypeAndSubType($entity);
         $cacheIndex = $type.'.'.$subType;
 
@@ -324,7 +356,11 @@ final class ItemClassifierService
 
     private function cleanClassification(?string $classification): ?string
     {
-        if (strpos($classification, '.UNDEFINED') === strlen($classification) - 10) {
+        if ($classification === null) {
+            return null;
+        }
+
+        if (str_ends_with($classification, '.UNDEFINED')) {
             $classification = substr($classification, 0, -10);
         }
 
