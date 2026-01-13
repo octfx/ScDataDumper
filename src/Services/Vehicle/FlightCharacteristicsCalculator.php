@@ -298,7 +298,7 @@ final class FlightCharacteristicsCalculator implements VehicleDataCalculator
 
     public function canCalculate(VehicleDataContext $context): bool
     {
-        return $context->isSpaceship && ! $context->isGravlev;
+        return $context->isSpaceship || $context->isGravlev;
     }
 
     public function calculate(VehicleDataContext $context): array

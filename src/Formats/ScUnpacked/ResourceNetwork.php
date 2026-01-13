@@ -411,7 +411,7 @@ final class ResourceNetwork extends BaseFormat
                 'Maximum' => $powerUsageMax,
             ],
             'Coolant' => [
-                'Minimum' => $powerUsageMin * $lowPowerRange,
+                'Minimum' => round($powerUsageMin * $lowPowerRange),
                 'Maximum' => $powerUsageMax,
             ],
         ];

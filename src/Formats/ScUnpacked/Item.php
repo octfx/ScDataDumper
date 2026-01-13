@@ -149,6 +149,11 @@ final class Item extends BaseFormat
 
         $this->processArray($data);
 
+
+        if ($data['type'] === 'PowerPlant' && !empty($data['stdItem']['Emission']) && !empty($data['stdItem']['PowerPlant'])) {
+            $data['stdItem']['Emission']['Em']['PerSegment'] = $data['stdItem']['Emission']['Em']['Maximum'] / $data['stdItem']['PowerPlant']['Generation'];
+        }
+
         return $this->removeNullValues($data);
     }
 
@@ -212,7 +217,7 @@ final class Item extends BaseFormat
         return [
             'Em' => [
                 'Maximum' => $em,
-                'Minimum' => $em * $minConsumptionFraction * $lowPowerRange,
+                'Minimum' => round($em * $minConsumptionFraction * $lowPowerRange),
                 'Decay' => $emDecay,
             ],
             'Ir' => $irTotal,

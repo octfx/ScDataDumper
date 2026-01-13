@@ -30,9 +30,9 @@ final class InventoryOccupancy extends BaseFormat
         $attach = $this->get();
 
         $grid = [
-            'Width' => $attach->get('inventoryOccupancyDimensions@x'),
-            'Length' => $attach->get('inventoryOccupancyDimensions@y'),
-            'Height' => $attach->get('inventoryOccupancyDimensions@z'),
+            'Width' => round($attach->get('inventoryOccupancyDimensions@x', 0), 2),
+            'Length' => round($attach->get('inventoryOccupancyDimensions@y', 0), 2),
+            'Height' => round($attach->get('inventoryOccupancyDimensions@z', 0), 2),
         ];
 
         $ui = new Vec3(

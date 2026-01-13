@@ -49,7 +49,12 @@ final class Shield extends BaseFormat
             'Resistance' => new MinMaxList($shield->get('/ShieldResistance'), '/SShieldResistance'),
         ];
 
-        $return['RegenerationTime'] = Arr::get($return, 'MaxShieldHealth', 0) / Arr::get($return, 'MaxShieldRegen', 1);
+        $return['RegenerationTime'] = round(Arr::get($return, 'MaxShieldHealth', 0) / Arr::get($return, 'MaxShieldRegen', 1), 2);
+
+        $return['ReservePool'] = [
+            'MaxShieldRegen' => Arr::get($return, 'MaxShieldRegen') * Arr::get($return, 'ReservePoolDrainRateRatio', 1),
+            'RegenerationTime' => round(Arr::get($return, 'MaxShieldHealth', 0) / (Arr::get($return, 'MaxShieldRegen', 1) * Arr::get($return, 'ReservePoolDrainRateRatio', 1)), 2),
+        ];
 
         return $return;
     }
