@@ -149,8 +149,7 @@ final class Item extends BaseFormat
 
         $this->processArray($data);
 
-
-        if ($data['type'] === 'PowerPlant' && !empty($data['stdItem']['Emission']) && !empty($data['stdItem']['PowerPlant'])) {
+        if ($data['type'] === 'PowerPlant' && ! empty($data['stdItem']['Emission']) && ! empty($data['stdItem']['PowerPlant'])) {
             $data['stdItem']['Emission']['Em']['PerSegment'] = $data['stdItem']['Emission']['Em']['Maximum'] / $data['stdItem']['PowerPlant']['Generation'];
         }
 

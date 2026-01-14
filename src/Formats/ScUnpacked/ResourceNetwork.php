@@ -411,7 +411,7 @@ final class ResourceNetwork extends BaseFormat
                 'Maximum' => $powerUsageMax,
             ],
             'Coolant' => [
-                'Minimum' => round($powerUsageMin * $lowPowerRange),
+                'Minimum' => in_array($this->item->getType(), ['QuantumDrive'], true) ? 0 : round($powerUsageMin * $lowPowerRange),
                 'Maximum' => $powerUsageMax,
             ],
         ];

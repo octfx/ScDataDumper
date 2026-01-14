@@ -10,6 +10,8 @@ final class QuantumDrive extends BaseFormat
 
     private const float DEFAULT_DISTANCE_GM = 10.0;
 
+    private const float CONSUMPTION_MICRO_TO_SCU_PER_GM = 1000.0;
+
     /** 1 Gm = 1e9 meters. */
     private const float METERS_PER_GM = 1_000_000_000.0;
 
@@ -22,10 +24,11 @@ final class QuantumDrive extends BaseFormat
         $quantum = $this->get();
 
         $rawRequirement = $quantum->get('quantumFuelRequirement');
-        $consumptionPerGm = $this->formatFuelConsumptionPerGm($rawRequirement);
+        $consumptionPerGm = $this->getFuelConsumptionPerGm($rawRequirement);
 
         $standardParams = $quantum->get('/params');
         $splineParams = $quantum->get('/splineJumpParams');
+        $driveSpeed = $standardParams?->get('driveSpeed');
 
         $standardTravelSeconds10Gm = $this->estimateTravelTimeSeconds($standardParams, self::DEFAULT_DISTANCE_GM);
 
@@ -38,11 +41,10 @@ final class QuantumDrive extends BaseFormat
             'Heat' => $this->formatHeat($quantum->get('/heatParams')),
             'Boost' => $this->formatBoost($quantum->get('/quantumBoostParams')),
 
-            // TODO: WIP
             'FuelConsumptionSCUPerGM' => $consumptionPerGm,
-            'FuelEfficiencyGMPerSCU' => $this->formatFuelEfficiencyGmPerScu($consumptionPerGm),
+            'FuelEfficiencyGMPerSCU' => $this->formatFuelEfficiencyGmPerScu($consumptionPerGm, $driveSpeed),
             'FuelRequirement10GM' => $this->formatFuelForDistanceGm($consumptionPerGm, self::DEFAULT_DISTANCE_GM),
-            'TravelTime10GMSeconds' => $standardTravelSeconds10Gm,
+            'TravelTime10GMSeconds' => round($standardTravelSeconds10Gm),
             'TravelTime10GM' => $this->formatDuration($standardTravelSeconds10Gm),
         ];
     }
@@ -89,8 +91,13 @@ final class QuantumDrive extends BaseFormat
         return (float) $rawRequirement / 1e6;
     }
 
-    private function formatFuelConsumptionPerGm(mixed $rawRequirement): ?float
+    private function getFuelConsumptionPerGm(?float $rawRequirement): ?float
     {
+        $microRate = $this->getQuantumFuelMicroUnitsPerSecond();
+        if ($microRate !== null && $microRate > 0) {
+            return $microRate / self::CONSUMPTION_MICRO_TO_SCU_PER_GM;
+        }
+
         if ($rawRequirement === null) {
             return null;
         }
@@ -101,15 +108,17 @@ final class QuantumDrive extends BaseFormat
     }
 
     /**
-     * Absolute efficiency as distance per fuel: Gm per SCU.
+     * Normalized efficiency derived from drive speed and consumption (10 GM baseline).
      */
-    private function formatFuelEfficiencyGmPerScu(?float $consumptionPerGm): ?float
+    private function formatFuelEfficiencyGmPerScu(?float $consumptionPerGm, ?float $driveSpeed): ?float
     {
-        if ($consumptionPerGm === null || $consumptionPerGm <= 0) {
+        if ($consumptionPerGm === null || $consumptionPerGm <= 0 || $driveSpeed === null || $driveSpeed <= 0) {
             return null;
         }
 
-        return 1.0 / $consumptionPerGm;
+        $gmPerSecond = $driveSpeed / self::METERS_PER_GM;
+
+        return round($gmPerSecond / ($consumptionPerGm * self::DEFAULT_DISTANCE_GM), 2);
     }
 
     /**
@@ -121,7 +130,7 @@ final class QuantumDrive extends BaseFormat
             return null;
         }
 
-        return $consumptionPerGm * $distanceGm;
+        return round($consumptionPerGm * $distanceGm, 2);
     }
 
     /**
@@ -221,13 +230,25 @@ final class QuantumDrive extends BaseFormat
         return ($low + $high) / 2.0;
     }
 
+    private function getQuantumFuelMicroUnitsPerSecond(): ?float
+    {
+        $basePath = 'Components/ItemResourceComponentParams/states/ItemResourceState[@name="Travelling"]/deltas/ItemResourceDeltaConsumption/consumption[@resource="QuantumFuel"]/resourceAmountPerSecond';
+        $micro = $this->get($basePath.'/SMicroResourceUnit@microResourceUnits');
+
+        if ($micro === null) {
+            return null;
+        }
+
+        return (float) $micro;
+    }
+
     private function formatDuration(?float $seconds): ?string
     {
         if ($seconds === null) {
             return null;
         }
 
-        $s = (int) round($seconds);
+        $s = (int) floor($seconds);
         if ($s < 0) {
             return null;
         }
