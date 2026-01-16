@@ -28,7 +28,7 @@ final class ItemClassifierService
                 'Classifier' => fn ($t, $s) => "Ship.Mining.$s",
             ],
             [
-                'Matcher' => fn ($item) => self::typeMatch($item, 'WeaponAttachment.Barrel'),
+                'Matcher' => fn ($item) => self::typeMatch($item, 'WeaponAttachment.Barrel') && self::pathMatch($item, 'ships/weapons'),
                 'Classifier' => fn ($t, $s) => "Ship.$t.$s",
             ],
             [
@@ -72,6 +72,22 @@ final class ItemClassifierService
             [
                 'Matcher' => fn ($item) => self::typeMatch($item, 'FlightController.*'),
                 'Classifier' => fn ($t, $s) => "Ship.$t.$s",
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Flair_Wall.*'),
+                'Classifier' => fn ($t, $s) => "Ship.Flair.$t.$s",
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Flair_Floor.*'),
+                'Classifier' => fn ($t, $s) => "Ship.Flair.$t.$s",
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Flair_Surface.*'),
+                'Classifier' => fn ($t, $s) => "Ship.Flair.$t.$s",
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Flair_Cockpit.*'),
+                'Classifier' => fn ($t, $s) => "Ship.Flair.$t.$s",
             ],
             [
                 'Matcher' => fn ($item) => self::typeMatch($item, 'PowerPlant.*'),
@@ -254,6 +270,16 @@ final class ItemClassifierService
                 'Classifier' => fn ($t, $s) => 'FPS.Consumable.Hacking',
             ],
 
+            // Mining
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Gadget.Gadget') && self::tagMatch($item, 'mining_gadget'),
+                'Classifier' => fn ($t, $s) => 'Mining.Gadget',
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'MiningModifier.*'),
+                'Classifier' => fn ($t, $s) => 'Mining.Module',
+            ],
+
             // Default catch all
             [
                 'Matcher' => fn ($item) => self::typeMatch($item, '*.*'),
@@ -296,14 +322,32 @@ final class ItemClassifierService
     {
         if (is_array($entity)) {
             $tagList = Arr::get($entity, 'Components.SAttachableComponentParams.AttachDef.Tags', '');
+            if ($tagList === '' || $tagList === null) {
+                $tagList = Arr::get($entity, 'tags', '');
+            }
         } else {
-            $tagList = $entity->get('Components.SAttachableComponentParams.AttachDef.Tags');
+            if (method_exists($entity, 'getTagList')) {
+                return in_array($tag, $entity->getTagList(), true);
+            }
+
+            $tagList = $entity->get('Components/SAttachableComponentParams/AttachDef@Tags');
             $tagList = $tagList ? (string) $tagList : '';
         }
 
-        $split = explode(' ', $tagList);
+        $split = is_array($tagList) ? $tagList : explode(' ', $tagList);
 
         return in_array($tag, $split, true);
+    }
+
+    private static function pathMatch($entity, $search): bool
+    {
+        if (is_array($entity)) {
+            $fullPath = Arr::get($entity, '__path', '');
+        } else {
+            $fullPath = $entity->getPath();
+        }
+
+        return str_contains($fullPath, $search);
     }
 
     private static function getTypeAndSubType(EntityClassDefinition|array $entity): array
@@ -319,6 +363,20 @@ final class ItemClassifierService
         return [$type, $subType];
     }
 
+    private static function buildCacheKey(EntityClassDefinition|array $entity, ?string $type, ?string $subType): string
+    {
+        $base = (string) $type.'.'.(string) $subType;
+
+        // Some matchers depend on tags or paths, so the cache key must include that context.
+        if (strcasecmp((string) $type, 'WeaponAttachment') === 0 && strcasecmp((string) $subType, 'Barrel') === 0) {
+            $isShipPath = self::pathMatch($entity, 'ships/') ? 'ship' : 'nonship';
+
+            return $base.'|'.$isShipPath;
+        }
+
+        return $base;
+    }
+
     public function classify(null|EntityClassDefinition|array $entity): ?string
     {
         if ($entity === null) {
@@ -331,7 +389,7 @@ final class ItemClassifierService
         }
 
         [$type, $subType] = self::getTypeAndSubType($entity);
-        $cacheIndex = $type.'.'.$subType;
+        $cacheIndex = self::buildCacheKey($entity, $type, $subType);
 
         if (isset(self::$cache[$cacheIndex])) {
             $matcher = $this->matchers[self::$cache[$cacheIndex]];

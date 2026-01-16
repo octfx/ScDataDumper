@@ -50,9 +50,7 @@ class ItemPort extends BaseFormat
             'Types' => $this->buildTypesList($port),
             'CompatibleTypes' => $this->buildCompatibleTypes($port),
             'EquippedItem' => $this->getEquippedItemUuid($port, $portName ?? ''),
-            'Position' => $this->detectPosition(
-                $this instanceof VehiclePartPort ? $port->get('@display_name') : $port->get('@DisplayName')
-            ),
+            'Position' => $this->detectPosition($portName),
         ];
 
         $stdPort['Uneditable'] = in_array('$uneditable', $stdPort['Flags'], true) || in_array('uneditable', $stdPort['Flags'], true) || in_array('invisible', $stdPort['Flags'], true);

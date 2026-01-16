@@ -22,6 +22,7 @@ final class ConsumableSubtype
         'ADSEnterMask',
         'StaminaRegenMask',
         'StaminaPoolMask',
+        'RadiationAntidote',
         'ImpactResistanceKnockdownMask',
         'ImpactResistanceStaggerMask',
         'ImpactResistanceTwitchMask',
@@ -33,6 +34,7 @@ final class ConsumableSubtype
         'CognitiveImpair',
         'Dehydrating',
         'HyperMetabolic',
+        'Atrophic',
     ];
 
     // Medical effect categories
@@ -84,9 +86,9 @@ final class ConsumableSubtype
     }
 
     /**
-     * Get all stat modifications (Hunger, Thirst, BloodDrugLevel)
+     * Get all stat modifications (Hunger, Thirst, BloodDrugLevel, BodyRadiation)
      *
-     * @return array{Hunger: ?float, Thirst: ?float, BloodDrugLevel: ?float}
+     * @return array{Hunger: ?float, Thirst: ?float, BloodDrugLevel: ?float, Stun: ?float}
      */
     public function getStatModifications(): array
     {
@@ -94,6 +96,8 @@ final class ConsumableSubtype
             'Hunger' => null,
             'Thirst' => null,
             'BloodDrugLevel' => null,
+            'BodyRadiation' => null,
+            'Stun' => null,
         ];
 
         foreach ($this->data['effects'] ?? [] as $effect) {

@@ -28,8 +28,8 @@ abstract class AbstractWeapon extends BaseFormat
             'EffectiveRange' => $this->resolveEffectiveRange($weapon, $ammunitionArray),
             'RateOfFire' => null,
             'Capacity' => is_array($ammunitionArray) ? ($ammunitionArray['Capacity'] ?? null) : null,
-            'Magazine' => $this->buildMagazine(),
-            'Ammunition' => $ammunitionArray,
+            // 'Magazine' => $this->buildMagazine(), // Deprecated: Use stdItem.Magazine
+            // 'Ammunition' => $ammunitionArray, // Deprecated: Use stdItem.Ammunition
             'Attachments' => $this->buildAttachments(),
             'Modes' => [],
             'Consumption' => new WeaponConsumption($weapon)->toArray(),
@@ -318,8 +318,11 @@ abstract class AbstractWeapon extends BaseFormat
         }
 
         return [
-            'InitialAmmoCount' => $magazine->get('initialAmmoCount', 0),
-            'MaxAmmoCount' => $magazine->get('maxAmmoCount', 0),
+            'UUID' => $magazine->get('ammoParamsRecord'),
+            'Type' => $this->item->get('Components/SCItemWeaponComponentParams/Magazine/Components/SAttachableComponentParams/AttachDef/SubType'),
+            'InitialAmmoCount' => $magazine->get('initialAmmoCount'),
+            'MaxAmmoCount' => $magazine->get('maxAmmoCount'),
+            'MaxRestockCount' => $magazine->get('maxRestockCount'),
         ];
     }
 
