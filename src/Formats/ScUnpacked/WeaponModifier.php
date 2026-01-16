@@ -58,23 +58,46 @@ final class WeaponModifier extends BaseFormat
 
     private function buildBaseStats(Element $weaponStats): array
     {
+        $effectStrength = $this->get()?->get('@barrelEffectsStrength');
+
         return [
-            'MuzzleFlash' => $this->get()?->get('@barrelEffectsStrength'),
+            'MuzzleFlashScale' => $effectStrength,
+            ...($this->getFlashModifiers() ?? []),
         ] + $this->mapAttributes($weaponStats, [
-            'fireRate' => 'FireRate',
             'fireRateMultiplier' => 'FireRateMultiplier',
             'damageMultiplier' => 'DamageMultiplier',
-            'damageOverTimeMultiplier' => 'DamageOverTimeMultiplier',
             'projectileSpeedMultiplier' => 'ProjectileSpeedMultiplier',
-            'pellets' => 'Pellets',
-            'burstShots' => 'BurstShots',
-            'ammoCost' => 'AmmoCost',
             'ammoCostMultiplier' => 'AmmoCostMultiplier',
             'heatGenerationMultiplier' => 'HeatGenerationMultiplier',
             'soundRadiusMultiplier' => 'SoundRadiusMultiplier',
             'chargeTimeMultiplier' => 'ChargeTimeMultiplier',
-            'useAugmentedRealityProjectiles' => 'UseAugmentedRealityProjectiles',
         ]);
+    }
+
+    private function getFlashModifiers(): ?array
+    {
+        $component = $this->get();
+        $fireEffects = $component?->get('/fireEffects');
+
+        if ($fireEffects === null) {
+            return null;
+        }
+
+        foreach ($fireEffects->children() ?? [] as $effect) {
+            if ($effect->nodeName !== 'SWeaponParticleEffectParams') {
+                continue;
+            }
+
+            $scale = $effect->get('@scale');
+            if ($scale !== null) {
+                return [
+                    'MuzzleFlashScale' => $scale,
+                    'MuzzleFlashDelay' => $effect->get('@delay'),
+                ];
+            }
+        }
+
+        return null;
     }
 
     private function buildRecoil(?Element $recoil): array
@@ -99,7 +122,7 @@ final class WeaponModifier extends BaseFormat
             'animatedRecoilMultiplier' => 'AnimatedRecoilMultiplier',
         ]);
 
-        $data['AimRecoil'] = $this->buildAimRecoil($recoil->get('aimRecoilModifier'));
+        $data['AimRecoil'] = $this->buildAimRecoil($recoil->get('/aimRecoilModifier'));
 
         return $this->removeNullValues($data);
     }
