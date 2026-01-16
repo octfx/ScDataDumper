@@ -48,8 +48,13 @@ final class MiningLaser extends BaseFormat
         }
 
         $minPowerTransfer = $powerTransfer !== null && $minFactor !== null
-            ? $minFactor * $powerTransfer
+            ? round($minFactor * $powerTransfer, 2)
             : null;
+
+        $inertMaterials = $laserParams?->get('filterParams/filterModifier/FloatModifierMultiplicative@value');
+        if ($inertMaterials) {
+            $inertMaterials *= -1;
+        }
 
         $data = $laserParams->attributesToArray([
             'globalParams',
@@ -62,9 +67,10 @@ final class MiningLaser extends BaseFormat
             'ModuleSlots' => $this->countModulePorts(),
             'UsesPowerThrottle' => $laserParams?->get('@usesPowerThrottle'),
             'GlobalParams' => $laserParamsData,
+            'CollectionPointRadius' => $this->extractCollectionRadius($extractionAction ?? $fractureAction),
             'Modifiers' => [
                 'AllChargeRates' => $laserParams?->get('filterParams/filterModifier/FloatModifierMultiplicative@value'),
-                'CollectionPointRadius' => $this->extractCollectionRadius($extractionAction ?? $fractureAction),
+                'InertMaterials' => $inertMaterials,
                 'Instability' => $laserParams?->get('miningLaserModifiers/laserInstability/FloatModifierMultiplicative@value'),
                 'Module' => $data['module'] ?? null,
                 'OptimalChargeRate' => $laserParams?->get('miningLaserModifiers/optimalChargeWindowRateModifier/FloatModifierMultiplicative@value'),
@@ -73,8 +79,6 @@ final class MiningLaser extends BaseFormat
                 'Resistance' => $laserParams?->get('miningLaserModifiers/resistanceModifier/FloatModifierMultiplicative@value'),
                 'ShatterDamage' => $laserParams?->get('miningLaserModifiers/shatterdamageModifier/FloatModifierMultiplicative@value'),
                 'ClusterFactor' => $laserParams?->get('miningLaserModifiers/clusterFactorModifier/FloatModifierMultiplicative@value'),
-                'ThrottleResponsivenessDelay' => $laserParams?->get('@throttleMinimum'),
-                'ThrottleSpeed' => $laserParams?->get('@throttleLerpSpeed'),
             ],
         ];
 
