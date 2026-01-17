@@ -29,7 +29,7 @@ final class Ammunition extends BaseFormat
         $penetrationParams = $projectiles?->get('/penetrationParams');
         $pierceabilityParams = $projectiles?->get('/pierceabilityParams');
 
-        $lifetime = $ammoAttrs['lifetime'] ?? null;
+        $lifetime = $ammoAttrs['lifetime'] ? round($ammoAttrs['lifetime'], 2) : null;
         $speed = $ammoAttrs['speed'] ?? null;
 
         $data = [
@@ -37,13 +37,13 @@ final class Ammunition extends BaseFormat
             'Type' => $ammo->get('__type'),
             'Speed' => $speed,
             'Lifetime' => $lifetime,
-            'Range' => ($speed ?? 0) * ($lifetime ?? 0),
+            'Range' => round(($speed ?? 0) * ($lifetime ?? 0)),
             'Size' => $ammoAttrs['size'] ?? null,
             'ImpactDamage' => Damage::fromDamageInfo($projectiles?->get('/damage/DamageInfo'))?->toArray(),
             'DetonationDamage' => Damage::fromDamageInfo($projectiles?->get('/detonationParams/ProjectileDetonationParams/explosionParams/damage/DamageInfo'))?->toArray(),
             'ExplosionRadius' => $projectiles?->has('detonationParams/ProjectileDetonationParams/explosionParams') ? [
-                'Min' => $projectiles?->get('detonationParams/ProjectileDetonationParams/explosionParams@minRadius'),
-                'Max' => $projectiles?->get('detonationParams/ProjectileDetonationParams/explosionParams@maxRadius'),
+                'Minimum' => $projectiles?->get('detonationParams/ProjectileDetonationParams/explosionParams@minRadius'),
+                'Maximum' => $projectiles?->get('detonationParams/ProjectileDetonationParams/explosionParams@maxRadius'),
             ] : null,
             'InitialCapacity' => $this->item->get('Components/SAmmoContainerComponentParams@initialAmmoCount'),
             'Capacity' => $this->item->get('Components/SAmmoContainerComponentParams@maxAmmoCount') ?? $this->item->get('Components/SAmmoContainerComponentParams@maxRestockCount'),

@@ -28,7 +28,7 @@ abstract class AbstractWeapon extends BaseFormat
             'EffectiveRange' => $this->resolveEffectiveRange($weapon, $ammunitionArray),
             'RateOfFire' => null,
             'Capacity' => is_array($ammunitionArray) ? ($ammunitionArray['Capacity'] ?? null) : null,
-            // 'Magazine' => $this->buildMagazine(), // Deprecated: Use stdItem.Magazine
+            'Magazine' => $this->buildMagazine(),
             // 'Ammunition' => $ammunitionArray, // Deprecated: Use stdItem.Ammunition
             'Attachments' => $this->buildAttachments(),
             'Modes' => [],
@@ -44,7 +44,7 @@ abstract class AbstractWeapon extends BaseFormat
 
             $mode = $mode->toArray();
 
-            $launchParams = $this->extractLauncher($action);
+            $launchParams = $this->extractLauncherParams($action);
             $chargeContext = $this->extractChargeContext($action);
             $damageMultiplier = $this->extractDamageMultiplier($launchParams, $chargeContext['Modifier']);
 
@@ -106,29 +106,30 @@ abstract class AbstractWeapon extends BaseFormat
         return $this->removeNullValues($out);
     }
 
-    private function extractLauncher(Element $action): ?Element
+    private function extractLauncherParams(Element $action): ?Element
     {
         return match ($action->nodeName) {
-            'SWeaponActionFireChargedParams' => $action->get('weaponAction/SWeaponActionFireSingleParams/launchParams/SProjectileLauncher')
-                ?? $action->get('weaponAction/SWeaponActionFireBurstParams/launchParams/SProjectileLauncher'),
-            default => $action->get('launchParams/SProjectileLauncher'),
+            'SWeaponActionFireChargedParams' => $action->get('/weaponAction/SWeaponActionFireSingleParams/launchParams/SProjectileLauncher')
+                ?? $action->get('/weaponAction/SWeaponActionFireBurstParams/launchParams/SProjectileLauncher'),
+            'SWeaponActionSequenceParams' => $action->get('/sequenceEntries/SWeaponSequenceEntryParams/weaponAction/SWeaponActionFireSingleParams/launchParams/SProjectileLauncher'),
+            default => $action->get('/launchParams/SProjectileLauncher'),
         };
     }
 
-    private function extractSpread(Element $action): array
+    protected function extractSpread(Element $action): array
     {
-        $launcher = $this->extractLauncher($action);
+        $launcher = $this->extractLauncherParams($action);
 
         if (! $launcher instanceof Element) {
             return [];
         }
 
         $spread = [
-            'Min' => $launcher->get('spreadParams@min'),
-            'Max' => $launcher->get('spreadParams@max'),
-            'FirstAttack' => $launcher->get('spreadParams@firstAttack'),
-            'Attack' => $launcher->get('spreadParams@attack'),
-            'Decay' => $launcher->get('spreadParams@decay'),
+            'Minimum' => $launcher->get('/spreadParams@min'),
+            'Maximum' => $launcher->get('/spreadParams@max'),
+            'FirstAttack' => $launcher->get('/spreadParams@firstAttack'),
+            'Attack' => $launcher->get('/spreadParams@attack'),
+            'Decay' => $launcher->get('/spreadParams@decay'),
         ];
 
         return $this->removeNullValues($spread);
@@ -136,7 +137,7 @@ abstract class AbstractWeapon extends BaseFormat
 
     private function extractAdsSpread(Element $weapon, array $baseSpread): array
     {
-        $modifier = $weapon->get('aimAction/SWeaponActionAimSimpleParams/aimModifier/SWeaponModifierParams/weaponStats/spreadModifier');
+        $modifier = $weapon->get('/aimAction/SWeaponActionAimSimpleParams/aimModifier/SWeaponModifierParams/weaponStats/spreadModifier');
 
         if (! $modifier instanceof Element || $baseSpread === []) {
             return $baseSpread;
@@ -158,8 +159,8 @@ abstract class AbstractWeapon extends BaseFormat
         };
 
         $ads = [
-            'Min' => $apply($baseSpread['Min'] ?? null, $modifier->get('minMultiplier'), $modifier->get('additiveModifier')),
-            'Max' => $apply($baseSpread['Max'] ?? null, $modifier->get('maxMultiplier'), $modifier->get('additiveModifier')),
+            'Minimum' => $apply($baseSpread['Min'] ?? null, $modifier->get('minMultiplier'), $modifier->get('additiveModifier')),
+            'Maximum' => $apply($baseSpread['Max'] ?? null, $modifier->get('maxMultiplier'), $modifier->get('additiveModifier')),
             'FirstAttack' => $apply($baseSpread['FirstAttack'] ?? null, $modifier->get('firstAttackMultiplier'), $modifier->get('additiveModifier')),
             'Attack' => $apply($baseSpread['Attack'] ?? null, $modifier->get('attackMultiplier'), $modifier->get('additiveModifier')),
             'Decay' => $apply($baseSpread['Decay'] ?? null, $modifier->get('decayMultiplier')),
@@ -195,24 +196,24 @@ abstract class AbstractWeapon extends BaseFormat
 
         return [
             'Timings' => $this->removeNullValues([
-                'ChargeTime' => $action->get('chargeTime'),
-                'OverchargeTime' => $action->get('overchargeTime'),
-                'OverchargedTime' => $action->get('overchargedTime'),
-                'CooldownTime' => $action->get('cooldownTime'),
+                'ChargeTime' => $action->get('@chargeTime'),
+                'OverchargeTime' => $action->get('@overchargeTime'),
+                'OverchargedTime' => $action->get('@overchargedTime'),
+                'CooldownTime' => $action->get('@cooldownTime'),
             ]),
             'Modifier' => $this->removeNullValues([
-                'Damage' => $modifier?->get('damageMultiplier') ?? 1.0,
-                'FireRate' => $modifier?->get('fireRateMultiplier') ?? 1.0,
-                'AmmoSpeed' => $modifier?->get('projectileSpeedMultiplier'),
-                'AmmoCost' => $modifier?->get('ammoCost'),
-                'AmmoCostMultiplier' => $modifier?->get('ammoCostMultiplier'),
+                'Damage' => $modifier?->get('@damageMultiplier', 1.0),
+                'FireRate' => $modifier?->get('@fireRateMultiplier', 1.0),
+                'AmmoSpeed' => $modifier?->get('@projectileSpeedMultiplier'),
+                'AmmoCost' => $modifier?->get('@ammoCost'),
+                'AmmoCostMultiplier' => $modifier?->get('@ammoCostMultiplier'),
             ]),
         ];
     }
 
     private function extractDamageMultiplier(?Element $launcher, array $chargeModifier): float
     {
-        $base = $launcher?->get('damageMultiplier') ?? 1.0;
+        $base = $launcher?->get('@damageMultiplier') ?? 1.0;
         $charge = $chargeModifier['Damage'] ?? 1.0;
 
         return (float) $base * (float) $charge;
@@ -271,8 +272,8 @@ abstract class AbstractWeapon extends BaseFormat
         }
 
         if ($action->nodeName === 'SWeaponActionFireChargedParams') {
-            $chargeTime = (float) ($action->get('chargeTime') ?? 0);
-            $cooldown = (float) ($action->get('cooldownTime') ?? 0);
+            $chargeTime = (float) ($action->get('@chargeTime') ?? 0);
+            $cooldown = (float) ($action->get('@cooldownTime') ?? 0);
 
             $timedCycle = $chargeTime + $cooldown;
             if ($timedCycle > 0) {

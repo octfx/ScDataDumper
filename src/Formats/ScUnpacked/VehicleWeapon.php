@@ -2,6 +2,7 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
+use Illuminate\Support\Arr;
 use Octfx\ScDataDumper\Definitions\Element;
 
 /**
@@ -46,39 +47,81 @@ final class VehicleWeapon extends AbstractWeapon
         $heatPerSecond = $heatPerShot * $shotsPerSec;
 
         $temperatureBudget = max(0.0, $overheatTemp - $minTemp);
-        $shotsToOverheat = ($heatPerShot > 0) ? floor($temperatureBudget / $heatPerShot) : null;
+        $shotsToOverheatExact = ($heatPerShot > 0 && $temperatureBudget > 0) ? ($temperatureBudget / $heatPerShot) : null;
+        $shotsToOverheat = $shotsToOverheatExact !== null ? floor($shotsToOverheatExact) : null;
         $timeToOverheat = ($shotsToOverheat !== null && $shotsPerSec > 0) ? $shotsToOverheat / $shotsPerSec : null;
 
         // sustained DPS over 60s window
         $window = 60.0;
-        if ($shotsToOverheat === null) {
-            $sustainedDamage = $damagePerShot * $shotsPerSec * $window;
-            $sustainedDps = $damagePerShot * $shotsPerSec;
-            $cycleDamage = null;
-            $cycleTotalTime = null;
-        } else {
-            $cycleFireTime = $timeToOverheat ?? 0.0;
-            $cycleDamage = $damagePerShot * $shotsToOverheat;
-            $cycleTotalTime = $cycleFireTime + $fixTime;
+        $sustainedDamage = null;
+        $sustainedDps = null;
 
-            $cycles = ($cycleTotalTime > 0) ? floor($window / $cycleTotalTime) : 0;
-            $remTime = $window - ($cycles * $cycleTotalTime);
-            $remShots = min($shotsPerSec * max(0.0, $remTime), $shotsToOverheat);
-            $remDamage = $remShots * $damagePerShot;
-            $sustainedDamage = ($cycles * $cycleDamage) + $remDamage;
-            $sustainedDps = $window > 0 ? $sustainedDamage / $window : null;
+        if ($shotsPerSec > 0 && $damagePerShot > 0) {
+            $maxAmmoLoad = (float) ($regenParams?->get('maxAmmoLoad') ?? 0.0);
+            $maxRegenPerSec = (float) ($regenParams?->get('maxRegenPerSec') ?? 0.0);
+            $regenCooldown = (float) ($regenParams?->get('regenerationCooldown') ?? 0.0);
+
+            if ($maxAmmoLoad > 0 && $maxRegenPerSec > 0) {
+                $cycleFireTime = $maxAmmoLoad / $shotsPerSec;
+                $cycleRegenTime = $maxAmmoLoad / $maxRegenPerSec;
+                $cycleTotalTime = $cycleFireTime + $regenCooldown + $cycleRegenTime;
+
+                if ($cycleTotalTime > 0) {
+                    $cycleDamage = $maxAmmoLoad * $damagePerShot;
+                    $cycles = floor($window / $cycleTotalTime);
+                    $remTime = $window - ($cycles * $cycleTotalTime);
+                    $remShots = min($maxAmmoLoad, $shotsPerSec * max(0.0, $remTime));
+                    $remDamage = $remShots * $damagePerShot;
+                    $sustainedDamage = ($cycles * $cycleDamage) + $remDamage;
+                    $sustainedDps = $window > 0 ? $sustainedDamage / $window : null;
+                }
+            } elseif ($shotsToOverheatExact === null) {
+                $sustainedDamage = $damagePerShot * $shotsPerSec * $window;
+                $sustainedDps = $damagePerShot * $shotsPerSec;
+            } else {
+                $cycleFireTime = $shotsToOverheatExact / $shotsPerSec;
+                $cycleDamage = $damagePerShot * $shotsToOverheatExact;
+                $cycleTotalTime = $cycleFireTime + $fixTime;
+
+                $cycles = ($cycleTotalTime > 0) ? floor($window / $cycleTotalTime) : 0;
+                $remTime = $window - ($cycles * $cycleTotalTime);
+                $remShots = min($shotsPerSec * max(0.0, $remTime), $shotsToOverheatExact);
+                $remDamage = $remShots * $damagePerShot;
+                $sustainedDamage = ($cycles * $cycleDamage) + $remDamage;
+                $sustainedDps = $window > 0 ? $sustainedDamage / $window : null;
+            }
         }
 
+        $maximumDamage = $mode['MaxDamagePerMagazine'] ?? null;
+        $isInfiniteMaximum = ($maximumDamage === null || $maximumDamage <= 0 || $regenParams instanceof Element);
+
+        $actionSequence = $this->get()?->get('/fireActions/SWeaponActionSequenceParams');
+
         $vehicleStats = [
-            'Spread' => [
-                'Min' => $this->get()?->get('/fireActions/SWeaponActionFireChargedParams/weaponAction/SWeaponActionFireSingleParams/launchParams/SProjectileLauncher/spreadParams@min'),
-                'Max' => $this->get()?->get('/fireActions/SWeaponActionFireChargedParams/weaponAction/SWeaponActionFireSingleParams/launchParams/SProjectileLauncher/spreadParams@max'),
-            ],
-            'Sustained' => [
-                'Damage60s' => $this->roundStat($sustainedDamage, 1),
-                'Dps60s' => $this->roundStat($sustainedDps, 1),
-                'CycleDamage' => $this->roundStat($cycleDamage, 1),
-                'CycleTime' => $this->roundStat($cycleTotalTime, 2),
+            'FireMode' => Arr::get($mode, 'Name'),
+            'Spread' => $actionSequence ? $this->extractSpread($actionSequence) : null,
+            'Damage' => [
+                'Sustained60s' => $this->roundStat($sustainedDps, 1),
+                'Burst' => $mode['Dps'] ?? $mode['DamagePerSecond'] ?? null,
+                'AlphaTotal' => $mode['Alpha'] ?? $mode['DamagePerShot'] ?? null,
+                'DpsTotal' => $mode['Dps'] ?? null,
+                'Maximum' => $isInfiniteMaximum ? 'Infinite' : $maximumDamage,
+                'Alpha' => [
+                    'Physical' => Arr::get($mode, 'AlphaPhysical'),
+                    'Energy' => Arr::get($mode, 'AlphaEnergy'),
+                    'Distortion' => Arr::get($mode, 'AlphaDistortion'),
+                    'Thermal' => Arr::get($mode, 'AlphaThermal'),
+                    'Biochemical' => Arr::get($mode, 'AlphaBiochemical'),
+                    'Stun' => Arr::get($mode, 'AlphaStun'),
+                ],
+                'Dps' => [
+                    'Physical' => Arr::get($mode, 'DpsPhysical'),
+                    'Energy' => Arr::get($mode, 'DpsEnergy'),
+                    'Distortion' => Arr::get($mode, 'DpsDistortion'),
+                    'Thermal' => Arr::get($mode, 'DpsThermal'),
+                    'Biochemical' => Arr::get($mode, 'DpsBiochemical'),
+                    'Stun' => Arr::get($mode, 'DpsStun'),
+                ],
             ],
         ];
 

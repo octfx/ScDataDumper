@@ -117,7 +117,7 @@ final class Temperature extends BaseFormat
             $out['Overheat'] = $overheatC;
         }
         if ($maxC !== null) {
-            $out['Max'] = $maxC;
+            $out['Maximum'] = $maxC;
         }
         if ($recoveryC !== null) {
             $out['Recovery'] = $recoveryC;

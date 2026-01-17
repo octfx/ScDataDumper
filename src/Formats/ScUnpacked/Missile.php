@@ -54,8 +54,10 @@ class Missile extends BaseFormat
             'Targeting' => new TargetingParams($this->item),
             'Damage' => $damage,
             'DamageTotal' => $damageTotal,
-            'ExplosionMinRadius' => $ordnance->get('explosionParams@minRadius'),
-            'ExplosionMaxRadius' => $ordnance->get('explosionParams@maxRadius'),
+            'ExplosionRadius' => [
+                'Minimum' => $ordnance->get('explosionParams@minRadius'),
+                'Maximum' => $ordnance->get('explosionParams@maxRadius'),
+            ],
         ];
     }
 

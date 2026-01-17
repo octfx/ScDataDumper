@@ -16,21 +16,23 @@ final class QuantumInterdictionGenerator extends BaseFormat
 
         $qig = $this->get();
 
-        return $qig->attributesToArray(['mainDeviceSwitchOn', 'mainDeviceSwitchOff']) + [
-            'JammingRange' => $qig->get('jammerSettings/SCItemQuantumJammerParams@jammerRange'),
-            'InterdictionRange' => $qig->get('quantumInterdictionPulseSettings/SCItemQuantumInterdictionPulseParams@radiusMeters'),
-            'Jammer' => $qig->get('jammerSettings/SCItemQuantumJammerParams')?->attributesToArray(
+        return $qig->attributesToArray(['mainDeviceSwitchOn', 'mainDeviceSwitchOff'], pascalCase: true) + [
+            'JammingRange' => $qig->get('/jammerSettings/SCItemQuantumJammerParams@jammerRange'),
+            'InterdictionRange' => $qig->get('/quantumInterdictionPulseSettings/SCItemQuantumInterdictionPulseParams@radiusMeters'),
+            'Jammer' => $qig->get('/jammerSettings/SCItemQuantumJammerParams')?->attributesToArray(
                 [
                     'setJammerSwitchOn',
                     'setJammerSwitchOff',
-                ]
+                ],
+                pascalCase: true
             ),
-            'Pulse' => $qig->get('quantumInterdictionPulseSettings/SCItemQuantumInterdictionPulseParams')?->attributesToArray(
+            'Pulse' => $qig->get('/quantumInterdictionPulseSettings/SCItemQuantumInterdictionPulseParams')?->attributesToArray(
                 [
                     'startChargingIP',
                     'cancelChargingIP',
                     'disperseChargeIP',
-                ]
+                ],
+                pascalCase: true
             ),
         ];
     }

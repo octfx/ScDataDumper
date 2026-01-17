@@ -43,8 +43,8 @@ final class InventoryOccupancy extends BaseFormat
         $volume = $this->buildVolume($attach->get('/inventoryOccupancyVolume'));
 
         $localBounds = [
-            'Min' => $this->buildBounds($attach, 'inventoryOccupancyLocalBoundsMin'),
-            'Max' => $this->buildBounds($attach, 'inventoryOccupancyLocalBoundsMax'),
+            'Minimum' => $this->buildBounds($attach, 'inventoryOccupancyLocalBoundsMin'),
+            'Maximum' => $this->buildBounds($attach, 'inventoryOccupancyLocalBoundsMax'),
         ];
 
         return $this->removeNull(

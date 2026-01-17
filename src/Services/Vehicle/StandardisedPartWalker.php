@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Services\Vehicle;
 
 use Generator;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
-use Octfx\ScDataDumper\Helper\Arr;
 
 /**
  * Unified walker for StandardisedParts hierarchy.

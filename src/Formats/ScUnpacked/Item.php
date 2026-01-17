@@ -127,7 +127,7 @@ final class Item extends BaseFormat
                 'ResourceNetwork' => new ResourceNetwork($this->item),
                 'QuantumDrive' => new QuantumDrive($this->item),
                 'QuantumFuelTank' => new FuelTank($this->item, 'QuantumFuelTank'),
-                'QuantumInterdiction' => new QuantumInterdictionGenerator($this->item),
+                'QuantumInterdictionGenerator' => new QuantumInterdictionGenerator($this->item),
                 'Radar' => new Radar($this->item),
                 'SelfDestruct' => new SelfDestruct($this->item),
                 'Shield' => new Shield($this->item),
@@ -150,7 +150,12 @@ final class Item extends BaseFormat
         $this->processArray($data);
 
         if ($data['type'] === 'PowerPlant' && ! empty($data['stdItem']['Emission']) && ! empty($data['stdItem']['PowerPlant'])) {
-            $data['stdItem']['Emission']['Em']['PerSegment'] = $data['stdItem']['Emission']['Em']['Maximum'] / $data['stdItem']['PowerPlant']['Generation'];
+            $data['stdItem']['Emission']['Em']['PerSegment'] = round($data['stdItem']['Emission']['Em']['Maximum'] / $data['stdItem']['PowerPlant']['Generation']);
+        }
+
+        if ($data['type'] === 'QuantumDrive' && ! empty($data['stdItem']['ResourceNetwork'])) {
+            $data['stdItem']['ResourceNetwork']['Usage']['Power']['Minimum'] = 0;
+            $data['stdItem']['ResourceNetwork']['Usage']['Coolant']['Minimum'] = 0;
         }
 
         return $this->removeNullValues($data);
