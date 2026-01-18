@@ -154,7 +154,7 @@ final class Item extends BaseFormat
         }
 
         if ($data['type'] === 'QuantumDrive' && ! empty($data['stdItem']['ResourceNetwork'])) {
-            $data['stdItem']['ResourceNetwork']['Usage']['Power']['Minimum'] = 0;
+            // $data['stdItem']['ResourceNetwork']['Usage']['Power']['Minimum'] = 0;
             $data['stdItem']['ResourceNetwork']['Usage']['Coolant']['Minimum'] = 0;
         }
 

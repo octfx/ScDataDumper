@@ -269,6 +269,18 @@ final class ItemClassifierService
                 'Matcher' => fn ($item) => self::typeMatch($item, 'FPS_Consumable.Hacking'),
                 'Classifier' => fn ($t, $s) => 'FPS.Consumable.Hacking',
             ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Food.*'),
+                'Classifier' => fn ($t, $s) => "FPS.Consumable.Food.$t",
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Drink.*'),
+                'Classifier' => fn ($t, $s) => "FPS.Consumable.Food.$t",
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Bottle.*'),
+                'Classifier' => fn ($t, $s) => "FPS.Consumable.Food.$t",
+            ],
 
             // Mining
             [
