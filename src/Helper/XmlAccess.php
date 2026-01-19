@@ -27,15 +27,13 @@ trait XmlAccess
             throw new RuntimeException('DOMXPath object not set');
         }
 
-        // When no dot is present and no @ is specified assume that this query is for an attribute
+        // When no slash is present and no @ is specified assume that this query is for an attribute
         if (! str_contains($xPath, '@') && ! str_contains($xPath, '/')) {
             $xPath = '@'.$xPath;
         }
 
         // Split attribute and query
-        $parts = explode('@', $xPath);
-        $query = array_shift($parts);
-        $attribute = array_shift($parts);
+        [$query, $attribute] = $this->splitXPathAttribute($xPath);
 
         // When querying from an element prefix the xpath by the node path so that each query is scoped to the current element
         if ($this instanceof Element) {
@@ -43,16 +41,20 @@ trait XmlAccess
         }
 
         if (empty($query)) {
-            $query = '.';
+            $query = '/';
         }
 
         $nodes = $this->domXPath->query($query);
 
-        if ($nodes->length > 0) {
+        if ($nodes !== false && $nodes->length > 0) {
             $node = $nodes->item(0);
 
             if ($attribute) {
                 $attribute = $node?->attributes?->getNamedItem($attribute)?->nodeValue;
+
+                if ($attribute === null) {
+                    return $default;
+                }
 
                 if (is_numeric($attribute)) {
                     return (float) $attribute;
@@ -65,6 +67,38 @@ trait XmlAccess
         }
 
         return $default;
+    }
+
+    /**
+     * Splits the xPath into query and attribute parts while ignoring @ signs inside predicates.
+     *
+     * @return array{0:string,1:string|null}
+     */
+    private function splitXPathAttribute(string $xPath): array
+    {
+        $depth = 0;
+        $attributePos = -1;
+
+        for ($i = 0, $length = strlen($xPath); $i < $length; $i++) {
+            $char = $xPath[$i];
+
+            if ($char === '[') {
+                $depth++;
+            } elseif ($char === ']') {
+                $depth = max(0, $depth - 1);
+            } elseif ($char === '@' && $depth === 0) {
+                $attributePos = $i;
+            }
+        }
+
+        if ($attributePos === -1) {
+            return [$xPath, null];
+        }
+
+        $query = rtrim(substr($xPath, 0, $attributePos), '/');
+        $attribute = substr($xPath, $attributePos + 1) ?: null;
+
+        return [$query, $attribute];
     }
 
     abstract protected function getDomDocument(): DOMDocument;

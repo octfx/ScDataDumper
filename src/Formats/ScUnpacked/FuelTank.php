@@ -22,7 +22,7 @@ final class FuelTank extends BaseFormat
         }
 
         return [
-            'Capacity' => (float) Item::convertToScu($this->get('capacity')),
+            'Capacity' => (float) Item::convertToScu($this->get('/capacity')),
         ];
     }
 

@@ -55,15 +55,24 @@ abstract class BaseFormat
      * Retrieve an element or attribute from `$this->item`.
      * Key defaults to `$this->elementKey` if not set.
      *
+     * @param  mixed  $default  Value returned when the key is not found
+     * @param  bool  $local  When true and the key has no path separator, treat it as a child of the current node
      * @return float|mixed|null|Element|string
      */
-    public function get(?string $key = null, $default = null): mixed
+    public function get(?string $key = null, $default = null, ?bool $local = false): mixed
     {
         if ($key === null && $this->elementKey === null) {
             throw new RuntimeException('Either $key must be provided or $elementKey set');
         }
 
-        return $this->item->get($key ?? $this->elementKey, $default);
+        $lookupKey = $key ?? $this->elementKey;
+
+        if ($local && $lookupKey !== null && ! str_contains($lookupKey, '/') && ! str_contains($lookupKey, '@')) {
+            // Force lookup to be treated as a child element of the current node, not an attribute on the root item
+            $lookupKey = '/'.$lookupKey;
+        }
+
+        return $this->item->get($lookupKey, $default);
     }
 
     /**
@@ -102,5 +111,83 @@ abstract class BaseFormat
     public function toJson(): string
     {
         return json_encode($this->toArray(), JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    }
+
+    /**
+     * Converts snake_case or camelCase strings to PascalCase
+     *
+     * @param  string  $value  The string to convert (e.g., 'drive_speed' or 'driveSpeed')
+     * @return string PascalCase string (e.g., 'DriveSpeed')
+     */
+    protected function toPascalCase(string $value): string
+    {
+        if (ctype_upper($value[0]) && ! str_contains($value, '_') && ! str_contains($value, '-')) {
+            $acronyms = ['Uuid' => 'UUID', 'Scu' => 'SCU', 'Ifcs' => 'IFCS', 'Emp' => 'EMP', 'StdItem' => 'stdItem'];
+
+            return $acronyms[$value] ?? $value;
+        }
+
+        $value = str_replace(['_', '-'], ' ', $value);
+        $result = str_replace(' ', '', ucwords($value));
+
+        $acronyms = ['Uuid' => 'UUID', 'Scu' => 'SCU', 'Ifcs' => 'IFCS', 'Emp' => 'EMP', 'StdItem' => 'stdItem'];
+
+        return $acronyms[$result] ?? $result;
+    }
+
+    /**
+     * Recursively transforms all array keys to PascalCase
+     *
+     * @param  array|BaseFormat|null  $data  The array with mixed case keys
+     * @return array Array with all keys in PascalCase
+     */
+    protected function transformArrayKeysToPascalCase(array|null|BaseFormat $data): array
+    {
+        if ($data === null) {
+            return [];
+        }
+
+        if ($data instanceof self) {
+            return $data->toArray() ?? [];
+        }
+
+        $result = [];
+
+        foreach ($data as $key => $value) {
+            $pascalKey = is_string($key) ? $this->toPascalCase($key) : $key;
+            $result[$pascalKey] = is_array($value)
+                ? $this->transformArrayKeysToPascalCase($value)
+                : $value;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Recursively removes null values and empty arrays from a data structure
+     * Modifies the array in-place for efficiency
+     *
+     * @param  array  $data  The array to clean
+     * @return array The cleaned array with null and empty array values removed
+     */
+    protected function removeNullValues(array $data): array
+    {
+        foreach ($data as $key => &$value) {
+            if (is_array($value)) {
+                $value = $this->removeNullValues($value);
+
+                if ($value === []) {
+                    unset($data[$key]);
+
+                    continue;
+                }
+            }
+
+            if ($value === null) {
+                unset($data[$key]);
+            }
+        }
+
+        return $data;
     }
 }

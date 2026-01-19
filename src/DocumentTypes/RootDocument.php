@@ -85,6 +85,14 @@ abstract class RootDocument extends DOMDocument
     }
 
     /**
+     * Value from `__path` or empty string if not found
+     */
+    public function getPath(): string
+    {
+        return $this->documentElement->attributes->getNamedItem('__path')?->nodeValue ?? '';
+    }
+
+    /**
      * Value from `__ref` or empty string if not found
      */
     public function getUuid(): string

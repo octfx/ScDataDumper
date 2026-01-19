@@ -2,6 +2,7 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
+use Illuminate\Support\Arr;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class Shield extends BaseFormat
@@ -36,14 +37,25 @@ final class Shield extends BaseFormat
                     break;
 
                 default:
-                    $return[ucfirst($key)] = $value;
+                    $return[$this->toPascalCase($key)] = $value;
             }
         }
 
-        return $return + [
-            'StunParams' => $shield->get('stunParams')?->attributesToArray(),
-            'Absorption' => new MinMaxList($shield->get('/ShieldAbsorption'), 'SShieldAbsorption', 6),
-            'Resistance' => new MinMaxList($shield->get('/ShieldResistance'), 'SShieldResistance', 6),
+        $stunParams = $shield->get('/stunParams')?->attributesToArray();
+
+        $return += [
+            'StunParams' => $stunParams ? $this->transformArrayKeysToPascalCase($stunParams) : null,
+            'Absorption' => new MinMaxList($shield->get('/ShieldAbsorption'), '/SShieldAbsorption'),
+            'Resistance' => new MinMaxList($shield->get('/ShieldResistance'), '/SShieldResistance'),
         ];
+
+        $return['RegenerationTime'] = round(Arr::get($return, 'MaxShieldHealth', 0) / Arr::get($return, 'MaxShieldRegen', 1), 2);
+
+        $return['ReservePool'] = [
+            'MaxShieldRegen' => Arr::get($return, 'MaxShieldRegen') * Arr::get($return, 'ReservePoolDrainRateRatio', 1),
+            'RegenerationTime' => round(Arr::get($return, 'MaxShieldHealth', 0) / (Arr::get($return, 'MaxShieldRegen', 1) * Arr::get($return, 'ReservePoolDrainRateRatio', 1)), 2),
+        ];
+
+        return $return;
     }
 }

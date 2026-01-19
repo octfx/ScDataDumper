@@ -32,7 +32,7 @@ final class Loadout extends BaseFormat
                 continue;
             }
 
-            $loadout['Entries'][] = (new Loadout($subLoadout))->toArray();
+            $loadout['Entries'][] = new Loadout($subLoadout)->toArray();
         }
 
         return $loadout;

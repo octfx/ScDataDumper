@@ -46,10 +46,30 @@ class LoadItems extends Command
         $io->progressStart($service->count());
 
         $outDir = sprintf('%s%sitems', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
+        $indexFilePath = sprintf('%s%sitems.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
+        $fpsIndexPath = sprintf('%s%sfps-items.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
+        $shipIndexPath = sprintf('%s%sship-items.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
 
         if (! is_dir($outDir) && ! mkdir($outDir, 0777, true) && ! is_dir($outDir)) {
             throw new RuntimeException(sprintf('Directory "%s" was not created', $outDir));
         }
+
+        $indexHandle = fopen($indexFilePath, 'wb');
+        $fpsHandle = fopen($fpsIndexPath, 'wb');
+        $shipHandle = fopen($shipIndexPath, 'wb');
+
+        if (! $indexHandle || ! $fpsHandle || ! $shipHandle) {
+            throw new RuntimeException('Failed to open index output files for writing');
+        }
+
+        // Begin JSON array streams
+        fwrite($indexHandle, "[\n");
+        fwrite($fpsHandle, "[\n");
+        fwrite($shipHandle, "[\n");
+        $indexFirst = true;
+        $fpsFirst = true;
+        $shipFirst = true;
+        $jsonFlags = JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES;
 
         $start = microtime(true);
 
@@ -73,14 +93,14 @@ class LoadItems extends Command
             'noitem_vehicle',
         ];
 
-        $index = [];
-
         if ($input->hasOption('typeFilter')) {
             $typeFilter = $input->getOption('typeFilter') ?? '';
             $avoids += array_map('trim', explode(',', $typeFilter));
         }
 
         $iter = $service->iterator();
+        $nameFilter = $input->getOption('filter');
+        $nameFilter = is_string($nameFilter) && $nameFilter !== '' ? strtolower($nameFilter) : null;
 
         foreach ($iter as $item) {
             $attach = $item->getAttachDef();
@@ -94,11 +114,35 @@ class LoadItems extends Command
             }
 
             $fileName = strtolower($item->getClassName());
+
+            if ($nameFilter !== null && strpos($fileName, $nameFilter) === false) {
+                continue;
+            }
             $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
 
-            $stdItem = (new Item($item))->toArray();
+            $stdItem = new Item($item)->toArray();
 
-            $index[] = $stdItem;
+            if (! $indexFirst) {
+                fwrite($indexHandle, ",\n");
+            }
+            fwrite($indexHandle, json_encode($stdItem, $jsonFlags));
+            $indexFirst = false;
+
+            // Streaming
+            $classification = $stdItem['classification'] ?? null;
+            if (is_string($classification) && str_starts_with($classification, 'FPS.')) {
+                if (! $fpsFirst) {
+                    fwrite($fpsHandle, ",\n");
+                }
+                fwrite($fpsHandle, json_encode($stdItem, $jsonFlags));
+                $fpsFirst = false;
+            } elseif (is_string($classification) && str_starts_with($classification, 'Ship.')) {
+                if (! $shipFirst) {
+                    fwrite($shipHandle, ",\n");
+                }
+                fwrite($shipHandle, json_encode($stdItem, $jsonFlags));
+                $shipFirst = false;
+            }
 
             if (! $overwrite && file_exists($filePath)) {
                 continue;
@@ -106,10 +150,12 @@ class LoadItems extends Command
 
             try {
                 if ($input->getOption('scUnpackedFormat')) {
+                    $rawEntity = $item->toArray();
+
                     $json = json_encode([
                         'Raw' => [
                             'Entity' => [
-                                ...$item->toArray(),
+                                ...$rawEntity,
                                 'ClassName' => $item->getClassName(),
                                 '__ref' => $item->getUuid(),
                                 '__type' => $item->getAttachType(),
@@ -141,55 +187,13 @@ class LoadItems extends Command
             'Path: '.$input->getArgument('jsonOutPath')
         ));
 
-        $filePath = sprintf('%s%sitems.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
+        fwrite($indexHandle, "\n]\n");
+        fwrite($fpsHandle, "\n]\n");
+        fwrite($shipHandle, "\n]\n");
 
-        try {
-            $json = json_encode($index, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
-            if (! $this->writeJsonFile($filePath, $json, $io)) {
-                $io->error('Failed to write items index file');
-
-                return Command::FAILURE;
-            }
-        } catch (JsonException $e) {
-            $io->error(sprintf('Failed to encode items index: %s', $e->getMessage()));
-
-            return Command::FAILURE;
-        }
-
-        $index = collect($index);
-
-        $fpsItems = $index->filter(static fn ($item) => ! empty($item['classification']) && str_starts_with($item['classification'], 'FPS.'))->values()->toArray();
-        $shipItems = $index->filter(static fn ($item) => ! empty($item['classification']) && str_starts_with($item['classification'], 'Ship.'))->values()->toArray();
-
-        $filePath = sprintf('%s%sfps-items.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
-
-        try {
-            $json = json_encode($fpsItems, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
-            if (! $this->writeJsonFile($filePath, $json, $io)) {
-                $io->error('Failed to write FPS items index file');
-
-                return Command::FAILURE;
-            }
-        } catch (JsonException $e) {
-            $io->error(sprintf('Failed to encode FPS items index: %s', $e->getMessage()));
-
-            return Command::FAILURE;
-        }
-
-        $filePath = sprintf('%s%sship-items.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
-
-        try {
-            $json = json_encode($shipItems, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
-            if (! $this->writeJsonFile($filePath, $json, $io)) {
-                $io->error('Failed to write ship items index file');
-
-                return Command::FAILURE;
-            }
-        } catch (JsonException $e) {
-            $io->error(sprintf('Failed to encode ship items index: %s', $e->getMessage()));
-
-            return Command::FAILURE;
-        }
+        fclose($indexHandle);
+        fclose($fpsHandle);
+        fclose($shipHandle);
 
         return Command::SUCCESS;
     }
@@ -226,6 +230,12 @@ class LoadItems extends Command
             't',
             InputOption::VALUE_OPTIONAL,
             'Comma-separated list of item types to exclude from export (e.g., "helmet,armor")'
+        );
+        $this->addOption(
+            'filter',
+            'f',
+            InputOption::VALUE_OPTIONAL,
+            'Only export items with this substring in their class name (case-insensitive)'
         );
         $this->addOption(
             'overwrite',

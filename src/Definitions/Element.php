@@ -10,12 +10,17 @@ use Generator;
 use Octfx\ScDataDumper\Helper\XmlAccess;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
+use WeakMap;
 
 class Element
 {
     use XmlAccess;
 
-    protected static array $initializedPaths = [];
+    /**
+     * Tracks which DOMNodes have already been initialized.
+     * WeakMap is used so entries are freed when the DOMDocument is discarded.
+     */
+    protected static ?WeakMap $initialized = null;
 
     public function __construct(protected readonly DOMNode $node)
     {
@@ -32,7 +37,8 @@ class Element
      */
     public function initialize(DOMDocument $document): void
     {
-        self::$initializedPaths[$this->node->getNodePath()] = true;
+        self::$initialized ??= new WeakMap;
+        self::$initialized[$this->node] = true;
     }
 
     public function getNode(): DOMNode
@@ -82,17 +88,25 @@ class Element
     /**
      * Turns Element Attributes into an array
      */
-    public function attributesToArray(?array $ignore = []): array
+    public function attributesToArray(?array $ignore = [], ?bool $pascalCase = false): array
     {
         $attributes = [];
 
+        if ($pascalCase) {
+            $ignore = array_map([$this, 'toPascalCase'], $ignore);
+        }
+
         foreach ($this->node->attributes as $attribute) {
-            if (! $attribute) {
+            if (! $attribute || in_array($attribute->nodeName, ['__type', '__polymorphicType'], true)) {
                 continue;
             }
 
             $name = $attribute->nodeName;
             $value = $attribute->nodeValue;
+
+            if ($pascalCase) {
+                $name = $this->toPascalCase($name);
+            }
 
             if (! in_array($name, $ignore, true)) {
                 if (is_numeric($value)) {
@@ -111,9 +125,35 @@ class Element
             }
         }
 
-        unset($attributes['__type'], $attributes['__polymorphicType']);
-
         return $attributes;
+    }
+
+    /**
+     * Checks if a child element or attribute exists relative to this element.
+     *
+     * @param  string  $key  XPath-like path scoped to this element (e.g. 'child/grandchild@attr')
+     * @param  string|null  $elementName  Expected element name; defaults to the last segment of $key
+     */
+    public function has(string $key, ?string $elementName = null): bool
+    {
+        if (str_contains($key, '.')) {
+            throw new RuntimeException('Element key contains invalid format');
+        }
+
+        $parts = explode('/', $key);
+        $elementName = $elementName ?? array_pop($parts);
+
+        $obj = $this->get($key, $key);
+
+        if ($obj === null) {
+            return false;
+        }
+
+        if (! is_object($obj)) {
+            return $obj !== $key;
+        }
+
+        return $obj instanceof self && $obj->nodeName === $elementName;
     }
 
     public function __call(string $name, array $arguments)
@@ -129,7 +169,7 @@ class Element
     /**
      * Returns all child elements and wraps it in DOMElementProxy
      */
-    public function children(): Generator|array
+    public function children(): Generator
     {
         foreach ($this->node->childNodes as $child) {
             if ($child->nodeType !== XML_ELEMENT_NODE) {
@@ -145,13 +185,22 @@ class Element
      */
     protected function isInitialized(): bool
     {
-        // TODO: Find a way of saving the init state on the node directly
-        return false;
+        return self::$initialized?->offsetExists($this->node) ?? false;
+    }
 
-        if ($this->node->getNodePath() === null) {
-            return false;
+    protected function toPascalCase(string $value): string
+    {
+        if (ctype_upper($value[0]) && ! str_contains($value, '_') && ! str_contains($value, '-')) {
+            $acronyms = ['Uuid' => 'UUID', 'Scu' => 'SCU', 'Ifcs' => 'IFCS', 'Emp' => 'EMP'];
+
+            return $acronyms[$value] ?? $value;
         }
 
-        return self::$initializedPaths[$this->node->getNodePath()] ?? false;
+        $value = str_replace(['_', '-'], ' ', $value);
+        $result = str_replace(' ', '', ucwords($value));
+
+        $acronyms = ['Uuid' => 'UUID', 'Scu' => 'SCU', 'Ifcs' => 'IFCS', 'Emp' => 'EMP'];
+
+        return $acronyms[$result] ?? $result;
     }
 }

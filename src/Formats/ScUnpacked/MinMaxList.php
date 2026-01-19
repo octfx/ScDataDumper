@@ -8,8 +8,9 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class MinMaxList extends BaseFormat
 {
-    public function __construct(RootDocument|Element $item, private readonly string $key, private readonly int $numChildren)
+    public function __construct(RootDocument|Element $item, private readonly string $key)
     {
+        $this->elementKey = $this->key;
         parent::__construct($item);
     }
 
@@ -20,19 +21,15 @@ final class MinMaxList extends BaseFormat
         }
 
         $out = [];
+        $i = 0;
 
-        for ($i = 0; $i < 6; $i++) {
-            $minMax = new MinMax($this->item->children()[$i]);
+        foreach ($this->item->children() as $child) {
+            $minMax = new MinMax($child);
             if ($minMax->canTransform()) {
-                $out[self::$resistanceKeys[$i]] = $minMax->toArray();
+                $out[self::$resistanceKeys[$i++]] = $minMax->toArray();
             }
         }
 
         return $out;
-    }
-
-    public function canTransform(): bool
-    {
-        return $this->has($this->key) && count($this->item?->children() ?? []) === $this->numChildren;
     }
 }

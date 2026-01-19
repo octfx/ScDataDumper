@@ -10,6 +10,7 @@ use Octfx\ScDataDumper\Commands\LoadData;
 use Octfx\ScDataDumper\Commands\LoadFactions;
 use Octfx\ScDataDumper\Commands\LoadItems;
 use Octfx\ScDataDumper\Commands\LoadManufacturers;
+use Octfx\ScDataDumper\Commands\LoadTags;
 use Octfx\ScDataDumper\Commands\LoadTranslations;
 use Octfx\ScDataDumper\Commands\LoadVehicles;
 use Symfony\Component\Console\Application;
@@ -23,5 +24,6 @@ $application->addCommand(new LoadFactions);
 $application->addCommand(new LoadData);
 $application->addCommand(new LoadTranslations);
 $application->addCommand(new LoadManufacturers);
+$application->addCommand(new LoadTags);
 
 $application->run();

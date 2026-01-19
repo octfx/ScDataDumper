@@ -14,12 +14,14 @@ final class PowerConnection extends BaseFormat
             return null;
         }
 
-        return $this->get()?->attributesToArray(
+        $attributes = $this->get()?->attributesToArray(
             [
                 'MisfireItemTypeLocID',
                 'WarningDisplayTime',
                 'WarningDelayTime',
             ]
         );
+
+        return $attributes ? $this->transformArrayKeysToPascalCase($attributes) : null;
     }
 }

@@ -14,6 +14,19 @@ final class EMP extends BaseFormat
             return null;
         }
 
-        return $this->get()?->attributesToArray();
+        return $this->get()?->attributesToArray([
+            'chargingTag',
+            'chargedTag',
+            'startChargingTrigger',
+            'stopChargingTrigger',
+            'startChargedTrigger',
+            'stopChargedTrigger',
+            'startUnleashTrigger',
+            'stopUnleashTrigger',
+            'idleState',
+            'chargingState',
+            'chargedState',
+            'releasingState',
+        ], pascalCase: true);
     }
 }
