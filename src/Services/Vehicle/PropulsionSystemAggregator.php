@@ -31,11 +31,11 @@ final class PropulsionSystemAggregator implements VehicleDataCalculator
             'FuelIntakeRate' => $fuelIntakeRate,
             'FuelUsage' => $fuelUsage,
             'ThrustCapacity' => $thrustCapacity,
-            'IntakeToMainFuelRatio' => $fuelUsage['Main'] > 0 ? $fuelIntakeRate / $fuelUsage['Main'] : null,
-            'IntakeToTankCapacityRatio' => $fuelCapacity > 0 ? $fuelIntakeRate / $fuelCapacity : null,
-            'TimeForIntakesToFillTank' => $fuelIntakeRate > 0 ? $fuelCapacity / $fuelIntakeRate : null,
+            'IntakeToMainFuelRatio' => $fuelUsage['Main'] > 0 ? round($fuelIntakeRate / $fuelUsage['Main'], 2) : null,
+            'IntakeToTankCapacityRatio' => $fuelCapacity > 0 ? round($fuelIntakeRate / $fuelCapacity, 2) : null,
+            'TimeForIntakesToFillTank' => $fuelIntakeRate > 0 ? round($fuelCapacity / $fuelIntakeRate, 2) : null,
             'ManeuveringTimeTillEmpty' => ($fuelUsage['Main'] > 0 && $fuelUsage['Maneuvering'] > 0)
-                ? $fuelCapacity / ($fuelUsage['Main'] + $fuelUsage['Maneuvering'] / 2 - $fuelIntakeRate)
+                ? round($fuelCapacity / ($fuelUsage['Main'] + $fuelUsage['Maneuvering'] / 2 - $fuelIntakeRate), 2)
                 : null,
         ];
     }
@@ -53,10 +53,10 @@ final class PropulsionSystemAggregator implements VehicleDataCalculator
     private function calculateFuelUsage(array $portSummary): array
     {
         return [
-            'Main' => $this->sumThrusterFuelUsage($portSummary['mainThrusters']),
-            'Retro' => $this->sumThrusterFuelUsage($portSummary['retroThrusters']),
-            'Vtol' => $this->sumThrusterFuelUsage($portSummary['vtolThrusters']),
-            'Maneuvering' => $this->sumThrusterFuelUsage($portSummary['maneuveringThrusters']),
+            'Main' => round($this->sumThrusterFuelUsage($portSummary['mainThrusters']), 2),
+            'Retro' => round($this->sumThrusterFuelUsage($portSummary['retroThrusters']), 2),
+            'Vtol' => round($this->sumThrusterFuelUsage($portSummary['vtolThrusters']), 2),
+            'Maneuvering' => round($this->sumThrusterFuelUsage($portSummary['maneuveringThrusters']), 2),
         ];
     }
 

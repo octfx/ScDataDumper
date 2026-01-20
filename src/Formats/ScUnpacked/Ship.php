@@ -190,7 +190,8 @@ final class Ship extends BaseFormat
         $calculatedData = $orchestrator->calculate($context);
 
         $data['MassLoadout'] = $calculatedData['mass_loadout'] ?? null;
-        $data['MassTotal'] = $data['Mass'] + ($data['MassLoadout'] ?? 0);
+        $data['MassTotal'] = round($data['Mass'] + ($data['MassLoadout'] ?? 0));
+        $data['Mass'] = round($data['Mass']);
 
         // collect($portSummary)->map(fn ($collection, $key) => $collection->count())->dd();
 
@@ -277,7 +278,7 @@ final class Ship extends BaseFormat
 
         $inventoryResult = $this->inventoryContainerResolver->resolveInventoryContainers($this->vehicleWrapper);
         if ($inventoryResult->stowageCapacity > 0) {
-            $summary['Stowage'] = $inventoryResult->stowageCapacity;
+            $summary['Stowage'] = round($inventoryResult->stowageCapacity, 2);
         }
         if ($inventoryResult->containers->isNotEmpty()) {
             $summary['InventoryContainers'] = $inventoryResult->containers->map(function ($container) {
@@ -330,14 +331,14 @@ final class Ship extends BaseFormat
         $data['power_pools'] = $calculatedData['power_pools'] ?? [];
         $data['shields_total'] = $calculatedData['shields_total'] ?? [];
         // deprecated, use shields_total.hp
-        $data['shield_hp'] = $calculatedData['shields_total']['hp'] ?? 0;
+        $data['shield_hp'] = round($calculatedData['shields_total']['hp'] ?? 0);
         $data['distortion'] = $calculatedData['distortion'] ?? [];
         $data['ammo'] = $calculatedData['ammo'] ?? [];
         $data['weapon_storage'] = $calculatedData['weapon_storage'] ?? [];
 
         // Add calculator data to summary
         if (! empty($calculatedData['Health'])) {
-            $summary['Health'] = $calculatedData['Health'];
+            $summary['Health'] = round($calculatedData['Health']);
         }
         if (! empty($calculatedData['DamageBeforeDestruction'])) {
             $summary['DamageBeforeDestruction'] = $calculatedData['DamageBeforeDestruction'];

@@ -52,9 +52,9 @@ final class FlightCharacteristicsCalculator implements VehicleDataCalculator
         $angularMultipliers = $this->extractAngularMultipliers($afterburner);
 
         $angularBoosted = [
-            'Pitch' => $angularRates['Pitch'] !== null ? $angularRates['Pitch'] * $angularMultipliers['Pitch'] : null,
-            'Yaw' => $angularRates['Yaw'] !== null ? $angularRates['Yaw'] * $angularMultipliers['Yaw'] : null,
-            'Roll' => $angularRates['Roll'] !== null ? $angularRates['Roll'] * $angularMultipliers['Roll'] : null,
+            'Pitch' => $angularRates['Pitch'] !== null ? round($angularRates['Pitch'] * $angularMultipliers['Pitch'], 2) : null,
+            'Yaw' => $angularRates['Yaw'] !== null ? round($angularRates['Yaw'] * $angularMultipliers['Yaw'], 2) : null,
+            'Roll' => $angularRates['Roll'] !== null ? round($angularRates['Roll'] * $angularMultipliers['Roll'], 2) : null,
         ];
 
         $accelerationRaw = $this->calculateDirectionalAccelerations($thrustCapacity, $mass);
@@ -167,12 +167,12 @@ final class FlightCharacteristicsCalculator implements VehicleDataCalculator
         }
 
         return [
-            'Forward' => ($thrustCapacity['Main'] ?? 0) / $mass,
-            'Backward' => ($thrustCapacity['Retro'] ?? 0) / $mass,
-            'Up' => ($thrustCapacity['Up'] ?? 0) / $mass + ($thrustCapacity['Vtol'] ?? 0) / $mass,
-            'Down' => ($thrustCapacity['Down'] ?? 0) / $mass,
-            'Strafe' => ($thrustCapacity['Strafe'] ?? 0) / $mass,
-            'Vtol' => ($thrustCapacity['Vtol'] ?? 0) / $mass,
+            'Forward' => round(($thrustCapacity['Main'] ?? 0) / $mass, 2),
+            'Backward' => round(($thrustCapacity['Retro'] ?? 0) / $mass, 2),
+            'Up' => round(($thrustCapacity['Up'] ?? 0) / $mass + ($thrustCapacity['Vtol'] ?? 0) / $mass, 2),
+            'Down' => round(($thrustCapacity['Down'] ?? 0) / $mass, 2),
+            'Strafe' => round(($thrustCapacity['Strafe'] ?? 0) / $mass, 2),
+            'Vtol' => round(($thrustCapacity['Vtol'] ?? 0) / $mass, 2),
         ];
     }
 
@@ -181,7 +181,7 @@ final class FlightCharacteristicsCalculator implements VehicleDataCalculator
      */
     private function convertToG(array $accelerations): array
     {
-        return array_map(static fn ($value) => $value !== null ? $value / self::G : null, $accelerations);
+        return array_map(static fn ($value) => $value !== null ? round($value / self::G, 2) : null, $accelerations);
     }
 
     /**
@@ -204,14 +204,14 @@ final class FlightCharacteristicsCalculator implements VehicleDataCalculator
         $backwardAccelBoosted = $accelerationBoosted['Backward'] ?? 0;
 
         return [
-            'ZeroToScm' => $forwardAccel > 0 ? $scmSpeed / $forwardAccel : null,
-            'ZeroToMax' => $forwardAccel > 0 ? $maxSpeed / $forwardAccel : null,
-            'ScmToZero' => $backwardAccel > 0 ? $scmSpeed / $backwardAccel : null,
-            'MaxToZero' => $backwardAccel > 0 ? $maxSpeed / $backwardAccel : null,
-            'ZeroToBoostForward' => ($boostForward !== null && $forwardAccelBoosted > 0) ? $boostForward / $forwardAccelBoosted : null,
-            'ZeroToBoostBackward' => ($boostBackward !== null && $backwardAccelBoosted > 0) ? $boostBackward / $backwardAccelBoosted : null,
-            'BoostForwardToZero' => ($boostForward !== null && $backwardAccelBoosted > 0) ? $boostForward / $backwardAccelBoosted : null,
-            'BoostBackwardToZero' => ($boostBackward !== null && $forwardAccelBoosted > 0) ? $boostBackward / $forwardAccelBoosted : null,
+            'ZeroToScm' => $forwardAccel > 0 ? round($scmSpeed / $forwardAccel, 2) : null,
+            'ZeroToMax' => $forwardAccel > 0 ? round($maxSpeed / $forwardAccel, 2) : null,
+            'ScmToZero' => $backwardAccel > 0 ? round($scmSpeed / $backwardAccel, 2) : null,
+            'MaxToZero' => $backwardAccel > 0 ? round($maxSpeed / $backwardAccel, 2) : null,
+            'ZeroToBoostForward' => ($boostForward !== null && $forwardAccelBoosted > 0) ? round($boostForward / $forwardAccelBoosted, 2) : null,
+            'ZeroToBoostBackward' => ($boostBackward !== null && $backwardAccelBoosted > 0) ? round($boostBackward / $backwardAccelBoosted, 2) : null,
+            'BoostForwardToZero' => ($boostForward !== null && $backwardAccelBoosted > 0) ? round($boostForward / $backwardAccelBoosted, 2) : null,
+            'BoostBackwardToZero' => ($boostBackward !== null && $forwardAccelBoosted > 0) ? round($boostBackward / $forwardAccelBoosted, 2) : null,
         ];
     }
 

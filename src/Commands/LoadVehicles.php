@@ -40,6 +40,7 @@ class LoadVehicles extends Command
         $fac->initialize();
 
         $overwrite = ($input->getOption('overwrite') ?? false) === true;
+        $withRaw = ($input->getOption('with-raw') ?? false) === true;
 
         $service = ServiceFactory::getVehicleService();
 
@@ -81,12 +82,14 @@ class LoadVehicles extends Command
             }
 
             try {
-                $jsonRaw = json_encode($out, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
-                if (! $this->writeJsonFile($filePath, $jsonRaw, $io)) {
-                    $io->warning(sprintf('Skipping vehicle %s due to write failure', $fileName));
-                    $io->progressAdvance();
+                if ($withRaw) {
+                    $jsonRaw = json_encode($out, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
+                    if (! $this->writeJsonFile($filePath, $jsonRaw, $io)) {
+                        $io->warning(sprintf('Skipping vehicle %s due to write failure', $fileName));
+                        $io->progressAdvance();
 
-                    continue;
+                        continue;
+                    }
                 }
 
                 $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
@@ -177,6 +180,12 @@ class LoadVehicles extends Command
             null,
             InputOption::VALUE_NONE,
             'Export vehicles in SC Unpacked format (currently has no effect)'
+        );
+        $this->addOption(
+            'with-raw',
+            null,
+            InputOption::VALUE_NONE,
+            'Include raw XML -> JSON dumps for vehicles'
         );
     }
 }

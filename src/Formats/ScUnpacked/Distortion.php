@@ -20,6 +20,7 @@ final class Distortion extends BaseFormat
         $return = $attributes ? $this->transformArrayKeysToPascalCase($attributes) : null;
 
         $return['ShutdownTime'] = (Arr::get($return, 'Maximum', 0) / max(1, Arr::get($return, 'DecayRate', 1))) + Arr::get($return, 'DecayDelay', 0);
+        $return['ShutdownTime'] = round($return['ShutdownTime'], 2);
 
         return $return;
     }

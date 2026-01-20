@@ -364,10 +364,10 @@ final readonly class EmissionAggregator implements VehicleDataCalculator
             ],
 
             'power' => [
-                'used_segments_shields' => $powerSegmentsUsageShields,
-                'used_segments_quantum' => $powerSegmentsUsageQuantum,
+                'used_segments_shields' => round($powerSegmentsUsageShields, 2),
+                'used_segments_quantum' => round($powerSegmentsUsageQuantum, 2),
                 'generation_segments' => ($availablePowerSegments !== null && $availablePowerSegments > 0) ? $availablePowerSegments : null,
-                'usage' => $powerSegmentsUsage->filter(fn ($value, $key) => $value > 0)->toArray(),
+                'used_segments_grouped' => $powerSegmentsUsage->filter(fn ($value, $key) => $value > 0)->toArray(),
             ],
 
             'power_budgeting' => $powerBudgeting,
@@ -376,10 +376,14 @@ final readonly class EmissionAggregator implements VehicleDataCalculator
 
             'cooling' => [
                 'generation_segments' => $coolantGenerationSegments,
-                'usage_shields_pct' => round($coolingUsageShieldsPct * 100, 2),
-                'usage_quantum_pct' => round($coolingUsageQuantumPct * 100, 2),
-                'used_segments_shields' => [...$coolerSegmentsUsage->filter(fn ($value, $key) => $key !== 'QuantumDrive' && $value > 0)->toArray(), 'PowerPlant' => $powerSegmentsUsageShields],
-                'used_segments_quantum' => [...$coolerSegmentsUsage->filter(fn ($value, $key) => $key !== 'Shield' && $value > 0)->toArray(), 'PowerPlant' => $powerSegmentsUsageQuantum],
+
+                'used_segments_shields' => collect([...$coolerSegmentsUsage->filter(fn ($value, $key) => $key !== 'QuantumDrive' && $value > 0)->toArray(), 'PowerPlant' => $powerSegmentsUsageShields])->sum(),
+                'used_segments_shields_grouped' => [...$coolerSegmentsUsage->filter(fn ($value, $key) => $key !== 'QuantumDrive' && $value > 0)->toArray(), 'PowerPlant' => $powerSegmentsUsageShields],
+                'used_segments_shields_pct' => round($coolingUsageShieldsPct, 2),
+
+                'used_segments_quantum' => collect([...$coolerSegmentsUsage->filter(fn ($value, $key) => $key !== 'Shield' && $value > 0)->toArray(), 'PowerPlant' => $powerSegmentsUsageQuantum])->sum(),
+                'used_segments_quantum_grouped' => [...$coolerSegmentsUsage->filter(fn ($value, $key) => $key !== 'Shield' && $value > 0)->toArray(), 'PowerPlant' => $powerSegmentsUsageQuantum],
+                'used_segments_quantum_pct' => round($coolingUsageQuantumPct, 2),
             ],
         ];
     }

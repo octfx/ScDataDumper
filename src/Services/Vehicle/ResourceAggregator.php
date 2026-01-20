@@ -116,11 +116,12 @@ final readonly class ResourceAggregator implements VehicleDataCalculator
         }
 
         return [
-            'mass_loadout' => $loadoutMass,
+            'mass_loadout' => round($loadoutMass),
 
             'shields_total' => [
                 'hp' => $shieldHp > 0 ? $shieldHp : null,
-                'regen' => $shieldRegen > 0 ? $shieldRegen * 0.66 : null,
+                // TODO: Magic number
+                'regen' => $shieldRegen > 0 ? round($shieldRegen * 0.66) : null,
             ],
 
             'distortion' => [

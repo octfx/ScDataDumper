@@ -34,17 +34,17 @@ final class QuantumTravelCalculator implements VehicleDataCalculator
 
         return [
             'FuelCapacity' => ($quantumFuelCapacity ?? 0) > 0 ? $quantumFuelCapacity : null,
-            'Range' => $quantumFuelRate > 0 ? ($quantumFuelCapacity / $quantumFuelRate) : null,
+            'Range' => $quantumFuelRate > 0 ? round($quantumFuelCapacity / $quantumFuelRate) : null,
             'Speed' => $quantumDriveSpeed,
             'SpoolTime' => Arr::get($quantumDrive, 'Port.InstalledItem.stdItem.QuantumDrive.StandardJump.SpoolUpTime'),
             'PortOlisarToArcCorpTime' => ! empty($quantumDriveSpeed)
-                ? (self::DIST_PO_TO_ARCCORP / $quantumDriveSpeed)
+                ? round(self::DIST_PO_TO_ARCCORP / $quantumDriveSpeed)
                 : null,
             'PortOlisarToArcCorpFuel' => (self::DIST_PO_TO_ARCCORP * $quantumFuelRate) > 0
-                ? (self::DIST_PO_TO_ARCCORP * $quantumFuelRate)
+                ? round(self::DIST_PO_TO_ARCCORP * $quantumFuelRate)
                 : null,
             'PortOlisarToArcCorpAndBack' => $quantumFuelRate > 0
-                ? (($quantumFuelCapacity / $quantumFuelRate) / (2 * self::DIST_PO_TO_ARCCORP))
+                ? round(($quantumFuelCapacity / $quantumFuelRate) / (2 * self::DIST_PO_TO_ARCCORP), 2)
                 : null,
         ];
     }
