@@ -88,7 +88,6 @@ class LoadItems extends Command
             'char_skin_color',
             'cloth',
             'debris',
-            'removablechip',
             'noitem_player',
             'noitem_vehicle',
         ];
