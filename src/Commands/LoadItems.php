@@ -121,25 +121,27 @@ class LoadItems extends Command
 
             $stdItem = new Item($item)->toArray();
 
+            $encodedItem = json_encode($stdItem, $jsonFlags);
+
             if (! $indexFirst) {
                 fwrite($indexHandle, ",\n");
             }
-            fwrite($indexHandle, json_encode($stdItem, $jsonFlags));
-            $indexFirst = false;
 
-            // Streaming
+            fwrite($indexHandle, $encodedItem);
+            $indexFirst = false;
             $classification = $stdItem['classification'] ?? null;
+
             if (is_string($classification) && str_starts_with($classification, 'FPS.')) {
                 if (! $fpsFirst) {
                     fwrite($fpsHandle, ",\n");
                 }
-                fwrite($fpsHandle, json_encode($stdItem, $jsonFlags));
+                fwrite($fpsHandle, $encodedItem);
                 $fpsFirst = false;
             } elseif (is_string($classification) && str_starts_with($classification, 'Ship.')) {
                 if (! $shipFirst) {
                     fwrite($shipHandle, ",\n");
                 }
-                fwrite($shipHandle, json_encode($stdItem, $jsonFlags));
+                fwrite($shipHandle, $encodedItem);
                 $shipFirst = false;
             }
 

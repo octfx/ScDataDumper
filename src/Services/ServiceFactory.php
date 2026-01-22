@@ -149,16 +149,6 @@ final class ServiceFactory
         return self::getService('ConsumableSubtypeService');
     }
 
-    public static function getMaterialStatService(): MaterialStatService
-    {
-        return self::getService('MaterialStatService');
-    }
-
-    public static function getBlueprintService(): BlueprintService
-    {
-        return self::getService('BlueprintService');
-    }
-
     private static function getService(string $serviceName): mixed
     {
         if (! self::$initialized) {

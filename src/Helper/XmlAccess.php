@@ -5,7 +5,6 @@ namespace Octfx\ScDataDumper\Helper;
 use DOMDocument;
 use DOMXPath;
 use Octfx\ScDataDumper\Definitions\Element;
-use RuntimeException;
 
 trait XmlAccess
 {
@@ -24,7 +23,7 @@ trait XmlAccess
     public function get(string $xPath, $default = null): mixed
     {
         if ($this->domXPath === null) {
-            throw new RuntimeException('DOMXPath object not set');
+            $this->initXPath();
         }
 
         // When no slash is present and no @ is specified assume that this query is for an attribute
@@ -105,6 +104,8 @@ trait XmlAccess
 
     public function initXPath(): void
     {
-        $this->domXPath = new DOMXPath($this->getDomDocument());
+        if ($this->domXPath === null) {
+            $this->domXPath = new DOMXPath($this->getDomDocument());
+        }
     }
 }

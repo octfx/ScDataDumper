@@ -13,6 +13,13 @@ final class ItemService extends BaseService
 {
     private array $entityPaths;
 
+    /**
+     * Document cache keyed by file path
+     *
+     * @var array<string, EntityClassDefinition>
+     */
+    protected static array $documentCache = [];
+
     public function count(): int
     {
         return count($this->entityPaths);
@@ -79,11 +86,17 @@ final class ItemService extends BaseService
             throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
         }
 
+        if (isset(self::$documentCache[$filePath])) {
+            return self::$documentCache[$filePath];
+        }
+
         $item = new $class;
         $item->load($filePath);
         if ($class === EntityClassDefinition::class) {
             $item->checkValidity();
         }
+
+        self::$documentCache[$filePath] = $item;
 
         return $item;
     }

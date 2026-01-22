@@ -20,6 +20,13 @@ final class VehicleService extends BaseService
 {
     private array $vehicles;
 
+    /**
+     * Document cache keyed by file path
+     *
+     * @var array<string, VehicleDefinition|Vehicle>
+     */
+    protected static array $documentCache = [];
+
     private array $implementations = [];
 
     // Avoid files containing tags
@@ -145,8 +152,14 @@ final class VehicleService extends BaseService
             throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
         }
 
-        $vehicle = new VehicleDefinition;
-        $vehicle->load($filePath);
+        if (isset(self::$documentCache[$filePath])) {
+            $vehicle = self::$documentCache[$filePath];
+            assert($vehicle instanceof VehicleDefinition);
+        } else {
+            $vehicle = new VehicleDefinition;
+            $vehicle->load($filePath);
+            self::$documentCache[$filePath] = $vehicle;
+        }
 
         $implementation = $vehicle->get('Components/VehicleComponentParams@vehicleDefinition');
 
@@ -187,6 +200,15 @@ final class VehicleService extends BaseService
 
     private function parseVehicle(string $vehiclePath, string $modificationName): Vehicle
     {
+        $cacheKey = $vehiclePath.'|'.$modificationName;
+
+        if (isset(self::$documentCache[$cacheKey])) {
+            $doc = self::$documentCache[$cacheKey];
+            assert($doc instanceof Vehicle);
+
+            return $doc;
+        }
+
         $doc = new Vehicle;
         $doc->load($vehiclePath);
 
@@ -194,6 +216,8 @@ final class VehicleService extends BaseService
             $this->processPatchFile($doc, $modificationName, $vehiclePath);
             $this->processModificationElems($doc, $modificationName);
         }
+
+        self::$documentCache[$cacheKey] = $doc;
 
         return $doc;
     }

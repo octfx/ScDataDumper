@@ -47,14 +47,23 @@ class LoadVehicles extends Command
         $io->progressStart($service->count());
 
         $outDir = sprintf('%s%sships', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
+        $indexFilePath = sprintf('%s%sships.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
 
         if (! is_dir($outDir) && ! mkdir($outDir, 0777, true) && ! is_dir($outDir)) {
             throw new RuntimeException(sprintf('Directory "%s" was not created', $outDir));
         }
 
+        $indexHandle = fopen($indexFilePath, 'wb');
+        if (! $indexHandle) {
+            throw new RuntimeException('Failed to open ships index file for writing');
+        }
+
+        fwrite($indexHandle, "[\n");
+        $indexFirst = true;
+        $jsonFlags = JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT;
+
         $start = microtime(true);
 
-        $index = [];
         $nameFilter = $input->getOption('filter');
         $nameFilter = is_string($nameFilter) && $nameFilter !== '' ? strtolower($nameFilter) : null;
 
@@ -71,11 +80,19 @@ class LoadVehicles extends Command
             ];
 
             $fileName = strtolower($vehicle->entity->getClassName());
+            $filePathRaw = sprintf('%s%s%s-raw.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
+            $filePathShip = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
 
-            $index[] = $scUnpackedShip;
-            $filePath = sprintf('%s%s%s-raw.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
+            $needsWrite = $overwrite || ! file_exists($filePathShip);
 
-            if (! $overwrite && file_exists($filePath)) {
+            $encodedShip = json_encode($scUnpackedShip, $jsonFlags);
+            if (! $indexFirst) {
+                fwrite($indexHandle, ",\n");
+            }
+            fwrite($indexHandle, $encodedShip);
+            $indexFirst = false;
+            if (! $needsWrite) {
+
                 $io->progressAdvance();
 
                 continue;
@@ -84,7 +101,7 @@ class LoadVehicles extends Command
             try {
                 if ($withRaw) {
                     $jsonRaw = json_encode($out, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
-                    if (! $this->writeJsonFile($filePath, $jsonRaw, $io)) {
+                    if (! $this->writeJsonFile($filePathRaw, $jsonRaw, $io)) {
                         $io->warning(sprintf('Skipping vehicle %s due to write failure', $fileName));
                         $io->progressAdvance();
 
@@ -92,9 +109,7 @@ class LoadVehicles extends Command
                     }
                 }
 
-                $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
-                $jsonShip = json_encode($scUnpackedShip, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
-                if (! $this->writeJsonFile($filePath, $jsonShip, $io)) {
+                if (! $this->writeJsonFile($filePathShip, $encodedShip, $io)) {
                     $io->warning(sprintf('Skipping formatted vehicle %s due to write failure', $fileName));
                     $io->progressAdvance();
 
@@ -118,20 +133,8 @@ class LoadVehicles extends Command
             'Path: '.$input->getArgument('jsonOutPath')
         ));
 
-        $filePath = sprintf('%s%sships.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
-
-        try {
-            $json = json_encode($index, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
-            if (! $this->writeJsonFile($filePath, $json, $io)) {
-                $io->error('Failed to write ships index file');
-
-                return Command::FAILURE;
-            }
-        } catch (JsonException $e) {
-            $io->error(sprintf('Failed to encode ships index: %s', $e->getMessage()));
-
-            return Command::FAILURE;
-        }
+        fwrite($indexHandle, "\n]\n");
+        fclose($indexHandle);
 
         return Command::SUCCESS;
     }
