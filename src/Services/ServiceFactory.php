@@ -65,6 +65,12 @@ final class ServiceFactory
         self::$services['ConsumableSubtypeService'] = new ConsumableSubtypeService($this->scDataPath);
         self::$services['ConsumableSubtypeService']->initialize();
 
+        self::$services['MaterialStatService'] = new MaterialStatService($this->scDataPath);
+        self::$services['MaterialStatService']->initialize();
+
+        self::$services['BlueprintService'] = new BlueprintService($this->scDataPath);
+        self::$services['BlueprintService']->initialize();
+
         self::$initialized = true;
     }
 
@@ -141,6 +147,16 @@ final class ServiceFactory
     public static function getConsumableSubtypeService(): ConsumableSubtypeService
     {
         return self::getService('ConsumableSubtypeService');
+    }
+
+    public static function getMaterialStatService(): MaterialStatService
+    {
+        return self::getService('MaterialStatService');
+    }
+
+    public static function getBlueprintService(): BlueprintService
+    {
+        return self::getService('BlueprintService');
     }
 
     private static function getService(string $serviceName): mixed

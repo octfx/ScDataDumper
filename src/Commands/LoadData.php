@@ -129,6 +129,26 @@ class LoadData extends Command
             return $result;
         }
 
+        $io->section('Loading Tags');
+        $result = $runCommand('load:tags', [
+            'scDataPath' => $scDataPath,
+            'jsonOutPath' => $jsonOutPath,
+        ]);
+
+        if ($result !== Command::SUCCESS) {
+            return $result;
+        }
+
+        $io->section('Loading Blueprints');
+        $result = $runCommand('load:blueprints', [
+            'scDataPath' => $scDataPath,
+            'jsonOutPath' => $jsonOutPath,
+        ]);
+
+        if ($result !== Command::SUCCESS) {
+            return $result;
+        }
+
         $io->success('All data loaded successfully');
 
         return Command::SUCCESS;
