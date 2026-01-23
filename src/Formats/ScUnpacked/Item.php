@@ -130,6 +130,7 @@ final class Item extends BaseFormat
                 'QuantumInterdictionGenerator' => new QuantumInterdictionGenerator($this->item),
                 'Radar' => new Radar($this->item),
                 'SelfDestruct' => new SelfDestruct($this->item),
+                'SensorMine' => new SensorMine($this->item),
                 'Shield' => new Shield($this->item),
                 'ShieldController' => new ShieldController($this->item),
                 'SalvageModifier' => new SalvageModifier($this->item),

@@ -5,7 +5,7 @@ namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 
-final class Grenade extends BaseFormat
+class Grenade extends BaseFormat
 {
     public function toArray(): ?array
     {
@@ -31,19 +31,19 @@ final class Grenade extends BaseFormat
         ]);
     }
 
-    private function extractDamageData($damageInfo): array
+    protected function extractDamageData($damageInfo): array
     {
         if ($damageInfo === null) {
             return [null, null];
         }
 
         $damageValues = array_filter([
-            'Physical' => $damageInfo->get('DamagePhysical'),
-            'Energy' => $damageInfo->get('DamageEnergy'),
-            'Distortion' => $damageInfo->get('DamageDistortion'),
-            'Thermal' => $damageInfo->get('DamageThermal'),
-            'Biochemical' => $damageInfo->get('DamageBiochemical'),
-            'Stun' => $damageInfo->get('DamageStun'),
+            'Physical' => $damageInfo->get('@DamagePhysical'),
+            'Energy' => $damageInfo->get('@DamageEnergy'),
+            'Distortion' => $damageInfo->get('@DamageDistortion'),
+            'Thermal' => $damageInfo->get('@DamageThermal'),
+            'Biochemical' => $damageInfo->get('@DamageBiochemical'),
+            'Stun' => $damageInfo->get('@DamageStun'),
         ], static fn ($value) => $value !== null);
 
         if ($damageValues === []) {
