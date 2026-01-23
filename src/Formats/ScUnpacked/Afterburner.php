@@ -47,12 +47,8 @@ class Afterburner extends BaseFormat
     }
 
     /**
-     * @param float $capacitorMax
-     * @param float $regenPerSec
-     * @param float $delayAfterUse
-     * @param float|null $powerMultiplier Power multiplier for regen rate (default 1 = 100%)
-     * @param float|null $startFrom Capacitor start value (default 0 = Empty, max = capacitorMax)
-     * @return float
+     * @param  float|null  $powerMultiplier  Power multiplier for regen rate (default 1 = 100%)
+     * @param  float|null  $startFrom  Capacitor start value (default 0 = Empty, max = capacitorMax)
      */
     private function calculateRegenTime(float $capacitorMax, float $regenPerSec, float $delayAfterUse, ?float $powerMultiplier = 1, ?float $startFrom = 0): float
     {

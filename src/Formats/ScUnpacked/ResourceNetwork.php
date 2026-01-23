@@ -3,6 +3,7 @@
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class ResourceNetwork extends BaseFormat
@@ -367,7 +368,7 @@ final class ResourceNetwork extends BaseFormat
         $isGenerator = $onlineState->has('/deltas/ItemResourceDeltaGeneration');
         $powerDelta = null;
 
-        foreach ($onlineState->get('/deltas')?->children() as $delta) {
+        foreach (($onlineState->get('/deltas')?->children() ?? []) as $delta) {
             if ($delta->get('/consumption@resource') === 'Power' || ($isGenerator && $delta->get('/generation@resource') === 'Power')) {
                 $powerDelta = $delta;
                 break;
@@ -405,13 +406,19 @@ final class ResourceNetwork extends BaseFormat
             }
         }
 
+        $type = null;
+        $node = $this->item->getNode();
+        if ($node instanceof RootDocument) {
+            $type = $node->getType();
+        }
+
         return [
             'Power' => [
                 'Minimum' => $powerUsageMin ? round($powerUsageMin, 3) : null,
                 'Maximum' => $powerUsageMax ? round($powerUsageMax, 3) : null,
             ],
             'Coolant' => [
-                'Minimum' => $this->item->getType() === 'QuantumDrive' ? 0 : round($powerUsageMin * $lowPowerRange, 3),
+                'Minimum' => $type === 'QuantumDrive' ? 0 : round($powerUsageMin * $lowPowerRange, 3),
                 'Maximum' => $powerUsageMax ? round($powerUsageMax, 3) : null,
             ],
         ];
