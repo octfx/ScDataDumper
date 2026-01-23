@@ -4,3 +4,5 @@ sc-data
 CLAUDE.md
 AGENTS.md
 /ref
+.sisyphus
+.phpunit.result.cache
