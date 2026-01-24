@@ -84,26 +84,6 @@ final class Ship extends BaseFormat
 
         $manufacturer = ServiceFactory::getManufacturerService()->getByReference($manufacturerRef);
 
-        // Debug: Trace $isVehicle detection for Ballista
-        if ($this->item->getUuid() === 'a04a1503-ac5c-4520-bc22-4b1a1a198eff') {
-            $vehicleCareer = $this->item->get('Components/VehicleComponentParams@vehicleCareer');
-            $subTypeFromItem = $this->item->get('Components/SAttachableComponentParams/AttachDef@SubType');
-            $subTypeFromVehicleComponent = $vehicleComponent->get('@SubType');
-            $movementClass = $this->item->get('Components/VehicleComponentParams@movementClass');
-
-            dump([
-                'DEBUG Ballista $isVehicle detection' => [
-                    'UUID' => $this->item->getUuid(),
-                    'ClassName' => $this->item->getClassName(),
-                    'vehicleCareer' => $vehicleCareer,
-                    'SubType (from item->get)' => $subTypeFromItem,
-                    'SubType (from vehicleComponent->get)' => $subTypeFromVehicleComponent,
-                    'movementClass' => $movementClass,
-                    'vehicleComponent type' => $vehicleComponent?->nodeName,
-                ],
-            ]);
-        }
-
         $subType = $this->item->get('Components/SAttachableComponentParams/AttachDef@SubType');
         $vehicleCareer = $this->item->get('Components/VehicleComponentParams@vehicleCareer', '');
         $movementClass = $this->item->get('Components/VehicleComponentParams@movementClass');
