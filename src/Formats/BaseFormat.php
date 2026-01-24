@@ -68,8 +68,13 @@ abstract class BaseFormat
         $lookupKey = $key ?? $this->elementKey;
 
         if ($local && $lookupKey !== null && ! str_contains($lookupKey, '/') && ! str_contains($lookupKey, '@')) {
-            // Force lookup to be treated as a child element of the current node, not an attribute on the root item
             $lookupKey = '/'.$lookupKey;
+        }
+
+        // FIX: Handle attribute queries on RootDocument by delegating to documentElement
+        if ($this->item instanceof RootDocument && str_starts_with($lookupKey, '@')) {
+            $element = new Element($this->item->documentElement);
+            return $element->get($lookupKey, $default);
         }
 
         return $this->item->get($lookupKey, $default);

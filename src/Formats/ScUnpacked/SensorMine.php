@@ -30,7 +30,7 @@ final class SensorMine extends Grenade
         [$damageTotal, $damageType] = $this->extractDamageData($damageInfo);
 
         return $this->removeNullValues([
-            'LaserLength' => $mineSensor->get('@LaserLength'),
+            'LaserLength' => $mineSensor?->get('@LaserLength'),
             'AreaOfEffect' => $explosion->get('@maxRadius') ?? $explosion->get('@maxPhysRadius'),
             'MinAreaOfEffect' => $explosion->get('@minRadius'),
             'DamageType' => $damageType ?? $explosion->get('@hitType'),
