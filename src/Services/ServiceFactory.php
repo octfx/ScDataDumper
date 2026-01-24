@@ -68,9 +68,6 @@ final class ServiceFactory
         self::$services['MaterialStatService'] = new MaterialStatService($this->scDataPath);
         self::$services['MaterialStatService']->initialize();
 
-        self::$services['BlueprintService'] = new BlueprintService($this->scDataPath);
-        self::$services['BlueprintService']->initialize();
-
         self::$initialized = true;
     }
 

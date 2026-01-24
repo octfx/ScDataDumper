@@ -84,7 +84,33 @@ final class Ship extends BaseFormat
 
         $manufacturer = ServiceFactory::getManufacturerService()->getByReference($manufacturerRef);
 
-        $isVehicle = $this->item->get('Components/VehicleComponentParams@vehicleCareer') === '@vehicle_focus_ground' || $vehicleComponent->get('@SubType') === 'Vehicle_GroundVehicle';
+        // Debug: Trace $isVehicle detection for Ballista
+        if ($this->item->getUuid() === 'a04a1503-ac5c-4520-bc22-4b1a1a198eff') {
+            $vehicleCareer = $this->item->get('Components/VehicleComponentParams@vehicleCareer');
+            $subTypeFromItem = $this->item->get('Components/SAttachableComponentParams/AttachDef@SubType');
+            $subTypeFromVehicleComponent = $vehicleComponent->get('@SubType');
+            $movementClass = $this->item->get('Components/VehicleComponentParams@movementClass');
+
+            dump([
+                'DEBUG Ballista $isVehicle detection' => [
+                    'UUID' => $this->item->getUuid(),
+                    'ClassName' => $this->item->getClassName(),
+                    'vehicleCareer' => $vehicleCareer,
+                    'SubType (from item->get)' => $subTypeFromItem,
+                    'SubType (from vehicleComponent->get)' => $subTypeFromVehicleComponent,
+                    'movementClass' => $movementClass,
+                    'vehicleComponent type' => $vehicleComponent?->nodeName,
+                ],
+            ]);
+        }
+
+        $subType = $this->item->get('Components/SAttachableComponentParams/AttachDef@SubType');
+        $vehicleCareer = $this->item->get('Components/VehicleComponentParams@vehicleCareer', '');
+        $movementClass = $this->item->get('Components/VehicleComponentParams@movementClass');
+
+        $isVehicle = $subType === 'Vehicle_GroundVehicle' ||
+                     $movementClass === 'ArcadeWheeled' ||
+                     str_contains($vehicleCareer, 'ground');
         $isGravlevValue = $this->item->get('Components/VehicleComponentParams@isGravlevVehicle');
         $isGravlev = filter_var($isGravlevValue, FILTER_VALIDATE_BOOLEAN) || (is_numeric($isGravlevValue) && (float) $isGravlevValue > 0);
 
