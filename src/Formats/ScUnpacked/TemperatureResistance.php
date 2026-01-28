@@ -16,6 +16,6 @@ final class TemperatureResistance extends BaseFormat
 
         $resistance = $this->get();
 
-        return (new MinMax($resistance, 'MinResistance', 'MaxResistance'))->toArray();
+        return new MinMax($resistance, '@MinResistance', '@MaxResistance')->toArray();
     }
 }

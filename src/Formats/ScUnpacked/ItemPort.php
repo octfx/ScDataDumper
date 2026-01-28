@@ -128,14 +128,14 @@ class ItemPort extends BaseFormat
     {
         $types = [];
 
-        foreach ($port->get('/Types')?->children() ?? [] as $portType) {
+        foreach ($port->get('Types')?->children() ?? [] as $portType) {
             $major = $this instanceof VehiclePartPort
                 ? $portType->get('@type')
                 : $portType->get('@Type');
 
             $subtypeKey = $this instanceof VehiclePartPort ? '@subtypes' : '@SubTypes';
             /** @var Element $subTypesElement */
-            $subTypesElement = $portType->get('/SubTypes');
+            $subTypesElement = $portType->get('SubTypes');
 
             $hasSubTypes = $subTypesElement !== null && $subTypesElement->getNode()->childNodes->count() > 0;
             $hasSubTypeAttr = ! empty($portType->get($subtypeKey));
@@ -145,7 +145,7 @@ class ItemPort extends BaseFormat
             } else {
                 if ($hasSubTypes) {
                     foreach ($subTypesElement->children() as $subType) {
-                        $minor = $subType->get('value');
+                        $minor = $subType->get('@value');
                         if (! empty($minor)) {
                             $types[] = Item::buildTypeName($major, $minor);
                         }
@@ -176,7 +176,7 @@ class ItemPort extends BaseFormat
     {
         $compatibleTypes = [];
 
-        foreach ($port->get('/Types')?->children() ?? [] as $portType) {
+        foreach ($port->get('Types')?->children() ?? [] as $portType) {
             $major = $this instanceof VehiclePartPort
                 ? $portType->get('@type')
                 : $portType->get('@Type');
@@ -187,13 +187,13 @@ class ItemPort extends BaseFormat
 
             $subtypeKey = $this instanceof VehiclePartPort ? '@subtypes' : '@SubTypes';
             /** @var Element $subTypesElement */
-            $subTypesElement = $portType->get('/SubTypes');
+            $subTypesElement = $portType->get('SubTypes');
 
             $subTypes = [];
 
             if ($subTypesElement !== null && $subTypesElement->getNode()->childNodes->count() > 0) {
                 foreach ($subTypesElement->children() as $subType) {
-                    $value = $subType->get('value');
+                    $value = $subType->get('@value');
                     if (! empty($value)) {
                         $subTypes[] = $value;
                     }

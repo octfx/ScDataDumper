@@ -24,15 +24,15 @@ final class ResourceContainer extends BaseFormat
         $component = $this->get();
 
         $data = [
-            'Mass' => $component->get('mass'),
-            'Immutable' => (bool) $component->get('immutable'),
-            'DefaultFillFraction' => $component->get('defaultCompositionFillFactor'),
-            'Capacity' => $this->parseCapacity($component->get('/capacity')),
-            'InclusiveResources' => $this->parseReferences($component->get('/inclusiveResources')),
-            'ExclusiveResources' => $this->parseReferences($component->get('/exclusiveResources')),
-            'InclusiveGroups' => $this->parseReferences($component->get('/inclusiveGroups')),
-            'ExclusiveGroups' => $this->parseReferences($component->get('/exclusiveGroups')),
-            'DefaultComposition' => $this->parseDefaultComposition($component->get('/defaultComposition')),
+            'Mass' => $component->get('@mass'),
+            'Immutable' => (bool) $component->get('@immutable'),
+            'DefaultFillFraction' => $component->get('@defaultCompositionFillFactor'),
+            'Capacity' => $this->parseCapacity($component->get('capacity')),
+            'InclusiveResources' => $this->parseReferences($component->get('inclusiveResources')),
+            'ExclusiveResources' => $this->parseReferences($component->get('exclusiveResources')),
+            'InclusiveGroups' => $this->parseReferences($component->get('inclusiveGroups')),
+            'ExclusiveGroups' => $this->parseReferences($component->get('exclusiveGroups')),
+            'DefaultComposition' => $this->parseDefaultComposition($component->get('defaultComposition')),
         ];
 
         $data = $this->clean($data);
@@ -47,9 +47,9 @@ final class ResourceContainer extends BaseFormat
         }
 
         foreach ($capacity->children() as $unit) {
-            $value = $unit->get('standardCargoUnits')
-                ?? $unit->get('centiSCU')
-                ?? $unit->get('microSCU');
+            $value = $unit->get('@standardCargoUnits')
+                ?? $unit->get('@centiSCU')
+                ?? $unit->get('@microSCU');
 
             return $this->clean([
                 'Unit' => $unit->nodeName,
@@ -71,7 +71,7 @@ final class ResourceContainer extends BaseFormat
         $out = [];
 
         foreach ($element->children() as $reference) {
-            $value = $reference->get('value');
+            $value = $reference->get('@value');
 
             if ($value !== null) {
                 $out[] = $value;
@@ -91,8 +91,8 @@ final class ResourceContainer extends BaseFormat
 
         foreach ($composition->children() as $entry) {
             $out[] = $this->clean([
-                'Entry' => $entry->get('entry'),
-                'Weight' => $entry->get('weight'),
+                'Entry' => $entry->get('@entry'),
+                'Weight' => $entry->get('@weight'),
             ]);
         }
 

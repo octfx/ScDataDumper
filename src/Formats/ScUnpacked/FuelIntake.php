@@ -17,8 +17,8 @@ final class FuelIntake extends BaseFormat
         $intake = $this->get();
 
         $flow = array_filter([
-            'FuelPushRate' => $intake?->get('fuelPushRate') !== null ? (float) $intake->get('fuelPushRate') : null,
-            'MinimumRate' => $intake?->get('minimumRate') !== null ? (float) $intake->get('minimumRate') : null,
+            'FuelPushRate' => $intake?->has('@fuelPushRate') ? (float) $intake->get('@fuelPushRate') : null,
+            'MinimumRate' => $intake?->has('@minimumRate') ? (float) $intake->get('@minimumRate') : null,
         ], static fn ($value) => $value !== null);
 
         if (empty($flow)) {

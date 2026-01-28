@@ -23,9 +23,9 @@ final class DimensionOverrides extends BaseFormat
         return [
             ...new Vec3($override, ['x' => 'Width', 'y' => 'Length', 'z' => 'Height'])->toArray(),
             'Volume' => ScuCalculator::fromDimensions([
-                'x' => $override->get('x'),
-                'y' => $override->get('y'),
-                'z' => $override->get('z'),
+                'x' => $override->get('@x'),
+                'y' => $override->get('@y'),
+                'z' => $override->get('@z'),
             ]),
         ];
     }

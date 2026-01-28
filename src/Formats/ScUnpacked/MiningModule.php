@@ -20,21 +20,21 @@ final class MiningModule extends BaseFormat
 
         /** @var Element|null $component */
         $component = $this->get();
-        $modifiersRoot = $component?->get('/modifiers');
+        $modifiersRoot = $component?->get('modifiers');
 
-        $miningParamsRoot = $modifiersRoot?->get('/ItemMiningModifierParams')
-            ?? $modifiersRoot?->get('/ItemMineableRockModifierParams');
+        $miningParamsRoot = $modifiersRoot?->get('ItemMiningModifierParams')
+            ?? $modifiersRoot?->get('ItemMineableRockModifierParams');
 
-        $miningModifiers = $modifiersRoot?->get('/ItemMiningModifierParams/MiningLaserModifier')
-            ?? $modifiersRoot?->get('/ItemMineableRockModifierParams/MiningLaserModifier');
+        $miningModifiers = $modifiersRoot?->get('ItemMiningModifierParams/MiningLaserModifier')
+            ?? $modifiersRoot?->get('ItemMineableRockModifierParams/MiningLaserModifier');
 
-        $filterParams = $modifiersRoot?->get('/MiningFilterItemModifierParams/filterParams');
+        $filterParams = $modifiersRoot?->get('MiningFilterItemModifierParams/filterParams');
 
         $charges = $component?->get('@charges');
 
-        $lifetime = $miningParamsRoot?->get('/modifierLifetime/ItemModifierTimedLife@lifetime')
-            ?? $modifiersRoot?->get('/ItemMiningModifierParams/modifierLifetime/ItemModifierTimedLife@lifetime')
-            ?? $modifiersRoot?->get('/ItemMineableRockModifierParams/modifierLifetime/ItemModifierTimedLife@lifetime');
+        $lifetime = $miningParamsRoot?->get('modifierLifetime/ItemModifierTimedLife@lifetime')
+            ?? $modifiersRoot?->get('ItemMiningModifierParams/modifierLifetime/ItemModifierTimedLife@lifetime')
+            ?? $modifiersRoot?->get('ItemMineableRockModifierParams/modifierLifetime/ItemModifierTimedLife@lifetime');
 
         $weaponModifier = null;
         foreach ($modifiersRoot?->children() ?? [] as $node) {
@@ -43,7 +43,7 @@ final class MiningModule extends BaseFormat
             }
 
             if ((int) $node->get('@showInUI') === 1) {
-                $weaponModifier = $node->get('/weaponModifier/weaponStats');
+                $weaponModifier = $node->get('weaponModifier/weaponStats');
                 break;
             }
         }

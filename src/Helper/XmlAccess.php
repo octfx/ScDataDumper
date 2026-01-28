@@ -11,14 +11,45 @@ trait XmlAccess
     protected ?DOMXPath $domXPath = null;
 
     /**
-     * Retrieve a child or attribute by xPath, e.g. `Components/AttachDef` to retrieve the `AttachDef` child from `Components`.
-     * Or `Components/AttachDef@Type` to retrieve the value of `Type` from AttachDef
+     * Retrieve the first matching element or attribute using an XPath-like query.
      *
-     * When not specifying a path i.e. no `/` is found in `$xPath` this method assumes that an attribute shall be retrieved.
+     * The query is evaluated with the current element as the context node (if this trait is used
+     * in Element) or the document element otherwise. This means:
+     * - Relative paths (e.g. "Components/AttachDef") are scoped to the current element.
+     * - Absolute paths (e.g. "/Root/Components/AttachDef") are scoped to the document root.
      *
-     * Queries are always scoped to the current element, the path to the current node is prepended to each `$xPath`.
+     * Attribute lookups are indicated with an @ segment outside predicates. Examples:
+     * - "@Code" (attribute on current element)
+     * - "Components/AttachDef@Type" (attribute on child element)
+     * - "Components/AttachDef/@Type" (also supported)
      *
-     * @return float|Element|string|null
+     * @ signs inside predicates are ignored when splitting (e.g. "Item[@Type='Weapon']@Code").
+     *
+     * Behavior and edge cases:
+     * - Only the first matching node is returned; this method does not return NodeLists.
+     * - If no node/attribute matches, $default is returned.
+     * - Numeric attribute values are cast to float.
+     * - If the query is only an attribute (e.g. "@Code"), the current node is used as the query.
+     *
+     * @param  string  $xPath  XPath-like query relative to the current node.
+     * @param  mixed  $default  Returned when the query/attribute does not match.
+     * @return float|Element|string|null Element for element queries, string/float for attributes, or $default.
+     *
+     * @example <caption>Element Query</caption>
+     * $component = $element->get('Components/AttachDef');
+     * // Returns: Element for AttachDef (first match)
+     * @example <caption>Attribute Query</caption>
+     * $type = $element->get('Components/AttachDef@Type');
+     * // Returns: "Weapon" (string) or 1.0 (float) if numeric
+     *
+     * $code = $element->get('@Code');
+     * // Returns: attribute from current element
+     * @example <caption>Predicate and Defaults</caption>
+     * $weapon = $element->get("Components/AttachDef[@Type='Weapon']");
+     * // Returns: first AttachDef with Type=Weapon
+     *
+     * $missing = $element->get('Does/Not/Exist', 'fallback');
+     * // Returns: "fallback"
      */
     public function get(string $xPath, $default = null): mixed
     {
@@ -26,24 +57,20 @@ trait XmlAccess
             $this->initXPath();
         }
 
-        // When no slash is present and no @ is specified assume that this query is for an attribute
-        if (! str_contains($xPath, '@') && ! str_contains($xPath, '/')) {
-            $xPath = '@'.$xPath;
-        }
-
-        // Split attribute and query
         [$query, $attribute] = $this->splitXPathAttribute($xPath);
 
-        // When querying from an element prefix the xpath by the node path so that each query is scoped to the current element
-        if ($this instanceof Element) {
-            $query = rtrim($this->getNode()->getNodePath().'/'.ltrim($query, '/'), '/');
+        // Use XPath context node for correct semantics of /, //, and ./ queries
+        $document = $this->getDomDocument();
+        $contextNode = $this instanceof Element
+            ? $this->getNode()
+            : ($document->documentElement ?? $document);
+
+        // When querying only an attribute (e.g. "@name"), use the current context node
+        if ($query === '') {
+            $query = '.';
         }
 
-        if (empty($query)) {
-            $query = '/';
-        }
-
-        $nodes = $this->domXPath->query($query);
+        $nodes = $this->domXPath->query($query, $contextNode);
 
         if ($nodes !== false && $nodes->length > 0) {
             $node = $nodes->item(0);

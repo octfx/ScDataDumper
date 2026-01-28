@@ -62,9 +62,9 @@ final class WeaponAttachment extends BaseFormat
             return [];
         }
 
-        $max = $ammo->get('maxAmmoCount');
+        $max = $ammo->get('@maxAmmoCount');
         if ($max === 0) {
-            $max = $ammo->get('maxRestockCount');
+            $max = $ammo->get('@maxRestockCount');
         }
 
         $data = [
@@ -138,11 +138,11 @@ final class WeaponAttachment extends BaseFormat
         }
 
         $component = $this->item->get('Components/SWeaponModifierComponentParams');
-        $weaponStats = $component?->get('/modifier/weaponStats');
-        $recoil = $weaponStats?->get('/recoilModifier');
-        $aimRecoil = $recoil?->get('/aimRecoilModifier');
+        $weaponStats = $component?->get('modifier/weaponStats');
+        $recoil = $weaponStats?->get('recoilModifier');
+        $aimRecoil = $recoil?->get('aimRecoilModifier');
 
-        $fireEffects = $component?->get('/fireEffects');
+        $fireEffects = $component?->get('fireEffects');
         $flashScale = null;
         $flashDelay = null;
 
@@ -282,8 +282,8 @@ final class WeaponAttachment extends BaseFormat
                 continue;
             }
 
-            $defaultState = $light->get('/defaultState');
-            $color = $defaultState?->get('/color')?->attributesToArray(pascalCase: true) ?? [];
+            $defaultState = $light->get('defaultState');
+            $color = $defaultState?->get('color')?->attributesToArray(pascalCase: true) ?? [];
             $useTemperature = (float) ($light->get('@useTemperature') ?? 0);
             $resolvedClassName = $className ?: $item->getClassName();
 

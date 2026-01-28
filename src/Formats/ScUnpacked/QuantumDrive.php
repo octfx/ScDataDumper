@@ -23,12 +23,12 @@ final class QuantumDrive extends BaseFormat
 
         $quantum = $this->get();
 
-        $rawRequirement = $quantum->get('quantumFuelRequirement');
+        $rawRequirement = $quantum->get('@quantumFuelRequirement');
         $consumptionPerGm = $this->getFuelConsumptionPerGm($rawRequirement);
 
-        $standardParams = $quantum->get('/params');
-        $splineParams = $quantum->get('/splineJumpParams');
-        $driveSpeed = $standardParams?->get('driveSpeed');
+        $standardParams = $quantum->get('params');
+        $splineParams = $quantum->get('splineJumpParams');
+        $driveSpeed = $standardParams?->get('@driveSpeed');
 
         $standardTravelSeconds10Gm = $this->estimateTravelTimeSeconds($standardParams, self::DEFAULT_DISTANCE_GM);
 
@@ -38,8 +38,8 @@ final class QuantumDrive extends BaseFormat
             'FuelRate' => $this->formatFuelRate($rawRequirement),
             'StandardJump' => new JumpPerformance($standardParams),
             'SplineJump' => new JumpPerformance($splineParams),
-            'Heat' => $this->formatHeat($quantum->get('/heatParams')),
-            'Boost' => $this->formatBoost($quantum->get('/quantumBoostParams')),
+            'Heat' => $this->formatHeat($quantum->get('heatParams')),
+            'Boost' => $this->formatBoost($quantum->get('quantumBoostParams')),
 
             'FuelConsumptionSCUPerGM' => $consumptionPerGm,
             'FuelEfficiencyGMPerSCU' => $this->formatFuelEfficiencyGmPerScu($consumptionPerGm, $driveSpeed),
@@ -145,9 +145,9 @@ final class QuantumDrive extends BaseFormat
             return null;
         }
 
-        $vmax = (float) $jumpParams->get('driveSpeed');
-        $a1 = (float) $jumpParams->get('stageOneAccelRate');
-        $a2 = (float) $jumpParams->get('stageTwoAccelRate');
+        $vmax = (float) $jumpParams->get('@driveSpeed');
+        $a1 = (float) $jumpParams->get('@stageOneAccelRate');
+        $a2 = (float) $jumpParams->get('@stageTwoAccelRate');
 
         if ($distanceGm <= 0) {
             return 0.0;

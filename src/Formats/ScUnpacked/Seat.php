@@ -19,10 +19,10 @@ final class Seat extends BaseFormat
         $seat = $this->get();
 
         $data = [
-            'SeatType' => $seat->get('seatType'),
-            'Yaw' => new MinMax($seat, 'minYaw', 'maxYaw'),
-            'Pitch' => new MinMax($seat, 'minPitch', 'maxPitch'),
-            'SetYawPitchLimits' => $this->boolOrNull($seat->get('setYawPitchLimits')),
+            'SeatType' => $seat->get('@seatType'),
+            'Yaw' => new MinMax($seat, '@minYaw', '@maxYaw'),
+            'Pitch' => new MinMax($seat, '@minPitch', '@maxPitch'),
+            'SetYawPitchLimits' => $this->boolOrNull($seat->get('@setYawPitchLimits')),
             'HasEjection' => $seat->has('ejection/SCItemSeatEjectParams', 'SCItemSeatEjectParams'),
             'Ejection' => $this->formatEjection($seat),
             'ActorAttachment' => $this->formatActorAttachment($seat),

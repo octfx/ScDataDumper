@@ -1,0 +1,30 @@
+<SLoadoutAssortment.Human_Pirate_Bounty_Easy __type="SLoadoutAssortment" __ref="bab3e59c-3c64-4371-85ac-e61ef3549abc" __path="libs/foundry/records/loadoutkits/pu/bountyhunterv2/bountycharacters/human-pirate-bounty_easy.xml">
+  <Requirement />
+  <GroupedLoadouts>
+    <SGroupedLoadouts Group="Outfit" __type="SGroupedLoadouts">
+      <Requirement />
+      <Loadouts>
+        <SItemPortLoadoutRecordParams loadoutRecord="80aea3e1-807e-410e-b47f-6fc442908814" __type="SItemPortLoadoutBaseParams" __polymorphicType="SItemPortLoadoutRecordParams">
+          <WearRange />
+          <DirtRange />
+          <InventoryItems />
+        </SItemPortLoadoutRecordParams>
+        <SItemPortLoadoutRecordParams loadoutRecord="f7c0b47b-19a9-4e7f-9dc5-aa2420a562b9" __type="SItemPortLoadoutBaseParams" __polymorphicType="SItemPortLoadoutRecordParams">
+          <WearRange />
+          <DirtRange />
+          <InventoryItems />
+        </SItemPortLoadoutRecordParams>
+      </Loadouts>
+    </SGroupedLoadouts>
+    <SGroupedLoadouts Group="PrimaryWeapon" __type="SGroupedLoadouts">
+      <Requirement />
+      <Loadouts>
+        <SItemPortLoadoutRecordParams loadoutRecord="a8a61073-2328-4a81-86e6-aaf3e5090f12" __type="SItemPortLoadoutBaseParams" __polymorphicType="SItemPortLoadoutRecordParams">
+          <WearRange />
+          <DirtRange />
+          <InventoryItems />
+        </SItemPortLoadoutRecordParams>
+      </Loadouts>
+    </SGroupedLoadouts>
+  </GroupedLoadouts>
+</SLoadoutAssortment.Human_Pirate_Bounty_Easy>

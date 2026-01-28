@@ -21,14 +21,20 @@ abstract class AbstractWeapon extends BaseFormat
         $ammunition = new Ammunition($this->item);
         $ammunitionArray = $ammunition->toArray();
 
+        $magazine = $this->buildMagazine();
+        $capacity = is_array($ammunitionArray) ? ($ammunitionArray['Capacity'] ?? null) : null;
+        if ($capacity === null && is_array($magazine)) {
+            $capacity = $magazine['MaxAmmoCount'] ?? null;
+        }
+
         $out = [
             'Size' => $this->item->get('Components/SAttachableComponentParams/AttachDef@Size'),
             'WeaponType' => $this->item->get('Components/SAttachableComponentParams/AttachDef@Type'),
             'WeaponClass' => $this->item->get('Components/SAttachableComponentParams/AttachDef@SubType'),
             'EffectiveRange' => $this->resolveEffectiveRange($weapon, $ammunitionArray),
             'RateOfFire' => null,
-            'Capacity' => is_array($ammunitionArray) ? ($ammunitionArray['Capacity'] ?? null) : null,
-            'Magazine' => $this->buildMagazine(),
+            'Capacity' => $capacity,
+            'Magazine' => $magazine,
             // 'Ammunition' => $ammunitionArray, // Deprecated: Use stdItem.Ammunition
             'Attachments' => $this->buildAttachments(),
             'Modes' => [],
@@ -36,7 +42,7 @@ abstract class AbstractWeapon extends BaseFormat
             'Knife' => new MeleeWeapon($this->item),
         ];
 
-        foreach ($weapon->get('/fireActions')?->children() as $action) {
+        foreach ($weapon->get('fireActions')?->children() as $action) {
             $mode = new WeaponMode($action);
             if (! $mode->canTransform()) {
                 continue;
@@ -109,10 +115,10 @@ abstract class AbstractWeapon extends BaseFormat
     private function extractLauncherParams(Element $action): ?Element
     {
         return match ($action->nodeName) {
-            'SWeaponActionFireChargedParams' => $action->get('/weaponAction/SWeaponActionFireSingleParams/launchParams/SProjectileLauncher')
-                ?? $action->get('/weaponAction/SWeaponActionFireBurstParams/launchParams/SProjectileLauncher'),
-            'SWeaponActionSequenceParams' => $action->get('/sequenceEntries/SWeaponSequenceEntryParams/weaponAction/SWeaponActionFireSingleParams/launchParams/SProjectileLauncher'),
-            default => $action->get('/launchParams/SProjectileLauncher'),
+            'SWeaponActionFireChargedParams' => $action->get('weaponAction/SWeaponActionFireSingleParams/launchParams/SProjectileLauncher')
+                ?? $action->get('weaponAction/SWeaponActionFireBurstParams/launchParams/SProjectileLauncher'),
+            'SWeaponActionSequenceParams' => $action->get('sequenceEntries/SWeaponSequenceEntryParams/weaponAction/SWeaponActionFireSingleParams/launchParams/SProjectileLauncher'),
+            default => $action->get('launchParams/SProjectileLauncher'),
         };
     }
 
@@ -125,11 +131,11 @@ abstract class AbstractWeapon extends BaseFormat
         }
 
         $spread = [
-            'Minimum' => $launcher->get('/spreadParams@min'),
-            'Maximum' => $launcher->get('/spreadParams@max'),
-            'FirstAttack' => $launcher->get('/spreadParams@firstAttack'),
-            'Attack' => $launcher->get('/spreadParams@attack'),
-            'Decay' => $launcher->get('/spreadParams@decay'),
+            'Minimum' => $launcher->get('spreadParams@min'),
+            'Maximum' => $launcher->get('spreadParams@max'),
+            'FirstAttack' => $launcher->get('spreadParams@firstAttack'),
+            'Attack' => $launcher->get('spreadParams@attack'),
+            'Decay' => $launcher->get('spreadParams@decay'),
         ];
 
         return $this->removeNullValues($spread);
@@ -137,7 +143,7 @@ abstract class AbstractWeapon extends BaseFormat
 
     private function extractAdsSpread(Element $weapon, array $baseSpread): array
     {
-        $modifier = $weapon->get('/aimAction/SWeaponActionAimSimpleParams/aimModifier/SWeaponModifierParams/weaponStats/spreadModifier');
+        $modifier = $weapon->get('aimAction/SWeaponActionAimSimpleParams/aimModifier/SWeaponModifierParams/weaponStats/spreadModifier');
 
         if (! $modifier instanceof Element || $baseSpread === []) {
             return $baseSpread;
@@ -192,7 +198,7 @@ abstract class AbstractWeapon extends BaseFormat
             return ['Timings' => [], 'Modifier' => []];
         }
 
-        $modifier = $action->get('/maxChargeModifier');
+        $modifier = $action->get('maxChargeModifier');
 
         return [
             'Timings' => $this->removeNullValues([
@@ -319,11 +325,11 @@ abstract class AbstractWeapon extends BaseFormat
         }
 
         return [
-            'UUID' => $magazine->get('ammoParamsRecord'),
-            'Type' => $this->item->get('Components/SCItemWeaponComponentParams/Magazine/Components/SAttachableComponentParams/AttachDef/SubType'),
-            'InitialAmmoCount' => $magazine->get('initialAmmoCount'),
-            'MaxAmmoCount' => $magazine->get('maxAmmoCount'),
-            'MaxRestockCount' => $magazine->get('maxRestockCount'),
+            'UUID' => $magazine->get('@ammoParamsRecord'),
+            'Type' => $this->item->get('Components/SCItemWeaponComponentParams/Magazine/Components/SAttachableComponentParams/AttachDef@SubType'),
+            'InitialAmmoCount' => $magazine->get('@initialAmmoCount'),
+            'MaxAmmoCount' => $magazine->get('@maxAmmoCount'),
+            'MaxRestockCount' => $magazine->get('@maxRestockCount'),
         ];
     }
 

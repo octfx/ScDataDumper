@@ -39,7 +39,7 @@ final class Radar extends BaseFormat
         $radar = $this->get();
 
         $signatureList = [];
-        foreach (($radar->get('/signatureDetection')?->children() ?? []) as $sig) {
+        foreach (($radar?->get('signatureDetection')?->children() ?? []) as $sig) {
             $signatureList[] = $sig;
         }
 
@@ -59,15 +59,15 @@ final class Radar extends BaseFormat
         $rawSignatureDetection = [];
         foreach ($signatureList as $sig) {
             $rawSignatureDetection[] = [
-                'Sensitivity' => $this->toFloatOrNull($sig->get('sensitivity')),
-                'Piercing' => $this->toFloatOrNull($sig->get('piercing')),
-                'PermitPassiveDetection' => $sig->get('permitPassiveDetection'),
-                'PermitActiveDetection' => $sig->get('permitActiveDetection'),
+                'Sensitivity' => $this->toFloatOrNull($sig->get('@sensitivity')),
+                'Piercing' => $this->toFloatOrNull($sig->get('@piercing')),
+                'PermitPassiveDetection' => $sig->get('@permitPassiveDetection'),
+                'PermitActiveDetection' => $sig->get('@permitActiveDetection'),
             ];
         }
 
         return [
-            'Cooldown' => $this->toFloatOrNull($radar->get('pingProperties@cooldownTime')),
+            'Cooldown' => $this->toFloatOrNull($radar?->get('pingProperties@cooldownTime')),
 
             'Sensitivity' => $sensitivity,
             'GroundVehicleDetectionSensitivity' => $gvSensitivity,
@@ -87,7 +87,7 @@ final class Radar extends BaseFormat
 
         foreach (self::SIGNATURE_INDEX_MAP as $label => $idx) {
             $sig = $signatureList[$idx] ?? null;
-            $out[$label] = $sig ? $this->toFloatOrNull($sig->get($field)) : null;
+            $out[$label] = $sig ? $this->toFloatOrNull($sig->get('@'.$field)) : null;
         }
 
         return $out;
@@ -100,7 +100,7 @@ final class Radar extends BaseFormat
      */
     private function findSensitivityAdditionForContactGroup($radar): ?float
     {
-        $mods = $radar->get('/sensitivityModifiers/SCItemRadarSensitivityModifier')?->children() ?? [];
+        $mods = $radar->get('sensitivityModifiers/SCItemRadarSensitivityModifier')?->children() ?? [];
 
         if ($mods === null) {
             return $this->toFloatOrNull(

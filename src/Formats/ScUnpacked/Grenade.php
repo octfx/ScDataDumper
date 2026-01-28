@@ -73,12 +73,12 @@ class Grenade extends BaseFormat
         $triggerable = $this->get('Components/EntityComponentTriggerableDevicesParams');
 
         if ($triggerable instanceof Element) {
-            $explosions = $this->extractExplosions($triggerable->get('/triggers'));
+            $explosions = $this->extractExplosions($triggerable->get('triggers'));
             if ($explosions !== []) {
                 return $explosions[0];
             }
 
-            $explosions = $this->extractExplosions($triggerable->get('/aiTriggers'));
+            $explosions = $this->extractExplosions($triggerable->get('aiTriggers'));
             if ($explosions !== []) {
                 return $explosions[0];
             }
@@ -101,7 +101,7 @@ class Grenade extends BaseFormat
         $explosions = [];
 
         foreach ($section->children() as $trigger) {
-            $behavior = $trigger->get('/behavior');
+            $behavior = $trigger->get('behavior');
 
             if (! $behavior instanceof Element) {
                 continue;
@@ -112,7 +112,7 @@ class Grenade extends BaseFormat
                     continue;
                 }
 
-                $explosion = $behaviorChild->get('/explosionParams');
+                $explosion = $behaviorChild->get('explosionParams');
 
                 if ($explosion instanceof Element) {
                     $explosions[] = $explosion;

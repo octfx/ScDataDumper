@@ -61,7 +61,7 @@ final class InventoryContainerResolver
         $vehicleComponent = $vehicle->entity->get('Components/VehicleComponentParams')
             ?? $vehicle->entity->getAttachDef();
 
-        $containerRef = $vehicleComponent?->get('inventoryContainerParams');
+        $containerRef = $vehicleComponent?->get('@inventoryContainerParams');
         if (! $containerRef) {
             return;
         }

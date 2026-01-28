@@ -21,13 +21,13 @@ final class Loadout extends BaseFormat
             'Entries' => [],
         ];
 
-        if ($this->get('/InstalledItem')) {
-            $entity = EntityClassDefinition::fromNode($this->get('/InstalledItem')?->getNode()?->firstChild);
+        if ($this->get('InstalledItem')) {
+            $entity = EntityClassDefinition::fromNode($this->get('InstalledItem')?->getNode()?->firstChild);
 
-            $loadout['InstalledItem'] = (new Item($entity))->toArray();
+            $loadout['InstalledItem'] = new Item($entity)->toArray();
         }
 
-        foreach ($this->get('/entries')?->children() ?? [] as $subLoadout) {
+        foreach ($this->get('entries')?->children() ?? [] as $subLoadout) {
             if ($subLoadout->get('@skipPart') === '1') {
                 continue;
             }

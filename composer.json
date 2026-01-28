@@ -17,6 +17,11 @@
             "Octfx\\ScDataDumper\\": "src/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Octfx\\ScDataDumper\\Tests\\": "tests/"
+        }
+    },
     "scripts": {
         "pint": "pint"
     },

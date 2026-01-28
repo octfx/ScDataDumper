@@ -21,7 +21,7 @@ final class Thruster extends BaseFormat
 
         $thruster = $this->get();
 
-        $legacyBurnRate = $thruster?->get('fuelBurnRatePer10KNewton');
+        $legacyBurnRate = $thruster?->get('@fuelBurnRatePer10KNewton');
         $resourceBurnRate = $thruster?->get('fuelBurnRatePer10KNewtonRN/SStandardResourceUnit@standardResourceUnits');
 
         $burnRatePerMnLegacy = $legacyBurnRate !== null ? (float) $legacyBurnRate * 100 : null;

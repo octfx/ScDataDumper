@@ -22,14 +22,14 @@ class Afterburner extends BaseFormat
             'capacitorAssignmentInputOutputRegenNavMode',
             'capacitorAssignmentInputOutputUsage',
         ], pascalCase: true) + [
-            'AccelerationMultiplierPositive' => new Vec3($afterburner->get('/afterburnAccelMultiplierPositive'))->toArray(),
-            'AccelerationMultiplierNegative' => new Vec3($afterburner->get('/afterburnAccelMultiplierNegative'))->toArray(),
-            'AngularMultiplier' => new Vec3($afterburner->get('/afterburnAngVelocityMultiplier'), [
+            'AccelerationMultiplierPositive' => new Vec3($afterburner->get('afterburnAccelMultiplierPositive'))->toArray(),
+            'AccelerationMultiplierNegative' => new Vec3($afterburner->get('afterburnAccelMultiplierNegative'))->toArray(),
+            'AngularMultiplier' => new Vec3($afterburner->get('afterburnAngVelocityMultiplier'), [
                 'x' => 'Pitch',
                 'y' => 'Roll',
                 'z' => 'Yaw',
             ])->toArray(),
-            'AngularAccelerationMultiplier' => new Vec3($afterburner->get('/afterburnAngAccelMultiplier'), [
+            'AngularAccelerationMultiplier' => new Vec3($afterburner->get('afterburnAngAccelMultiplier'), [
                 'x' => 'Pitch',
                 'y' => 'Roll',
                 'z' => 'Yaw',

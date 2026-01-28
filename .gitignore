@@ -6,3 +6,6 @@ AGENTS.md
 /ref
 .sisyphus
 .phpunit.result.cache
+.plans
+.beads
+.claude

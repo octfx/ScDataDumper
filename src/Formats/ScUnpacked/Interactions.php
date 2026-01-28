@@ -22,7 +22,7 @@ final class Interactions extends BaseFormat
         }
 
         return collect($interactions->children())
-            ->map(fn (Element $child) => $child->get('Name'))
+            ->map(fn (Element $child) => $child->get('@Name'))
             ->filter()
             ->unique()
             ->map('trim')

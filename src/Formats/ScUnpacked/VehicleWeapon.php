@@ -35,11 +35,11 @@ final class VehicleWeapon extends AbstractWeapon
 
         $rpm = (float) $mode['RoundsPerMinute'];
         $heatPerShot = (float) ($mode['HeatPerShot'] ?? 0.0);
-        $coolingPerSecond = (float) ($heatParams?->get('coolingPerSecond') ?? 0.0);
-        $coolDelay = (float) ($heatParams?->get('timeTillCoolingStarts') ?? 0.0);
-        $overheatTemp = (float) ($heatParams?->get('overheatTemperature') ?? 0.0);
-        $minTemp = (float) ($heatParams?->get('minTemperature') ?? 0.0);
-        $fixTime = (float) ($heatParams?->get('overheatFixTime') ?? 0.0);
+        $coolingPerSecond = (float) ($heatParams?->get('@coolingPerSecond') ?? 0.0);
+        $coolDelay = (float) ($heatParams?->get('@timeTillCoolingStarts') ?? 0.0);
+        $overheatTemp = (float) ($heatParams?->get('@overheatTemperature') ?? 0.0);
+        $minTemp = (float) ($heatParams?->get('@minTemperature') ?? 0.0);
+        $fixTime = (float) ($heatParams?->get('@overheatFixTime') ?? 0.0);
 
         $damagePerShot = (float) ($mode['DamagePerShot'] ?? 0.0);
 
@@ -57,9 +57,9 @@ final class VehicleWeapon extends AbstractWeapon
         $sustainedDps = null;
 
         if ($shotsPerSec > 0 && $damagePerShot > 0) {
-            $maxAmmoLoad = (float) ($regenParams?->get('maxAmmoLoad') ?? 0.0);
-            $maxRegenPerSec = (float) ($regenParams?->get('maxRegenPerSec') ?? 0.0);
-            $regenCooldown = (float) ($regenParams?->get('regenerationCooldown') ?? 0.0);
+            $maxAmmoLoad = (float) ($regenParams?->get('@maxAmmoLoad') ?? 0.0);
+            $maxRegenPerSec = (float) ($regenParams?->get('@maxRegenPerSec') ?? 0.0);
+            $regenCooldown = (float) ($regenParams?->get('@regenerationCooldown') ?? 0.0);
 
             if ($maxAmmoLoad > 0 && $maxRegenPerSec > 0) {
                 $cycleFireTime = $maxAmmoLoad / $shotsPerSec;
@@ -95,7 +95,7 @@ final class VehicleWeapon extends AbstractWeapon
         $maximumDamage = $mode['MaxDamagePerMagazine'] ?? null;
         $isInfiniteMaximum = ($maximumDamage === null || $maximumDamage <= 0 || $regenParams instanceof Element);
 
-        $actionSequence = $this->get()?->get('/fireActions/SWeaponActionSequenceParams');
+        $actionSequence = $this->get()?->get('fireActions/SWeaponActionSequenceParams');
 
         $vehicleStats = [
             'FireMode' => Arr::get($mode, 'Name'),
@@ -139,11 +139,11 @@ final class VehicleWeapon extends AbstractWeapon
 
         if ($regenParams instanceof Element) {
             $vehicleStats['Capacitor'] = [
-                'RequestedAmmoLoad' => $regenParams->get('requestedAmmoLoad'),
-                'CostPerBullet' => $regenParams->get('regenerationCostPerBullet'),
-                'Cooldown' => $regenParams->get('regenerationCooldown'),
-                'MaxRegenPerSec' => $regenParams->get('maxRegenPerSec'),
-                'MaxAmmoLoad' => $regenParams->get('maxAmmoLoad'),
+                'RequestedAmmoLoad' => $regenParams->get('@requestedAmmoLoad'),
+                'CostPerBullet' => $regenParams->get('@regenerationCostPerBullet'),
+                'Cooldown' => $regenParams->get('@regenerationCooldown'),
+                'MaxRegenPerSec' => $regenParams->get('@maxRegenPerSec'),
+                'MaxAmmoLoad' => $regenParams->get('@maxAmmoLoad'),
             ];
         }
 

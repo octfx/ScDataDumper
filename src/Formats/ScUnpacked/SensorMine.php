@@ -23,7 +23,7 @@ final class SensorMine extends Grenade
             return null;
         }
 
-        $mineSensor = $this->get()?->get('/TriggerType/SSensorMineLaserTrigger');
+        $mineSensor = $this->get()?->get('TriggerType/SSensorMineLaserTrigger');
 
         $damageInfo = $explosion->get('damage/DamageInfo');
 

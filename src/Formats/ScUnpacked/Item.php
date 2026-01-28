@@ -17,7 +17,7 @@ final class Item extends BaseFormat
     {
         $attach = $this->get();
 
-        $manufacturer = $attach->get('Manufacturer');
+        $manufacturer = $attach->get('@Manufacturer');
         /** @var SCItemManufacturer|null $manufacturer */
         $manufacturer = ServiceFactory::getManufacturerService()->getByReference($manufacturer);
 
@@ -33,13 +33,13 @@ final class Item extends BaseFormat
             $attach->get('Localization/English@Description', '')
         );
 
-        $entityTagsXml = $this->item->get('/tags')?->children();
+        $entityTagsXml = $this->item->get('tags')?->children();
         $entityTags = [];
 
         if ($entityTagsXml !== null) {
             foreach ($entityTagsXml as $tag) {
                 if ($tag->getNode()->nodeName === 'Reference') {
-                    $entityTags[] = strtolower($tag->get('value'));
+                    $entityTags[] = strtolower($tag->get('@value'));
                 }
             }
         }
@@ -50,13 +50,13 @@ final class Item extends BaseFormat
             'className' => $this->item->getClassName(),
             'reference' => $this->item->getUuid(),
             'itemName' => strtolower($this->item->getClassName()),
-            'type' => $attach->get('Type'),
-            'subType' => $attach->get('SubType'),
-            'size' => $attach->get('Size'),
-            'grade' => $attach->get('Grade'),
+            'type' => $attach->get('@Type'),
+            'subType' => $attach->get('@SubType'),
+            'size' => $attach->get('@Size'),
+            'grade' => $attach->get('@Grade'),
             'name' => $attach->get('Localization/English@Name'),
-            'tags' => $attach->get('Tags'),
-            'required_tags' => $attach->get('RequiredTags'),
+            'tags' => $attach->get('@Tags'),
+            'required_tags' => $attach->get('@RequiredTags'),
             'entity_tags' => $entityTags,
             'entity_tag_map' => array_map(static fn ($tag) => [
                 'tag' => $tag,
@@ -67,17 +67,17 @@ final class Item extends BaseFormat
             'stdItem' => [
                 'UUID' => $this->item->getUuid(),
                 'ClassName' => $this->item->getClassName(),
-                'Size' => $attach->get('Size', 0),
-                'Grade' => $attach->get('Grade', 0),
+                'Size' => $attach->get('@Size', 0),
+                'Grade' => $attach->get('@Grade', 0),
                 // @deprecated use InventoryOccupancy.GridDimensions.Width, Height, Length
                 'Width' => $attach->get('inventoryOccupancyDimensions@x', 0),
                 'Height' => $attach->get('inventoryOccupancyDimensions@z', 0),
                 'Length' => $attach->get('inventoryOccupancyDimensions@y', 0),
                 // @deprecated use InventoryOccupancy.Volume.SCU
-                'Volume' => self::convertToScu($attach->get('inventoryOccupancyVolume')),
+                'Volume' => self::convertToScu($attach->get('@inventoryOccupancyVolume')),
                 'InventoryOccupancy' => new InventoryOccupancy($this->item),
                 'Mass' => $this->item->get('Components/SEntityPhysicsControllerParams/PhysType/SEntityRigidPhysicsControllerParams@Mass', 0),
-                'Type' => self::buildTypeName($attach->get('Type', 'UNKNOWN'), $attach->get('SubType', 'UNKNOWN')),
+                'Type' => self::buildTypeName($attach->get('@Type', 'UNKNOWN'), $attach->get('@SubType', 'UNKNOWN')),
                 'Name' => $attach->get('Localization/English@Name', ''),
                 'Description' => $attach->get('Localization/English@Description', ''),
                 'DescriptionData' => $descriptionData['data'] ?? null,
@@ -181,13 +181,13 @@ final class Item extends BaseFormat
             return null;
         }
 
-        $em = (float) ($onlineState->get('/signatureParams/EMSignature@nominalSignature', 0));
-        $emDecay = (float) ($onlineState->get('/signatureParams/EMSignature@decayRate', 0));
+        $em = (float) ($onlineState->get('signatureParams/EMSignature@nominalSignature', 0));
+        $emDecay = (float) ($onlineState->get('signatureParams/EMSignature@decayRate', 0));
 
         $powerDelta = null;
 
-        foreach ($onlineState->get('/deltas')?->children() as $delta) {
-            if ($delta->get('/consumption@resource') === 'Power') {
+        foreach ($onlineState->get('deltas')?->children() as $delta) {
+            if ($delta->get('consumption@resource') === 'Power') {
                 $powerDelta = $delta;
                 break;
             }
@@ -197,7 +197,7 @@ final class Item extends BaseFormat
 
         $lowPowerRange = null;
 
-        foreach ($onlineState->get('/powerRanges')?->children() as $range) {
+        foreach ($onlineState->get('powerRanges')?->children() as $range) {
             if ($range->getNode()->nodeName === 'low' && ((int) $range->get('@registerRange')) === 1) {
                 $lowPowerRange = (float) ($range->get('@modifier', 1));
                 break;
@@ -214,7 +214,7 @@ final class Item extends BaseFormat
             }
         }
 
-        $ir = (float) ($onlineState->get('/signatureParams/IRSignature@nominalSignature', 0));
+        $ir = (float) ($onlineState->get('signatureParams/IRSignature@nominalSignature', 0));
         $startIr = (float) ($this->item->get('Components/HeatController/Signature@StartIREmission', 0));
 
         $irTotal = $ir + $startIr;

@@ -17,9 +17,9 @@ final class Helmet extends BaseFormat
         $helmet = $this->get();
 
         return [
-            'AtmosphereCapacity' => $helmet->get('atmosphereCapacity'),
-            'PunctureMaxArea' => $helmet->get('punctureMaxArea'),
-            'PunctureMaxNumber' => $helmet->get('punctureMaxNumber'),
+            'AtmosphereCapacity' => $helmet->get('@atmosphereCapacity'),
+            'PunctureMaxArea' => $helmet->get('@punctureMaxArea'),
+            'PunctureMaxNumber' => $helmet->get('@punctureMaxNumber'),
         ];
     }
 }

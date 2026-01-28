@@ -21,9 +21,9 @@ final class Vec3 extends BaseFormat
         }
 
         return [
-            $this->names['x'] ?? 'x' => $this->get('x'),
-            $this->names['y'] ?? 'y' => $this->get('y'),
-            $this->names['z'] ?? 'z' => $this->get('z'),
+            $this->names['x'] ?? 'x' => $this->get('@x'),
+            $this->names['y'] ?? 'y' => $this->get('@y'),
+            $this->names['z'] ?? 'z' => $this->get('@z'),
         ];
     }
 

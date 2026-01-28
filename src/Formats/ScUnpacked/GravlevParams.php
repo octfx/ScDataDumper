@@ -16,7 +16,7 @@ final class GravlevParams extends BaseFormat
 
         $gcsParams = $this->get();
 
-        $handling = $gcsParams->get('/handling');
+        $handling = $gcsParams->get('handling');
 
         return $handling?->attributesToArray(pascalCase: true);
     }

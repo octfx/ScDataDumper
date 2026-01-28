@@ -36,7 +36,7 @@ final class LoadoutBuilder
     public function build(Element|RootDocument $loadoutParams): array
     {
         $entries = [];
-        $entriesNode = $loadoutParams->get('/entries');
+        $entriesNode = $loadoutParams->get('./entries');
 
         if ($entriesNode === null) {
             return $entries;
@@ -294,7 +294,7 @@ final class LoadoutBuilder
     {
         $entries = [];
 
-        $nestedManual = $cigEntry->get('/loadout/SItemPortLoadoutManualParams/entries');
+        $nestedManual = $cigEntry->get('./loadout/SItemPortLoadoutManualParams/entries');
 
         if ($nestedManual !== null) {
             foreach ($nestedManual->children() as $entry) {
@@ -317,7 +317,7 @@ final class LoadoutBuilder
     {
         $entries = [];
 
-        $nestedManual = $entry->get('/loadout/SItemPortLoadoutManualParams/entries');
+        $nestedManual = $entry->get('./loadout/SItemPortLoadoutManualParams/entries');
 
         if ($nestedManual !== null) {
             foreach ($nestedManual->children() as $nestedEntry) {

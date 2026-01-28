@@ -73,7 +73,7 @@ final class Ship extends BaseFormat
             $vehicleComponent = $this->vehicleWrapper->entity->getAttachDef();
         }
 
-        $manufacturerRef = $vehicleComponent->get('manufacturer');
+        $manufacturerRef = $vehicleComponent->get('@manufacturer');
 
         // Some actor-based vehicles (e.g. power suits) don't carry a valid manufacturer on AttachDef
         // and lack VehicleComponentParams entirely. Fall back to the insurance display params
@@ -106,19 +106,19 @@ final class Ship extends BaseFormat
         rsort($dimensions, SORT_NUMERIC);
 
         $descriptionData = ItemDescriptionParser::parse(
-            $vehicleComponent->get('/English@vehicleDescription') ?? $vehicleComponent->get('/Localization/English@Description', '')
+            $vehicleComponent->get('English@vehicleDescription') ?? $vehicleComponent->get('Localization/English@Description', '')
         );
 
         $data = [
             'UUID' => $this->item->getUuid(),
             'ClassName' => $this->item->getClassName(),
-            'Name' => trim(Arr::get($vehicleComponentData, 'vehicleName') ?? $vehicleComponent->get('/Localization/English@Name') ?? $this->item->getClassName()),
-            'Description' => $vehicleComponent->get('/English@vehicleDescription') ?? $vehicleComponent->get('/Localization/English@Description', ''),
+            'Name' => trim(Arr::get($vehicleComponentData, 'vehicleName') ?? $vehicleComponent->get('Localization/English@Name') ?? $this->item->getClassName()),
+            'Description' => $vehicleComponent->get('English@vehicleDescription') ?? $vehicleComponent->get('Localization/English@Description', ''),
             'DescriptionData' => $descriptionData['data'] ?? null,
             'DescriptionText' => $descriptionData['description'] ?? null,
 
-            'Career' => $vehicleComponent->get('/English@vehicleCareer', ''),
-            'Role' => $vehicleComponent->get('/English@vehicleRole', ''),
+            'Career' => $vehicleComponent->get('English@vehicleCareer', ''),
+            'Role' => $vehicleComponent->get('English@vehicleRole', ''),
 
             'Manufacturer' => $manufacturer ? [
                 'UUID' => $manufacturer->getUuid(),
@@ -126,11 +126,11 @@ final class Ship extends BaseFormat
                 'Name' => $manufacturer->get('Localization/English@Name'),
             ] : [],
 
-            'Size' => $attach?->get('Size', 0) ?? 0,
+            'Size' => $attach?->get('@Size', 0) ?? 0,
             'Length' => $dimensions[0] ?? 0,
             'Width' => $dimensions[1] ?? 0,
             'Height' => $dimensions[2] ?? 0,
-            'Crew' => $vehicleComponent->get('crewSize', 1),
+            'Crew' => $vehicleComponent->get('@crewSize', 1),
 
             'Insurance' => [
                 'ExpeditedCost' => $this->item->get('StaticEntityClassData/SEntityInsuranceProperties/shipInsuranceParams@baseExpeditingFee', 0),
@@ -143,18 +143,18 @@ final class Ship extends BaseFormat
             'IsSpaceship' => ! ($isVehicle || $isGravlev),
 
             'PenetrationMultiplier' => [
-                'Fuse' => $vehicleComponent->get('fusePenetrationDamageMultiplier'),
-                'Components' => $vehicleComponent->get('componentPenetrationDamageMultiplier', []),
+                'Fuse' => $vehicleComponent->get('@fusePenetrationDamageMultiplier'),
+                'Components' => $vehicleComponent->get('@componentPenetrationDamageMultiplier', []),
             ],
         ];
 
         // Build standardised parts with loadout
         $standardisedParts = $this->standardisedPartBuilder->buildPartList(
-            $this->vehicle?->get('//Parts')?->children() ?? [],
+            $this->vehicle?->get('Parts')?->children() ?? [],
             $this->vehicleWrapper->loadout
         );
         if (! empty($standardisedParts)) {
-            $data['parts'] = $this->buildPartsTree($standardisedParts);
+            $data['Parts'] = $this->buildPartsTree($standardisedParts);
         }
 
         $walker = new StandardisedPartWalker;
@@ -269,7 +269,7 @@ final class Ship extends BaseFormat
         $signatureParams = $this->vehicleWrapper->entity->get('Components/SSCSignatureSystemParams');
 
         if ($signatureParams) {
-            $data['cross_section'] = $signatureParams->get('/radarProperties/SSCRadarContactProperites/crossSectionParams/SSCSignatureSystemManualCrossSectionParams/crossSection')?->attributesToArray() ?? [];
+            $data['cross_section'] = $signatureParams->get('radarProperties/SSCRadarContactProperites/crossSectionParams/SSCSignatureSystemManualCrossSectionParams/crossSection')?->attributesToArray() ?? [];
             $data['cross_section'] = array_map(static fn ($x) => (float) $x * $crossSectionMultiplier, $data['cross_section']);
         }
 

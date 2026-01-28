@@ -94,7 +94,7 @@ final class StandardisedPartBuilder
         ];
 
         // Build port if present
-        $itemPort = $part->get('/ItemPort');
+        $itemPort = $part->get('./ItemPort');
         if ($itemPort !== null) {
             $portName = $this->getPortName($part, $itemPort);
             $loadoutEntry = $this->findLoadoutEntry($portName, $loadout);
@@ -102,7 +102,7 @@ final class StandardisedPartBuilder
         }
 
         // Build child parts recursively
-        $childParts = $part->get('/Parts');
+        $childParts = $part->get('./Parts');
         if ($childParts !== null) {
             $standardisedPart['Parts'] = $this->buildPartList($childParts->children(), $loadout, false);
         }
@@ -336,7 +336,7 @@ final class StandardisedPartBuilder
     {
         $types = [];
 
-        foreach ($itemPort->get('/Types')?->children() ?? [] as $portType) {
+        foreach ($itemPort->get('./Types')?->children() ?? [] as $portType) {
             $major = $portType->get('@type') ?? $portType->get('@Type');
 
             if (empty($major)) {
@@ -344,7 +344,7 @@ final class StandardisedPartBuilder
             }
 
             $subtypeKey = $portType->get('@subtypes') ?? $portType->get('@SubTypes');
-            $subTypesElement = $portType->get('/SubTypes');
+            $subTypesElement = $portType->get('./SubTypes');
 
             $hasSubTypes = $subTypesElement !== null && $subTypesElement->getNode()->childNodes->count() > 0;
             $hasSubTypeAttr = ! empty($subtypeKey);
@@ -354,7 +354,7 @@ final class StandardisedPartBuilder
             } else {
                 if ($hasSubTypes) {
                     foreach ($subTypesElement->children() as $subType) {
-                        $minor = $subType->get('value');
+                        $minor = $subType->get('@value');
                         if (! empty($minor)) {
                             $types[] = "{$major}.{$minor}";
                         }
@@ -409,12 +409,12 @@ final class StandardisedPartBuilder
      */
     private function calculateShipDestructionDamage(Element $part, float $damageMax): ?float
     {
-        foreach ($part->get('/DamageBehaviors')?->children() ?? [] as $behavior) {
-            if ($behavior->get('/Group@name') !== 'Destroy') {
+        foreach ($part->get('./DamageBehaviors')?->children() ?? [] as $behavior) {
+            if ($behavior->get('./Group@name') !== 'Destroy') {
                 continue;
             }
 
-            $ratio = (float) ($behavior->get('damageRatioMin') ?? 1.0);
+            $ratio = (float) ($behavior->get('@damageRatioMin') ?? 1.0);
 
             return $ratio * $damageMax;
         }
@@ -427,7 +427,7 @@ final class StandardisedPartBuilder
      */
     private function calculatePartDetachDamage(Element $part, float $damageMax): ?float
     {
-        $detachRatio = (float) ($part->get('@detachRatio') ?? $part->get('detachRatio') ?? 0);
+        $detachRatio = (float) ($part->get('@detachRatio') ?? 0);
 
         if ($damageMax === 0.0 || $detachRatio === 0.0) {
             return null;

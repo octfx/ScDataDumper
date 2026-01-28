@@ -17,9 +17,9 @@ final class BulletImpulseFalloff extends BaseFormat
         $falloffParams = $this->get();
 
         return [
-            'MinDistance' => $falloffParams->get('minDistance'),
-            'DropFalloff' => $falloffParams->get('dropFalloff'),
-            'MaxFalloff' => $falloffParams->get('maxFalloff'),
+            'MinDistance' => $falloffParams->get('@minDistance'),
+            'DropFalloff' => $falloffParams->get('@dropFalloff'),
+            'MaxFalloff' => $falloffParams->get('@maxFalloff'),
         ];
     }
 }

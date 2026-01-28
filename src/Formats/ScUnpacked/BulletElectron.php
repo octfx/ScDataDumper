@@ -17,9 +17,9 @@ final class BulletElectron extends BaseFormat
         $electronParams = $this->get();
 
         return [
-            'JumpRange' => $electronParams->get('jumpRange'),
-            'MaximumJumps' => $electronParams->get('maximumJumps'),
-            'ResidualChargeMultiplier' => $electronParams->get('residualChargeMultiplier'),
+            'JumpRange' => $electronParams->get('@jumpRange'),
+            'MaximumJumps' => $electronParams->get('@maximumJumps'),
+            'ResidualChargeMultiplier' => $electronParams->get('@residualChargeMultiplier'),
         ];
     }
 }

@@ -35,7 +35,7 @@ final class PropulsionSystemAggregator implements VehicleDataCalculator
             'IntakeToTankCapacityRatio' => $fuelCapacity > 0 ? round($fuelIntakeRate / $fuelCapacity, 2) : null,
             'TimeForIntakesToFillTank' => $fuelIntakeRate > 0 ? round($fuelCapacity / $fuelIntakeRate, 2) : null,
             'ManeuveringTimeTillEmpty' => ($fuelUsage['Main'] > 0 && $fuelUsage['Maneuvering'] > 0)
-                ? round($fuelCapacity / ($fuelUsage['Main'] + $fuelUsage['Maneuvering'] / 2 - $fuelIntakeRate), 2)
+                ? round($fuelCapacity / ($fuelUsage['Main'] + $fuelUsage['Maneuvering'] / 2), 2)
                 : null,
         ];
     }

@@ -1,0 +1,14 @@
+<EntityClassDefinition.EAPhasePropEntity Category="EA" Icon="Default.bmp" Invisible="0" BBoxSelection="0" entityDensityClass="00000000-0000-0000-0000-000000000000" __type="EntityClassDefinition" __ref="fe64ce82-de44-4f16-ad38-b444482dde7d" __path="libs/foundry/records/entityclassdefinition/eaphasepropentity.xml">
+  <defaultEditorColor r="1" g="1" b="0" __type="RGB" />
+  <tags />
+  <StaticEntityClassData />
+  <Components>
+    <EAPhaseActivePropComponentDef sortingPosition="0" name="@sm_ui_CTRL_A" phase="1" defaultTeam="00000000-0000-0000-0000-000000000000" scaleMarkerByDistance="1" availableToDefaultTeam="1" percentageString="@ea_ui_SymbolPercentage" removeMarkerOnCapture="0" showMarker="1" canTriggerOvertime="0" __type="DataForgeComponentParams" __polymorphicType="EAPhaseActivePropComponentDef">
+      <capturedNotification messagePriority="1" messageDuration="5" message="@LOC_EMPTY" __type="SEACriticalMessageDef" />
+      <lostNotification messagePriority="1" messageDuration="5" message="@LOC_EMPTY" __type="SEACriticalMessageDef" />
+      <neutralizedNotification messagePriority="1" messageDuration="5" message="@LOC_EMPTY" __type="SEACriticalMessageDef" />
+      <objectiveMarkerMessages captureMessage="@LOC_EMPTY" defendMessage="@LOC_EMPTY" capturedMessage="@LOC_EMPTY" lostMessage="@LOC_EMPTY" capturingMessage="@LOC_EMPTY" boostCapturingMessage="@LOC_EMPTY" contestedMessage="@LOC_EMPTY" resettingMessage="@LOC_EMPTY" offlineMessage="@LOC_EMPTY" __type="SEAObjectiveMarkerStatusMessages" />
+      <objectiveMarkerSettings />
+    </EAPhaseActivePropComponentDef>
+  </Components>
+</EntityClassDefinition.EAPhasePropEntity>

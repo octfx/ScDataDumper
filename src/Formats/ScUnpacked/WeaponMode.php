@@ -45,32 +45,32 @@ final class WeaponMode extends BaseFormat
             return $mode;
         }
 
-        $mode['Name'] = $fireAction->get('name');
-        $mode['LocalisedName'] = ServiceFactory::getLocalizationService()->getTranslation($fireAction->get('localisedName'));
+        $mode['Name'] = $fireAction->get('@name');
+        $mode['LocalisedName'] = ServiceFactory::getLocalizationService()->getTranslation($fireAction->get('@localisedName'));
 
         switch ($fireAction->nodeName) {
             case 'SWeaponActionFireSingleParams':
-                $mode['RoundsPerMinute'] = $fireAction->get('fireRate');
+                $mode['RoundsPerMinute'] = $fireAction->get('@fireRate');
                 $mode['FireType'] = 'single';
                 $mode['AmmoPerShot'] = $fireAction->get('launchParams/SProjectileLauncher@ammoCost') ?? 1;
                 $mode['PelletsPerShot'] = $fireAction->get('launchParams/SProjectileLauncher@pelletCount') ?? 1;
-                $mode['HeatPerShot'] = $fireAction->get('heatPerShot');
-                $mode['WearPerShot'] = $fireAction->get('wearPerShot');
+                $mode['HeatPerShot'] = $fireAction->get('@heatPerShot');
+                $mode['WearPerShot'] = $fireAction->get('@wearPerShot');
                 break;
 
             case 'SWeaponActionFireRapidParams':
-                $mode['RoundsPerMinute'] = $fireAction->get('fireRate');
+                $mode['RoundsPerMinute'] = $fireAction->get('@fireRate');
                 $mode['FireType'] = 'rapid';
                 $mode['AmmoPerShot'] = $fireAction->get('launchParams/SProjectileLauncher@ammoCost') ?? 1;
                 $mode['PelletsPerShot'] = $fireAction->get('launchParams/SProjectileLauncher@pelletCount') ?? 1;
-                $mode['HeatPerShot'] = $fireAction->get('heatPerShot');
-                $mode['WearPerShot'] = $fireAction->get('wearPerShot');
+                $mode['HeatPerShot'] = $fireAction->get('@heatPerShot');
+                $mode['WearPerShot'] = $fireAction->get('@wearPerShot');
                 break;
 
             case 'SWeaponActionFireBeamParams':
                 $mode['FireType'] = 'beam';
-                $mode['HeatPerShot'] = $fireAction->get('heatPerShot');
-                $mode['WearPerShot'] = $fireAction->get('wearPerShot');
+                $mode['HeatPerShot'] = $fireAction->get('@heatPerShot');
+                $mode['WearPerShot'] = $fireAction->get('@wearPerShot');
                 break;
 
             case 'SWeaponActionFireChargedParams':
@@ -78,32 +78,32 @@ final class WeaponMode extends BaseFormat
                 $mode['FireType'] = 'charged';
                 $mode['AmmoPerShot'] = $fireAction->get('weaponAction/SWeaponActionFireSingleParams/launchParams/SProjectileLauncher@ammoCost') ?? $fireAction->get('weaponAction/SWeaponActionFireBurstParams/launchParams/SProjectileLauncher@ammoCost');
                 $mode['PelletsPerShot'] = $fireAction->get('weaponAction/SWeaponActionFireSingleParams/launchParams/SProjectileLauncher@pelletCount') ?? $fireAction->get('weaponAction/SWeaponActionFireBurstParams/launchParams/SProjectileLauncher@pelletCount');
-                $mode['HeatPerShot'] = $fireAction->get('heatPerShot');
-                $mode['WearPerShot'] = $fireAction->get('wearPerShot');
+                $mode['HeatPerShot'] = $fireAction->get('@heatPerShot');
+                $mode['WearPerShot'] = $fireAction->get('@wearPerShot');
                 break;
 
             case 'SWeaponActionFireHealingBeamParams':
-                $mode['FireType'] = $fireAction->get('healingMode');
-                $mode['HeatPerShot'] = $fireAction->get('heatPerShot');
-                $mode['WearPerShot'] = $fireAction->get('wearPerShot');
+                $mode['FireType'] = $fireAction->get('@healingMode');
+                $mode['HeatPerShot'] = $fireAction->get('@heatPerShot');
+                $mode['WearPerShot'] = $fireAction->get('@wearPerShot');
                 break;
 
             case 'SWeaponActionFireSalvageRepairParams':
-                $mode['FireType'] = $fireAction->get('salvageRepairMode');
-                $mode['HeatPerShot'] = $fireAction->get('heatPerShot');
-                $mode['WearPerShot'] = $fireAction->get('wearPerShot');
+                $mode['FireType'] = $fireAction->get('@salvageRepairMode');
+                $mode['HeatPerShot'] = $fireAction->get('@heatPerShot');
+                $mode['WearPerShot'] = $fireAction->get('@wearPerShot');
                 break;
 
             case 'SWeaponActionGatheringBeamParams':
                 $mode['FireType'] = 'collectionbeam';
-                $mode['HeatPerShot'] = $fireAction->get('heatPerShot');
-                $mode['WearPerShot'] = $fireAction->get('wearPerShot');
+                $mode['HeatPerShot'] = $fireAction->get('@heatPerShot');
+                $mode['WearPerShot'] = $fireAction->get('@wearPerShot');
                 break;
 
             case 'SWeaponActionFireTractorBeamParams':
                 $mode['FireType'] = 'tractorbeam';
-                $mode['HeatPerShot'] = $fireAction->get('heatPerShot');
-                $mode['WearPerShot'] = $fireAction->get('wearPerShot');
+                $mode['HeatPerShot'] = $fireAction->get('@heatPerShot');
+                $mode['WearPerShot'] = $fireAction->get('@wearPerShot');
                 break;
 
             case 'SWeaponActionSequenceParams':
@@ -112,12 +112,12 @@ final class WeaponMode extends BaseFormat
                 break;
 
             case 'SWeaponActionFireBurstParams':
-                $mode['RoundsPerMinute'] = $fireAction->get('fireRate');
+                $mode['RoundsPerMinute'] = $fireAction->get('@fireRate');
                 $mode['FireType'] = 'burst';
                 $mode['AmmoPerShot'] = $fireAction->get('launchParams/SProjectileLauncher@ammoCost');
                 $mode['PelletsPerShot'] = $fireAction->get('launchParams/SProjectileLauncher@pelletCount');
-                $mode['HeatPerShot'] = $fireAction->get('heatPerShot');
-                $mode['WearPerShot'] = $fireAction->get('wearPerShot');
+                $mode['HeatPerShot'] = $fireAction->get('@heatPerShot');
+                $mode['WearPerShot'] = $fireAction->get('@wearPerShot');
                 break;
 
             default:

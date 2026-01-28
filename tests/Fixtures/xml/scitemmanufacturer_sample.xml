@@ -1,0 +1,8 @@
+<SCItemManufacturer.ACAS Logo="UI/SharedAssets/ManufacturerLogos/AceAstrogation_256.tif" LogoFullColor="" LogoSimplifiedWhite="" Code="ACAS" DashboardCanvasConfig="00000000-0000-0000-0000-000000000000" BuildingBlocksStyle="00000000-0000-0000-0000-000000000000" AudioManufacturerTag="00000000-0000-0000-0000-000000000000" __type="SCItemManufacturer" __ref="cfc0122d-5275-415a-a656-3dcb3346feb5" __path="libs/foundry/records/scitemmanufacturer/acas.xml">
+  <Localization Name="@manufacturer_NameACAS" ShortName="@LOC_EMPTY" Description="@manufacturer_DescACAS" __type="SCItemLocalization">
+    <displayFeatures LogoSimplifiedWhite="" FrontendBackground="" History="@LOC_EMPTY" Callout1="@LOC_EMPTY" Callout2="@LOC_EMPTY" Callout3="@LOC_EMPTY" UIPriority="0" __type="SCExtendedLocalizationLevelParams">
+      <locationAudioPlayTrigger audioTrigger="" __type="GlobalResourceBase" __polymorphicType="GlobalResourceAudio" />
+      <locationAudioStopTrigger audioTrigger="" __type="GlobalResourceBase" __polymorphicType="GlobalResourceAudio" />
+    </displayFeatures>
+  </Localization>
+</SCItemManufacturer.ACAS>

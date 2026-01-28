@@ -1,0 +1,19 @@
+<AmmoParams.12g_ballistic_1 spawnType="AllClients" size="1" ammoCategory="None" UIIconType="" hitPoints="0" lifetime="2" showtime="0" inheritVelocity="1" bulletType="2" speed="300" impulseScale="1" noBulletHits="0" quietRemoval="0" whizSoundDistance="20" useInConvergence="1" shotsPerAudioLoop="20" displayName="@LOC_EMPTY" __type="AmmoParams" __ref="d905c52f-ac42-41b8-818a-bbbda6481819" __path="libs/foundry/records/ammoparams/fps/12g_ballistic_1.xml">
+  <whizSound audioTrigger="Play_WPFW_WhizBy_Ballistic_12g_Shotgun" __type="GlobalResourceBase" __polymorphicType="GlobalResourceAudio" />
+  <ricochetSound audioTrigger="" __type="GlobalResourceBase" __polymorphicType="GlobalResourceAudio" />
+  <projectileLoopStart audioTrigger="" __type="GlobalResourceBase" __polymorphicType="GlobalResourceAudio" />
+  <projectileLoopStop audioTrigger="" __type="GlobalResourceBase" __polymorphicType="GlobalResourceAudio" />
+  <trailParticles path="" __type="GlobalResourceBase" __polymorphicType="GlobalResourceParticle" />
+  <geometryResourceParams />
+  <geometryTransformParams />
+  <physicsControllerParams>
+    <SEntityPhysicsControllerParams __type="DataForgeComponentParams" __polymorphicType="SEntityPhysicsControllerParams">
+      <PhysType>
+        <SEntityParticlePhysicsControllerParams Mass="0.038" compoundingAllowed="1" spawnBoxScale="0.5" pierceability="9" radius="0.1" thickness="0.005" accThrust="0" airResistance="0" length="0.005" resourceType="00000000-0000-0000-0000-000000000000" rayCollision="1" traceable="0" singleContact="0" constantOrientation="1" noRoll="1" noSpin="1" noPathAlignment="1" noSelfCollision="1" noImpulse="0" decoupleHeading="1" disableGravity="0" aiNavigationType="Excluded" surfaceIdName="mat_default" __type="SEntityBasePhysicsControllerParams" __polymorphicType="SEntityParticlePhysicsControllerParams">
+          <breakableParams />
+          <gameCollisionClass />
+        </SEntityParticlePhysicsControllerParams>
+      </PhysType>
+    </SEntityPhysicsControllerParams>
+  </physicsControllerParams>
+</AmmoParams.12g_ballistic_1>

@@ -18,16 +18,16 @@ final class SalvageModifier extends BaseFormat
         /** @var Element|null $component */
         $component = $this->get();
 
-        $salvage = $component?->get('/modifiers/ItemWeaponModifiersParams/weaponModifier/weaponStats/salvageModifier');
+        $salvage = $component?->get('modifiers/ItemWeaponModifiersParams/weaponModifier/weaponStats/salvageModifier');
 
         if (! $salvage instanceof Element) {
             return null;
         }
 
         $data = [
-            'SalvageSpeedMultiplier' => $salvage->get('salvageSpeedMultiplier'),
-            'RadiusMultiplier' => $salvage->get('radiusMultiplier'),
-            'ExtractionEfficiency' => $salvage->get('extractionEfficiency'),
+            'SalvageSpeedMultiplier' => $salvage->get('@salvageSpeedMultiplier'),
+            'RadiusMultiplier' => $salvage->get('@radiusMultiplier'),
+            'ExtractionEfficiency' => $salvage->get('@extractionEfficiency'),
         ];
 
         return $this->removeNullValues($data);

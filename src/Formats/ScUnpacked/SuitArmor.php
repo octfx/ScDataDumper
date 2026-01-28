@@ -19,17 +19,17 @@ final class SuitArmor extends BaseFormat
         $armor = $this->get();
 
         $protectedParts = [];
-        foreach ($armor->get('/protectedBodyParts')?->children() ?? [] as $part) {
-            $protectedParts[] = $part->get('value');
+        foreach ($armor->get('protectedBodyParts')?->children() ?? [] as $part) {
+            $protectedParts[] = $part->get('@value');
         }
 
         $signatures = [];
-        foreach ($armor->get('/signatureParams')?->children() ?? [] as /** @var Element $part */ $part) {
+        foreach ($armor->get('signatureParams')?->children() ?? [] as /** @var Element $part */ $part) {
             if ($part->getNode()->nodeName !== 'ItemSuitArmorSignatureParams') {
                 continue;
             }
 
-            $signatures[$part->get('signatureType')] = $part->get('signatureEmission');
+            $signatures[$part->get('@signatureType')] = $part->get('@signatureEmission');
         }
 
         $damageResistanceMacro = ServiceFactory::getDamageResistanceMacroService()->getByReference(

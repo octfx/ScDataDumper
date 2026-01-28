@@ -13,19 +13,19 @@ final class JumpPerformance extends BaseFormat
         }
 
         $allowedKeys = [
-            'driveSpeed',
-            'cooldownTime',
-            'stageOneAccelRate',
-            'stageTwoAccelRate',
-            'engageSpeed',
-            'interdictionEffectTime',
-            'calibrationRate',
-            'minCalibrationRequirement',
-            'maxCalibrationRequirement',
-            'calibrationProcessAngleLimit',
-            'calibrationWarningAngleLimit',
-            'calibrationDelayInSeconds',
-            'spoolUpTime',
+            '@driveSpeed',
+            '@cooldownTime',
+            '@stageOneAccelRate',
+            '@stageTwoAccelRate',
+            '@engageSpeed',
+            '@interdictionEffectTime',
+            '@calibrationRate',
+            '@minCalibrationRequirement',
+            '@maxCalibrationRequirement',
+            '@calibrationProcessAngleLimit',
+            '@calibrationWarningAngleLimit',
+            '@calibrationDelayInSeconds',
+            '@spoolUpTime',
         ];
 
         $values = [];
@@ -34,7 +34,7 @@ final class JumpPerformance extends BaseFormat
             $value = $this->item->get($key);
 
             if ($value !== null) {
-                $values[$this->toPascalCase($key)] = $value;
+                $values[$this->toPascalCase(ltrim($key, '@'))] = $value;
             }
         }
 
@@ -43,6 +43,6 @@ final class JumpPerformance extends BaseFormat
 
     public function canTransform(): bool
     {
-        return $this->item !== null && $this->item->get('driveSpeed') !== null;
+        return $this->item !== null && $this->item->get('@driveSpeed') !== null;
     }
 }

@@ -33,7 +33,7 @@ final class Turret extends BaseFormat
 
         $movements = [];
 
-        foreach ($turret?->get('/movementList')?->children() ?? [] as $movement) {
+        foreach ($turret?->get('movementList')?->children() ?? [] as $movement) {
             $movements[] = $this->parseMovement($movement);
         }
 
@@ -53,9 +53,9 @@ final class Turret extends BaseFormat
 
         ], true);
 
-        $pitch = $this->parseAxis($movement->get('/pitchAxis'));
-        $yaw = $this->parseAxis($movement->get('/yawAxis'));
-        $roll = $this->parseAxis($movement->get('/rollAxis'));
+        $pitch = $this->parseAxis($movement->get('pitchAxis'));
+        $yaw = $this->parseAxis($movement->get('yawAxis'));
+        $roll = $this->parseAxis($movement->get('rollAxis'));
 
         if ($pitch !== null) {
             $data['PitchAxis'] = $pitch;
@@ -102,7 +102,7 @@ final class Turret extends BaseFormat
 
         $angleLimits = [];
 
-        foreach ($axisParams->get('/angleLimits')?->children() ?? [] as $limit) {
+        foreach ($axisParams->get('angleLimits')?->children() ?? [] as $limit) {
             $angleLimits[] = $limit->attributesToArray([], true);
         }
 

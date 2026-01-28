@@ -32,12 +32,12 @@ final class Armor extends BaseFormat
                 'StunChange' => round($armor->get('damageMultiplier/DamageInfo@DamageStun', 1) - 1, 2),
             ],
             'SignalMultipliers' => [
-                'CrossSection' => $armor->get('signalCrossSection'),
-                'CrossSectionChange' => round($armor->get('signalCrossSection', 1) - 1, 2),
-                'Infrared' => $armor->get('signalInfrared'),
-                'InfraredChange' => round($armor->get('signalInfrared', 1) - 1, 2),
-                'Electromagnetic' => $armor->get('signalElectromagnetic'),
-                'ElectromagneticChange' => round($armor->get('signalElectromagnetic', 1) - 1, 2),
+                'CrossSection' => $armor->get('@signalCrossSection'),
+                'CrossSectionChange' => round($armor->get('@signalCrossSection', 1) - 1, 2),
+                'Infrared' => $armor->get('@signalInfrared'),
+                'InfraredChange' => round($armor->get('@signalInfrared', 1) - 1, 2),
+                'Electromagnetic' => $armor->get('@signalElectromagnetic'),
+                'ElectromagneticChange' => round($armor->get('@signalElectromagnetic', 1) - 1, 2),
             ],
             'PenetrationResistance' => [
                 'Base' => $armor->get('armorPenetrationResistance@basePenetrationReduction'),

@@ -72,7 +72,7 @@ class Missile extends BaseFormat
         $count = 0;
 
         foreach ($ports->children() as $port) {
-            foreach ($port->get('/Types')?->children() ?? [] as $portType) {
+            foreach ($port->get('Types')?->children() ?? [] as $portType) {
                 $major = $portType->get('@Type') ?? $portType->get('@type');
 
                 if ($major !== null && strcasecmp($major, 'Missile') === 0) {

@@ -40,7 +40,7 @@ final class MeleeWeapon extends BaseFormat
             ], pascalCase: true);
             $mode = $this->transformArrayKeysToPascalCase($attributes ?? []);
 
-            $damage = Damage::fromDamageInfo($attackCategory->get('/damageInfo'))?->toArray();
+            $damage = Damage::fromDamageInfo($attackCategory->get('damageInfo'))?->toArray();
             if ($damage !== null) {
                 $mode['Damage'] = $damage;
                 $mode['DamageTotal'] = $this->calculateDamageTotal($damage);

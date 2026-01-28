@@ -30,12 +30,12 @@ final class Damage extends BaseFormat
         }
 
         return [
-            'Physical' => $this->item->get('DamagePhysical'),
-            'Energy' => $this->item->get('DamageEnergy'),
-            'Distortion' => $this->item->get('DamageDistortion'),
-            'Thermal' => $this->item->get('DamageThermal'),
-            'Biochemical' => $this->item->get('DamageBiochemical'),
-            'Stun' => $this->item->get('DamageStun'),
+            'Physical' => $this->item->get('@DamagePhysical'),
+            'Energy' => $this->item->get('@DamageEnergy'),
+            'Distortion' => $this->item->get('@DamageDistortion'),
+            'Thermal' => $this->item->get('@DamageThermal'),
+            'Biochemical' => $this->item->get('@DamageBiochemical'),
+            'Stun' => $this->item->get('@DamageStun'),
         ];
     }
 

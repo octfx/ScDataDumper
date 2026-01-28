@@ -17,8 +17,8 @@ final class RadiationResistance extends BaseFormat
         $resistance = $this->get();
 
         return [
-            'MaximumRadiationCapacity' => $resistance->get('MaximumRadiationCapacity'),
-            'RadiationDissipationRate' => $resistance->get('RadiationDissipationRate'),
+            'MaximumRadiationCapacity' => $resistance->get('@MaximumRadiationCapacity'),
+            'RadiationDissipationRate' => $resistance->get('@RadiationDissipationRate'),
         ];
     }
 }

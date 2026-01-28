@@ -3,6 +3,7 @@
 namespace Octfx\ScDataDumper\Formats;
 
 use DOMNode;
+use InvalidArgumentException;
 use JsonException;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
@@ -35,9 +36,14 @@ abstract class BaseFormat
 
     public function __construct(protected RootDocument|Element|DOMNode|null $item)
     {
-        if ($item && ! $item instanceof Element) {
-            $this->item = new Element($item);
-        }
+        $this->item = match (true) {
+            $item instanceof Element => $item,
+            $item instanceof RootDocument => $item,
+            $item instanceof DOMNode => new Element($item),
+            $item === null => null,
+            // $item === null => throw new InvalidArgumentException('Cannot build format from null DOM node'),
+            default => throw new InvalidArgumentException('Unsupported node type: '.get_debug_type($item)),
+        };
     }
 
     abstract public function toArray(): ?array;
@@ -52,12 +58,76 @@ abstract class BaseFormat
     }
 
     /**
-     * Retrieve an element or attribute from `$this->item`.
-     * Key defaults to `$this->elementKey` if not set.
+     * Retrieve an element or attribute from the current item.
      *
-     * @param  mixed  $default  Value returned when the key is not found
-     * @param  bool  $local  When true and the key has no path separator, treat it as a child of the current node
-     * @return float|mixed|null|Element|string
+     * This is a convenience wrapper around Element::get(), so it accepts XPath-like paths
+     * and returns only the first match. Attribute lookups are triggered by an @ segment
+     * (e.g. "@Code" or "Localization/@Code"). If the key is null, the method falls back
+     * to $this->elementKey.
+     *
+     * Notes and edge cases:
+     * - If both $key and $this->elementKey are null, a RuntimeException is thrown.
+     * - This method assumes $this->item is non-null. If the format was constructed with
+     *   null and you call get(), PHP will throw a fatal error (call on null). Prefer
+     *   canTransform() or check $this->item before calling.
+     * - Attribute values that are numeric strings are returned as float.
+     * - If multiple nodes match the path, only the first match is returned.
+     * - When $this->item is a RootDocument and the key starts with "@", the lookup is
+     *   delegated to the documentElement (RootDocument has no attributes itself).
+     * - XPath predicates are supported because Element::get() ignores @ signs inside
+     *   predicates when splitting attribute queries.
+     *
+     * @param  string|null  $key  Relative path or attribute query.
+     *                            Examples:
+     *                            - "Components/EAPhaseActivePropComponentDef"
+     *                            - "@Code" (attribute on current/root element)
+     *                            - "Localization/@Code" (attribute on child)
+     *                            - "Components/AttachDef[@Type='Weapon']"
+     *                            - null to use $this->elementKey
+     * @param  mixed  $default  Returned when no node/attribute is found.
+     * @param  bool  $local  When true and $key is a single segment without "/" or "@",
+     *                       "./" is prepended to force a direct-child lookup.
+     * @return float|mixed|null|Element|string Element for element paths, string/float for attributes,
+     *                                         or $default when no match is found.
+     *
+     * @throws RuntimeException When both $key and $this->elementKey are null
+     *
+     * @see BaseFormat::$elementKey Default key used when $key is null
+     * @see BaseFormat::has() Check if element exists at path
+     *
+     * @example <caption>Basic Element Lookup</caption>
+     * $entityFormat = new TestableFormat($entityRoot);
+     * $component = $entityFormat->get('Components/EAPhaseActivePropComponentDef');
+     * // Returns: Element with nodeName "EAPhaseActivePropComponentDef"
+     * @example <caption>Attribute Lookup</caption>
+     * $manufacturerFormat = new TestableFormat($manufacturerRoot);
+     * $code = $manufacturerFormat->get('@Code');
+     * // Returns: "ACAS"
+     *
+     * $invisible = $entityFormat->get('@Invisible');
+     * // Returns: 0.0 (float)
+     *
+     * $childAttr = $manufacturerFormat->get('Localization/@Code');
+     * // Returns: attribute value from Localization, or $default if missing
+     * @example <caption>XPath Predicates</caption>
+     * $weaponAttach = $entityFormat->get("Components/AttachDef[@Type='Weapon']");
+     * // Returns: first matching Element
+     * @example <caption>Default and Local Lookups</caption>
+     * $missing = $manufacturerFormat->get('NonExistent/Path', 'fallback');
+     * // Returns: "fallback"
+     *
+     * $localChild = $manufacturerFormat->get('Localization', null, true);
+     * // Equivalent to "./Localization" (direct child only)
+     * @example <caption>Using $elementKey</caption>
+     * $formatWithKey = new class($entityRoot) extends TestableFormat {
+     *     protected ?string $elementKey = 'Components/EAPhaseActivePropComponentDef';
+     * };
+     *
+     * $element = $formatWithKey->get(null);
+     * // Uses elementKey path
+     *
+     * $override = $formatWithKey->get('Components/OtherComponent');
+     * // Explicit key overrides elementKey
      */
     public function get(?string $key = null, $default = null, ?bool $local = false): mixed
     {
@@ -68,13 +138,12 @@ abstract class BaseFormat
         $lookupKey = $key ?? $this->elementKey;
 
         if ($local && $lookupKey !== null && ! str_contains($lookupKey, '/') && ! str_contains($lookupKey, '@')) {
-            $lookupKey = '/'.$lookupKey;
+            $lookupKey = './'.$lookupKey;
         }
 
         // FIX: Handle attribute queries on RootDocument by delegating to documentElement
         if ($this->item instanceof RootDocument && str_starts_with($lookupKey, '@')) {
-            $element = new Element($this->item->documentElement);
-            return $element->get($lookupKey, $default);
+            return new Element($this->item->documentElement)->get($lookupKey, $default);
         }
 
         return $this->item->get($lookupKey, $default);
@@ -89,11 +158,13 @@ abstract class BaseFormat
      */
     public function has(string $key, ?string $elementName = null): bool
     {
-        if (str_contains($key, '.')) {
+        $normalizedKey = str_starts_with($key, './') ? substr($key, 2) : $key;
+
+        if (str_contains($normalizedKey, '.')) {
             throw new RuntimeException('Element key contains invalid format');
         }
 
-        $parts = explode('/', $key);
+        $parts = explode('/', $normalizedKey);
         $elementName = $elementName ?? array_pop($parts);
 
         // Return key name if not found

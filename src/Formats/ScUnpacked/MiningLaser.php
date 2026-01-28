@@ -24,7 +24,7 @@ final class MiningLaser extends BaseFormat
 
         $laserParams = $this->get();
         $weapon = $this->item->get('Components/SCItemWeaponComponentParams');
-        $fireActions = $weapon?->get('/fireActions');
+        $fireActions = $weapon?->get('fireActions');
 
         [$fractureAction, $extractionAction] = $this->identifyActions($fireActions);
 
@@ -32,7 +32,7 @@ final class MiningLaser extends BaseFormat
 
         $extractionThroughput = $this->extractThroughput($extractionAction);
 
-        $laserParamsData = $laserParams?->get('/MiningLaserGlobalParams')?->attributesToArray(['__ref', '__path'], pascalCase: true);
+        $laserParamsData = $laserParams?->get('MiningLaserGlobalParams')?->attributesToArray(['__ref', '__path'], pascalCase: true);
 
         $throttleMinimum = $laserParams?->get('@throttleMinimum');
         $throttleHoldAccFactor = Arr::get($laserParamsData, 'ThrottleHoldAccFactor');
@@ -183,9 +183,9 @@ final class MiningLaser extends BaseFormat
         $count = 0;
 
         foreach ($ports->children() as $port) {
-            $typeNodes = $port->get('/CompatibleTypes')?->children();
+            $typeNodes = $port->get('CompatibleTypes')?->children();
             if ($typeNodes === null || $typeNodes === []) {
-                $typeNodes = $port->get('/Types')?->children() ?? [];
+                $typeNodes = $port->get('Types')?->children() ?? [];
             }
 
             foreach ($typeNodes as $type) {

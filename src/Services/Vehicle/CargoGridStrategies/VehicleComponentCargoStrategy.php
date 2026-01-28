@@ -24,7 +24,7 @@ final class VehicleComponentCargoStrategy implements CargoGridStrategyInterface
         $vehicleComponent = $vehicle->entity->get('Components/VehicleComponentParams')
             ?? $vehicle->entity->getAttachDef();
 
-        $inventoryContainerRef = $vehicleComponent?->get('inventoryContainerParams');
+        $inventoryContainerRef = $vehicleComponent?->get('@inventoryContainerParams');
         if (! $inventoryContainerRef) {
             return;
         }

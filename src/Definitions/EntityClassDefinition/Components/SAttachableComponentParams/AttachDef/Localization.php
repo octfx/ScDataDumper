@@ -16,9 +16,9 @@ class Localization extends Element
     ];
 
     protected array $keys = [
-        'Name',
-        'ShortName',
-        'Description',
+        '@Name',
+        '@ShortName',
+        '@Description',
     ];
 
     public function initialize(DOMDocument $document): void
@@ -41,7 +41,8 @@ class Localization extends Element
             $translation->setAttribute('Locale', $locale);
 
             foreach ($this->keys as $key) {
-                $translation->setAttribute($key, $t->getTranslation($this->get($key), $locale));
+                // dump($key, $this->get($key), $t->getTranslation($this->get($key), $locale));
+                $translation->setAttribute(ltrim($key, '@'), $t->getTranslation($this->get($key), $locale));
             }
 
             if ($this->node->lastChild->nodeName !== $element) {

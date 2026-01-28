@@ -11,10 +11,10 @@ use Octfx\ScDataDumper\Services\ServiceFactory;
 class VehicleComponentParams extends Localization
 {
     protected array $keys = [
-        'vehicleName',
-        'vehicleDescription',
-        'vehicleCareer',
-        'vehicleRole',
+        '@vehicleName',
+        '@vehicleDescription',
+        '@vehicleCareer',
+        '@vehicleRole',
     ];
 
     public function initialize(DOMDocument $document): void

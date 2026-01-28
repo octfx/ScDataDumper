@@ -24,17 +24,17 @@ final class Temperature extends BaseFormat
             return null;
         }
 
-        $coolingMultiplier = $temperature->get('/coolingEqualizationParams/CoolingEqualizationMultiplier@coolingEqualizationMultiplier');
+        $coolingMultiplier = $temperature->get('coolingEqualizationParams/CoolingEqualizationMultiplier@coolingEqualizationMultiplier');
         if ($coolingMultiplier !== null) {
             $data['CoolingEqualizationMultiplier'] = (float) $coolingMultiplier;
         }
 
-        $signatureParams = $this->formatSignatureParams($temperature->get('/signatureParams'));
+        $signatureParams = $this->formatSignatureParams($temperature->get('signatureParams'));
         if ($signatureParams !== null) {
             $data['SignatureParams'] = $signatureParams;
         }
 
-        $itemResourceParams = $this->formatItemResourceParams($temperature->get('/itemResourceParams'));
+        $itemResourceParams = $this->formatItemResourceParams($temperature->get('itemResourceParams'));
         if ($itemResourceParams !== null) {
             $data['ItemResourceParams'] = $itemResourceParams;
         }

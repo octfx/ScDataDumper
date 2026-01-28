@@ -17,11 +17,11 @@ final class WeaponConsumption extends BaseFormat
         $regenParams = $this->get();
 
         return [
-            'InitialRegenPerSec' => $regenParams->get('initialRegenPerSec'),
-            'RequestedRegenPerSec' => $regenParams->get('requestedRegenPerSec'),
-            'RequestedAmmoLoad' => $regenParams->get('requestedAmmoLoad'),
-            'Cooldown' => $regenParams->get('regenerationCooldown'),
-            'CostPerBullet' => $regenParams->get('regenerationCostPerBullet'),
+            'InitialRegenPerSec' => $regenParams->get('@initialRegenPerSec'),
+            'RequestedRegenPerSec' => $regenParams->get('@requestedRegenPerSec'),
+            'RequestedAmmoLoad' => $regenParams->get('@requestedAmmoLoad'),
+            'Cooldown' => $regenParams->get('@regenerationCooldown'),
+            'CostPerBullet' => $regenParams->get('@regenerationCostPerBullet'),
         ];
     }
 }

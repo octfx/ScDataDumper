@@ -290,7 +290,7 @@ class Food extends BaseFormat
     protected function parseDefaultContents(Element $consumable): array
     {
         $contents = [];
-        $defaultContentsNode = $consumable->get('/defaultContents');
+        $defaultContentsNode = $consumable->get('defaultContents');
 
         if (! $defaultContentsNode instanceof Element) {
             return [];
@@ -318,13 +318,13 @@ class Food extends BaseFormat
      */
     protected function parseConsumableVolume(Element $consumable): int
     {
-        $volumeNode = $consumable->get('/consumableVolume');
+        $volumeNode = $consumable->get('consumableVolume');
 
         if (! $volumeNode instanceof Element) {
             return 0;
         }
 
-        $microSCUNode = $volumeNode->get('/SMicroCargoUnit');
+        $microSCUNode = $volumeNode->get('SMicroCargoUnit');
 
         if (! $microSCUNode instanceof Element) {
             return 0;

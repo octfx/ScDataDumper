@@ -18,7 +18,7 @@ final class WeaponModifier extends BaseFormat
         }
 
         $component = $this->get();
-        $weaponStats = $component?->get('/modifier/weaponStats');
+        $weaponStats = $component?->get('modifier/weaponStats');
 
         if ($weaponStats === null) {
             return null;
@@ -28,14 +28,14 @@ final class WeaponModifier extends BaseFormat
             ...$this->buildMetadata($component),
             'WeaponStats' => [
                 'Base' => $this->buildBaseStats($weaponStats),
-                'Recoil' => $this->buildRecoil($weaponStats->get('/recoilModifier')),
-                'Spread' => $this->buildSpread($weaponStats->get('/spreadModifier')),
-                'Aim' => $this->buildAim($weaponStats->get('/aimModifier')),
-                'Regen' => $this->buildRegen($weaponStats->get('/regenModifier')),
-                'Salvage' => $this->buildSalvage($weaponStats->get('/salvageModifier')),
+                'Recoil' => $this->buildRecoil($weaponStats->get('recoilModifier')),
+                'Spread' => $this->buildSpread($weaponStats->get('spreadModifier')),
+                'Aim' => $this->buildAim($weaponStats->get('aimModifier')),
+                'Regen' => $this->buildRegen($weaponStats->get('regenModifier')),
+                'Salvage' => $this->buildSalvage($weaponStats->get('salvageModifier')),
             ],
-            'Zeroing' => $this->buildZeroing($component->get('/zeroingParams/SWeaponZeroingParams')),
-            'Reticle' => $this->buildReticle($component->get('/reticleParams/SWeaponReticleParams')),
+            'Zeroing' => $this->buildZeroing($component->get('zeroingParams/SWeaponZeroingParams')),
+            'Reticle' => $this->buildReticle($component->get('reticleParams/SWeaponReticleParams')),
         ];
 
         return $this->removeNullValues($data);
@@ -51,8 +51,8 @@ final class WeaponModifier extends BaseFormat
     private function buildMetadata(Element $component): array
     {
         return $this->mapAttributes($component, [
-            'activateOnAttach' => 'ActivateOnAttach',
-            'ignoreWear' => 'IgnoreWear',
+            '@activateOnAttach' => 'ActivateOnAttach',
+            '@ignoreWear' => 'IgnoreWear',
         ]);
     }
 
@@ -64,20 +64,20 @@ final class WeaponModifier extends BaseFormat
             'MuzzleFlashScale' => $effectStrength,
             ...($this->getFlashModifiers() ?? []),
         ] + $this->mapAttributes($weaponStats, [
-            'fireRateMultiplier' => 'FireRateMultiplier',
-            'damageMultiplier' => 'DamageMultiplier',
-            'projectileSpeedMultiplier' => 'ProjectileSpeedMultiplier',
-            'ammoCostMultiplier' => 'AmmoCostMultiplier',
-            'heatGenerationMultiplier' => 'HeatGenerationMultiplier',
-            'soundRadiusMultiplier' => 'SoundRadiusMultiplier',
-            'chargeTimeMultiplier' => 'ChargeTimeMultiplier',
+            '@fireRateMultiplier' => 'FireRateMultiplier',
+            '@damageMultiplier' => 'DamageMultiplier',
+            '@projectileSpeedMultiplier' => 'ProjectileSpeedMultiplier',
+            '@ammoCostMultiplier' => 'AmmoCostMultiplier',
+            '@heatGenerationMultiplier' => 'HeatGenerationMultiplier',
+            '@soundRadiusMultiplier' => 'SoundRadiusMultiplier',
+            '@chargeTimeMultiplier' => 'ChargeTimeMultiplier',
         ]);
     }
 
     private function getFlashModifiers(): ?array
     {
         $component = $this->get();
-        $fireEffects = $component?->get('/fireEffects');
+        $fireEffects = $component?->get('fireEffects');
 
         if ($fireEffects === null) {
             return null;
@@ -107,22 +107,22 @@ final class WeaponModifier extends BaseFormat
         }
 
         $data = $this->mapAttributes($recoil, [
-            'decayMultiplier' => 'DecayMultiplier',
-            'endDecayMultiplier' => 'EndDecayMultiplier',
-            'fireRecoilTimeMultiplier' => 'FireRecoilTimeMultiplier',
-            'fireRecoilStrengthFirstMultiplier' => 'FireRecoilStrengthFirstMultiplier',
-            'fireRecoilStrengthMultiplier' => 'FireRecoilStrengthMultiplier',
-            'angleRecoilStrengthMultiplier' => 'AngleRecoilStrengthMultiplier',
-            'randomnessMultiplier' => 'RandomnessMultiplier',
-            'randomnessBackPushMultiplier' => 'RandomnessBackPushMultiplier',
-            'frontalOscillationRotationMultiplier' => 'FrontalOscillationRotationMultiplier',
-            'frontalOscillationStrengthMultiplier' => 'FrontalOscillationStrengthMultiplier',
-            'frontalOscillationDecayMultiplier' => 'FrontalOscillationDecayMultiplier',
-            'frontalOscillationRandomnessMultiplier' => 'FrontalOscillationRandomnessMultiplier',
-            'animatedRecoilMultiplier' => 'AnimatedRecoilMultiplier',
+            '@decayMultiplier' => 'DecayMultiplier',
+            '@endDecayMultiplier' => 'EndDecayMultiplier',
+            '@fireRecoilTimeMultiplier' => 'FireRecoilTimeMultiplier',
+            '@fireRecoilStrengthFirstMultiplier' => 'FireRecoilStrengthFirstMultiplier',
+            '@fireRecoilStrengthMultiplier' => 'FireRecoilStrengthMultiplier',
+            '@angleRecoilStrengthMultiplier' => 'AngleRecoilStrengthMultiplier',
+            '@randomnessMultiplier' => 'RandomnessMultiplier',
+            '@randomnessBackPushMultiplier' => 'RandomnessBackPushMultiplier',
+            '@frontalOscillationRotationMultiplier' => 'FrontalOscillationRotationMultiplier',
+            '@frontalOscillationStrengthMultiplier' => 'FrontalOscillationStrengthMultiplier',
+            '@frontalOscillationDecayMultiplier' => 'FrontalOscillationDecayMultiplier',
+            '@frontalOscillationRandomnessMultiplier' => 'FrontalOscillationRandomnessMultiplier',
+            '@animatedRecoilMultiplier' => 'AnimatedRecoilMultiplier',
         ]);
 
-        $data['AimRecoil'] = $this->buildAimRecoil($recoil->get('/aimRecoilModifier'));
+        $data['AimRecoil'] = $this->buildAimRecoil($recoil->get('aimRecoilModifier'));
 
         return $this->removeNullValues($data);
     }
@@ -134,15 +134,15 @@ final class WeaponModifier extends BaseFormat
         }
 
         $data = $this->mapAttributes($aim, [
-            'randomPitchMultiplier' => 'RandomPitchMultiplier',
-            'randomYawMultiplier' => 'RandomYawMultiplier',
-            'decayMultiplier' => 'DecayMultiplier',
-            'endDecayMultiplier' => 'EndDecayMultiplier',
+            '@randomPitchMultiplier' => 'RandomPitchMultiplier',
+            '@randomYawMultiplier' => 'RandomYawMultiplier',
+            '@decayMultiplier' => 'DecayMultiplier',
+            '@endDecayMultiplier' => 'EndDecayMultiplier',
         ]);
 
-        $data['MaxMultiplier'] = $this->buildVector($aim->get('maxMultiplier'), ['x' => 'X', 'y' => 'Y']);
-        $data['ShotKickFirstMultiplier'] = $this->buildVector($aim->get('shotKickFirstMultiplier'), ['x' => 'X', 'y' => 'Y']);
-        $data['ShotKickMultiplier'] = $this->buildVector($aim->get('shotKickMultiplier'), ['x' => 'X', 'y' => 'Y']);
+        $data['MaxMultiplier'] = $this->buildVector($aim->get('maxMultiplier'), ['@x' => 'X', '@y' => 'Y']);
+        $data['ShotKickFirstMultiplier'] = $this->buildVector($aim->get('shotKickFirstMultiplier'), ['@x' => 'X', '@y' => 'Y']);
+        $data['ShotKickMultiplier'] = $this->buildVector($aim->get('shotKickMultiplier'), ['@x' => 'X', '@y' => 'Y']);
         $data['CurveRecoil'] = $this->buildAimRecoilCurve($aim->get('curveRecoil'));
 
         return $this->removeNullValues($data);
@@ -155,18 +155,18 @@ final class WeaponModifier extends BaseFormat
         }
 
         $data = $this->mapAttributes($curve, [
-            'yawMaxDegreesModifier' => 'YawMaxDegreesModifier',
-            'pitchMaxDegreesModifier' => 'PitchMaxDegreesModifier',
-            'rollMaxDegreesModifier' => 'RollMaxDegreesModifier',
-            'maxFireTimeModifier' => 'MaxFireTimeModifier',
-            'recoilSmoothTimeModifier' => 'RecoilSmoothTimeModifier',
-            'decayStartTimeModifier' => 'DecayStartTimeModifier',
-            'minDecayTimeModifier' => 'MinDecayTimeModifier',
-            'maxDecayTimeModifier' => 'MaxDecayTimeModifier',
+            '@yawMaxDegreesModifier' => 'YawMaxDegreesModifier',
+            '@pitchMaxDegreesModifier' => 'PitchMaxDegreesModifier',
+            '@rollMaxDegreesModifier' => 'RollMaxDegreesModifier',
+            '@maxFireTimeModifier' => 'MaxFireTimeModifier',
+            '@recoilSmoothTimeModifier' => 'RecoilSmoothTimeModifier',
+            '@decayStartTimeModifier' => 'DecayStartTimeModifier',
+            '@minDecayTimeModifier' => 'MinDecayTimeModifier',
+            '@maxDecayTimeModifier' => 'MaxDecayTimeModifier',
         ]);
 
-        $data['MinLimitsModifier'] = $this->buildVector($curve->get('minLimitsModifier'), ['x' => 'X', 'y' => 'Y', 'z' => 'Z']);
-        $data['MaxLimitsModifier'] = $this->buildVector($curve->get('maxLimitsModifier'), ['x' => 'X', 'y' => 'Y', 'z' => 'Z']);
+        $data['MinLimitsModifier'] = $this->buildVector($curve->get('minLim0tsModifier'), ['@x' => 'X', '@y' => 'Y', '@z' => 'Z']);
+        $data['MaxLimitsModifier'] = $this->buildVector($curve->get('maxLim0tsModifier'), ['@x' => 'X', '@y' => 'Y', '@z' => 'Z']);
 
         return $this->removeNullValues($data);
     }
@@ -178,12 +178,12 @@ final class WeaponModifier extends BaseFormat
         }
 
         return $this->removeNullValues($this->mapAttributes($spread, [
-            'minMultiplier' => 'MinMultiplier',
-            'maxMultiplier' => 'MaxMultiplier',
-            'firstAttackMultiplier' => 'FirstAttackMultiplier',
-            'attackMultiplier' => 'AttackMultiplier',
-            'decayMultiplier' => 'DecayMultiplier',
-            'additiveModifier' => 'AdditiveModifier',
+            '@minMultiplier' => 'MinMultiplier',
+            '@maxMultiplier' => 'MaxMultiplier',
+            '@firstAttackMultiplier' => 'FirstAttackMultiplier',
+            '@attackMultiplier' => 'AttackMultiplier',
+            '@decayMultiplier' => 'DecayMultiplier',
+            '@additiveModifier' => 'AdditiveModifier',
         ]));
     }
 
@@ -194,11 +194,11 @@ final class WeaponModifier extends BaseFormat
         }
 
         return $this->removeNullValues($this->mapAttributes($aim, [
-            'zoomScale' => 'ZoomScale',
-            'secondZoomScale' => 'SecondZoomScale',
-            'zoomTimeScale' => 'ZoomTimeScale',
-            'hideWeaponInADS' => 'HideWeaponInAds',
-            'fstopMultiplier' => 'FstopMultiplier',
+            '@zoomScale' => 'ZoomScale',
+            '@secondZoomScale' => 'SecondZoomScale',
+            '@zoomTimeScale' => 'ZoomTimeScale',
+            '@hideWeaponInADS' => 'HideWeaponInAds',
+            '@fstopMultiplier' => 'FstopMultiplier',
         ]));
     }
 
@@ -209,9 +209,9 @@ final class WeaponModifier extends BaseFormat
         }
 
         return $this->removeNullValues($this->mapAttributes($regen, [
-            'powerRatioMultiplier' => 'PowerRatioMultiplier',
-            'maxAmmoLoadMultiplier' => 'MaxAmmoLoadMultiplier',
-            'maxRegenPerSecMultiplier' => 'MaxRegenPerSecMultiplier',
+            '@powerRatioMultiplier' => 'PowerRatioMultiplier',
+            '@maxAmmoLoadMultiplier' => 'MaxAmmoLoadMultiplier',
+            '@maxRegenPerSecMultiplier' => 'MaxRegenPerSecMultiplier',
         ]));
     }
 
@@ -222,9 +222,9 @@ final class WeaponModifier extends BaseFormat
         }
 
         return $this->removeNullValues($this->mapAttributes($salvage, [
-            'salvageSpeedMultiplier' => 'SalvageSpeedMultiplier',
-            'radiusMultiplier' => 'RadiusMultiplier',
-            'extractionEfficiency' => 'ExtractionEfficiency',
+            '@salvageSpeedMultiplier' => 'SalvageSpeedMultiplier',
+            '@radiusMultiplier' => 'RadiusMultiplier',
+            '@extractionEfficiency' => 'ExtractionEfficiency',
         ]));
     }
 
@@ -235,10 +235,10 @@ final class WeaponModifier extends BaseFormat
         }
 
         return $this->removeNullValues($this->mapAttributes($zeroing, [
-            'defaultRange' => 'DefaultRange',
-            'maxRange' => 'MaxRange',
-            'rangeIncrement' => 'RangeIncrement',
-            'autoZeroingTime' => 'AutoZeroingTime',
+            '@defaultRange' => 'DefaultRange',
+            '@maxRange' => 'MaxRange',
+            '@rangeIncrement' => 'RangeIncrement',
+            '@autoZeroingTime' => 'AutoZeroingTime',
         ]));
     }
 
@@ -249,8 +249,8 @@ final class WeaponModifier extends BaseFormat
         }
 
         return $this->removeNullValues($this->mapAttributes($reticle, [
-            'defaultReticle' => 'DefaultReticle',
-            'adsReticle' => 'AdsReticle',
+            '@defaultReticle' => 'DefaultReticle',
+            '@adsReticle' => 'AdsReticle',
         ]));
     }
 

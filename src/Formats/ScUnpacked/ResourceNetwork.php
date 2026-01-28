@@ -3,7 +3,7 @@
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\Definitions\Element;
-use Octfx\ScDataDumper\DocumentTypes\RootDocument;
+use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class ResourceNetwork extends BaseFormat
@@ -26,11 +26,11 @@ final class ResourceNetwork extends BaseFormat
         $component = $this->get();
 
         $data = [
-            'IsNetworked' => (bool) $component->get('isResourceNetworked'),
-            'IsRelay' => (bool) $component->get('isRelay'),
-            'DefaultPriority' => $component->get('defaultPriority'),
-            'States' => $this->parseStates($component->get('/states')),
-            'Repair' => $component->get('/selfRepair')?->attributesToArray(['__type'], pascalCase: true),
+            'IsNetworked' => (bool) $component->get('@isResourceNetworked'),
+            'IsRelay' => (bool) $component->get('@isRelay'),
+            'DefaultPriority' => $component->get('@defaultPriority'),
+            'States' => $this->parseStates($component->get('states')),
+            'Repair' => $component->get('selfRepair')?->attributesToArray(['__type'], pascalCase: true),
             'Usage' => $this->buildUsage(),
             'Generation' => $this->buildGeneration(),
         ];
@@ -62,12 +62,12 @@ final class ResourceNetwork extends BaseFormat
     private function parseState(Element $state): ?array
     {
         $data = [
-            'Name' => $state->get('name'),
-            'Deltas' => $this->parseDeltas($state->get('/deltas')),
-            'Signature' => $this->parseSignature($state->get('/signatureParams')),
-            'LinkedInteractionStates' => $this->parseLinkedInteractionStates($state->get('/linkedInteractionStates')),
+            'Name' => $state->get('@name'),
+            'Deltas' => $this->parseDeltas($state->get('deltas')),
+            'Signature' => $this->parseSignature($state->get('signatureParams')),
+            'LinkedInteractionStates' => $this->parseLinkedInteractionStates($state->get('linkedInteractionStates')),
             'PowerRanges' => $this->parsePowerRanges(
-                $state->get('/powerRanges') ?? $state->get('/rangeParams')
+                $state->get('powerRanges') ?? $state->get('rangeParams')
             ),
         ];
 
@@ -104,8 +104,8 @@ final class ResourceNetwork extends BaseFormat
             'ItemResourceDeltaStorage' => $this->buildStorageDelta($delta),
             'ItemResourceDeltaNetworkReflection' => [
                 'Type' => 'NetworkReflection',
-                'Resource' => $delta->get('resource'),
-                'BinaryEvaluation' => $delta->get('binaryEvaluation'),
+                'Resource' => $delta->get('@resource'),
+                'BinaryEvaluation' => $delta->get('@binaryEvaluation'),
             ],
             default => [
                 'Type' => 'Other',
@@ -120,21 +120,21 @@ final class ResourceNetwork extends BaseFormat
 
     private function buildConsumptionDelta(Element $delta): array
     {
-        $consumption = $this->parseResourceAmountBlock($delta->get('/consumption'));
+        $consumption = $this->parseResourceAmountBlock($delta->get('consumption'));
 
         return [
             'Type' => 'Consumption',
             'Resource' => $consumption['Resource'] ?? null,
             'Rate' => $consumption['Rate'] ?? null,
             'RawUnit' => $consumption['RawUnit'] ?? null,
-            'MinimumFraction' => $delta->get('minimumConsumptionFraction'),
-            'Composition' => $this->parseComposition($delta->get('/consumptionComposition')),
+            'MinimumFraction' => $delta->get('@minimumConsumptionFraction'),
+            'Composition' => $this->parseComposition($delta->get('consumptionComposition')),
         ];
     }
 
     private function buildGenerationDelta(Element $delta): array
     {
-        $generation = $this->parseResourceAmountBlock($delta->get('/generation'));
+        $generation = $this->parseResourceAmountBlock($delta->get('generation'));
 
         return [
             'Type' => 'Generation',
@@ -142,14 +142,14 @@ final class ResourceNetwork extends BaseFormat
             'Rate' => $generation['Rate'] ?? null,
             'RawUnit' => $generation['RawUnit'] ?? null,
             'NoOverGeneration' => $delta->get('noOverGeneration'),
-            'Composition' => $this->parseComposition($delta->get('/composition')),
+            'Composition' => $this->parseComposition($delta->get('composition')),
         ];
     }
 
     private function buildConversionDelta(Element $delta): array
     {
-        $consumption = $this->parseResourceAmountBlock($delta->get('/consumption'));
-        $generation = $this->parseResourceAmountBlock($delta->get('/generation'));
+        $consumption = $this->parseResourceAmountBlock($delta->get('consumption'));
+        $generation = $this->parseResourceAmountBlock($delta->get('generation'));
 
         return [
             'Type' => 'Conversion',
@@ -159,17 +159,17 @@ final class ResourceNetwork extends BaseFormat
             'GeneratedResource' => $generation['Resource'] ?? null,
             'GeneratedRate' => $generation['Rate'] ?? null,
             'GeneratedRawUnit' => $generation['RawUnit'] ?? null,
-            'MinimumFraction' => $delta->get('minimumConsumptionFraction'),
-            'NoOverGeneration' => $delta->get('noOverGeneration'),
-            'ConsumptionComposition' => $this->parseComposition($delta->get('/consumptionComposition')),
-            'GeneratedComposition' => $this->parseComposition($delta->get('/generatedComposition')),
+            'MinimumFraction' => $delta->get('@minimumConsumptionFraction'),
+            'NoOverGeneration' => $delta->get('@noOverGeneration'),
+            'ConsumptionComposition' => $this->parseComposition($delta->get('consumptionComposition')),
+            'GeneratedComposition' => $this->parseComposition($delta->get('generatedComposition')),
         ];
     }
 
     private function buildStorageDelta(Element $delta): array
     {
-        $consumption = $this->parseResourceAmountBlock($delta->get('/consumption'));
-        $generation = $this->parseResourceAmountBlock($delta->get('/generation'));
+        $consumption = $this->parseResourceAmountBlock($delta->get('consumption'));
+        $generation = $this->parseResourceAmountBlock($delta->get('generation'));
 
         return [
             'Type' => 'Storage',
@@ -179,8 +179,8 @@ final class ResourceNetwork extends BaseFormat
             'GeneratedResource' => $generation['Resource'] ?? null,
             'GeneratedRate' => $generation['Rate'] ?? null,
             'GeneratedRawUnit' => $generation['RawUnit'] ?? null,
-            'Discharge' => $delta->get('discharge'),
-            'ConsumptionComposition' => $this->parseComposition($delta->get('/consumptionComposition')),
+            'Discharge' => $delta->get('@discharge'),
+            'ConsumptionComposition' => $this->parseComposition($delta->get('consumptionComposition')),
         ];
     }
 
@@ -190,10 +190,10 @@ final class ResourceNetwork extends BaseFormat
             return null;
         }
 
-        $rate = $this->parseResourceRate($element->get('/resourceAmountPerSecond'));
+        $rate = $this->parseResourceRate($element->get('resourceAmountPerSecond'));
 
         $data = [
-            'Resource' => $element->get('resource'),
+            'Resource' => $element->get('@resource'),
         ];
 
         if ($rate !== null) {
@@ -242,10 +242,10 @@ final class ResourceNetwork extends BaseFormat
     private function getAmountField(string $unit): ?string
     {
         return match ($unit) {
-            'SStandardResourceUnit' => 'standardResourceUnits',
-            'SCentiResourceUnit' => 'centiResourceUnits',
-            'SMicroResourceUnit' => 'microResourceUnits',
-            'SPowerSegmentResourceUnit' => 'units',
+            'SStandardResourceUnit' => '@standardResourceUnits',
+            'SCentiResourceUnit' => '@centiResourceUnits',
+            'SMicroResourceUnit' => '@microResourceUnits',
+            'SPowerSegmentResourceUnit' => '@units',
             default => null,
         };
     }
@@ -256,7 +256,7 @@ final class ResourceNetwork extends BaseFormat
             return [];
         }
 
-        $values = $composition->get('/values');
+        $values = $composition->get('values');
 
         if (! $values instanceof Element) {
             return [];
@@ -266,8 +266,8 @@ final class ResourceNetwork extends BaseFormat
 
         foreach ($values->children() as $value) {
             $out[] = [
-                'ContainerResource' => $value->get('containerResource'),
-                'Ratio' => $value->get('ratio'),
+                'ContainerResource' => $value->get('@containerResource'),
+                'Ratio' => $value->get('@ratio'),
             ];
         }
 
@@ -312,11 +312,11 @@ final class ResourceNetwork extends BaseFormat
 
         $data = [];
 
-        $em = $signature->get('/EMSignature');
-        $ir = $signature->get('/IRSignature');
+        $em = $signature->get('EMSignature');
+        $ir = $signature->get('IRSignature');
 
-        $emNominal = $em?->get('nominalSignature');
-        $irNominal = $ir?->get('nominalSignature');
+        $emNominal = $em?->get('@nominalSignature');
+        $irNominal = $ir?->get('@nominalSignature');
 
         if ($emNominal !== null && $emNominal !== 0.0) {
             $data['EM'] = $emNominal;
@@ -365,31 +365,52 @@ final class ResourceNetwork extends BaseFormat
             return null;
         }
 
-        $isGenerator = $onlineState->has('/deltas/ItemResourceDeltaGeneration');
+        $isGenerator = $onlineState->has('deltas/ItemResourceDeltaGeneration');
         $powerDelta = null;
+        $coolantDelta = null;
 
-        foreach (($onlineState->get('/deltas')?->children() ?? []) as $delta) {
-            if ($delta->get('/consumption@resource') === 'Power' || ($isGenerator && $delta->get('/generation@resource') === 'Power')) {
-                $powerDelta = $delta;
-                break;
+        foreach (($onlineState->get('deltas')?->children() ?? []) as $delta) {
+            $consumptionResource = $delta->get('consumption@resource');
+            $generationResource = $delta->get('generation@resource');
+
+            if ($consumptionResource === 'Power' || ($isGenerator && $generationResource === 'Power')) {
+                $powerDelta ??= $delta;
+            }
+
+            if ($consumptionResource === 'Coolant') {
+                $coolantDelta ??= $delta;
             }
         }
 
-        $key = 'SPowerSegmentResourceUnit@units';
-        if ($powerDelta?->has('/consumption/resourceAmountPerSecond/SStandardResourceUnit')) {
-            $key = 'SStandardResourceUnit@standardResourceUnits';
+        $extractRate = function (?Element $delta, string $block): ?float {
+            $rateBlock = $delta?->get($block)?->get('resourceAmountPerSecond');
+            if (! $rateBlock instanceof Element) {
+                return null;
+            }
+
+            $rateInfo = $this->parseResourceRate($rateBlock);
+
+            return $rateInfo['Rate'] ?? $rateInfo['AmountPerSecond'] ?? null;
+        };
+
+        $powerMinFraction = (float) ($powerDelta?->get('@minimumConsumptionFraction', 1) ?? 1);
+        $coolantMinFraction = (float) ($coolantDelta?->get('@minimumConsumptionFraction', 1) ?? 1);
+
+        $powerUsageMax = $isGenerator
+            ? $extractRate($powerDelta, 'generation')
+            : $extractRate($powerDelta, 'consumption');
+        $powerUsageMin = $powerUsageMax !== null ? $powerUsageMax * $powerMinFraction : null;
+
+        $coolantUsageMax = $extractRate($coolantDelta, 'consumption');
+
+        // Match previous behavior: if no deltas exist, treat usage as 0
+        if ($powerUsageMin === null && $coolantUsageMax === null) {
+            $powerUsageMin = 0.0;
         }
 
-        $minConsumptionFraction = (float) ($powerDelta?->get('@minimumConsumptionFraction', 1) ?? 1);
+        $lowPowerRange = 1.0;
 
-        $powerUsageMax = $isGenerator ?
-            $powerDelta?->get('/generation/resourceAmountPerSecond/SPowerSegmentResourceUnit@units', 0) :
-            $powerDelta?->get('/consumption/resourceAmountPerSecond/'.$key, 0);
-        $powerUsageMin = $powerUsageMax * $minConsumptionFraction;
-
-        $lowPowerRange = null;
-
-        foreach ($onlineState->get('/powerRanges')?->children() as $range) {
+        foreach ($onlineState->get('powerRanges')?->children() as $range) {
             if ($range->getNode()->nodeName === 'low' && ((int) $range->get('@registerRange')) === 1) {
                 $lowPowerRange = (float) ($range->get('@modifier', 1));
                 break;
@@ -407,19 +428,33 @@ final class ResourceNetwork extends BaseFormat
         }
 
         $type = null;
-        $node = $this->item->getNode();
-        if ($node instanceof RootDocument) {
-            $type = $node->getType();
+
+        $item = $this->item;
+
+        if ($item instanceof EntityClassDefinition) {
+            $type = $item->getType();
         }
+
+        $powerMin = $powerUsageMin !== null ? round($powerUsageMin, 3) : null;
+        $powerMax = $powerUsageMax !== null ? round($powerUsageMax, 3) : null;
+
+        $coolantMin = $type === 'QuantumDrive'
+            ? 0
+            : ($powerUsageMin !== null
+                ? round($powerUsageMin * $lowPowerRange, 3)
+                : ($coolantUsageMax !== null ? round($coolantUsageMax * $coolantMinFraction, 3) : null));
+        $coolantMax = $powerUsageMax !== null
+            ? $powerMax
+            : ($coolantUsageMax !== null ? round($coolantUsageMax, 3) : null);
 
         return [
             'Power' => [
-                'Minimum' => $powerUsageMin ? round($powerUsageMin, 3) : null,
-                'Maximum' => $powerUsageMax ? round($powerUsageMax, 3) : null,
+                'Minimum' => $powerMin,
+                'Maximum' => $powerMax,
             ],
             'Coolant' => [
-                'Minimum' => $type === 'QuantumDrive' ? 0 : round($powerUsageMin * $lowPowerRange, 3),
-                'Maximum' => $powerUsageMax ? round($powerUsageMax, 3) : null,
+                'Minimum' => $coolantMin,
+                'Maximum' => $coolantMax,
             ],
         ];
     }
@@ -439,18 +474,18 @@ final class ResourceNetwork extends BaseFormat
             return null;
         }
 
-        $isGenerator = $onlineState->get('/deltas/ItemResourceDeltaGeneration/generation@resource') === 'Power';
-        $isCooler = $onlineState->get('/deltas/ItemResourceDeltaConversion/generation@resource') === 'Coolant';
+        $isGenerator = $onlineState->get('deltas/ItemResourceDeltaGeneration/generation@resource') === 'Power';
+        $isCooler = $onlineState->get('deltas/ItemResourceDeltaConversion/generation@resource') === 'Coolant';
 
         if ($isCooler) {
             return [
-                'Coolant' => $onlineState->get('/deltas/ItemResourceDeltaConversion/generation/resourceAmountPerSecond/SStandardResourceUnit@standardResourceUnits'),
+                'Coolant' => $onlineState->get('deltas/ItemResourceDeltaConversion/generation/resourceAmountPerSecond/SStandardResourceUnit@standardResourceUnits'),
             ];
         }
 
         if ($isGenerator) {
             return [
-                'Power' => $onlineState->get('/deltas/ItemResourceDeltaGeneration/generation/resourceAmountPerSecond/SPowerSegmentResourceUnit@units', 0),
+                'Power' => $onlineState->get('deltas/ItemResourceDeltaGeneration/generation/resourceAmountPerSecond/SPowerSegmentResourceUnit@units', 0),
             ];
         }
 
