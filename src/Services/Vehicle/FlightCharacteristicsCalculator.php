@@ -319,7 +319,7 @@ final class FlightCharacteristicsCalculator implements VehicleDataCalculator
 
         return [
             'FlightCharacteristics' => $flightCharacteristics,
-            'agility' => $agility,
+            'Agility' => $agility,
         ];
     }
 

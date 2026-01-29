@@ -6,86 +6,93 @@ use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 
 /**
- * Calculate drive characteristics for physical wheeled vehicles
- * (Complex torque/mass calculations)
+ * Capture MovementParams snapshot for physical wheeled vehicles
  */
 final class PhysicalWheeledCalculator implements DriveCalculatorStrategy
 {
     public function supports(?Vehicle $vehicle): bool
     {
-        return $vehicle?->get('MovementParams/PhysicalWheeled/PhysicsParams@wWheelsMax') !== null;
+        return $vehicle?->get('MovementParams/PhysicalWheeled') !== null;
     }
 
     public function calculate(Vehicle $vehicle, float $mass): array
     {
-        $wWheelsMax = $vehicle->get('MovementParams/PhysicalWheeled/PhysicsParams@wWheelsMax');
-        $brakeTorque = $vehicle->get('MovementParams/PhysicalWheeled/PhysicsParams@brakeTorque');
-        $torqueScale = $vehicle->get('MovementParams/PhysicalWheeled/PhysicsParams/Engine@torqueScale');
-        $gearFirst = $vehicle->get('MovementParams/PhysicalWheeled/PhysicsParams/Gears@first');
+        $physicalWheeled = $vehicle->get('MovementParams/PhysicalWheeled');
 
-        // Spartan fix
-        if ($wWheelsMax === 26000000.0) {
-            $wWheelsMax = 26;
+        if (! $physicalWheeled instanceof Element) {
+            return [];
         }
-
-        $wheelRadius = $vehicle->get('//SubPartWheel@rimRadius');
-        $peakTorque = $this->extractPeakTorque($vehicle);
-
-        if (! $wheelRadius || ! $wWheelsMax || ! $mass || ! $brakeTorque || ! $peakTorque || ! $torqueScale || ! $gearFirst) {
-            return $this->nullResult();
-        }
-
-        $topSpeed = $wWheelsMax * $wheelRadius; // m/s
-        $topSpeedKph = $topSpeed * 3.6;
-
-        $reverseSpeed = $wWheelsMax * $wheelRadius; // m/s
-        $reverseSpeedKph = $reverseSpeed * 3.6;
-
-        // This does not seem correct, but ohwell
-        $wheelTorque = $peakTorque * $torqueScale * $gearFirst;
-        $force = $wheelTorque / $wheelRadius;
-        $acceleration = $force / $mass;
-
-        $brakeForce = $brakeTorque / $wheelRadius;
-        $deceleration = $brakeForce / $mass;
 
         return [
-            'TopSpeed' => round($topSpeedKph, 2),
-            'ReverseSpeed' => round($reverseSpeedKph, 2),
-            'Acceleration' => round($acceleration, 4),
-            'Decceleration' => round($deceleration, 4),
-            'ZeroToMax' => round($topSpeed / $acceleration, 2),
-            'ZeroToReverse' => round($topSpeed / $acceleration, 2),
-            'MaxToZero' => round($topSpeed / $deceleration, 2),
-            'ReverseToZero' => round($topSpeed / $deceleration, 2),
+            'Movement' => [
+                'PhysicalWheeled' => $this->elementToArray($physicalWheeled),
+            ],
         ];
     }
 
-    private function extractPeakTorque(Vehicle $vehicle): ?float
+    /**
+     * Convert Element to nested array with PascalCase keys
+     */
+    private function elementToArray(Element $element): array
     {
-        $peakTorque = null;
-        $torqueTable = $vehicle->get('MovementParams/PhysicalWheeled/PhysicsParams/Engine/RPMTorqueTable')?->children() ?? [];
+        $result = [];
 
-        foreach ($torqueTable as $entry) {
-            /** @var $entry Element */
-            $torque = $entry->get('torque', 0);
-            $peakTorque = max($peakTorque ?? $torque, $torque);
+        foreach ($element->attributes as $attr) {
+            $result[$this->toPascalCase($attr->name)] = $this->convertValue($attr->value);
         }
 
-        return $peakTorque;
+        foreach ($element->children() as $child) {
+            $childName = $this->toPascalCase($child->nodeName);
+            $childArray = $this->elementToArray($child);
+
+            if (isset($result[$childName])) {
+                if (! isset($result[$childName][0])) {
+                    $result[$childName] = [$result[$childName]];
+                }
+                $result[$childName][] = $childArray;
+            } else {
+                $result[$childName] = $childArray;
+            }
+        }
+
+        return $result;
     }
 
-    private function nullResult(): array
+    /**
+     * Convert kebab-case or camelCase attribute names to PascalCase
+     */
+    private function toPascalCase(string $name): string
     {
-        return [
-            'TopSpeed' => null,
-            'ReverseSpeed' => null,
-            'Acceleration' => null,
-            'Decceleration' => null,
-            'ZeroToMax' => null,
-            'ZeroToReverse' => null,
-            'MaxToZero' => null,
-            'ReverseToZero' => null,
-        ];
+        $name = ltrim($name, '@');
+
+        // Convert kebab-case to PascalCase
+        $name = str_replace(['-', '_'], ' ', $name);
+        $name = ucwords($name);
+        $name = str_replace(' ', '', $name);
+
+        return $name;
+    }
+
+    /**
+     * Convert string value to appropriate type
+     */
+    private function convertValue(string $value): mixed
+    {
+        if (is_numeric($value) && str_contains($value, '.')) {
+            return (float) $value;
+        }
+
+        if (is_numeric($value)) {
+            return (int) $value;
+        }
+
+        if (strtolower($value) === 'true') {
+            return true;
+        }
+        if (strtolower($value) === 'false') {
+            return false;
+        }
+
+        return $value;
     }
 }

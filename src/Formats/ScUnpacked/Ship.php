@@ -384,8 +384,8 @@ final class Ship extends BaseFormat
         if (! empty($calculatedData['FlightCharacteristics'])) {
             $summary['FlightCharacteristics'] = $calculatedData['FlightCharacteristics'];
         }
-        if (! empty($calculatedData['agility'])) {
-            $data['agility'] = $calculatedData['agility'];
+        if (! empty($calculatedData['Agility'])) {
+            $data['Agility'] = $calculatedData['Agility'];
         }
         if (! empty($calculatedData['MannedTurrets'])) {
             $summary['MannedTurrets'] = $calculatedData['MannedTurrets'];

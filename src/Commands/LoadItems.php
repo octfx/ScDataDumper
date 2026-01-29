@@ -89,7 +89,6 @@ class LoadItems extends Command
             'cloth',
             'debris',
             'noitem_player',
-            'noitem_vehicle',
         ];
 
         if ($input->hasOption('typeFilter')) {

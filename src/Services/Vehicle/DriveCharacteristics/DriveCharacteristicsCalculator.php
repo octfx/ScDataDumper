@@ -12,12 +12,28 @@ final class DriveCharacteristicsCalculator
     /** @var DriveCalculatorStrategy[] */
     private array $strategies;
 
+    private readonly TrackDetector $trackDetector;
+
+    private readonly WheelParametersExtractor $wheelParametersExtractor;
+
+    private readonly WheelAggregator $wheelAggregator;
+
+    private readonly PerformanceEstimator $performanceEstimator;
+
+    private readonly GroundVehicleAgilityCalculator $agilityCalculator;
+
     public function __construct()
     {
         $this->strategies = [
             new ArcadeWheeledCalculator,
             new PhysicalWheeledCalculator,
+            new TrackWheeledCalculator,
         ];
+        $this->trackDetector = new TrackDetector;
+        $this->wheelParametersExtractor = new WheelParametersExtractor;
+        $this->wheelAggregator = new WheelAggregator;
+        $this->performanceEstimator = new PerformanceEstimator;
+        $this->agilityCalculator = new GroundVehicleAgilityCalculator;
     }
 
     /**
@@ -33,12 +49,50 @@ final class DriveCharacteristicsCalculator
             return null;
         }
 
+        $result = null;
+
         foreach ($this->strategies as $strategy) {
-            if ($strategy->supports($vehicle)) {
-                return $strategy->calculate($vehicle, $mass);
+            $supports = $strategy->supports($vehicle);
+            if ($supports) {
+                $result = $strategy->calculate($vehicle, $mass);
+                break;
             }
         }
 
-        return null;
+        $tracks = $this->trackDetector->detect($vehicle);
+
+        $wheelParams = $this->wheelParametersExtractor->extract($vehicle);
+
+        $wheelAggregates = $this->wheelAggregator->aggregate($wheelParams);
+
+        $agilityScores = $this->agilityCalculator->calculate($wheelAggregates);
+
+        $performanceMetrics = $this->performanceEstimator->estimate($vehicle, $result, $wheelAggregates);
+
+        if ($result === null && $tracks['IsTracked'] === false && $wheelParams === null) {
+            return null;
+        }
+
+        $finalResult = $result ?? [];
+
+        $finalResult['Tracks'] = $tracks;
+
+        if ($wheelParams !== null) {
+            $finalResult = array_merge($finalResult, $wheelParams);
+        }
+
+        if ($wheelAggregates !== null) {
+            $finalResult = array_merge($finalResult, $wheelAggregates);
+        }
+
+        if ($agilityScores !== null) {
+            $finalResult = array_merge($finalResult, $agilityScores);
+        }
+
+        if ($performanceMetrics !== null) {
+            $finalResult = array_merge($finalResult, $performanceMetrics);
+        }
+
+        return $finalResult;
     }
 }

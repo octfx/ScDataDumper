@@ -6,26 +6,26 @@ use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 
 /**
- * Capture MovementParams snapshot for arcade wheeled vehicles
+ * Capture MovementParams snapshot for track wheeled vehicles
  */
-final class ArcadeWheeledCalculator implements DriveCalculatorStrategy
+final class TrackWheeledCalculator implements DriveCalculatorStrategy
 {
     public function supports(?Vehicle $vehicle): bool
     {
-        return $vehicle?->get('MovementParams/ArcadeWheeled') !== null;
+        return $vehicle?->get('MovementParams/TrackWheeled') !== null;
     }
 
     public function calculate(Vehicle $vehicle, float $mass): array
     {
-        $arcadeWheeled = $vehicle->get('MovementParams/ArcadeWheeled');
+        $trackWheeled = $vehicle->get('MovementParams/TrackWheeled');
 
-        if (! $arcadeWheeled instanceof Element) {
+        if (! $trackWheeled instanceof Element) {
             return [];
         }
 
         return [
             'Movement' => [
-                'ArcadeWheeled' => $this->elementToArray($arcadeWheeled),
+                'TrackWheeled' => $this->elementToArray($trackWheeled),
             ],
         ];
     }
@@ -37,17 +37,14 @@ final class ArcadeWheeledCalculator implements DriveCalculatorStrategy
     {
         $result = [];
 
-        // Add attributes
         foreach ($element->attributes as $attr) {
             $result[$this->toPascalCase($attr->name)] = $this->convertValue($attr->value);
         }
 
-        // Add child elements
         foreach ($element->children() as $child) {
             $childName = $this->toPascalCase($child->nodeName);
             $childArray = $this->elementToArray($child);
 
-            // Handle multiple elements with same name
             if (isset($result[$childName])) {
                 if (! isset($result[$childName][0])) {
                     $result[$childName] = [$result[$childName]];
@@ -66,10 +63,8 @@ final class ArcadeWheeledCalculator implements DriveCalculatorStrategy
      */
     private function toPascalCase(string $name): string
     {
-        // Handle attributes starting with @
         $name = ltrim($name, '@');
 
-        // Convert kebab-case to PascalCase
         $name = str_replace(['-', '_'], ' ', $name);
         $name = ucwords($name);
         $name = str_replace(' ', '', $name);
@@ -82,17 +77,14 @@ final class ArcadeWheeledCalculator implements DriveCalculatorStrategy
      */
     private function convertValue(string $value): mixed
     {
-        // Check for float
         if (is_numeric($value) && str_contains($value, '.')) {
             return (float) $value;
         }
 
-        // Check for integer
         if (is_numeric($value)) {
             return (int) $value;
         }
 
-        // Check for boolean
         if (strtolower($value) === 'true') {
             return true;
         }
