@@ -125,6 +125,81 @@ class XmlAccessTraitTest extends TestCase
     }
 
     /**
+     * Test relative vs absolute path lookups with Element context
+     */
+    public function test_get_relative_and_absolute_paths(): void
+    {
+        $domDocument = new DOMDocument;
+        $domDocument->loadXML('<?xml version="1.0" encoding="UTF-8"?>
+<root>
+    <parent>
+        <child id="1" />
+    </parent>
+    <child id="2" />
+</root>');
+
+        $parentNode = $domDocument->getElementsByTagName('parent')->item(0);
+        $parentElement = new Element($parentNode);
+
+        $relativeId = $parentElement->get('child@id');
+        $this->assertIsFloat($relativeId, 'Relative attribute query should return numeric float');
+        $this->assertEquals(1.0, $relativeId, 'Relative path should resolve against the current element');
+
+        $absoluteId = $parentElement->get('/root/child@id');
+        $this->assertIsFloat($absoluteId, 'Absolute attribute query should return numeric float');
+        $this->assertEquals(2.0, $absoluteId, 'Absolute path should resolve against the document root');
+
+        $absoluteChild = $parentElement->get('/root/child');
+        $this->assertInstanceOf(Element::class, $absoluteChild, 'Absolute element query should return Element');
+        $this->assertEquals('child', $absoluteChild->nodeName, 'Absolute element query should return the root child node');
+        $this->assertEquals('2', $absoluteChild->getAttribute('id'), 'Absolute element should expose correct attribute value');
+    }
+
+    /**
+     * Test predicate handling and alternate attribute syntax
+     */
+    public function test_get_with_predicate_and_slash_attribute(): void
+    {
+        $domDocument = new DOMDocument;
+        $domDocument->loadXML('<?xml version="1.0" encoding="UTF-8"?>
+<root>
+    <item type="weapon" code="W1" />
+    <item type="armor" code="A1" />
+    <item type="armor" />
+</root>');
+
+        $rootElement = new Element($domDocument->documentElement);
+
+        $armorCode = $rootElement->get("item[@type='armor']@code");
+        $this->assertEquals('A1', $armorCode, 'Predicate should filter elements before attribute lookup');
+
+        $armorCodeSlash = $rootElement->get("item[@type='armor']/@code");
+        $this->assertEquals('A1', $armorCodeSlash, 'Slash attribute syntax should match path@attr behavior');
+
+        $missing = $rootElement->get("item[@type='shield']@code", 'default_value');
+        $this->assertEquals('default_value', $missing, 'Predicate with no match should return default value');
+    }
+
+    /**
+     * Test that only the first matching node is returned
+     */
+    public function test_get_returns_first_match(): void
+    {
+        $domDocument = new DOMDocument;
+        $domDocument->loadXML('<?xml version="1.0" encoding="UTF-8"?>
+<root>
+    <entry id="1" />
+    <entry id="2" />
+</root>');
+
+        $rootElement = new Element($domDocument->documentElement);
+        $firstId = $rootElement->get('entry@id');
+
+        $this->assertIsFloat($firstId, 'Numeric attribute should be returned as float');
+        $this->assertEquals(1.0, $firstId, 'Should return the first matching attribute value');
+    }
+
+    /**
      * Test splitXPathAttribute() method with various patterns including predicates and @ in brackets
      */
     public function test_split_x_path_attribute(): void
@@ -152,6 +227,24 @@ class XmlAccessTraitTest extends TestCase
         // Test 5: Attribute alone (empty path)
         $result = $method->invoke($this->testInstance, '@attr');
         $this->assertEquals(['', 'attr'], $result, 'Should return empty path and attribute when @attr alone');
+    }
+
+    /**
+     * Test that get() initializes DOMXPath when missing
+     */
+    public function test_get_initializes_xpath(): void
+    {
+        $reflection = new \ReflectionClass($this->testInstance);
+        $property = $reflection->getProperty('domXPath');
+        $property->setAccessible(true);
+
+        $this->assertNull($property->getValue($this->testInstance), 'domXPath should start as null');
+
+        $result = $this->testInstance->get('child');
+        $this->assertInstanceOf(Element::class, $result, 'Should return Element from trait-based get()');
+
+        $domXPath = $property->getValue($this->testInstance);
+        $this->assertInstanceOf(DOMXPath::class, $domXPath, 'domXPath should be initialized after get()');
     }
 
     /**

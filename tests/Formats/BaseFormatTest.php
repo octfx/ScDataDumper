@@ -455,7 +455,7 @@ class BaseFormatTest extends TestCase
     }
 
     /**
-     * Test RuntimeException when both $key and $elementKey are null
+     * Test RuntimeException when $elementKey is null in canTransform()
      */
     public function test_get_exception_both_params_null(): void
     {
@@ -521,6 +521,27 @@ class BaseFormatTest extends TestCase
         $hasAnotherWrongName = $entityFormat->has('Components/EAPhaseActivePropComponentDef', 'EAPhaseActivePropComponentDefXYZ');
         $this->assertFalse($hasAnotherWrongName, 'Should return false for existing element with mismatched name');
 
+        // Test 4a: Given TestableFormat with attribute lookup,
+        // When calling has('@Invisible'),
+        // Then returns true for existing attribute
+
+        $hasAttribute = $entityFormat->has('@Invisible');
+        $this->assertTrue($hasAttribute, 'Should return true for existing attribute query');
+
+        // Test 4b: Given TestableFormat with missing attribute lookup,
+        // When calling has('@MissingAttribute'),
+        // Then returns false
+
+        $hasMissingAttribute = $entityFormat->has('@MissingAttribute');
+        $this->assertFalse($hasMissingAttribute, 'Should return false for missing attribute query');
+
+        // Test 4c: Given TestableFormat with local path syntax,
+        // When calling has('./Components'),
+        // Then returns true for existing element
+
+        $hasLocalPath = $entityFormat->has('./Components');
+        $this->assertTrue($hasLocalPath, 'Should return true for existing element with ./ prefix');
+
         // Test 4: Given TestableFormat,
         // When calling has('invalid.format'),
         // Then throws RuntimeException with message about invalid format
@@ -533,7 +554,7 @@ class BaseFormatTest extends TestCase
     }
 
     /**
-     * Test canTransform() method with success, null elementKey, and null item cases
+     * Test canTransform() method with success, missing element, and null item cases
      */
     public function test_can_transform(): void
     {
@@ -555,38 +576,12 @@ class BaseFormatTest extends TestCase
         $canTransformWithElement = $formatWithElementKey->canTransform();
         $this->assertTrue($canTransformWithElement, 'Should return true when element exists at $elementKey path');
 
-        // Test 2: Given TestableFormat with $elementKey set to null,
-        // When calling canTransform(),
-        // Then throws RuntimeException with message 'Element key cannot be null'
-
         $manufacturerXmlFile = __DIR__.'/../Fixtures/xml/scitemmanufacturer_sample.xml';
         $manufacturerDom = new DOMDocument;
         $manufacturerDom->load($manufacturerXmlFile);
         $manufacturerRoot = $manufacturerDom->documentElement;
 
-        // Create a custom TestableFormat with null $elementKey
-        $formatWithNullElementKey = new class($manufacturerRoot) extends TestableFormat
-        {
-            protected ?string $elementKey = null;
-        };
-
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Element key cannot be null');
-
-        // This should throw RuntimeException because $elementKey is null when calling canTransform()
-        $formatWithNullElementKey->canTransform();
-
-        // Test 3: Given TestableFormat with $item set to null,
-        // When constructing TestableFormat,
-        // Then throws InvalidArgumentException (due to bug fix ScDataDumper-0xr)
-
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Cannot build format from null DOM node');
-
-        // This should throw InvalidArgumentException because constructor now validates $item
-        new TestableFormat(null);
-
-        // Test 4: Given TestableFormat with valid item but element does not exist at $elementKey path,
+        // Test 2: Given TestableFormat with valid item but element does not exist at $elementKey path,
         // When calling canTransform(),
         // Then returns false
 
@@ -599,7 +594,17 @@ class BaseFormatTest extends TestCase
         $canTransformWithNonExistent = $formatWithNonExistentElement->canTransform();
         $this->assertFalse($canTransformWithNonExistent, 'Should return false when element does not exist at $elementKey path');
 
-        // Another test with existing parent but non-existent child
+        // Test 3: Given TestableFormat with null item,
+        // When calling canTransform(),
+        // Then returns false
+
+        $formatWithNullItem = new TestableFormat(null);
+        $this->assertFalse($formatWithNullItem->canTransform(), 'Should return false when item is null');
+
+        // Test 4: Given TestableFormat with existing parent but non-existent child,
+        // When calling canTransform(),
+        // Then returns false
+
         $formatWithNonExistentChild = new class($manufacturerRoot) extends TestableFormat
         {
             protected ?string $elementKey = 'Components/NonExistentElement';
@@ -607,6 +612,17 @@ class BaseFormatTest extends TestCase
 
         $canTransformWithNonExistentChild = $formatWithNonExistentChild->canTransform();
         $this->assertFalse($canTransformWithNonExistentChild, 'Should return false for non-existent child element');
+    }
+
+    /**
+     * Test constructor rejects unsupported input types
+     */
+    public function test_constructor_rejects_unsupported_type(): void
+    {
+        $this->expectException(\TypeError::class);
+        $this->expectExceptionMessage('must be of type Octfx\\ScDataDumper\\DocumentTypes\\RootDocument|Octfx\\ScDataDumper\\Definitions\\Element|DOMNode|null, string given');
+
+        new TestableFormat('not a dom node');
     }
 
     /**
@@ -641,6 +657,12 @@ class BaseFormatTest extends TestCase
 
         $empResult = $this->testableFormat->testableToPascalCase('Emp');
         $this->assertEquals('EMP', $empResult, 'Should convert Emp to EMP acronym');
+
+        $stdItemResult = $this->testableFormat->testableToPascalCase('StdItem');
+        $this->assertEquals('stdItem', $stdItemResult, 'Should convert StdItem to stdItem acronym');
+
+        $alreadyPascal = $this->testableFormat->testableToPascalCase('DriveSpeed');
+        $this->assertEquals('DriveSpeed', $alreadyPascal, 'Should preserve already PascalCase values');
 
         // Test additional snake_case variations
         $kebabCase = $this->testableFormat->testableToPascalCase('drive-speed');
