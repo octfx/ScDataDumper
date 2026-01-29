@@ -109,6 +109,8 @@ final class Ship extends BaseFormat
             $vehicleComponent->get('English@vehicleDescription') ?? $vehicleComponent->get('Localization/English@Description', '')
         );
 
+        $physicsParams = $this->vehicleWrapper->entity->get('Components/SSCActorPhysicsControllerComponentParams/physType/SEntityActorPhysicsControllerParams');
+
         $data = [
             'UUID' => $this->item->getUuid(),
             'ClassName' => $this->item->getClassName(),
@@ -148,6 +150,28 @@ final class Ship extends BaseFormat
             ],
         ];
 
+        // Actors / ATLS
+        if ($physicsParams) {
+            $physicsData = $physicsParams->attributesToArray();
+
+            $data['IsSpaceship'] = false;
+            $data['IsVehicle'] = true;
+            $data['Physics'] = [
+                'Mass' => (float) ($physicsData['Mass'] ?? 0),
+                'Inertia' => (float) ($physicsData['inertia'] ?? 0),
+                'InertiaAccel' => (float) ($physicsData['inertiaAccel'] ?? 0),
+                'AirResistance' => (float) ($physicsData['airResistance'] ?? 0),
+                'AirControl' => (float) ($physicsData['airControl'] ?? 0),
+                'MaxVelGround' => (float) ($physicsData['maxVelGround'] ?? 0),
+                'MinSlideAngle' => (float) ($physicsData['minSlideAngle'] ?? 0),
+                'MaxClimbAngle' => (float) ($physicsData['maxClimbAngle'] ?? 0),
+                'MinFallAngle' => (float) ($physicsData['minFallAngle'] ?? 0),
+                'MinColSpeedForExternalForceEvent' => (float) ($physicsData['minColSpeedForExternalForceEvent'] ?? 0),
+                'MinSpeedForChargeCollisionDamage' => (float) ($physicsData['minSpeedForChargeCollisionDamage'] ?? 0),
+                'ChargeAttackDamage' => (float) ($physicsData['chargeAttackDamage'] ?? 0),
+            ];
+        }
+
         // Build standardised parts with loadout
         $standardisedParts = $this->standardisedPartBuilder->buildPartList(
             $this->vehicle?->get('Parts')?->children() ?? [],
@@ -162,6 +186,11 @@ final class Ship extends BaseFormat
         $data['Mass'] = 0.0;
         foreach ($walker->walkParts($standardisedParts) as $part) {
             $data['Mass'] += Arr::get($part, 'part.Mass', 0.0);
+        }
+
+        if ($data['Mass'] === 0.0 && $physicsParams) {
+            $physicsData = $physicsParams->attributesToArray();
+            $data['Mass'] = (float) ($physicsData['Mass'] ?? 0);
         }
 
         $portSummary = $this->portSummaryBuilder->build($standardisedParts);

@@ -2,6 +2,7 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
+use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class FlightController extends BaseFormat
@@ -14,8 +15,13 @@ final class FlightController extends BaseFormat
             return null;
         }
 
-        $recallParams = $this->get('ShipRecall/ShipRecallParams', local: true);
-        $collisionDetection = $this->get('collisionDetection', local: true);
+        $component = $this->get();
+        if (! $component instanceof Element) {
+            return null;
+        }
+
+        $recallParams = $component->get('ShipRecall/ShipRecallParams');
+        $collisionDetection = $component->get('./collisionDetection');
 
         return [
             'RecallParams' => $recallParams?->attributesToArray([

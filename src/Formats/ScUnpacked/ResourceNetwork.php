@@ -141,7 +141,7 @@ final class ResourceNetwork extends BaseFormat
             'Resource' => $generation['Resource'] ?? null,
             'Rate' => $generation['Rate'] ?? null,
             'RawUnit' => $generation['RawUnit'] ?? null,
-            'NoOverGeneration' => $delta->get('noOverGeneration'),
+            'NoOverGeneration' => $delta->get('@noOverGeneration'),
             'Composition' => $this->parseComposition($delta->get('composition')),
         ];
     }
@@ -438,14 +438,20 @@ final class ResourceNetwork extends BaseFormat
         $powerMin = $powerUsageMin !== null ? round($powerUsageMin, 3) : null;
         $powerMax = $powerUsageMax !== null ? round($powerUsageMax, 3) : null;
 
-        $coolantMin = $type === 'QuantumDrive'
+        $isQuantumDrive = $type === 'QuantumDrive';
+        $hasPowerUsageMin = $powerUsageMin !== null;
+        $hasPowerUsageMax = $powerUsageMax !== null;
+        $hasCoolantUsageMax = $coolantUsageMax !== null;
+
+        $coolantMin = $isQuantumDrive
             ? 0
-            : ($powerUsageMin !== null
+            : ($hasPowerUsageMin
                 ? round($powerUsageMin * $lowPowerRange, 3)
-                : ($coolantUsageMax !== null ? round($coolantUsageMax * $coolantMinFraction, 3) : null));
-        $coolantMax = $powerUsageMax !== null
+                : ($hasCoolantUsageMax ? round($coolantUsageMax * $coolantMinFraction, 3) : null));
+
+        $coolantMax = $hasPowerUsageMax
             ? $powerMax
-            : ($coolantUsageMax !== null ? round($coolantUsageMax, 3) : null);
+            : ($hasCoolantUsageMax ? round($coolantUsageMax, 3) : null);
 
         return [
             'Power' => [

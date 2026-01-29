@@ -26,6 +26,7 @@ final class Seat extends BaseFormat
             'HasEjection' => $seat->has('ejection/SCItemSeatEjectParams', 'SCItemSeatEjectParams'),
             'Ejection' => $this->formatEjection($seat),
             'ActorAttachment' => $this->formatActorAttachment($seat),
+            'Dashboard' => new SeatDashboard($this->item),
         ];
 
         return $this->removeNullValues($data);

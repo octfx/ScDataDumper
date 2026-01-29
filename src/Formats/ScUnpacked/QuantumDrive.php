@@ -56,11 +56,11 @@ final class QuantumDrive extends BaseFormat
         }
 
         return [
-            'PreRampUpThermalEnergyDraw' => $heatParams->get('preRampUpThermalEnergyDraw'),
-            'RampUpThermalEnergyDraw' => $heatParams->get('rampUpThermalEnergyDraw'),
-            'InFlightThermalEnergyDraw' => $heatParams->get('inFlightThermalEnergyDraw'),
-            'RampDownThermalEnergyDraw' => $heatParams->get('rampDownThermalEnergyDraw'),
-            'PostRampDownThermalEnergyDraw' => $heatParams->get('postRampDownThermalEnergyDraw'),
+            'PreRampUpThermalEnergyDraw' => $heatParams->get('@preRampUpThermalEnergyDraw'),
+            'RampUpThermalEnergyDraw' => $heatParams->get('@rampUpThermalEnergyDraw'),
+            'InFlightThermalEnergyDraw' => $heatParams->get('@inFlightThermalEnergyDraw'),
+            'RampDownThermalEnergyDraw' => $heatParams->get('@rampDownThermalEnergyDraw'),
+            'PostRampDownThermalEnergyDraw' => $heatParams->get('@postRampDownThermalEnergyDraw'),
         ];
     }
 
@@ -71,14 +71,14 @@ final class QuantumDrive extends BaseFormat
         }
 
         return [
-            'MaxBoostSpeed' => $boostParams->get('maxBoostSpeed'),
-            'TimeToMaxBoostSpeed' => $boostParams->get('timeToMaxBoostSpeed'),
-            'BoostUseTime' => $boostParams->get('boostUseTime'),
-            'BoostRechargeTime' => $boostParams->get('boostRechargeTime'),
-            'StopTime' => $boostParams->get('stopTime'),
-            'MinJumpDistance' => $boostParams->get('minJumpDistance'),
-            'IfcsHandoverDownTime' => $boostParams->get('ifcsHandoverDownTime'),
-            'IfcsHandoverRespoolTime' => $boostParams->get('ifcsHandoverRespoolTime'),
+            'MaxBoostSpeed' => $boostParams->get('@maxBoostSpeed'),
+            'TimeToMaxBoostSpeed' => $boostParams->get('@timeToMaxBoostSpeed'),
+            'BoostUseTime' => $boostParams->get('@boostUseTime'),
+            'BoostRechargeTime' => $boostParams->get('@boostRechargeTime'),
+            'StopTime' => $boostParams->get('@stopTime'),
+            'MinJumpDistance' => $boostParams->get('@minJumpDistance'),
+            'IfcsHandoverDownTime' => $boostParams->get('@ifcsHandoverDownTime'),
+            'IfcsHandoverRespoolTime' => $boostParams->get('@ifcsHandoverRespoolTime'),
         ];
     }
 

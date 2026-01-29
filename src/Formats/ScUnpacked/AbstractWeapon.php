@@ -4,6 +4,7 @@ namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Exception;
 use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
@@ -181,8 +182,8 @@ abstract class AbstractWeapon extends BaseFormat
             return [];
         }
 
-        $up = $action->get('spinUpTime');
-        $down = $action->get('spinDownTime');
+        $up = $action->get('@spinUpTime');
+        $down = $action->get('@spinDownTime');
 
         $spin = [
             'Up' => $up,

@@ -63,7 +63,7 @@ final class HackingChip extends BaseFormat
         $isHackingChip = $type === 'RemovableChip'
             || ($type === 'FPS_Consumable' && $subType === 'Hacking');
 
-        return $isHackingChip && $this->has('/Components');
+        return $isHackingChip && $this->has('Components');
     }
 
     private function extractValue(?Element $values, string $needle): float|string|null

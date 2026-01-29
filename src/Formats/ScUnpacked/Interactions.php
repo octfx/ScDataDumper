@@ -28,6 +28,7 @@ final class Interactions extends BaseFormat
             ->map('trim')
             ->map('strtolower')
             ->map('ucwords')
+            ->values()
             ->toArray();
     }
 }

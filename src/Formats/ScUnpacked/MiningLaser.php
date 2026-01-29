@@ -136,7 +136,7 @@ final class MiningLaser extends BaseFormat
         $total = 0.0;
 
         foreach (self::$resistanceKeys as $key) {
-            $value = $damageInfo->get('Damage'.$key);
+            $value = $damageInfo->get('@Damage'.$key);
 
             if ($value !== null) {
                 $total += (float) $value;
@@ -153,7 +153,7 @@ final class MiningLaser extends BaseFormat
         }
 
         if ($action->nodeName === 'SWeaponActionGatheringBeamParams') {
-            return $action->get('collectionRate');
+            return $action->get('@collectionRate');
         }
 
         return $this->extractDamagePerSecond($action);
@@ -166,7 +166,7 @@ final class MiningLaser extends BaseFormat
         }
 
         if ($action->nodeName === 'SWeaponActionGatheringBeamParams') {
-            return $action->get('beamRadius');
+            return $action->get('@beamRadius');
         }
 
         return $action->get('@hitRadius');

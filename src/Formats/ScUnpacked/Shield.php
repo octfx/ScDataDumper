@@ -45,8 +45,8 @@ final class Shield extends BaseFormat
 
         $return += [
             'StunParams' => $stunParams ? $this->transformArrayKeysToPascalCase($stunParams) : null,
-            'Absorption' => new MinMaxList($shield->get('ShieldAbsorption'), '/SShieldAbsorption'),
-            'Resistance' => new MinMaxList($shield->get('ShieldResistance'), '/SShieldResistance'),
+            'Absorption' => new MinMaxList($shield->get('ShieldAbsorption'), 'SShieldAbsorption'),
+            'Resistance' => new MinMaxList($shield->get('ShieldResistance'), 'SShieldResistance'),
         ];
 
         $return['RegenerationTime'] = round(Arr::get($return, 'MaxShieldHealth', 0) / Arr::get($return, 'MaxShieldRegen', 1), 2);

@@ -33,7 +33,7 @@ final class ConventionBasedCargoStrategy implements CargoGridStrategyInterface
 
         $classCandidates = [];
 
-        $modification = $vehicleComponent?->get('modification') ?? $attachDef?->get('modification');
+        $modification = $vehicleComponent?->get('@modification') ?? $attachDef?->get('@modification');
         if ($modification) {
             $classCandidates[] = $modification.'_CargoGrid';
         }
@@ -41,8 +41,8 @@ final class ConventionBasedCargoStrategy implements CargoGridStrategyInterface
         $classCandidates[] = $vehicleClassName.'_CargoGrid';
 
         $baseVehicleDefinition = (string) (
-            $vehicleComponent?->get('vehicleDefinition', '') ??
-            $attachDef?->get('vehicleDefinition', '')
+            $vehicleComponent?->get('@vehicleDefinition', '') ??
+            $attachDef?->get('@vehicleDefinition', '')
         );
         $baseClassName = $baseVehicleDefinition !== '' ? pathinfo($baseVehicleDefinition, PATHINFO_FILENAME) : null;
         $baseClassFromName = str_contains($vehicleClassName, '_')

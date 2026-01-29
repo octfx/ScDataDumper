@@ -27,7 +27,7 @@ final class BaseClassCargoStrategy implements CargoGridStrategyInterface
         $vehicleClassName = $vehicle->entity->getClassName();
 
         // Determine base class name candidates
-        $vehicleDefinition = (string) ($vehicleComponent?->get('vehicleDefinition', '') ?? '');
+        $vehicleDefinition = (string) ($vehicleComponent?->get('@vehicleDefinition', '') ?? '');
         $baseClassName = $vehicleDefinition !== '' ? pathinfo($vehicleDefinition, PATHINFO_FILENAME) : null;
         $baseClassFromName = str_contains($vehicleClassName, '_')
             ? substr($vehicleClassName, 0, strrpos($vehicleClassName, '_'))
