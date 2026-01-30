@@ -38,8 +38,8 @@ class ItemPort extends BaseFormat
             'PortName' => $portName,
             'DisplayName' => $this instanceof VehiclePartPort ? $port->get('@display_name') : $port->get('@DisplayName'),
             'Size' => $port->get('@MaxSize') ?? $port->get('@maxSize'),
-            'MinSize' => $port->get('@MinSize') ?? $port->get('@minSize'),
-            'MaxSize' => $port->get('@MaxSize') ?? $port->get('@maxSize'),
+            'MinSize' => $port->get('@MinSize') ?? $port->get('@minSize') ?? $port->get('@minsize'),
+            'MaxSize' => $port->get('@MaxSize') ?? $port->get('@maxSize') ?? $port->get('@maxsize'),
             'Flags' => $this->buildFlagsList($port),
             'Tags' => ($portTags = trim((string) ($port->get('@PortTags') ?? ''))) === ''
                 ? []

@@ -255,7 +255,7 @@ final class WeaponAttachment extends BaseFormat
         $modes = [];
 
         foreach ($entries->children() ?? [] as $entry) {
-            if ($entry->get('@skipPart') === '1') {
+            if ((int)$entry->get('@skipPart') === 1) {
                 continue;
             }
 

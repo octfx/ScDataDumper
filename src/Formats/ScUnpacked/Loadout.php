@@ -28,7 +28,7 @@ final class Loadout extends BaseFormat
         }
 
         foreach ($this->get('entries')?->children() ?? [] as $subLoadout) {
-            if ($subLoadout->get('@skipPart') === '1') {
+            if ((int)$subLoadout->get('@skipPart') === 1) {
                 continue;
             }
 

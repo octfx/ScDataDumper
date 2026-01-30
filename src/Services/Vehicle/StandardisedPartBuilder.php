@@ -46,7 +46,7 @@ final class StandardisedPartBuilder
         $result = [];
 
         foreach ($parts as $part) {
-            if ($part->get('@skipPart') === '1' || $part->get('skipPart') === '1') {
+            if ((int)$part->get('@skipPart') === 1 ) {
                 continue;
             }
 
@@ -236,8 +236,8 @@ final class StandardisedPartBuilder
             'PortName' => $portName,
             'DisplayName' => $itemPort->get('@display_name') ?? $itemPort->get('@DisplayName'),
             'Size' => (int) ($itemPort->get('@maxSize') ?? $itemPort->get('@MaxSize') ?? 0),
-            'MinSize' => (int) ($itemPort->get('@minSize') ?? $itemPort->get('@MinSize') ?? 0),
-            'MaxSize' => (int) ($itemPort->get('@maxSize') ?? $itemPort->get('@MaxSize') ?? 0),
+            'MinSize' => (int) ($itemPort->get('@minSize') ?? $itemPort->get('@MinSize') ?? $itemPort->get('@minsize') ?? 0),
+            'MaxSize' => (int) ($itemPort->get('@maxSize') ?? $itemPort->get('@MaxSize') ?? $itemPort->get('@maxsize') ?? 0),
             'Types' => $this->extractTypes($itemPort),
             'Flags' => $this->extractFlags($itemPort),
             'RequiredTags' => $this->extractRequiredTags($itemPort),
