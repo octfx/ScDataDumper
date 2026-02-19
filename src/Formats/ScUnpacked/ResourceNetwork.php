@@ -354,7 +354,7 @@ final class ResourceNetwork extends BaseFormat
     {
         $onlineState = null;
 
-        foreach ($this->item->get('Components/ItemResourceComponentParams/states')?->children() as $state) {
+        foreach ($this->item->get('Components/ItemResourceComponentParams/states')?->children() ?? [] as $state) {
             if ($state->get('@name') === 'Online') {
                 $onlineState = $state;
                 break;
@@ -469,7 +469,7 @@ final class ResourceNetwork extends BaseFormat
     {
         $onlineState = null;
 
-        foreach ($this->item->get('Components/ItemResourceComponentParams/states')?->children() as $state) {
+        foreach ($this->item->get('Components/ItemResourceComponentParams/states')?->children() ?? [] as $state) {
             if ($state->get('@name') === 'Online') {
                 $onlineState = $state;
                 break;

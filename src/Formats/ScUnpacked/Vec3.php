@@ -29,6 +29,16 @@ final class Vec3 extends BaseFormat
 
     public function canTransform(): bool
     {
-        return $this->item?->nodeName === 'Vec3' || $this->item?->get('@__type') === 'Vec3';
+        if ($this->item === null) {
+            return false;
+        }
+
+        if ($this->item->nodeName === 'Vec3' || $this->item->get('@__type') === 'Vec3') {
+            return true;
+        }
+
+        return $this->item->get('@x') !== null
+            && $this->item->get('@y') !== null
+            && $this->item->get('@z') !== null;
     }
 }

@@ -198,7 +198,7 @@ final class VehicleService extends BaseService
         );
     }
 
-    private function parseVehicle(string $vehiclePath, string $modificationName): Vehicle
+    private function parseVehicle(string $vehiclePath, ?string $modificationName): Vehicle
     {
         $cacheKey = $vehiclePath.'|'.$modificationName;
 
