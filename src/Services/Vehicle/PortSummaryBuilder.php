@@ -15,9 +15,13 @@ final class PortSummaryBuilder
 {
     private array $categoryDefinitions;
 
+    private readonly ItemTypeResolver $itemTypeResolver;
+
     public function __construct(
         private readonly PortFinder $portFinder,
+        ?ItemTypeResolver $itemTypeResolver = null,
     ) {
+        $this->itemTypeResolver = $itemTypeResolver ?? new ItemTypeResolver;
         $this->categoryDefinitions = [
             'armor' => [
                 'category' => 'Armor',
@@ -270,9 +274,14 @@ final class PortSummaryBuilder
             return false;
         }
 
-        $classification = $installed['classification'] ?? null;
+        $semanticType = $this->itemTypeResolver->resolveSemanticType($installed);
+        if (is_string($semanticType) && str_starts_with(strtolower($semanticType), 'manneuverthruster')) {
+            return true;
+        }
 
-        return is_string($classification) && str_contains($classification, 'ManneuverThruster');
+        $classification = $this->itemTypeResolver->resolveClassifier($installed);
+
+        return is_string($classification) && str_contains(strtolower($classification), 'manneuverthruster');
     }
 
     private function matchesPortName(array $item, array $tokens): bool

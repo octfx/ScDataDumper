@@ -3,9 +3,17 @@
 namespace Octfx\ScDataDumper\Services;
 
 use Octfx\ScDataDumper\Formats\ScUnpacked\ItemPort;
+use Octfx\ScDataDumper\Services\Vehicle\ItemTypeResolver;
 
 final class PortClassifierService
 {
+    private readonly ItemTypeResolver $itemTypeResolver;
+
+    public function __construct(?ItemTypeResolver $itemTypeResolver = null)
+    {
+        $this->itemTypeResolver = $itemTypeResolver ?? new ItemTypeResolver;
+    }
+
     /**
      * Classifies a port based on its characteristics.
      * The order of checks is very important to handle obscure corner cases.
@@ -58,8 +66,10 @@ final class PortClassifierService
 
         if (ItemPort::accepts($port, 'TurretBase.MannedTurret')) {
             if (! empty($port['InstalledItem']['Ports']) &&
-                array_filter($port['InstalledItem']['Ports'], static function ($x) {
-                    return $x['InstalledItem']['Type'] === 'WeaponMining.Gun';
+                array_filter($port['InstalledItem']['Ports'], function ($x) {
+                    $type = $this->itemTypeResolver->resolveSemanticType(is_array($x) ? $x : null);
+
+                    return is_string($type) && strcasecmp($type, 'WeaponMining.Gun') === 0;
                 })
             ) {
                 return ['Mining', 'Mining turrets']; // Argo Mole
@@ -273,27 +283,30 @@ final class PortClassifierService
      */
     private function guessByInstalledItem(array $installedItem): ?array
     {
-        $itemClassifier = new ItemClassifierService;
-
-        $type = $itemClassifier->classify($installedItem);
+        $type = $this->itemTypeResolver->resolveClassifier($installedItem);
 
         if ($type === null) {
             return null;
         }
 
-        switch ($type) {
-            case 'Ship.LifeSupportGenerator':
+        switch (strtolower($type)) {
+            case 'ship.lifesupportgenerator':
                 return ['Systems', 'Life support'];
 
-            case 'Ship.WeaponGun.Gun':
+            case 'ship.weapongun.gun':
                 return ['Weapons', 'Weapon hardpoints'];
 
-            case 'Ship.TurretBase.MannedTurret':
+            case 'ship.turretbase.mannedturret':
                 // Check if any of the ports have a WeaponMining.Gun installed
                 $hasMiningGun = false;
                 if (! empty($installedItem['Ports'])) {
                     foreach ($installedItem['Ports'] as $subPort) {
-                        if (! empty($subPort['InstalledItem']) && $subPort['InstalledItem']['Type'] === 'WeaponMining.Gun') {
+                        if (! is_array($subPort)) {
+                            continue;
+                        }
+
+                        $subType = $this->itemTypeResolver->resolveSemanticType($subPort);
+                        if (is_string($subType) && strcasecmp($subType, 'WeaponMining.Gun') === 0) {
                             $hasMiningGun = true;
                             break;
                         }
@@ -306,7 +319,7 @@ final class PortClassifierService
 
                 return ['Weapons', 'Manned turrets'];
 
-            case 'Ship.Container.Cargo':
+            case 'ship.container.cargo':
                 return ['Cargo', 'Cargo containers'];
         }
 

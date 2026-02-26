@@ -117,9 +117,9 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
         $result->grids = $result->grids->merge($standardisedGrids);
         $result->existingGridUuids = $result->grids->pluck('uuid')->filter()->all();
 
-        // Calculate expected cargo grid slots
-        $expectedSlots = $this->countCargoGridPorts($vehicle->loadout);
-        $result->setExpectedSlots($expectedSlots);
+        // Keep expected slot estimation broad so fallback strategies can fill missing grids,
+        // but avoid double-counting the same hardpoint while scanning.
+        $result->setExpectedSlots($this->countCargoGridPorts($vehicle->loadout));
     }
 
     /**
@@ -144,8 +144,11 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
 
         $manualEntries = Arr::get($loadout, 'ItemRaw.Components.SEntityComponentDefaultLoadoutParams.loadout.SItemPortLoadoutManualParams.entries', []);
         foreach ($manualEntries as $entry) {
-            if (isset($entry['InstalledItem'])) {
-                $grids = $grids->merge($this->extractCargoGrids(['Item' => $entry['InstalledItem']]));
+            if (
+                isset($entry['InstalledItem']) &&
+                ! $this->hasEquivalentItemInEntries($loadout['entries'] ?? [], $entry['InstalledItem'])
+            ) {
+                $grids = $grids->merge($this->extractCargoGrids(['ItemRaw' => $entry['InstalledItem']]));
             }
 
             if (! empty($entry['entries']) && is_array($entry['entries'])) {
@@ -159,19 +162,33 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
     }
 
     /**
-     * Count item ports in the loadout whose names contain "cargogrid"
+     * Count candidate cargo-grid ports in the loadout while avoiding duplicate hits
+     * from both port-name and nested port-definition scans.
      */
     private function countCargoGridPorts(array $entries): int
     {
-        $count = 0;
+        $hits = [];
 
-        $scanPorts = static function (array $ports) use (&$scanPorts, &$count): void {
+        $registerHit = static function (?string $name, ?string $type, mixed $port = null) use (&$hits): void {
+            $normalizedName = strtolower(trim((string) $name));
+            $normalizedType = strtolower(trim((string) $type));
+
+            $key = $normalizedName !== ''
+                ? "name:{$normalizedName}"
+                : "type:{$normalizedType}:".md5(json_encode($port, JSON_UNESCAPED_SLASHES));
+
+            $hits[$key] = true;
+        };
+
+        $scanPorts = static function (array $ports) use (&$scanPorts, $registerHit): void {
             foreach ($ports as $port) {
-                $name = strtolower($port['Name'] ?? '');
-                $type = strtolower(Arr::get($port, 'Types.SItemPortDefTypes.Type', ''));
+                $name = $port['Name'] ?? '';
+                $type = Arr::get($port, 'Types.SItemPortDefTypes.Type', '');
+                $nameLower = strtolower((string) $name);
+                $typeLower = strtolower((string) $type);
 
-                if (($name !== '' && preg_match('/cargo[ _-]?grid/', $name)) || $type === 'cargogrid') {
-                    $count++;
+                if (($nameLower !== '' && preg_match('/cargo[ _-]?grid/', $nameLower)) || $typeLower === 'cargogrid') {
+                    $registerHit($nameLower, $typeLower, $port);
                 }
 
                 if (! empty($port['Ports']) && is_array($port['Ports'])) {
@@ -180,11 +197,11 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
             }
         };
 
-        $walker = static function (array $items) use (&$walker, &$scanPorts, &$count): void {
+        $walker = static function (array $items) use (&$walker, $scanPorts, $registerHit): void {
             foreach ($items as $entry) {
-                $portName = strtolower($entry['portName'] ?? '');
+                $portName = strtolower((string) ($entry['portName'] ?? ''));
                 if ($portName !== '' && preg_match('/cargo[ _-]?grid/', $portName)) {
-                    $count++;
+                    $registerHit($portName, null, ['portName' => $portName]);
                 }
 
                 $scanPorts(Arr::get($entry, 'ItemRaw.Components.SItemPortContainerComponentParams.Ports', []));
@@ -202,7 +219,7 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
 
         $walker($entries);
 
-        return $count;
+        return count($hits);
     }
 
     /**
@@ -218,5 +235,47 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
         $path = strtolower($item['__path'] ?? '');
 
         return $path !== '' && str_ends_with($path, '_cargogrid_template.xml');
+    }
+
+    private function hasEquivalentItemInEntries(array $entries, array $installedItem): bool
+    {
+        foreach ($entries as $candidate) {
+            if (! is_array($candidate)) {
+                continue;
+            }
+
+            $itemRaw = $candidate['ItemRaw'] ?? null;
+            if (! is_array($itemRaw)) {
+                continue;
+            }
+
+            if ($this->isSameItemIdentity($itemRaw, $installedItem)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isSameItemIdentity(array $left, array $right): bool
+    {
+        $leftUuid = strtolower((string) ($left['__ref'] ?? ''));
+        $rightUuid = strtolower((string) ($right['__ref'] ?? ''));
+
+        if ($leftUuid !== '' && $rightUuid !== '' && $leftUuid === $rightUuid) {
+            return true;
+        }
+
+        $leftPath = strtolower((string) ($left['__path'] ?? ''));
+        $rightPath = strtolower((string) ($right['__path'] ?? ''));
+
+        if ($leftPath !== '' && $rightPath !== '' && $leftPath === $rightPath) {
+            return true;
+        }
+
+        $leftClass = strtolower((string) ($left['className'] ?? $left['ClassName'] ?? ''));
+        $rightClass = strtolower((string) ($right['className'] ?? $right['ClassName'] ?? ''));
+
+        return $leftClass !== '' && $rightClass !== '' && $leftClass === $rightClass;
     }
 }

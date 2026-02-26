@@ -87,7 +87,6 @@ final class LoadoutBuilder
             if (isset($visited[$itemKey])) {
                 $entry['ItemRaw'] = $entity->toArray();
                 $entry['Item'] = $this->formatItem($entity);
-                $entry['Item']['Classification'] = $this->classifierService->classify($entry['Item']);
 
                 return $entry;
             }
@@ -96,7 +95,6 @@ final class LoadoutBuilder
 
             $entry['ItemRaw'] = $entity->toArray();
             $entry['Item'] = $this->formatItem($entity);
-            $entry['Item']['Classification'] = $this->classifierService->classify($entry['Item']);
 
             // Load item's own default loadout entries
             $itemLoadoutEntries = $this->loadItemLoadout($entity);
@@ -157,7 +155,6 @@ final class LoadoutBuilder
             if (isset($visited[$itemKey])) {
                 $entry['ItemRaw'] = $entity->toArray();
                 $entry['Item'] = $this->formatItem($entity);
-                $entry['Item']['Classification'] = $this->classifierService->classify($entry['Item']);
 
                 return $entry;
             }
@@ -166,7 +163,6 @@ final class LoadoutBuilder
 
             $entry['ItemRaw'] = $entity->toArray();
             $entry['Item'] = $this->formatItem($entity);
-            $entry['Item']['Classification'] = $this->classifierService->classify($entry['Item']);
 
             $itemLoadoutEntries = $this->loadItemLoadout($entity);
 
@@ -233,7 +229,6 @@ final class LoadoutBuilder
             $itemKey = $entity->getUuid() ?: $entity->getClassName();
             if (isset($visited[$itemKey])) {
                 $installedItem = $this->formatItem($entity);
-                $installedItem['Classification'] = $this->classifierService->classify($installedItem);
                 $port['InstalledItem'] = $installedItem;
 
                 continue;
@@ -242,7 +237,6 @@ final class LoadoutBuilder
             $visited[$itemKey] = true;
 
             $installedItem = $this->formatItem($entity);
-            $installedItem['Type'] = $this->classifierService->classify($installedItem);
 
             $itemLoadoutEntries = $this->loadItemLoadout($entity);
             $nestedEntries = $loadoutEntry['entries'] ?? [];
@@ -375,11 +369,27 @@ final class LoadoutBuilder
         }
 
         $formatted = new ScUnpackedItem($entity)->toArray();
+        $this->applyCanonicalClassification($formatted);
 
         if ($cacheKey !== null) {
             $this->formattedCache[$cacheKey] = $formatted;
         }
 
         return $formatted;
+    }
+
+    private function applyCanonicalClassification(array &$item): void
+    {
+        unset($item['Classification']);
+
+        $classification = $this->classifierService->classify($item);
+
+        if (! is_string($classification) || trim($classification) === '') {
+            unset($item['classification']);
+
+            return;
+        }
+
+        $item['classification'] = strtolower($classification);
     }
 }

@@ -47,12 +47,7 @@ class LoadManufacturers extends Command
             foreach ($service->iterator() as $manufacturer) {
                 try {
                     $manufacturerArray = $manufacturer->toArray();
-                    $manufacturers[] = [
-                        'code' => Arr::get($manufacturerArray, 'Code'),
-                        'name' => Arr::get($manufacturerArray, 'Localization.Name'),
-                        // 'description' => Arr::get($manufacturerArray, 'Localization.Description'),
-                        'reference' => Arr::get($manufacturerArray, '__ref'),
-                    ];
+                    $manufacturers[] = $this->buildManufacturerExportEntry($manufacturerArray);
                 } catch (RuntimeException $e) {
                     $io->warning(sprintf('Skipped manufacturer: %s', $e->getMessage()));
                 }
@@ -83,6 +78,29 @@ class LoadManufacturers extends Command
         $io->success(sprintf('Manufacturers successfully dumped to %s', $filePath));
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * @param  array<string, mixed>  $manufacturerArray
+     * @return array<string, mixed>
+     */
+    private function buildManufacturerExportEntry(array $manufacturerArray): array
+    {
+        $entry = [
+            'code' => Arr::get($manufacturerArray, 'Code'),
+            'name' => Arr::get($manufacturerArray, 'Localization.Name'),
+            'reference' => Arr::get($manufacturerArray, '__ref'),
+        ];
+
+        $description = Arr::get($manufacturerArray, 'Localization.Description');
+        if (is_string($description)) {
+            $description = trim($description);
+            if ($description !== '' && ! str_starts_with($description, '@')) {
+                $entry['Description'] = $description;
+            }
+        }
+
+        return $entry;
     }
 
     /**

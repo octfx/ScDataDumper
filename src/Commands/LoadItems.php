@@ -73,28 +73,8 @@ class LoadItems extends Command
 
         $start = microtime(true);
 
-        $avoids = [
-            'undefined',
-            'airtrafficcontroller',
-            'button',
-            'char_body',
-            'char_head',
-            'char_hair_color',
-            'char_head_eyebrow',
-            'char_head_eyelash',
-            'char_head_eyes',
-            'char_head_hair',
-            'char_lens',
-            'char_skin_color',
-            'cloth',
-            'debris',
-            'noitem_player',
-        ];
-
-        if ($input->hasOption('typeFilter')) {
-            $typeFilter = $input->getOption('typeFilter') ?? '';
-            $avoids += array_map('trim', explode(',', $typeFilter));
-        }
+        $typeFilter = $input->hasOption('typeFilter') ? $input->getOption('typeFilter') : null;
+        $avoids = $this->buildTypeFilterAvoidList($typeFilter);
 
         $iter = $service->iterator();
         $nameFilter = $input->getOption('filter');
@@ -107,7 +87,7 @@ class LoadItems extends Command
 
             $io->progressAdvance();
 
-            if ($attach === null || $type === null || in_array(strtolower($type), $avoids, true)) {
+            if ($attach === null || $type === null || $this->isTypeExcluded($type, $avoids)) {
                 continue;
             }
 
@@ -218,6 +198,83 @@ class LoadItems extends Command
 
             return false;
         }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function buildTypeFilterAvoidList(mixed $typeFilter): array
+    {
+        $defaults = $this->normalizeTypeTokens($this->defaultTypeFilterAvoids());
+
+        if (! is_string($typeFilter)) {
+            return $defaults;
+        }
+
+        $cliTokens = $this->normalizeTypeTokens(explode(',', $typeFilter));
+        if ($cliTokens === []) {
+            return $defaults;
+        }
+
+        return array_values(array_unique(array_merge($defaults, $cliTokens)));
+    }
+
+    private function isTypeExcluded(string $type, array $excludedTypes): bool
+    {
+        return in_array($this->normalizeTypeToken($type), $excludedTypes, true);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function defaultTypeFilterAvoids(): array
+    {
+        return [
+            'undefined',
+            'airtrafficcontroller',
+            'button',
+            'char_body',
+            'char_head',
+            'char_hair_color',
+            'char_head_eyebrow',
+            'char_head_eyelash',
+            'char_head_eyes',
+            'char_head_hair',
+            'char_lens',
+            'char_skin_color',
+            'cloth',
+            'debris',
+            'noitem_player',
+        ];
+    }
+
+    /**
+     * @param array<int, mixed> $tokens
+     * @return array<int, string>
+     */
+    private function normalizeTypeTokens(array $tokens): array
+    {
+        $normalized = [];
+
+        foreach ($tokens as $token) {
+            if (! is_string($token)) {
+                continue;
+            }
+
+            $token = $this->normalizeTypeToken($token);
+            if ($token === '') {
+                continue;
+            }
+
+            $normalized[] = $token;
+        }
+
+        return $normalized;
+    }
+
+    private function normalizeTypeToken(string $token): string
+    {
+        return strtolower(trim($token));
     }
 
     protected function configure(): void

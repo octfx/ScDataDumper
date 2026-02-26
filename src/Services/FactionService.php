@@ -35,7 +35,7 @@ final class FactionService extends BaseService
             return null;
         }
 
-        if (! isset($this->manufacturerPaths[$uuid])) {
+        if (! isset($this->factionPaths[$uuid])) {
             return null;
         }
 

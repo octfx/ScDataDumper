@@ -23,6 +23,7 @@ use Octfx\ScDataDumper\Services\Vehicle\PortSummaryBuilder;
 use Octfx\ScDataDumper\Services\Vehicle\PropulsionSystemAggregator;
 use Octfx\ScDataDumper\Services\Vehicle\QuantumTravelCalculator;
 use Octfx\ScDataDumper\Services\Vehicle\ResourceAggregator;
+use Octfx\ScDataDumper\Services\Vehicle\ItemTypeResolver;
 use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartBuilder;
 use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartWalker;
 use Octfx\ScDataDumper\Services\Vehicle\VehicleDataContext;
@@ -43,11 +44,14 @@ final class Ship extends BaseFormat
 
     private readonly ?Vehicle $vehicle;
 
+    private readonly ItemTypeResolver $itemTypeResolver;
+
     public function __construct(private readonly VehicleWrapper $vehicleWrapper)
     {
         parent::__construct($this->vehicleWrapper->entity);
 
         $this->vehicle = $this->vehicleWrapper->vehicle;
+        $this->itemTypeResolver = new ItemTypeResolver;
 
         $this->cargoGridResolver = new CargoGridResolver;
         $this->inventoryContainerResolver = new InventoryContainerResolver;
@@ -241,29 +245,7 @@ final class Ship extends BaseFormat
         $data['OperationsCrew'] = $operationsCrew ?: null;
 
         // Seats and beds from installed items
-        $seatCount = 0;
-        $bedCount = 0;
-        $walker = new StandardisedPartWalker;
-
-        foreach ($walker->walkItems($standardisedParts) as $entry) {
-            $item = $entry['Item'];
-
-            $type = $item['Type'] ?? $item['type'] ?? null;
-            $name = strtolower($item['stdItem']['Name'] ?? $item['name'] ?? '');
-            $className = strtolower($item['stdItem']['ClassName'] ?? $item['className'] ?? '');
-
-            if ($type === 'Seat') {
-                $seatCount++;
-            }
-
-            if (
-                $type === 'Bed' ||
-                str_contains($name, 'bed') ||
-                str_contains($className, 'bed')
-            ) {
-                $bedCount++;
-            }
-        }
+        ['seat_count' => $seatCount, 'bed_count' => $bedCount] = $this->countSeatsAndBeds($standardisedParts);
 
         $data['Seats'] = $seatCount ?: null;
         $data['Beds'] = $bedCount ?: null;
@@ -440,6 +422,58 @@ final class Ship extends BaseFormat
     }
 
     /**
+     * @param  array<int, array<string, mixed>>  $standardisedParts
+     * @return array{seat_count: int, bed_count: int}
+     */
+    private function countSeatsAndBeds(array $standardisedParts): array
+    {
+        $seatCount = 0;
+        $bedCount = 0;
+        $walker = new StandardisedPartWalker;
+
+        foreach ($walker->walkItems($standardisedParts) as $entry) {
+            $item = $entry['Item'];
+
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $type = $this->extractMajorTypeToken($this->itemTypeResolver->resolveSemanticType($item));
+            $name = strtolower($item['stdItem']['Name'] ?? $item['name'] ?? '');
+            $className = strtolower($item['stdItem']['ClassName'] ?? $item['className'] ?? '');
+
+            if ($type === 'seat') {
+                $seatCount++;
+            }
+
+            if (
+                $type === 'bed' ||
+                str_contains($name, 'bed') ||
+                str_contains($className, 'bed')
+            ) {
+                $bedCount++;
+            }
+        }
+
+        return [
+            'seat_count' => $seatCount,
+            'bed_count' => $bedCount,
+        ];
+    }
+
+    private function extractMajorTypeToken(?string $semanticType): ?string
+    {
+        if ($semanticType === null || $semanticType === '') {
+            return null;
+        }
+
+        [$majorType] = explode('.', $semanticType, 2);
+        $majorType = strtolower(trim($majorType));
+
+        return $majorType === '' ? null : $majorType;
+    }
+
+    /**
      * Convert Types array to itemTypes format.
      * Example: ['WeaponGun', 'WeaponGun.Ballistic'] -> [{type: 'WeaponGun'}, {type: 'WeaponGun', subType: 'Ballistic'}]
      */
@@ -511,7 +545,9 @@ final class Ship extends BaseFormat
             return null;
         }
 
-        $installedItem = $port['InstalledItem']['stdItem'] ?? null;
+        $installedItemPayload = $port['InstalledItem'] ?? null;
+        $installedItem = is_array($installedItemPayload) ? ($installedItemPayload['stdItem'] ?? null) : null;
+        $semanticType = is_array($installedItem) ? ($installedItem['Type'] ?? null) : null;
         $uneditable = $port['Uneditable'] ?? false;
 
         $entry = [
@@ -523,7 +559,7 @@ final class Ship extends BaseFormat
             $entry['UUID'] = $installedItem['UUID'] ?? null;
             $entry['Name'] = $installedItem['Name'] ?? null;
             $entry['ManufacturerName'] = $installedItem['Manufacturer']['Name'] ?? null;
-            $entry['Type'] = $installedItem['Type'] ?? null;
+            $entry['Type'] = $semanticType;
             $entry['Grade'] = $installedItem['Grade'] ?? null;
         }
 

@@ -13,9 +13,14 @@ use Illuminate\Support\Arr;
  */
 final readonly class ResourceAggregator implements VehicleDataCalculator
 {
+    private ItemTypeResolver $itemTypeResolver;
+
     public function __construct(
         private StandardisedPartWalker $walker,
-    ) {}
+        ?ItemTypeResolver $itemTypeResolver = null,
+    ) {
+        $this->itemTypeResolver = $itemTypeResolver ?? new ItemTypeResolver;
+    }
 
     public function canCalculate(VehicleDataContext $context): bool
     {
@@ -33,6 +38,8 @@ final readonly class ResourceAggregator implements VehicleDataCalculator
         $loadoutMass = 0.0;
         $shieldHp = 0.0;
         $shieldRegen = 0.0;
+        $shieldRegenRaw = 0.0;
+        $shieldRegenMinPower = 0.0;
         $distortionPool = 0.0;
         $missileCount = 0.0;
         $missileRackAmmo = 0.0;
@@ -54,18 +61,23 @@ final readonly class ResourceAggregator implements VehicleDataCalculator
             // Shields
             $shieldHp += (float) Arr::get($stdItem ?? [], 'Shield.MaxShieldHealth', 0.0);
             $shieldRegen += (float) Arr::get($stdItem ?? [], 'Shield.MaxShieldRegen', 0.0);
+            [$itemShieldRegenRaw, $itemShieldRegenMinPower] = $this->deriveShieldRegenValues($stdItem);
+            $shieldRegenRaw += $itemShieldRegenRaw;
+            $shieldRegenMinPower += $itemShieldRegenMinPower;
 
             // Distortion pool
             $distortionPool += (float) Arr::get($stdItem ?? [], 'Distortion.Maximum', 0.0);
 
             // Ammunition / missiles
-            $type = Arr::get($stdItem ?? [], 'Type', Arr::get($item, 'Type'));
-            if (is_string($type) && str_starts_with(strtolower($type), 'missile')) {
+            $type = $this->itemTypeResolver->resolveSemanticType($item);
+            $typeLower = is_string($type) ? strtolower($type) : null;
+
+            if (is_string($typeLower) && str_starts_with($typeLower, 'missile')) {
                 $missileCount++;
             }
 
             // Missile rack capacity
-            if (is_string($type) && str_starts_with(strtolower($type), 'missilelauncher')) {
+            if (is_string($typeLower) && str_starts_with($typeLower, 'missilelauncher')) {
                 $missileRackAmmo += (float) Arr::get($stdItem ?? [], 'MissileRack.Count', 0.0);
             }
 
@@ -122,6 +134,9 @@ final readonly class ResourceAggregator implements VehicleDataCalculator
                 'hp' => $shieldHp > 0 ? $shieldHp : null,
                 // TODO: Magic number
                 'regen' => $shieldRegen > 0 ? round($shieldRegen * 0.66) : null,
+                // TODO: Add shield-controller capacitor-assignment mapping/export once requirements are confirmed.
+                'regen_raw' => $shieldRegenRaw > 0 ? $shieldRegenRaw : null,
+                'regen_min_power' => $shieldRegenMinPower > 0 ? $shieldRegenMinPower : null,
             ],
 
             'distortion' => [
@@ -249,6 +264,106 @@ final readonly class ResourceAggregator implements VehicleDataCalculator
         return array_any($types, fn ($type) => str_starts_with(strtolower((string) $type), 'weaponpersonal'));
     }
 
+    /**
+     * Derive per-item shield regeneration from resource-network conversion deltas.
+     *
+     * Fallback behavior:
+     * - missing conversion data => fallback to Shield.MaxShieldRegen
+     * - partial conversion data (e.g. missing GeneratedRate) => fallback to Shield.MaxShieldRegen
+     *
+     * @param  array<string, mixed>|null  $stdItem
+     * @return array{0: float, 1: float}
+     */
+    private function deriveShieldRegenValues(?array $stdItem): array
+    {
+        $maxShieldRegen = (float) Arr::get($stdItem ?? [], 'Shield.MaxShieldRegen', 0.0);
+        $state = $this->selectResourceNetworkState($stdItem);
+
+        if ($state === null) {
+            return [$maxShieldRegen, $maxShieldRegen];
+        }
+
+        $deltas = $this->normalizeArrayEntries($state['Deltas'] ?? $state['deltas'] ?? []);
+        if ($deltas === []) {
+            return [$maxShieldRegen, $maxShieldRegen];
+        }
+
+        $regenRaw = 0.0;
+        $regenMinPower = 0.0;
+        $foundConversion = false;
+
+        foreach ($deltas as $delta) {
+            $deltaType = (string) ($delta['Type'] ?? $delta['type'] ?? '');
+            $generatedResource = (string) ($delta['GeneratedResource'] ?? $delta['generatedResource'] ?? '');
+
+            if (strcasecmp($deltaType, 'Conversion') !== 0 || strcasecmp($generatedResource, 'Shield') !== 0) {
+                continue;
+            }
+
+            $foundConversion = true;
+            $rawGeneratedRate = $delta['GeneratedRate'] ?? $delta['generatedRate'] ?? null;
+            if (! is_numeric($rawGeneratedRate)) {
+                return [$maxShieldRegen, $maxShieldRegen];
+            }
+
+            $generatedRate = (float) $rawGeneratedRate;
+            $rawMinimumFraction = $delta['MinimumFraction'] ?? $delta['minimumFraction'] ?? 1.0;
+            $minimumFraction = is_numeric($rawMinimumFraction) ? (float) $rawMinimumFraction : 1.0;
+
+            $regenRaw += $generatedRate;
+            $regenMinPower += $generatedRate * $minimumFraction;
+        }
+
+        if (! $foundConversion) {
+            return [$maxShieldRegen, $maxShieldRegen];
+        }
+
+        return [$regenRaw, $regenMinPower];
+    }
+
+    /**
+     * Pick Online state if available; otherwise fallback to the first available state.
+     *
+     * @param  array<string, mixed>|null  $stdItem
+     * @return array<string, mixed>|null
+     */
+    private function selectResourceNetworkState(?array $stdItem): ?array
+    {
+        $states = $this->normalizeArrayEntries(Arr::get($stdItem ?? [], 'ResourceNetwork.States', []));
+        if ($states === []) {
+            return null;
+        }
+
+        foreach ($states as $state) {
+            $stateName = (string) ($state['Name'] ?? $state['name'] ?? '');
+            if (strcasecmp($stateName, 'Online') === 0) {
+                return $state;
+            }
+        }
+
+        return $states[0] ?? null;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizeArrayEntries(mixed $value): array
+    {
+        if (! is_array($value) || $value === []) {
+            return [];
+        }
+
+        if (array_is_list($value)) {
+            return array_values(array_filter($value, 'is_array'));
+        }
+
+        if (Arr::has($value, 'Name') || Arr::has($value, 'Deltas') || Arr::has($value, 'Type')) {
+            return [$value];
+        }
+
+        return array_values(array_filter($value, 'is_array'));
+    }
+
     private function getEmptyResources(): array
     {
         return [
@@ -256,6 +371,8 @@ final readonly class ResourceAggregator implements VehicleDataCalculator
             'shields_total' => [
                 'hp' => null,
                 'regen' => null,
+                'regen_raw' => null,
+                'regen_min_power' => null,
             ],
             'distortion' => [
                 'pool' => null,

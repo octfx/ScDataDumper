@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Services;
 
-use Exception;
 use JsonException;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use XMLReader;
 
 final readonly class CacheService
 {
@@ -37,51 +37,44 @@ final readonly class CacheService
         foreach ($iterator as $file) {
             $this->io->progressAdvance();
             if ($file->isFile() && $file->getExtension() === 'xml') {
-                $ref = fopen($file->getRealPath(), 'rb');
-                if ($ref) {
-                    try {
-                        $firstLine = fgets($ref);
-                    } catch (Exception $e) {
-                        continue;
+                $filePath = $file->getRealPath();
+                if (! is_string($filePath)) {
+                    continue;
+                }
+
+                $parsed = $this->parseRootClassInfo($filePath);
+                if ($parsed === null) {
+                    continue;
+                }
+
+                $normalizedFilePath = str_replace('\\', '/', $filePath);
+
+                $classToPathMap[$parsed['docType']] ??= [];
+                if (
+                    $parsed['isSynthesizedNoDot'] === true &&
+                    isset($classToPathMap[$parsed['docType']][$parsed['className']]) &&
+                    $classToPathMap[$parsed['docType']][$parsed['className']] !== $normalizedFilePath
+                ) {
+                    $this->io->warning(sprintf(
+                        'Synthetic no-dot class collision for %s.%s, overwriting %s with %s',
+                        $parsed['docType'],
+                        $parsed['className'],
+                        $classToPathMap[$parsed['docType']][$parsed['className']],
+                        $normalizedFilePath
+                    ));
+                }
+
+                $classToPathMap[$parsed['docType']][$parsed['className']] = $normalizedFilePath;
+                $uuidToClassMap[$parsed['uuid']] = $parsed['className'];
+                $uuidToPathMap[$parsed['uuid']] = $normalizedFilePath;
+
+                if ($parsed['docType'] === 'EntityClassDefinition') {
+                    $entityType = $this->extractEntityClassType($filePath);
+                    if ($entityType !== null) {
+                        $classToTypeMap[$parsed['docType'].'.'.$parsed['className']] = $entityType;
                     }
-
-                    if (str_contains($firstLine, '__ref')) {
-                        preg_match('/__ref="([^"]+)"/', $firstLine, $refMatches);
-                        preg_match('/^<(\w+)\.(\w+)/', $firstLine, $classMatches);
-
-                        if (isset($classMatches[1], $classMatches[2], $refMatches[1])) {
-                            $classToPathMap[$classMatches[1]] ??= [];
-
-                            $classToPathMap[$classMatches[1]][$classMatches[2]] = str_replace('\\', '/', $file->getRealPath());
-                            $uuidToClassMap[$refMatches[1]] = $classMatches[2];
-                            $uuidToPathMap[$refMatches[1]] = str_replace('\\', '/', $file->getRealPath());
-
-                            if (str_starts_with($firstLine, '<EntityClassDefinition')) {
-                                while (($line = fgets($ref)) !== false) {
-                                    if (str_contains($line, 'AttachDef')) {
-                                        preg_match('/Type="([^"]+)" SubType="([^"]+)"/', $line, $typeMatches);
-
-                                        if (isset($typeMatches[1], $typeMatches[2])) {
-                                            $classToTypeMap[$classMatches[1].'.'.$classMatches[2]] = $typeMatches[1];
-                                        }
-
-                                        break;
-                                    }
-
-                                    if (str_contains($line, 'SEntityComponentDefaultLoadoutParams')) {
-                                        break;
-                                    }
-                                }
-                            } else {
-                                preg_match('/__type="([^"]+)"/', $firstLine, $typeMatches);
-                                if (isset($typeMatches[1])) {
-                                    $classToTypeMap[$classMatches[1]] = $typeMatches[1];
-                                }
-                            }
-                        }
-                    }
-
-                    fclose($ref);
+                } elseif ($parsed['type'] !== '') {
+                    $classToTypeMap[$parsed['docType']] = $parsed['type'];
                 }
             }
         }
@@ -116,5 +109,125 @@ final readonly class CacheService
             fwrite($ref, json_encode($array, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT));
             fclose($ref);
         }
+    }
+
+    /**
+     * @return array{docType: string, className: string, uuid: string, type: string, isSynthesizedNoDot: bool}|null
+     */
+    private function parseRootClassInfo(string $filePath): ?array
+    {
+        $reader = XMLReader::open($filePath, null, LIBXML_NONET | LIBXML_COMPACT);
+        if (! $reader) {
+            return null;
+        }
+
+        try {
+            while ($reader->read()) {
+                if ($reader->nodeType !== XMLReader::ELEMENT) {
+                    continue;
+                }
+
+                $uuid = (string) ($reader->getAttribute('__ref') ?? '');
+                if ($uuid === '') {
+                    return null;
+                }
+
+                $rootName = $reader->name;
+                $rootType = (string) ($reader->getAttribute('__type') ?? '');
+                $rootPath = (string) ($reader->getAttribute('__path') ?? '');
+
+                [$docType, $className, $isSynthesizedNoDot] = $this->resolveDocTypeAndClassName($rootName, $rootPath, $filePath);
+                if ($docType === '' || $className === '') {
+                    return null;
+                }
+
+                return [
+                    'docType' => $docType,
+                    'className' => $className,
+                    'uuid' => $uuid,
+                    'type' => $rootType,
+                    'isSynthesizedNoDot' => $isSynthesizedNoDot,
+                ];
+            }
+        } finally {
+            $reader->close();
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{0: string, 1: string, 2: bool}
+     */
+    private function resolveDocTypeAndClassName(string $rootName, string $rootPath, string $filePath): array
+    {
+        $dotPosition = strpos($rootName, '.');
+        if ($dotPosition !== false) {
+            return [
+                substr($rootName, 0, $dotPosition),
+                substr($rootName, $dotPosition + 1),
+                false,
+            ];
+        }
+
+        $className = $this->extractFileStem($rootPath);
+        if ($className === '') {
+            $className = pathinfo($filePath, PATHINFO_FILENAME);
+        }
+
+        return [
+            $rootName,
+            $className,
+            true,
+        ];
+    }
+
+    private function extractFileStem(string $filePath): string
+    {
+        if ($filePath === '') {
+            return '';
+        }
+
+        $normalizedPath = str_replace('\\', '/', $filePath);
+        $baseName = basename($normalizedPath);
+        if ($baseName === '' || $baseName === '.' || $baseName === '..') {
+            return '';
+        }
+
+        return pathinfo($baseName, PATHINFO_FILENAME);
+    }
+
+    private function extractEntityClassType(string $filePath): ?string
+    {
+        $reader = XMLReader::open($filePath, null, LIBXML_NONET | LIBXML_COMPACT);
+        if (! $reader) {
+            return null;
+        }
+
+        try {
+            while ($reader->read()) {
+                if ($reader->nodeType !== XMLReader::ELEMENT) {
+                    continue;
+                }
+
+                if ($reader->name === 'AttachDef') {
+                    $type = $reader->getAttribute('Type');
+                    $subType = $reader->getAttribute('SubType');
+                    if ($type !== null && $type !== '' && $subType !== null && $subType !== '') {
+                        return $type;
+                    }
+
+                    return null;
+                }
+
+                if ($reader->name === 'SEntityComponentDefaultLoadoutParams') {
+                    return null;
+                }
+            }
+        } finally {
+            $reader->close();
+        }
+
+        return null;
     }
 }

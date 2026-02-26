@@ -268,6 +268,7 @@ final class StandardisedPartBuilder
         // Check if item data is already resolved
         if (! empty($loadoutEntry['Item'])) {
             $item = $loadoutEntry['Item'];
+            $this->applyCanonicalClassification($item);
 
             // Ensure ports have installed items from nested entries
             if (! empty($loadoutEntry['entries']) && ! empty($item['stdItem']['Ports'])) {
@@ -291,7 +292,7 @@ final class StandardisedPartBuilder
         }
 
         $item = new ScUnpackedItem($entity)->toArray();
-        $item['Classification'] = $this->classifierService->classify($item);
+        $this->applyCanonicalClassification($item);
 
         // Install nested loadout into item's ports
         if (! empty($loadoutEntry['entries']) && ! empty($item['stdItem']['Ports'])) {
@@ -302,6 +303,26 @@ final class StandardisedPartBuilder
         }
 
         return $item;
+    }
+
+    private function applyCanonicalClassification(array &$item): void
+    {
+        $classification = $this->classifierService->classify($item);
+
+        // Fallback for legacy payloads that only carry Classification.
+        if (! is_string($classification) || trim($classification) === '') {
+            $classification = $item['classification'] ?? $item['Classification'] ?? null;
+        }
+
+        unset($item['Classification']);
+
+        if (! is_string($classification) || trim($classification) === '') {
+            unset($item['classification']);
+
+            return;
+        }
+
+        $item['classification'] = strtolower(trim($classification));
     }
 
     /**

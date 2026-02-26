@@ -12,6 +12,13 @@ use Illuminate\Support\Collection;
  */
 final class WeaponSystemAnalyzer implements VehicleDataCalculator
 {
+    private readonly ItemTypeResolver $itemTypeResolver;
+
+    public function __construct(?ItemTypeResolver $itemTypeResolver = null)
+    {
+        $this->itemTypeResolver = $itemTypeResolver ?? new ItemTypeResolver;
+    }
+
     /**
      * Analyze turrets and return weapon fitting data
      *
@@ -61,8 +68,9 @@ final class WeaponSystemAnalyzer implements VehicleDataCalculator
      */
     private function isGimbal(array $port): bool
     {
-        return isset($port['InstalledItem']['Type']) &&
-            $port['InstalledItem']['Type'] === 'Turret.GunTurret';
+        $type = $this->resolveInstalledItemType($port);
+
+        return is_string($type) && strcasecmp($type, 'Turret.GunTurret') === 0;
     }
 
     /**
@@ -79,8 +87,12 @@ final class WeaponSystemAnalyzer implements VehicleDataCalculator
             'TurretBase.Unmanned',
         ];
 
-        return isset($port['InstalledItem']['Type']) &&
-            in_array($port['InstalledItem']['Type'], $types, true);
+        $type = $this->resolveInstalledItemType($port);
+        if (! is_string($type)) {
+            return false;
+        }
+
+        return array_any($types, fn($candidate) => strcasecmp($type, $candidate) === 0);
     }
 
     /**
@@ -120,6 +132,16 @@ final class WeaponSystemAnalyzer implements VehicleDataCalculator
         }
 
         return $sizes;
+    }
+
+    private function resolveInstalledItemType(array $port): ?string
+    {
+        $installedItem = $port['InstalledItem'] ?? null;
+        if (! is_array($installedItem)) {
+            return null;
+        }
+
+        return $this->itemTypeResolver->resolveSemanticType($installedItem);
     }
 
     public function canCalculate(VehicleDataContext $context): bool
