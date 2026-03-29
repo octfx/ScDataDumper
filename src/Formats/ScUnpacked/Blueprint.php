@@ -11,8 +11,6 @@ use RuntimeException;
 
 final class Blueprint extends BaseFormat
 {
-    private const PLACEHOLDER_TRANSLATION = '<= PLACEHOLDER =>';
-
     protected ?string $elementKey = 'blueprint/CraftingBlueprint';
 
     public function toArray(): ?array
@@ -600,49 +598,19 @@ final class Blueprint extends BaseFormat
 
     private function translate(?string $value): ?string
     {
-        $normalizedValue = $this->normalizeString($value);
-
-        if ($normalizedValue === null) {
+        if ($value === null || trim($value) === '') {
             return null;
         }
 
-        if (! str_starts_with($normalizedValue, '@')) {
-            return $this->isPlaceholderTranslation($normalizedValue) ? null : $normalizedValue;
+        if (! str_starts_with($value, '@')) {
+            return $value;
         }
 
         try {
-            $translatedValue = $this->normalizeString(
-                ServiceFactory::getLocalizationService()->getTranslation($normalizedValue)
-            );
+            return ServiceFactory::getLocalizationService()->getTranslation($value);
         } catch (RuntimeException) {
-            return null;
+            return $value;
         }
-
-        if (
-            $translatedValue === null
-            || $translatedValue === $normalizedValue
-            || $this->isPlaceholderTranslation($translatedValue)
-        ) {
-            return null;
-        }
-
-        return $translatedValue;
-    }
-
-    private function normalizeString(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $normalizedValue = trim($value);
-
-        return $normalizedValue === '' ? null : $normalizedValue;
-    }
-
-    private function isPlaceholderTranslation(string $value): bool
-    {
-        return strtoupper(trim($value)) === self::PLACEHOLDER_TRANSLATION;
     }
 
     private function normalizeNumber(mixed $value): int|float|null

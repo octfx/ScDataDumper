@@ -140,7 +140,6 @@ final class BlueprintTest extends ScDataTestCase
             'Data/Localization/english/global.ini',
             <<<'TEXT'
             LOC_EMPTY=
-            LOC_PLACEHOLDER_ASPECTS=<= PLACEHOLDER =>
             TEXT
         );
 
@@ -241,7 +240,7 @@ final class BlueprintTest extends ScDataTestCase
                                 <CraftingCost_Select count="1">
                                   <options>
                                     <CraftingCost_Select count="2">
-                                      <nameInfo debugName="ASPECTS" displayName="@LOC_PLACEHOLDER_ASPECTS" />
+                                      <nameInfo debugName="ASPECTS" displayName="Aspects" />
                                       <options>
                                         <CraftingCost_Select count="1">
                                           <nameInfo debugName="BARREL" displayName="Barrel" />
@@ -973,7 +972,7 @@ final class BlueprintTest extends ScDataTestCase
                                 <CraftingCost_Select count="1">
                                   <options>
                                     <CraftingCost_Select count="2">
-                                      <nameInfo debugName="ASPECTS" displayName="@LOC_PLACEHOLDER_ASPECTS" />
+                                      <nameInfo debugName="ASPECTS" displayName="Aspects" />
                                       <options>
                                         <CraftingCost_Select count="1">
                                           <nameInfo debugName="BARREL" displayName="Barrel" />
@@ -1028,7 +1027,7 @@ final class BlueprintTest extends ScDataTestCase
         self::assertCount(1, $groups);
         self::assertSame('group', $aspects['kind']);
         self::assertSame('ASPECTS', $aspects['key']);
-        self::assertSame('ASPECTS', $aspects['name']);
+        self::assertSame('Aspects', $aspects['name']);
         self::assertSame(2, $aspects['required_count']);
         self::assertSame(['BARREL', 'FRAME', 'SIGHT'], array_column($aspects['children'], 'key'));
     }
