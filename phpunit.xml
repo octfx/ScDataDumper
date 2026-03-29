@@ -4,6 +4,7 @@
          bootstrap="vendor/autoload.php"
          colors="true"
          testdox="true"
+         failOnDeprecation="true"
          failOnWarning="true"
          failOnRisky="true"
          failOnEmptyTestSuite="true">

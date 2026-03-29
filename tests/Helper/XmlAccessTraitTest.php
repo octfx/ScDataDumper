@@ -236,7 +236,6 @@ class XmlAccessTraitTest extends TestCase
     {
         $reflection = new \ReflectionClass($this->testInstance);
         $property = $reflection->getProperty('domXPath');
-        $property->setAccessible(true);
 
         $this->assertNull($property->getValue($this->testInstance), 'domXPath should start as null');
 
