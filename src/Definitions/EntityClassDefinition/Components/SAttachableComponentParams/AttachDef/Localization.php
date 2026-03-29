@@ -41,11 +41,13 @@ class Localization extends Element
             $translation->setAttribute('Locale', $locale);
 
             foreach ($this->keys as $key) {
-                // dump($key, $this->get($key), $t->getTranslation($this->get($key), $locale));
-                $translation->setAttribute(ltrim($key, '@'), $t->getTranslation($this->get($key), $locale));
+                $value = $this->get($key);
+                $translatedValue = is_string($value) ? $t->getTranslation($value, $locale) : '';
+
+                $translation->setAttribute(ltrim($key, '@'), $translatedValue);
             }
 
-            if ($this->node->lastChild->nodeName !== $element) {
+            if ($this->node->lastChild?->nodeName !== $element) {
                 $this->node->appendChild($translation);
             }
         }

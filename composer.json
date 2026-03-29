@@ -23,7 +23,9 @@
         }
     },
     "scripts": {
-        "pint": "pint"
+        "pint": "pint",
+        "test": "./vendor/bin/phpunit",
+        "test:coverage": "./vendor/bin/phpunit --coverage-text"
     },
     "authors": [
         {

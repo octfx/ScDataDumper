@@ -30,20 +30,13 @@ class LoadItems extends Command
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $cacheCommand = new GenerateCache;
-        $cacheCommand->run(new StringInput($input->getArgument('scDataPath')), $output);
-
         $io = new SymfonyStyle($input, $output);
         $io->title('[ScDataDumper] Loading items');
 
-        $fac = new ServiceFactory($input->getArgument('scDataPath'));
-        $fac->initialize();
+        $this->prepareServices($input, $output);
 
         $overwrite = ($input->getOption('overwrite') ?? false) === true;
-
-        $service = ServiceFactory::getItemService();
-
-        $io->progressStart($service->count());
+        $io->progressStart($this->getItemExportCount());
 
         $outDir = sprintf('%s%sitems', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
         $indexFilePath = sprintf('%s%sitems.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
@@ -73,32 +66,16 @@ class LoadItems extends Command
 
         $start = microtime(true);
 
-        $typeFilter = $input->hasOption('typeFilter') ? $input->getOption('typeFilter') : null;
-        $avoids = $this->buildTypeFilterAvoidList($typeFilter);
-
-        $iter = $service->iterator();
         $nameFilter = $input->getOption('filter');
         $nameFilter = is_string($nameFilter) && $nameFilter !== '' ? strtolower($nameFilter) : null;
 
-        foreach ($iter as $item) {
-            $attach = $item->getAttachDef();
-
-            $type = $item->getAttachType();
-
+        foreach ($this->iterateItemExports($nameFilter, $input->getOption('typeFilter')) as $itemExport) {
             $io->progressAdvance();
 
-            if ($attach === null || $type === null || $this->isTypeExcluded($type, $avoids)) {
-                continue;
-            }
-
-            $fileName = strtolower($item->getClassName());
-
-            if ($nameFilter !== null && strpos($fileName, $nameFilter) === false) {
-                continue;
-            }
+            $fileName = strtolower((string) $itemExport['className']);
             $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
 
-            $stdItem = new Item($item)->toArray();
+            $stdItem = $itemExport['formatted'];
 
             $encodedItem = json_encode($stdItem, $jsonFlags);
 
@@ -130,21 +107,14 @@ class LoadItems extends Command
 
             try {
                 if ($input->getOption('scUnpackedFormat')) {
-                    $rawEntity = $item->toArray();
-
                     $json = json_encode([
                         'Raw' => [
-                            'Entity' => [
-                                ...$rawEntity,
-                                'ClassName' => $item->getClassName(),
-                                '__ref' => $item->getUuid(),
-                                '__type' => $item->getAttachType(),
-                            ],
+                            'Entity' => $itemExport['rawEntity'],
                         ],
                         'Item' => $stdItem,
                     ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
                 } else {
-                    $json = $item->toJson();
+                    $json = $itemExport['defaultJson'];
                 }
 
                 if (! $this->writeJsonFile($filePath, $json, $io)) {
@@ -176,6 +146,59 @@ class LoadItems extends Command
         fclose($shipHandle);
 
         return Command::SUCCESS;
+    }
+
+    protected function prepareServices(InputInterface $input, OutputInterface $output): void
+    {
+        $cacheCommand = new GenerateCache;
+        $cacheCommand->run(new StringInput($input->getArgument('scDataPath')), $output);
+
+        $fac = new ServiceFactory($input->getArgument('scDataPath'));
+        $fac->initialize();
+    }
+
+    protected function getItemExportCount(): int
+    {
+        return ServiceFactory::getItemService()->count();
+    }
+
+    /**
+     * @return iterable<int, array{className: string, formatted: array, rawEntity: array, defaultJson: string}>
+     *
+     * @throws JsonException
+     */
+    protected function iterateItemExports(?string $nameFilter, mixed $typeFilter): iterable
+    {
+        $avoids = $this->buildTypeFilterAvoidList($typeFilter);
+
+        foreach (ServiceFactory::getItemService()->iterator() as $item) {
+            $attach = $item->getAttachDef();
+            $type = $item->getAttachType();
+
+            if ($attach === null || $type === null || $this->isTypeExcluded($type, $avoids)) {
+                continue;
+            }
+
+            $className = strtolower($item->getClassName());
+            if ($nameFilter !== null && strpos($className, $nameFilter) === false) {
+                continue;
+            }
+
+            $rawEntity = $item->toArray();
+            $formatted = new Item($item)->toArray();
+
+            yield [
+                'className' => $item->getClassName(),
+                'formatted' => $formatted,
+                'rawEntity' => [
+                    ...$rawEntity,
+                    'ClassName' => $item->getClassName(),
+                    '__ref' => $item->getUuid(),
+                    '__type' => $item->getAttachType(),
+                ],
+                'defaultJson' => $item->toJson(),
+            ];
+        }
     }
 
     /**

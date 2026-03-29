@@ -7,6 +7,8 @@ namespace Octfx\ScDataDumper\Commands;
 use Exception;
 use Octfx\ScDataDumper\Services\CacheService;
 use Octfx\ScDataDumper\Services\ConsumableSubtypeService;
+use Octfx\ScDataDumper\Services\CraftingGameplayPropertyCacheBuilder;
+use Octfx\ScDataDumper\Services\ResourceTypeCacheBuilder;
 use Octfx\ScDataDumper\Services\TagDatabaseService;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -64,7 +66,26 @@ class GenerateCache extends Command
                 DIRECTORY_SEPARATOR,
                 PHP_OS_FAMILY
             ),
+            sprintf(
+                '%s%stagdatabase-cache-%s.json',
+                $input->getArgument('path'),
+                DIRECTORY_SEPARATOR,
+                PHP_OS_FAMILY
+            ),
         ];
+
+        $cacheFiles[] = sprintf(
+            '%s%sresource-type-cache-%s.json',
+            $input->getArgument('path'),
+            DIRECTORY_SEPARATOR,
+            PHP_OS_FAMILY
+        );
+        $cacheFiles[] = sprintf(
+            '%s%scrafting-gameplay-property-cache-%s.json',
+            $input->getArgument('path'),
+            DIRECTORY_SEPARATOR,
+            PHP_OS_FAMILY
+        );
 
         $allExist = array_reduce($cacheFiles, static fn ($carry, $item) => $carry && file_exists($item), true);
 
@@ -91,6 +112,14 @@ class GenerateCache extends Command
             $tagDatabaseService = new TagDatabaseService($input->getArgument('path'));
             $tagDatabaseService->initialize();
             $io->success('Generated Tag Database cache');
+
+            $io->section('Generating Resource Type cache');
+            $resourceTypeCount = new ResourceTypeCacheBuilder($input->getArgument('path'))->build();
+            $io->success('Generated Resource Type cache with '.$resourceTypeCount.' entries');
+
+            $io->section('Generating Crafting Gameplay Property cache');
+            $propertyCount = new CraftingGameplayPropertyCacheBuilder($input->getArgument('path'))->build();
+            $io->success('Generated Crafting Gameplay Property cache with '.$propertyCount.' entries');
         } catch (Exception $e) {
             $io->error($e->getMessage());
 

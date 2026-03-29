@@ -9,6 +9,8 @@ final class ServiceFactory
 {
     private static bool $initialized = false;
 
+    private static ?string $activeScDataPath = null;
+
     /**
      * @var BaseService[]
      */
@@ -21,52 +23,15 @@ final class ServiceFactory
      */
     public function initialize(): void
     {
-        self::$services['InventoryContainerService'] = new InventoryContainerService($this->scDataPath);
-        self::$services['InventoryContainerService']->initialize();
+        if (self::$initialized && self::$activeScDataPath === $this->scDataPath) {
+            return;
+        }
 
-        self::$services['ManufacturerService'] = new ManufacturerService($this->scDataPath);
-        self::$services['ManufacturerService']->initialize();
+        if (self::$activeScDataPath !== null && self::$activeScDataPath !== $this->scDataPath) {
+            self::$services = [];
+        }
 
-        self::$services['ItemService'] = new ItemService($this->scDataPath);
-        self::$services['ItemService']->initialize();
-
-        self::$services['LocalizationService'] = new LocalizationService($this->scDataPath);
-        self::$services['LocalizationService']->initialize();
-
-        self::$services['TagDatabaseService'] = new TagDatabaseService($this->scDataPath);
-        self::$services['TagDatabaseService']->initialize();
-
-        self::$services['ItemClassifierService'] = new ItemClassifierService;
-
-        self::$services['RadarSystemService'] = new RadarSystemService($this->scDataPath);
-        self::$services['RadarSystemService']->initialize();
-
-        self::$services['AmmoParamsService'] = new AmmoParamsService($this->scDataPath);
-        self::$services['AmmoParamsService']->initialize();
-
-        self::$services['DamageResistanceMacroService'] = new DamageResistanceMacroService($this->scDataPath);
-        self::$services['DamageResistanceMacroService']->initialize();
-
-        self::$services['MeleeCombatConfigService'] = new MeleeCombatConfigService($this->scDataPath);
-        self::$services['MeleeCombatConfigService']->initialize();
-
-        self::$services['MiningLaserGlobalParamsService'] = new MiningLaserGlobalParamsService($this->scDataPath);
-        self::$services['MiningLaserGlobalParamsService']->initialize();
-
-        self::$services['VehicleService'] = new VehicleService($this->scDataPath);
-        self::$services['VehicleService']->initialize();
-
-        self::$services['FactionService'] = new FactionService($this->scDataPath);
-        self::$services['FactionService']->initialize();
-
-        self::$services['LoadoutFileService'] = new LoadoutFileService($this->scDataPath);
-        self::$services['LoadoutFileService']->initialize();
-
-        self::$services['ConsumableSubtypeService'] = new ConsumableSubtypeService($this->scDataPath);
-        self::$services['ConsumableSubtypeService']->initialize();
-
-        self::$services['MaterialStatService'] = new MaterialStatService($this->scDataPath);
-        self::$services['MaterialStatService']->initialize();
+        self::$activeScDataPath = $this->scDataPath;
 
         self::$initialized = true;
     }
@@ -89,6 +54,21 @@ final class ServiceFactory
     public static function getLocalizationService(): LocalizationService
     {
         return self::getService('LocalizationService');
+    }
+
+    public static function getResourceTypeService(): ResourceTypeService
+    {
+        return self::getService('ResourceTypeService');
+    }
+
+    public static function getBlueprintService(): BlueprintService
+    {
+        return self::getService('BlueprintService');
+    }
+
+    public static function getCraftingGameplayPropertyService(): CraftingGameplayPropertyService
+    {
+        return self::getService('CraftingGameplayPropertyService');
     }
 
     public static function getTagDatabaseService(): TagDatabaseService
@@ -152,10 +132,47 @@ final class ServiceFactory
             throw new RuntimeException('Service factory is not initialized');
         }
 
-        if (! isset(self::$services[$serviceName])) {
-            throw new RuntimeException('Unknown service: '.$serviceName);
-        }
+        self::bootService($serviceName);
 
         return self::$services[$serviceName];
+    }
+
+    private static function bootService(string $serviceName): void
+    {
+        if (isset(self::$services[$serviceName])) {
+            return;
+        }
+
+        if ($serviceName !== 'ItemClassifierService' && self::$activeScDataPath === null) {
+            throw new RuntimeException('Service factory path is not initialized');
+        }
+
+        $service = match ($serviceName) {
+            'InventoryContainerService' => new InventoryContainerService(self::$activeScDataPath),
+            'ManufacturerService' => new ManufacturerService(self::$activeScDataPath),
+            'ItemService' => new ItemService(self::$activeScDataPath),
+            'ResourceTypeService' => new ResourceTypeService(self::$activeScDataPath),
+            'CraftingGameplayPropertyService' => new CraftingGameplayPropertyService(self::$activeScDataPath),
+            'BlueprintService' => new BlueprintService(self::$activeScDataPath),
+            'LocalizationService' => new LocalizationService(self::$activeScDataPath),
+            'ItemClassifierService' => new ItemClassifierService,
+            'TagDatabaseService' => new TagDatabaseService(self::$activeScDataPath),
+            'RadarSystemService' => new RadarSystemService(self::$activeScDataPath),
+            'AmmoParamsService' => new AmmoParamsService(self::$activeScDataPath),
+            'DamageResistanceMacroService' => new DamageResistanceMacroService(self::$activeScDataPath),
+            'MeleeCombatConfigService' => new MeleeCombatConfigService(self::$activeScDataPath),
+            'MiningLaserGlobalParamsService' => new MiningLaserGlobalParamsService(self::$activeScDataPath),
+            'VehicleService' => new VehicleService(self::$activeScDataPath),
+            'FactionService' => new FactionService(self::$activeScDataPath),
+            'LoadoutFileService' => new LoadoutFileService(self::$activeScDataPath),
+            'ConsumableSubtypeService' => new ConsumableSubtypeService(self::$activeScDataPath),
+            default => throw new RuntimeException('Unknown service: '.$serviceName),
+        };
+
+        if ($service instanceof BaseService) {
+            $service->initialize();
+        }
+
+        self::$services[$serviceName] = $service;
     }
 }

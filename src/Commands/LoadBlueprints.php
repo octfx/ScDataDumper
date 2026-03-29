@@ -5,25 +5,25 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Commands;
 
 use JsonException;
-use Octfx\ScDataDumper\Formats\ScUnpacked\Ship;
+use Octfx\ScDataDumper\Formats\ScUnpacked\Blueprint;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Exception\ExceptionInterface;
+use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
-use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
-    name: 'load:vehicles',
-    description: 'Load and dump SC Vehicles',
+    name: 'load:blueprints',
+    description: 'Load and dump SC crafting blueprints',
     hidden: false
 )]
-class LoadVehicles extends Command
+class LoadBlueprints extends Command
 {
     /**
      * @throws JsonException|ExceptionInterface
@@ -31,16 +31,15 @@ class LoadVehicles extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        $io->title('[ScDataDumper] Loading vehicles');
+        $io->title('[ScDataDumper] Loading blueprints');
 
         $this->prepareServices($input, $output);
 
         $overwrite = ($input->getOption('overwrite') ?? false) === true;
-        $withRaw = ($input->getOption('with-raw') ?? false) === true;
-        $io->progressStart($this->getVehicleExportCount());
+        $io->progressStart($this->getBlueprintExportCount());
 
-        $outDir = sprintf('%s%sships', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
-        $indexFilePath = sprintf('%s%sships.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
+        $outDir = sprintf('%s%sblueprints', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
+        $indexFilePath = sprintf('%s%sblueprints.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
 
         if (! is_dir($outDir) && ! mkdir($outDir, 0777, true) && ! is_dir($outDir)) {
             throw new RuntimeException(sprintf('Directory "%s" was not created', $outDir));
@@ -48,66 +47,62 @@ class LoadVehicles extends Command
 
         $indexHandle = fopen($indexFilePath, 'wb');
         if (! $indexHandle) {
-            throw new RuntimeException('Failed to open ships index file for writing');
+            throw new RuntimeException('Failed to open blueprints index file for writing');
         }
 
         fwrite($indexHandle, "[\n");
         $indexFirst = true;
-        $jsonFlags = JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT;
+        $jsonFlags = JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES;
 
         $start = microtime(true);
 
         $nameFilter = $input->getOption('filter');
         $nameFilter = is_string($nameFilter) && $nameFilter !== '' ? strtolower($nameFilter) : null;
 
-        foreach ($this->iterateVehicleExports($nameFilter) as $vehicleExport) {
-            $out = [
-                'Raw' => [
-                    'Entity' => $vehicleExport['entity'],
-                ],
-                'Vehicle' => $vehicleExport['vehicle'],
-                'Loadout' => $vehicleExport['loadout'],
-                'ScVehicle' => $vehicleExport['formatted'],
-            ];
+        foreach ($this->iterateBlueprintExports($nameFilter) as $blueprintExport) {
+            $formatted = $blueprintExport['formatted'];
+            if ($formatted === null) {
+                $io->progressAdvance();
 
-            $fileName = strtolower((string) $vehicleExport['className']);
-            $filePathRaw = sprintf('%s%s%s-raw.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
-            $filePathShip = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
+                continue;
+            }
 
-            $needsWrite = $overwrite || ! file_exists($filePathShip);
+            $fileName = strtolower((string) $blueprintExport['className']);
+            $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
 
-            $encodedShip = json_encode($vehicleExport['formatted'], $jsonFlags);
+            $encodedBlueprint = json_encode($formatted, $jsonFlags);
             if (! $indexFirst) {
                 fwrite($indexHandle, ",\n");
             }
-            fwrite($indexHandle, $encodedShip);
+            fwrite($indexHandle, $encodedBlueprint);
             $indexFirst = false;
-            if (! $needsWrite) {
 
+            if (! $overwrite && file_exists($filePath)) {
                 $io->progressAdvance();
 
                 continue;
             }
 
             try {
-                if ($withRaw) {
-                    $jsonRaw = json_encode($out, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
-                    if (! $this->writeJsonFile($filePathRaw, $jsonRaw, $io)) {
-                        $io->warning(sprintf('Skipping vehicle %s due to write failure', $fileName));
-                        $io->progressAdvance();
-
-                        continue;
-                    }
+                if ($input->getOption('scUnpackedFormat')) {
+                    $json = json_encode([
+                        'Raw' => [
+                            'Blueprint' => $blueprintExport['rawBlueprint'],
+                        ],
+                        'Blueprint' => $formatted,
+                    ], $jsonFlags);
+                } else {
+                    $json = $blueprintExport['defaultJson'];
                 }
 
-                if (! $this->writeJsonFile($filePathShip, $encodedShip, $io)) {
-                    $io->warning(sprintf('Skipping formatted vehicle %s due to write failure', $fileName));
+                if (! $this->writeJsonFile($filePath, $json, $io)) {
+                    $io->warning(sprintf('Skipping blueprint %s due to write failure', $fileName));
                     $io->progressAdvance();
 
                     continue;
                 }
             } catch (JsonException $e) {
-                $io->warning(sprintf('Failed to encode JSON for vehicle %s: %s', $fileName, $e->getMessage()));
+                $io->warning(sprintf('Failed to encode JSON for blueprint %s: %s', $fileName, $e->getMessage()));
                 $io->progressAdvance();
 
                 continue;
@@ -119,7 +114,7 @@ class LoadVehicles extends Command
         $end = microtime(true);
         $io->progressFinish();
         $duration = $end - $start;
-        $io->success(sprintf('Saved item files (%s | %s )',
+        $io->success(sprintf('Saved blueprint files (%s | %s )',
             'Took: '.round($duration).' s',
             'Path: '.$input->getArgument('jsonOutPath')
         ));
@@ -133,36 +128,44 @@ class LoadVehicles extends Command
     protected function prepareServices(InputInterface $input, OutputInterface $output): void
     {
         $cacheCommand = new GenerateCache;
-        $cacheCommand->run(new StringInput($input->getArgument('scDataPath')), $output);
+        $cacheInput = new ArrayInput([
+            'path' => $input->getArgument('scDataPath'),
+        ]);
+        $cacheInput->setInteractive(false);
+        $cacheCommand->run($cacheInput, $output);
 
         $fac = new ServiceFactory($input->getArgument('scDataPath'));
         $fac->initialize();
     }
 
-    protected function getVehicleExportCount(): int
+    protected function getBlueprintExportCount(): int
     {
-        return ServiceFactory::getVehicleService()->count();
+        return ServiceFactory::getBlueprintService()->count();
     }
 
     /**
-     * @return iterable<int, array{className: string, formatted: array, entity: array, vehicle: ?array, loadout: array}>
+     * @return iterable<int, array{className: string, formatted: ?array, rawBlueprint: array, defaultJson: string}>
+     *
+     * @throws JsonException
      */
-    protected function iterateVehicleExports(?string $nameFilter): iterable
+    protected function iterateBlueprintExports(?string $nameFilter): iterable
     {
-        foreach (ServiceFactory::getVehicleService()->iterator($nameFilter) as $vehicle) {
+        foreach (ServiceFactory::getBlueprintService()->iterator() as $blueprint) {
+            $className = $blueprint->getClassName();
+
+            if ($nameFilter !== null && ! str_contains(strtolower($className), $nameFilter)) {
+                continue;
+            }
+
             yield [
-                'className' => $vehicle->entity->getClassName(),
-                'formatted' => new Ship($vehicle)->toArray(),
-                'entity' => $vehicle->getVehicleEntityArray(),
-                'vehicle' => $vehicle->getVehicleArray(),
-                'loadout' => $vehicle->loadout,
+                'className' => $className,
+                'formatted' => (new Blueprint($blueprint))->toArray(),
+                'rawBlueprint' => $blueprint->toArray(),
+                'defaultJson' => $blueprint->toJson(),
             ];
         }
     }
 
-    /**
-     * Safely write JSON content to file
-     */
     private function writeJsonFile(string $filePath, string $content, SymfonyStyle $io): bool
     {
         try {
@@ -184,32 +187,26 @@ class LoadVehicles extends Command
 
     protected function configure(): void
     {
-        $this->setHelp('php cli.php load:vehicles Path/To/ScDataDir Path/To/JsonOutDir');
+        $this->setHelp('php cli.php load:blueprints Path/To/ScDataDir Path/To/JsonOutDir');
         $this->addArgument('scDataPath', InputArgument::REQUIRED, 'Path to unpacked Star Citizen data directory');
         $this->addArgument('jsonOutPath', InputArgument::REQUIRED, 'Output directory for exported JSON files');
         $this->addOption(
             'overwrite',
             null,
             InputOption::VALUE_NONE,
-            'Overwrite existing vehicle JSON files'
+            'Overwrite existing blueprint JSON files'
         );
         $this->addOption(
             'filter',
             'f',
             InputOption::VALUE_OPTIONAL,
-            'Only export vehicles with this substring in their class name (case-insensitive)'
+            'Only export blueprints with this substring in their class name (case-insensitive)'
         );
         $this->addOption(
             'scUnpackedFormat',
             null,
             InputOption::VALUE_NONE,
-            'Export vehicles in SC Unpacked format (currently has no effect)'
-        );
-        $this->addOption(
-            'with-raw',
-            null,
-            InputOption::VALUE_NONE,
-            'Include raw XML -> JSON dumps for vehicles'
+            'Export blueprints in SC Unpacked format with raw blueprint data'
         );
     }
 }

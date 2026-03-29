@@ -73,6 +73,24 @@ class LoadData extends Command
             return $result;
         }
 
+        $io->section('Loading blueprints');
+        $blueprintArgs = [
+            'scDataPath' => $scDataPath,
+            'jsonOutPath' => $jsonOutPath,
+        ];
+        if ($overwrite) {
+            $blueprintArgs['--overwrite'] = true;
+        }
+        if ($scUnpackedFormat) {
+            $blueprintArgs['--scUnpackedFormat'] = true;
+        }
+
+        $result = $runCommand('load:blueprints', $blueprintArgs);
+
+        if ($result !== Command::SUCCESS) {
+            return $result;
+        }
+
         $io->section('Loading vehicles');
         $vehicleArgs = [
             'scDataPath' => $scDataPath,

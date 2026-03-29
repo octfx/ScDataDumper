@@ -6,6 +6,7 @@
 require __DIR__.'/vendor/autoload.php';
 
 use Octfx\ScDataDumper\Commands\GenerateCache;
+use Octfx\ScDataDumper\Commands\LoadBlueprints;
 use Octfx\ScDataDumper\Commands\LoadData;
 use Octfx\ScDataDumper\Commands\LoadFactions;
 use Octfx\ScDataDumper\Commands\LoadItems;
@@ -19,6 +20,7 @@ $application = new Application('ScDataDumper', '1.0.0');
 
 $application->addCommand(new GenerateCache);
 $application->addCommand(new LoadItems);
+$application->addCommand(new LoadBlueprints);
 $application->addCommand(new LoadVehicles);
 $application->addCommand(new LoadFactions);
 $application->addCommand(new LoadData);
