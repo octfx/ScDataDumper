@@ -36,6 +36,19 @@ final class ServiceFactory
         self::$initialized = true;
     }
 
+    public static function reset(): void
+    {
+        self::$initialized = false;
+        self::$activeScDataPath = null;
+        self::$services = [];
+
+        BaseService::resetSharedState();
+        BlueprintService::resetDocumentCache();
+        ItemService::resetDocumentCache();
+        VehicleService::resetDocumentCache();
+        ItemClassifierService::resetCache();
+    }
+
     public static function getInventoryContainerService(): InventoryContainerService
     {
         return self::getService('InventoryContainerService');

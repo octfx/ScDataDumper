@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Services;
 
 use DOMDocument;
+use Generator;
 use JsonException;
 use Octfx\ScDataDumper\DocumentTypes\ResourceType;
 use RuntimeException;
@@ -36,6 +37,22 @@ final class ResourceTypeService extends BaseService
         }
 
         $this->loadCache($cachePath);
+    }
+
+    public function count(): int
+    {
+        return count($this->resourceTypeXmlByUuid);
+    }
+
+    public function iterator(): Generator
+    {
+        foreach (array_keys($this->resourceTypeXmlByUuid) as $uuid) {
+            $resourceType = $this->getByReference($uuid);
+
+            if ($resourceType !== null) {
+                yield $resourceType;
+            }
+        }
     }
 
     public function getByReference(?string $uuid): ?ResourceType

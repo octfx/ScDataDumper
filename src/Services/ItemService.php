@@ -20,6 +20,11 @@ final class ItemService extends BaseService
      */
     protected static array $documentCache = [];
 
+    public static function resetDocumentCache(): void
+    {
+        self::$documentCache = [];
+    }
+
     public function count(): int
     {
         return count($this->entityPaths);

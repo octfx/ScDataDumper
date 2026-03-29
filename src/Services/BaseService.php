@@ -110,6 +110,13 @@ abstract class BaseService
 
     abstract public function initialize(): void;
 
+    public static function resetSharedState(): void
+    {
+        self::$uuidToPathMap = [];
+        self::$uuidToClassMap = [];
+        self::$classToUuidMap = [];
+    }
+
     private function makePath(string $fileName): string
     {
         return sprintf(

@@ -22,6 +22,36 @@ final class LoadBlueprintsCommandTest extends ScDataTestCase
                         'default' => false,
                         'reward_pools' => [],
                     ],
+                    'tiers' => [
+                        [
+                            'tier_index' => 0,
+                            'requirements' => [
+                                'kind' => 'root',
+                                'children' => [
+                                    [
+                                        'kind' => 'group',
+                                        'children' => [
+                                            [
+                                                'kind' => 'group',
+                                                'required_count' => 2,
+                                                'children' => [
+                                                    [
+                                                        'kind' => 'resource',
+                                                        'uuid' => 'resource-uuid',
+                                                        'modifiers' => [
+                                                            [
+                                                                'property_uuid' => 'property-uuid',
+                                                            ],
+                                                        ],
+                                                    ],
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
                 ],
                 'rawBlueprint' => [
                     'blueprint' => [
@@ -51,6 +81,13 @@ final class LoadBlueprintsCommandTest extends ScDataTestCase
         $index = $this->readJsonFile('blueprints.json');
         self::assertCount(1, $index);
         self::assertSame('BP_CRAFT_TEST_AMMO', $index[0]['key']);
+        self::assertSame('root', $index[0]['tiers'][0]['requirements']['kind']);
+        self::assertSame(2, $index[0]['tiers'][0]['requirements']['children'][0]['children'][0]['required_count']);
+        self::assertSame(
+            'property-uuid',
+            $index[0]['tiers'][0]['requirements']['children'][0]['children'][0]['children'][0]['modifiers'][0]['property_uuid']
+        );
+        self::assertArrayNotHasKey('schema_version', $index[0]);
 
         $blueprintFile = $this->readJsonFile('blueprints/bp_craft_test_ammo.json');
         self::assertArrayHasKey('blueprint', $blueprintFile);
@@ -71,6 +108,14 @@ final class LoadBlueprintsCommandTest extends ScDataTestCase
                             [
                                 'uuid' => 'reward-uuid',
                                 'key' => 'REWARD_POOL',
+                            ],
+                        ],
+                    ],
+                    'tiers' => [
+                        [
+                            'tier_index' => 0,
+                            'requirements' => [
+                                'kind' => 'root',
                             ],
                         ],
                     ],
@@ -104,6 +149,7 @@ final class LoadBlueprintsCommandTest extends ScDataTestCase
         $blueprintFile = $this->readJsonFile('blueprints/bp_craft_test_ammo.json');
         self::assertSame('ammo-category', $blueprintFile['Raw']['Blueprint']['blueprint']['CraftingBlueprint']['category']);
         self::assertSame('BP_CRAFT_TEST_AMMO', $blueprintFile['Blueprint']['key']);
+        self::assertSame('root', $blueprintFile['Blueprint']['tiers'][0]['requirements']['kind']);
     }
 
     /**
@@ -129,9 +175,7 @@ final class TestLoadBlueprintsCommand extends LoadBlueprints
         $this->setName('load:blueprints');
     }
 
-    protected function prepareServices(\Symfony\Component\Console\Input\InputInterface $input, \Symfony\Component\Console\Output\OutputInterface $output): void
-    {
-    }
+    protected function prepareServices(\Symfony\Component\Console\Input\InputInterface $input, \Symfony\Component\Console\Output\OutputInterface $output): void {}
 
     protected function getBlueprintExportCount(): int
     {

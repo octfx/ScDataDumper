@@ -91,6 +91,21 @@ class LoadData extends Command
             return $result;
         }
 
+        $io->section('Loading resource types');
+        $resourceTypeArgs = [
+            'scDataPath' => $scDataPath,
+            'jsonOutPath' => $jsonOutPath,
+        ];
+        if ($overwrite) {
+            $resourceTypeArgs['--overwrite'] = true;
+        }
+
+        $result = $runCommand('load:resource-types', $resourceTypeArgs);
+
+        if ($result !== Command::SUCCESS) {
+            return $result;
+        }
+
         $io->section('Loading vehicles');
         $vehicleArgs = [
             'scDataPath' => $scDataPath,

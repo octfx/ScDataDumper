@@ -27,6 +27,11 @@ final class VehicleService extends BaseService
      */
     protected static array $documentCache = [];
 
+    public static function resetDocumentCache(): void
+    {
+        self::$documentCache = [];
+    }
+
     private array $implementations = [];
 
     // Avoid files containing tags

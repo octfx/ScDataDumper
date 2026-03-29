@@ -9,6 +9,7 @@ use Octfx\ScDataDumper\Services\CacheService;
 use Octfx\ScDataDumper\Services\ConsumableSubtypeService;
 use Octfx\ScDataDumper\Services\CraftingGameplayPropertyCacheBuilder;
 use Octfx\ScDataDumper\Services\ResourceTypeCacheBuilder;
+use Octfx\ScDataDumper\Services\ServiceFactory;
 use Octfx\ScDataDumper\Services\TagDatabaseService;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -132,6 +133,8 @@ class GenerateCache extends Command
             'Took: '.round($duration).' s',
             'Path: '.$input->getArgument('path')
         ));
+
+        ServiceFactory::reset();
 
         return Command::SUCCESS;
     }

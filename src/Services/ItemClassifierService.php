@@ -11,6 +11,11 @@ final class ItemClassifierService
 
     private static array $cache = [];
 
+    public static function resetCache(): void
+    {
+        self::$cache = [];
+    }
+
     public function __construct()
     {
         $this->matchers = [
