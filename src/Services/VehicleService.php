@@ -212,7 +212,7 @@ final class VehicleService extends BaseService
         $doc = new Vehicle;
         $doc->load($vehiclePath);
 
-        if (! empty(trim($modificationName))) {
+        if ($modificationName !== null && trim($modificationName) !== '') {
             $this->processPatchFile($doc, $modificationName, $vehiclePath);
             $this->processModificationElems($doc, $modificationName);
         }

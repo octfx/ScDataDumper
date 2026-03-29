@@ -8,6 +8,8 @@ use Octfx\ScDataDumper\Services\ServiceFactory;
 
 class SItemPortLoadoutEntryParams extends Element
 {
+    private const string NULL_UUID = '00000000-0000-0000-0000-000000000000';
+
     public function initialize(DOMDocument $document): void
     {
         if ($this->isInitialized() || $this->get('InstalledItem')) {
@@ -28,6 +30,10 @@ class SItemPortLoadoutEntryParams extends Element
         }
 
         if ($item) {
+            if ($this->hasCircularAncestorReference($item->getUuid(), $item->getClassName())) {
+                return;
+            }
+
             if ($this->get('InstalledItem@__ref') === $item->getUuid()) {
                 return;
             }
@@ -44,5 +50,44 @@ class SItemPortLoadoutEntryParams extends Element
             $element->append(...$importedNode->childNodes);
             $this->node->appendChild($element);
         }
+    }
+
+    private function hasCircularAncestorReference(?string $uuid, ?string $className): bool
+    {
+        for ($ancestor = $this->node->parentNode; $ancestor !== null; $ancestor = $ancestor->parentNode) {
+            if ($ancestor->nodeType !== XML_ELEMENT_NODE) {
+                continue;
+            }
+
+            if ($ancestor->nodeName === 'InstalledItem') {
+                $ancestorUuid = $ancestor->attributes?->getNamedItem('__ref')?->nodeValue;
+                if ($this->matchesUuid($uuid, $ancestorUuid)) {
+                    return true;
+                }
+            }
+
+            if ($ancestor->nodeName === 'SItemPortLoadoutEntryParams') {
+                $ancestorUuid = $ancestor->attributes?->getNamedItem('entityClassReference')?->nodeValue;
+                if ($this->matchesUuid($uuid, $ancestorUuid)) {
+                    return true;
+                }
+
+                $ancestorClassName = $ancestor->attributes?->getNamedItem('entityClassName')?->nodeValue;
+                if ($className !== null && $className !== '' && $ancestorClassName === $className) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function matchesUuid(?string $expected, ?string $actual): bool
+    {
+        if ($expected === null || $expected === '' || $expected === self::NULL_UUID) {
+            return false;
+        }
+
+        return $actual === $expected;
     }
 }
