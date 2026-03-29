@@ -88,7 +88,7 @@ final class LoadoutCargoGridStrategyTest extends TestCase
 
     public function test_real_ship_fixture_regression_only_legitimate_non_template_grids_are_extracted(): void
     {
-        $fixturePath = dirname(__DIR__, 4).'/export/ships/aegs_reclaimer.json';
+        $fixturePath = dirname(__DIR__, 3).'/Fixtures/exports/ships/aegs_reclaimer.json';
         self::assertFileExists($fixturePath);
 
         $fixture = json_decode((string) file_get_contents($fixturePath), true, 512, JSON_THROW_ON_ERROR);

@@ -1,0 +1,43 @@
+{
+    "Loadout": [
+        {
+            "HardpointName": "hardpoint_salvage_terminal_left",
+            "ClassName": "ReclaimerSalvageTerminal",
+            "Type": "Interactable.UNDEFINED",
+            "Loadout": [
+                {
+                    "HardpointName": "hardpoint_control_compacter",
+                    "ClassName": "Salvage_Fillerstation_Screen_Template",
+                    "Type": "UNDEFINED.UNDEFINED"
+                }
+            ]
+        },
+        {
+            "HardpointName": "hardpoint_cargogrid_small_left_rear",
+            "ClassName": "AEGS_Reclaimer_CargoGrid_Small",
+            "Type": "CargoGrid.UNDEFINED"
+        },
+        {
+            "HardpointName": "hardpoint_cargogrid_large_left_front",
+            "ClassName": "AEGS_Reclaimer_CargoGrid_Large",
+            "Type": "CargoGrid.UNDEFINED"
+        },
+        {
+            "HardpointName": "hardpoint_salvage_room",
+            "ClassName": "ReclaimerSalvageRoom",
+            "Type": "Room.UNDEFINED",
+            "Loadout": [
+                {
+                    "HardpointName": "hardpoint_cargogrid_salvage_room_right_front_TEMP",
+                    "ClassName": "AEGS_Reclaimer_CargoGrid_Salvage_Front_TEMP",
+                    "Type": "CargoGrid.UNDEFINED"
+                },
+                {
+                    "HardpointName": "hardpoint_cargogrid_salvage_room_left_rear_TEMP",
+                    "ClassName": "AEGS_Reclaimer_CargoGrid_Salvage_Rear_TEMP",
+                    "Type": "CargoGrid.UNDEFINED"
+                }
+            ]
+        }
+    ]
+}

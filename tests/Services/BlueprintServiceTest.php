@@ -14,6 +14,8 @@ final class BlueprintServiceTest extends ScDataTestCase
 
     private const BLUEPRINT_CLASS = 'BP_CRAFT_lbco_sniper_energy_01_mag';
 
+    private const RESOURCE_UUID = '61189578-ed7a-4491-9774-37ae2f82b8b0';
+
     private const IGNORED_BLUEPRINT_UUID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 
     private const DEFAULT_BLUEPRINT_UUID = 'ffffffff-1111-2222-3333-444444444444';
@@ -133,6 +135,19 @@ final class BlueprintServiceTest extends ScDataTestCase
                 self::IGNORED_BLUEPRINT_UUID => $ignoredBlueprintPath,
             ],
         );
+        $this->writeResourceTypeCache([
+            self::RESOURCE_UUID => <<<'XML'
+            <ResourceType.Hephaestanite displayName="Hephaestanite" __type="ResourceType" __ref="61189578-ed7a-4491-9774-37ae2f82b8b0" __path="libs/foundry/records/resourcetypedatabase/resourcetypedatabase.xml">
+              <densityType>
+                <ResourceTypeDensity>
+                  <densityUnit>
+                    <GramsPerCubicCentimeter gramsPerCubicCentimeter="1" />
+                  </densityUnit>
+                </ResourceTypeDensity>
+              </densityType>
+            </ResourceType.Hephaestanite>
+            XML,
+        ]);
 
         $this->initializeBlueprintDefinitionServices();
     }
