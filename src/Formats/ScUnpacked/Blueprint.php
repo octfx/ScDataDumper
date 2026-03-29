@@ -11,6 +11,8 @@ use RuntimeException;
 
 final class Blueprint extends BaseFormat
 {
+    private const PLACEHOLDER_TRANSLATION = '<= PLACEHOLDER =>';
+
     protected ?string $elementKey = 'blueprint/CraftingBlueprint';
 
     public function toArray(): ?array
@@ -21,9 +23,6 @@ final class Blueprint extends BaseFormat
 
         $blueprint = $this->get();
         $uuid = $this->item?->getUuid();
-        $slots = $this->buildSlots(
-            $blueprint->get('tiers/CraftingBlueprintTier/recipe/CraftingRecipe/costs/CraftingRecipeCosts/mandatoryCost')
-        );
 
         return $this->removeNulls([
             'uuid' => $uuid,
@@ -31,12 +30,8 @@ final class Blueprint extends BaseFormat
             'kind' => 'creation',
             'category_uuid' => $blueprint->get('@category'),
             'output' => $this->buildOutput($blueprint->get('processSpecificData/CraftingProcess_Creation/OutputEntity')),
-            'craft_time_seconds' => $this->buildCraftTimeSeconds(
-                $blueprint->get('tiers/CraftingBlueprintTier/recipe/CraftingRecipe/costs/CraftingRecipeCosts/craftTime/TimeValue_Partitioned')
-            ),
             'availability' => $this->buildAvailability($uuid),
-            'quality_sensitive' => $this->isQualitySensitive($slots) ? true : null,
-            'slots' => $slots,
+            'tiers' => $this->buildTiers($blueprint->get('tiers')),
         ]);
     }
 
@@ -104,119 +99,230 @@ final class Blueprint extends BaseFormat
     /**
      * @return list<array<string, mixed>>
      */
-    private function buildSlots(?Element $mandatoryCost): array
+    private function collectTierElements(?Element $tiers): array
     {
-        if ($mandatoryCost === null) {
+        if ($tiers === null) {
             return [];
         }
 
-        $slots = [];
+        $results = [];
 
-        foreach ($mandatoryCost->children() as $child) {
-            array_push($slots, ...$this->extractSlots($child));
+        foreach ($tiers->children() as $tier) {
+            if ($tier->nodeName === 'CraftingBlueprintTier') {
+                $results[] = $tier;
+            }
         }
 
-        return $slots;
+        return $results;
     }
 
     /**
      * @return list<array<string, mixed>>
      */
-    private function extractSlots(Element $node): array
+    private function buildTiers(?Element $tiers): array
     {
-        if ($node->nodeName === 'CraftingCost_Select') {
-            $nameInfo = $node->get('nameInfo');
+        $results = [];
 
-            if ($nameInfo instanceof Element && ! $this->isPlaceholderSlotContainer($nameInfo)) {
-                $slot = $this->buildSlot($node);
-
-                return $slot === null ? [] : [$slot];
-            }
-
-            return $this->buildSlots($node->get('options') ?? $node);
+        foreach ($this->collectTierElements($tiers) as $index => $tier) {
+            $results[] = $this->removeNulls([
+                'tier_index' => $index,
+                'craft_time_seconds' => $this->buildCraftTimeSeconds(
+                    $tier->get('recipe/CraftingRecipe/costs/CraftingRecipeCosts/craftTime/TimeValue_Partitioned')
+                ),
+                'requirements' => $this->buildRequirements($tier->get('recipe/CraftingRecipe/costs/CraftingRecipeCosts/mandatoryCost')),
+            ]);
         }
 
-        $input = $this->buildInput($node);
-
-        if ($input !== null) {
-            return [[
-                'inputs' => [$input],
-            ]];
-        }
-
-        return [];
+        return $results;
     }
 
     /**
      * @return array<string, mixed>|null
      */
-    private function buildSlot(Element $slot): ?array
+    private function buildRequirements(?Element $mandatoryCost): ?array
     {
-        $nameInfo = $slot->get('nameInfo');
-
-        if (! $nameInfo instanceof Element) {
+        if ($mandatoryCost === null) {
             return null;
         }
 
-        $inputs = $this->collectInputs($slot->get('options'));
+        return $this->buildRootNode($mandatoryCost);
+    }
 
-        if ($inputs === []) {
-            return null;
-        }
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildRootNode(Element $mandatoryCost): array
+    {
+        return [
+            'kind' => 'root',
+            'children' => $this->buildCostChildren($mandatoryCost),
+        ];
+    }
 
-        $statModifiers = $this->buildStatModifiers($slot);
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function buildCostNode(Element $node): ?array
+    {
+        return match ($node->nodeName) {
+            'CraftingCost_Select' => $this->buildGroupNode($node),
+            'CraftingCost_Item' => $this->buildLeafNode('item', $node, $this->buildItemInput($node)),
+            'CraftingCost_Resource' => $this->buildLeafNode('resource', $node, $this->buildResourceInput($node)),
+            'CraftingCost_Blueprint', 'CraftingCost_BlueprintRef' => $this->buildLeafNode('blueprint_ref', $node, $this->buildBlueprintReferenceInput($node)),
+            default => $this->buildUnknownNode($node),
+        };
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildGroupNode(Element $node): array
+    {
+        $nameInfo = $node->get('nameInfo');
+        $modifiers = $this->buildStatModifiers($node);
 
         return $this->removeNulls([
-            'slot_key' => $this->readAttribute($nameInfo, 'debugName'),
-            'slot_name' => $this->translate($this->readAttribute($nameInfo, 'displayName'))
-                ?? $this->readAttribute($nameInfo, 'debugName'),
-            'inputs' => $inputs,
-            'stat_modifiers' => $statModifiers === [] ? null : $statModifiers,
+            'kind' => 'group',
+            'key' => $this->readAttribute($nameInfo, 'debugName'),
+            'name' => $this->buildResolvedNodeName($nameInfo),
+            'required_count' => $this->normalizeNumber($node->get('@count')),
+            'modifiers' => $modifiers === [] ? null : $modifiers,
+            'children' => $this->buildCostChildren($node),
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function buildLeafNode(string $kind, Element $node, array $payload): array
+    {
+        $modifiers = $this->buildStatModifiers($node);
+
+        return $this->removeNulls([
+            'kind' => $kind,
+            ...$payload,
+            'modifiers' => $modifiers === [] ? null : $modifiers,
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildUnknownNode(Element $node): array
+    {
+        $children = $this->buildCostChildren($node);
+        $attributes = $this->buildAttributes($node);
+
+        return $this->removeNulls([
+            'kind' => 'unknown',
+            'xml_node_name' => $node->nodeName,
+            'attributes' => $attributes === [] ? null : $attributes,
+            'children' => $children === [] ? null : $children,
         ]);
     }
 
     /**
      * @return list<array<string, mixed>>
      */
-    private function collectInputs(?Element $container): array
+    private function buildCostChildren(Element $node): array
     {
-        if ($container === null) {
-            return [];
+        $container = $node->get('options');
+
+        if (! $container instanceof Element) {
+            $container = $node;
         }
 
-        $inputs = [];
+        $children = [];
 
         foreach ($container->children() as $child) {
-            $input = $this->buildInput($child);
+            if (! $this->isCostNode($child)) {
+                continue;
+            }
 
-            if ($input !== null) {
-                $inputs[] = $input;
+            if ($this->isSyntheticSelectWrapper($child)) {
+                array_push($children, ...$this->buildCostChildren($child));
 
                 continue;
             }
 
-            if ($child->nodeName === 'CraftingCost_Select') {
-                array_push($inputs, ...$this->collectInputs($child->get('options') ?? $child));
+            $formatted = $this->buildCostNode($child);
 
-                continue;
+            if ($formatted !== null) {
+                $children[] = $formatted;
             }
-
-            array_push($inputs, ...$this->collectInputs($child));
         }
 
-        return $inputs;
+        return $children;
     }
 
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function buildInput(Element $cost): ?array
+    private function isCostNode(Element $node): bool
     {
-        return match ($cost->nodeName) {
-            'CraftingCost_Item' => $this->buildItemInput($cost),
-            'CraftingCost_Resource' => $this->buildResourceInput($cost),
-            default => null,
-        };
+        return str_starts_with($node->nodeName, 'CraftingCost_');
+    }
+
+    private function isSyntheticSelectWrapper(Element $node): bool
+    {
+        if ($node->nodeName !== 'CraftingCost_Select') {
+            return false;
+        }
+
+        $selectChildCount = $this->countSelectChildren($node);
+
+        if ($selectChildCount === 0) {
+            return false;
+        }
+
+        if ($this->buildStatModifiers($node) !== []) {
+            return false;
+        }
+
+        $requiredCount = $this->normalizeNumber($node->get('@count'));
+
+        if (
+            $requiredCount !== null
+            && (float) $requiredCount !== 1.0
+            && (float) $requiredCount !== (float) $selectChildCount
+        ) {
+            return false;
+        }
+
+        $nameInfo = $node->get('nameInfo');
+
+        if (! $nameInfo instanceof Element) {
+            return $requiredCount === null
+                || (float) $requiredCount === (float) $selectChildCount;
+        }
+
+        $slotKey = $this->readAttribute($nameInfo, 'debugName')
+            ?? $this->readAttribute($nameInfo, 'displayName');
+
+        return is_string($slotKey) && strtoupper($slotKey) === 'ASPECTS';
+    }
+
+    private function countSelectChildren(Element $node): int
+    {
+        $container = $node->get('options');
+
+        if (! $container instanceof Element) {
+            $container = $node;
+        }
+
+        $count = 0;
+
+        foreach ($container->children() as $child) {
+            if (! $this->isCostNode($child)) {
+                continue;
+            }
+
+            if ($child->nodeName !== 'CraftingCost_Select') {
+                return 0;
+            }
+
+            $count++;
+        }
+
+        return $count;
     }
 
     /**
@@ -227,7 +333,6 @@ final class Blueprint extends BaseFormat
         $inputEntity = $cost->get('InputEntity');
 
         return $this->removeNulls([
-            'kind' => 'item',
             'uuid' => $this->readAttribute($inputEntity, '__ref')
                 ?? $this->readAttribute($cost, 'entityClass'),
             'name' => $this->readItemName($inputEntity),
@@ -250,21 +355,12 @@ final class Blueprint extends BaseFormat
         }
 
         return $this->removeNulls([
-            'kind' => 'resource',
             'uuid' => $this->readAttribute($resourceType, '__ref')
                 ?? $this->readAttribute($cost, 'resource'),
             'name' => $this->translate($this->readAttribute($resourceType, 'displayName')),
             'quantity_scu' => $quantityScu,
             'min_quality' => $this->normalizeNumber($cost->get('@minQuality')),
         ]);
-    }
-
-    private function isPlaceholderSlotContainer(Element $nameInfo): bool
-    {
-        $slotKey = $this->readAttribute($nameInfo, 'debugName')
-            ?? $this->readAttribute($nameInfo, 'displayName');
-
-        return is_string($slotKey) && strtoupper($slotKey) === 'ASPECTS';
     }
 
     private function readResourceQuantityMultiplier(Element $cost): float
@@ -301,9 +397,9 @@ final class Blueprint extends BaseFormat
     /**
      * @return list<array<string, mixed>>
      */
-    private function buildStatModifiers(Element $slot): array
+    private function buildStatModifiers(Element $node): array
     {
-        $modifiers = $slot->get(
+        $modifiers = $node->get(
             'context/CraftingCostContext_ResultGameplayPropertyModifiers/gameplayPropertyModifiers/CraftingGameplayPropertyModifiers_List/gameplayPropertyModifiers'
         );
 
@@ -366,6 +462,16 @@ final class Blueprint extends BaseFormat
         return $formatted === [] ? null : $formatted;
     }
 
+    private function buildResolvedNodeName(?Element $nameInfo): ?string
+    {
+        if ($nameInfo === null) {
+            return null;
+        }
+
+        return $this->translate($this->readAttribute($nameInfo, 'displayName'))
+            ?? $this->readAttribute($nameInfo, 'debugName');
+    }
+
     private function readItemName(?Element $entity): ?string
     {
         if ($entity === null) {
@@ -408,6 +514,75 @@ final class Blueprint extends BaseFormat
         return $key === '' ? null : $key;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildBlueprintReferenceInput(Element $cost): array
+    {
+        $uuid = $this->readAttribute($cost, 'blueprintRecord')
+            ?? $this->readAttribute($cost, 'blueprint')
+            ?? $this->readAttribute($cost, 'entityClass')
+            ?? $this->readAttribute($cost, 'record');
+
+        return $this->removeNulls([
+            'uuid' => $uuid,
+            'key' => $this->readBlueprintKey($uuid),
+            'name' => $this->readBlueprintName($uuid),
+            'quantity' => $this->normalizeNumber($cost->get('@quantity')),
+            'min_quality' => $this->normalizeNumber($cost->get('@minQuality')),
+        ]);
+    }
+
+    /**
+     * @return array<string, int|float|string>
+     */
+    private function buildAttributes(Element $node): array
+    {
+        $attributes = [];
+
+        foreach ($node->getNode()->attributes ?? [] as $attribute) {
+            if (in_array($attribute->nodeName, ['__type', '__polymorphicType'], true)) {
+                continue;
+            }
+
+            $attributes[$attribute->nodeName] = $this->normalizeNumber($attribute->nodeValue) ?? $attribute->nodeValue;
+        }
+
+        return $attributes;
+    }
+
+    private function readBlueprintKey(?string $uuid): ?string
+    {
+        if ($uuid === null || $uuid === '') {
+            return null;
+        }
+
+        try {
+            return ServiceFactory::getBlueprintService()->getByReference($uuid)?->getClassName();
+        } catch (RuntimeException) {
+            return null;
+        }
+    }
+
+    private function readBlueprintName(?string $uuid): ?string
+    {
+        if ($uuid === null || $uuid === '') {
+            return null;
+        }
+
+        try {
+            $record = ServiceFactory::getBlueprintService()->getByReference($uuid);
+        } catch (RuntimeException) {
+            return null;
+        }
+
+        if ($record === null) {
+            return null;
+        }
+
+        return $this->translate($record->get('blueprint/CraftingBlueprint@blueprintName'));
+    }
+
     private function readAttribute(?Element $element, string $name): ?string
     {
         if ($element === null) {
@@ -425,19 +600,49 @@ final class Blueprint extends BaseFormat
 
     private function translate(?string $value): ?string
     {
-        if ($value === null || trim($value) === '') {
+        $normalizedValue = $this->normalizeString($value);
+
+        if ($normalizedValue === null) {
             return null;
         }
 
-        if (! str_starts_with($value, '@')) {
-            return $value;
+        if (! str_starts_with($normalizedValue, '@')) {
+            return $this->isPlaceholderTranslation($normalizedValue) ? null : $normalizedValue;
         }
 
         try {
-            return ServiceFactory::getLocalizationService()->getTranslation($value);
+            $translatedValue = $this->normalizeString(
+                ServiceFactory::getLocalizationService()->getTranslation($normalizedValue)
+            );
         } catch (RuntimeException) {
-            return $value;
+            return null;
         }
+
+        if (
+            $translatedValue === null
+            || $translatedValue === $normalizedValue
+            || $this->isPlaceholderTranslation($translatedValue)
+        ) {
+            return null;
+        }
+
+        return $translatedValue;
+    }
+
+    private function normalizeString(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $normalizedValue = trim($value);
+
+        return $normalizedValue === '' ? null : $normalizedValue;
+    }
+
+    private function isPlaceholderTranslation(string $value): bool
+    {
+        return strtoupper(trim($value)) === self::PLACEHOLDER_TRANSLATION;
     }
 
     private function normalizeNumber(mixed $value): int|float|null
@@ -453,20 +658,6 @@ final class Blueprint extends BaseFormat
         }
 
         return $number;
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $slots
-     */
-    private function isQualitySensitive(array $slots): bool
-    {
-        foreach ($slots as $slot) {
-            if (($slot['stat_modifiers'] ?? []) !== []) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**

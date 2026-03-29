@@ -17,6 +17,12 @@ final class BlueprintTest extends ScDataTestCase
 
     private const ARMOUR_BLUEPRINT_UUID = '5b8ad061-dbd5-4d2f-b9f2-d0fc7c9ea05f';
 
+    private const MULTI_RESOURCE_BLUEPRINT_UUID = '16fd8428-889d-4d83-8db7-42a8113f0bcb';
+
+    private const MULTI_TIER_BLUEPRINT_UUID = '41f8c6b5-d7a2-42b0-aefa-8a4916d4fc41';
+
+    private const NESTED_SELECT_BLUEPRINT_UUID = 'd6c03c98-2200-4fc2-ab9d-a33d240c56d3';
+
     private const AMMO_OUTPUT_UUID = '8177489f-ed83-44ac-afd4-2b32a80fa0a6';
 
     private const WEAPON_OUTPUT_UUID = '1f3400e1-0aa3-48bf-8595-38f4f4218df9';
@@ -134,6 +140,7 @@ final class BlueprintTest extends ScDataTestCase
             'Data/Localization/english/global.ini',
             <<<'TEXT'
             LOC_EMPTY=
+            LOC_PLACEHOLDER_ASPECTS=<= PLACEHOLDER =>
             TEXT
         );
 
@@ -234,7 +241,7 @@ final class BlueprintTest extends ScDataTestCase
                                 <CraftingCost_Select count="1">
                                   <options>
                                     <CraftingCost_Select count="2">
-                                      <nameInfo debugName="ASPECTS" displayName="Aspects" />
+                                      <nameInfo debugName="ASPECTS" displayName="@LOC_PLACEHOLDER_ASPECTS" />
                                       <options>
                                         <CraftingCost_Select count="1">
                                           <nameInfo debugName="BARREL" displayName="Barrel" />
@@ -317,7 +324,23 @@ final class BlueprintTest extends ScDataTestCase
                                     <CraftingCost_Select count="1">
                                       <nameInfo debugName="FILTER" displayName="Filter" />
                                       <options>
-                                        <CraftingCost_Item entityClass="29dd6d59-9be2-434d-bac4-f463848f71c0" quantity="2" minQuality="500" />
+                                        <CraftingCost_Item entityClass="29dd6d59-9be2-434d-bac4-f463848f71c0" quantity="2" minQuality="500">
+                                          <context>
+                                            <CraftingCostContext_ResultGameplayPropertyModifiers>
+                                              <gameplayPropertyModifiers>
+                                                <CraftingGameplayPropertyModifiers_List>
+                                                  <gameplayPropertyModifiers>
+                                                    <CraftingGameplayPropertyModifierCommon gameplayPropertyRecord="cfc129ce-488a-46f2-92f7-9272cd0cfdfb">
+                                                      <valueRanges>
+                                                        <CraftingGameplayPropertyModifierValueRange_Linear startQuality="500" endQuality="1000" modifierAtStart="1" modifierAtEnd="1.03" />
+                                                      </valueRanges>
+                                                    </CraftingGameplayPropertyModifierCommon>
+                                                  </gameplayPropertyModifiers>
+                                                </CraftingGameplayPropertyModifiers_List>
+                                              </gameplayPropertyModifiers>
+                                            </CraftingCostContext_ResultGameplayPropertyModifiers>
+                                          </context>
+                                        </CraftingCost_Item>
                                       </options>
                                     </CraftingCost_Select>
                                   </options>
@@ -335,6 +358,240 @@ final class BlueprintTest extends ScDataTestCase
             XML
         );
 
+        $this->blueprintPaths['multi_resource'] = $this->writeFile(
+            'Data/Libs/Foundry/Records/crafting/blueprints/crafting/fpsgear/armour/combat/medium/bp_craft_test_multi_resource_backpack.xml',
+            <<<'XML'
+            <CraftingBlueprintRecord.BP_CRAFT_test_multi_resource_backpack __type="CraftingBlueprintRecord" __ref="16fd8428-889d-4d83-8db7-42a8113f0bcb" __path="libs/foundry/records/crafting/blueprints/crafting/fpsgear/armour/combat/medium/bp_craft_test_multi_resource_backpack.xml">
+              <blueprint>
+                <CraftingBlueprint category="a46c86b2-2f2c-40a7-8bd2-0401d1db4b37" blueprintName="MacFlex Rucksack">
+                  <processSpecificData>
+                    <CraftingProcess_Creation entityClass="7cc9fffb-6ba0-4f49-9d42-8ac8f8c2f713" />
+                  </processSpecificData>
+                  <tiers>
+                    <CraftingBlueprintTier>
+                      <recipe>
+                        <CraftingRecipe>
+                          <costs>
+                            <CraftingRecipeCosts>
+                              <craftTime>
+                                <TimeValue_Partitioned days="0" hours="0" minutes="2" seconds="15" />
+                              </craftTime>
+                              <mandatoryCost>
+                                <CraftingCost_Select count="1">
+                                  <options>
+                                    <CraftingCost_Select count="2">
+                                      <nameInfo debugName="ARMOURED CARAPACE" displayName="Armoured Carapace" />
+                                      <options>
+                                        <CraftingCost_Resource resource="61189578-ed7a-4491-9774-37ae2f82b8b0" minQuality="0">
+                                          <context>
+                                            <CraftingCostContext_ResultGameplayPropertyModifiers>
+                                              <gameplayPropertyModifiers>
+                                                <CraftingGameplayPropertyModifiers_List>
+                                                  <gameplayPropertyModifiers>
+                                                    <CraftingGameplayPropertyModifierCommon gameplayPropertyRecord="cfc129ce-488a-46f2-92f7-9272cd0cfdfb">
+                                                      <valueRanges>
+                                                        <CraftingGameplayPropertyModifierValueRange_Linear startQuality="500" endQuality="1000" modifierAtStart="1" modifierAtEnd="1.075" />
+                                                      </valueRanges>
+                                                    </CraftingGameplayPropertyModifierCommon>
+                                                  </gameplayPropertyModifiers>
+                                                </CraftingGameplayPropertyModifiers_List>
+                                              </gameplayPropertyModifiers>
+                                            </CraftingCostContext_ResultGameplayPropertyModifiers>
+                                          </context>
+                                          <quantity>
+                                            <SStandardCargoUnit standardCargoUnits="0.04" />
+                                          </quantity>
+                                        </CraftingCost_Resource>
+                                        <CraftingCost_Resource resource="21825507-7923-4683-9bf3-9cfe316940e3" minQuality="500">
+                                          <context>
+                                            <CraftingCostContext_ResultGameplayPropertyModifiers>
+                                              <gameplayPropertyModifiers>
+                                                <CraftingGameplayPropertyModifiers_List>
+                                                  <gameplayPropertyModifiers>
+                                                    <CraftingGameplayPropertyModifierCommon gameplayPropertyRecord="cfc129ce-488a-46f2-92f7-9272cd0cfdfb">
+                                                      <valueRanges>
+                                                        <CraftingGameplayPropertyModifierValueRange_Linear startQuality="500" endQuality="1000" modifierAtStart="1" modifierAtEnd="1.05" />
+                                                      </valueRanges>
+                                                    </CraftingGameplayPropertyModifierCommon>
+                                                  </gameplayPropertyModifiers>
+                                                </CraftingGameplayPropertyModifiers_List>
+                                              </gameplayPropertyModifiers>
+                                            </CraftingCostContext_ResultGameplayPropertyModifiers>
+                                          </context>
+                                          <quantity>
+                                            <SStandardCargoUnit standardCargoUnits="0.04" />
+                                          </quantity>
+                                        </CraftingCost_Resource>
+                                      </options>
+                                    </CraftingCost_Select>
+                                  </options>
+                                </CraftingCost_Select>
+                              </mandatoryCost>
+                            </CraftingRecipeCosts>
+                          </costs>
+                        </CraftingRecipe>
+                      </recipe>
+                    </CraftingBlueprintTier>
+                  </tiers>
+                </CraftingBlueprint>
+              </blueprint>
+            </CraftingBlueprintRecord.BP_CRAFT_test_multi_resource_backpack>
+            XML
+        );
+
+        $this->blueprintPaths['multi_tier'] = $this->writeFile(
+            'Data/Libs/Foundry/Records/crafting/blueprints/crafting/fpsgear/weapons/pistol/bp_craft_test_multi_tier_weapon.xml',
+            <<<'XML'
+            <CraftingBlueprintRecord.BP_CRAFT_test_multi_tier_weapon __type="CraftingBlueprintRecord" __ref="41f8c6b5-d7a2-42b0-aefa-8a4916d4fc41" __path="libs/foundry/records/crafting/blueprints/crafting/fpsgear/weapons/pistol/bp_craft_test_multi_tier_weapon.xml">
+              <blueprint>
+                <CraftingBlueprint category="f9ccf95d-ad0e-4c33-97e0-e56c847a7e37" blueprintName="S38 Pistol">
+                  <processSpecificData>
+                    <CraftingProcess_Creation entityClass="1f3400e1-0aa3-48bf-8595-38f4f4218df9" />
+                  </processSpecificData>
+                  <tiers>
+                    <CraftingBlueprintTier>
+                      <recipe>
+                        <CraftingRecipe>
+                          <costs>
+                            <CraftingRecipeCosts>
+                              <craftTime>
+                                <TimeValue_Partitioned days="0" hours="0" minutes="0" seconds="45" />
+                              </craftTime>
+                              <mandatoryCost>
+                                <CraftingCost_Select count="1">
+                                  <options>
+                                    <CraftingCost_Select count="1">
+                                      <nameInfo debugName="GRIP" displayName="Grip" />
+                                      <options>
+                                        <CraftingCost_Resource resource="21825507-7923-4683-9bf3-9cfe316940e3" minQuality="0">
+                                          <quantity>
+                                            <SStandardCargoUnit standardCargoUnits="0.01" />
+                                          </quantity>
+                                        </CraftingCost_Resource>
+                                      </options>
+                                    </CraftingCost_Select>
+                                  </options>
+                                </CraftingCost_Select>
+                              </mandatoryCost>
+                            </CraftingRecipeCosts>
+                          </costs>
+                        </CraftingRecipe>
+                      </recipe>
+                    </CraftingBlueprintTier>
+                    <CraftingBlueprintTier>
+                      <recipe>
+                        <CraftingRecipe>
+                          <costs>
+                            <CraftingRecipeCosts>
+                              <craftTime>
+                                <TimeValue_Partitioned days="0" hours="0" minutes="2" seconds="0" />
+                              </craftTime>
+                              <mandatoryCost>
+                                <CraftingCost_Select count="1">
+                                  <options>
+                                    <CraftingCost_Select count="1">
+                                      <nameInfo debugName="GRIP" displayName="Grip" />
+                                      <options>
+                                        <CraftingCost_Item entityClass="29dd6d59-9be2-434d-bac4-f463848f71c0" quantity="3" minQuality="600" />
+                                      </options>
+                                    </CraftingCost_Select>
+                                  </options>
+                                </CraftingCost_Select>
+                              </mandatoryCost>
+                            </CraftingRecipeCosts>
+                          </costs>
+                        </CraftingRecipe>
+                      </recipe>
+                    </CraftingBlueprintTier>
+                  </tiers>
+                </CraftingBlueprint>
+              </blueprint>
+            </CraftingBlueprintRecord.BP_CRAFT_test_multi_tier_weapon>
+            XML
+        );
+
+        $this->blueprintPaths['nested_select'] = $this->writeFile(
+            'Data/Libs/Foundry/Records/crafting/blueprints/crafting/fpsgear/weapons/rifle/bp_craft_test_nested_select.xml',
+            <<<'XML'
+            <CraftingBlueprintRecord.BP_CRAFT_test_nested_select __type="CraftingBlueprintRecord" __ref="d6c03c98-2200-4fc2-ab9d-a33d240c56d3" __path="libs/foundry/records/crafting/blueprints/crafting/fpsgear/weapons/rifle/bp_craft_test_nested_select.xml">
+              <blueprint>
+                <CraftingBlueprint category="f9ccf95d-ad0e-4c33-97e0-e56c847a7e37" blueprintName="S38 Pistol">
+                  <processSpecificData>
+                    <CraftingProcess_Creation entityClass="1f3400e1-0aa3-48bf-8595-38f4f4218df9" />
+                  </processSpecificData>
+                  <tiers>
+                    <CraftingBlueprintTier>
+                      <recipe>
+                        <CraftingRecipe>
+                          <costs>
+                            <CraftingRecipeCosts>
+                              <craftTime>
+                                <TimeValue_Partitioned days="0" hours="0" minutes="1" seconds="15" />
+                              </craftTime>
+                              <mandatoryCost>
+                                <CraftingCost_Select count="1">
+                                  <options>
+                                    <CraftingCost_Select count="1">
+                                      <nameInfo debugName="FRAME" displayName="Frame" />
+                                      <context>
+                                        <CraftingCostContext_ResultGameplayPropertyModifiers>
+                                          <gameplayPropertyModifiers>
+                                            <CraftingGameplayPropertyModifiers_List>
+                                              <gameplayPropertyModifiers>
+                                                <CraftingGameplayPropertyModifierCommon gameplayPropertyRecord="cfc129ce-488a-46f2-92f7-9272cd0cfdfb">
+                                                  <valueRanges>
+                                                    <CraftingGameplayPropertyModifierValueRange_Linear startQuality="0" endQuality="1000" modifierAtStart="0.95" modifierAtEnd="1.05" />
+                                                  </valueRanges>
+                                                </CraftingGameplayPropertyModifierCommon>
+                                              </gameplayPropertyModifiers>
+                                            </CraftingGameplayPropertyModifiers_List>
+                                          </gameplayPropertyModifiers>
+                                        </CraftingCostContext_ResultGameplayPropertyModifiers>
+                                      </context>
+                                      <options>
+                                        <CraftingCost_Select count="1">
+                                          <nameInfo debugName="INNER GROUP" displayName="Inner Group" />
+                                          <options>
+                                            <CraftingCost_Resource resource="61189578-ed7a-4491-9774-37ae2f82b8b0" minQuality="250">
+                                              <context>
+                                                <CraftingCostContext_ResultGameplayPropertyModifiers>
+                                                  <gameplayPropertyModifiers>
+                                                    <CraftingGameplayPropertyModifiers_List>
+                                                      <gameplayPropertyModifiers>
+                                                        <CraftingGameplayPropertyModifierCommon gameplayPropertyRecord="551b651c-8a34-438f-9d19-93fdffe56246">
+                                                          <valueRanges>
+                                                            <CraftingGameplayPropertyModifierValueRange_Linear startQuality="250" endQuality="1000" modifierAtStart="1" modifierAtEnd="1.2" />
+                                                          </valueRanges>
+                                                        </CraftingGameplayPropertyModifierCommon>
+                                                      </gameplayPropertyModifiers>
+                                                    </CraftingGameplayPropertyModifiers_List>
+                                                  </gameplayPropertyModifiers>
+                                                </CraftingCostContext_ResultGameplayPropertyModifiers>
+                                              </context>
+                                              <quantity>
+                                                <SStandardCargoUnit standardCargoUnits="0.02" />
+                                              </quantity>
+                                            </CraftingCost_Resource>
+                                            <CraftingCost_Custom customRef="custom-node" count="2" />
+                                          </options>
+                                        </CraftingCost_Select>
+                                      </options>
+                                    </CraftingCost_Select>
+                                  </options>
+                                </CraftingCost_Select>
+                              </mandatoryCost>
+                            </CraftingRecipeCosts>
+                          </costs>
+                        </CraftingRecipe>
+                      </recipe>
+                    </CraftingBlueprintTier>
+                  </tiers>
+                </CraftingBlueprint>
+              </blueprint>
+            </CraftingBlueprintRecord.BP_CRAFT_test_nested_select>
+            XML
+        );
+
         $this->writeCacheFiles(
             classToPathMap: [
                 'EntityClassDefinition' => [
@@ -347,6 +604,9 @@ final class BlueprintTest extends ScDataTestCase
                     'BP_CRAFT_lbco_sniper_energy_01_mag' => $this->blueprintPaths['ammo'],
                     'BP_CRAFT_behr_pistol_ballistic_01' => $this->blueprintPaths['weapon'],
                     'BP_CRAFT_rsi_utility_heavy_backpack_02_01_01' => $this->blueprintPaths['armour'],
+                    'BP_CRAFT_test_multi_resource_backpack' => $this->blueprintPaths['multi_resource'],
+                    'BP_CRAFT_test_multi_tier_weapon' => $this->blueprintPaths['multi_tier'],
+                    'BP_CRAFT_test_nested_select' => $this->blueprintPaths['nested_select'],
                 ],
             ],
             uuidToClassMap: [
@@ -357,6 +617,9 @@ final class BlueprintTest extends ScDataTestCase
                 self::AMMO_BLUEPRINT_UUID => 'BP_CRAFT_lbco_sniper_energy_01_mag',
                 self::WEAPON_BLUEPRINT_UUID => 'BP_CRAFT_behr_pistol_ballistic_01',
                 self::ARMOUR_BLUEPRINT_UUID => 'BP_CRAFT_rsi_utility_heavy_backpack_02_01_01',
+                self::MULTI_RESOURCE_BLUEPRINT_UUID => 'BP_CRAFT_test_multi_resource_backpack',
+                self::MULTI_TIER_BLUEPRINT_UUID => 'BP_CRAFT_test_multi_tier_weapon',
+                self::NESTED_SELECT_BLUEPRINT_UUID => 'BP_CRAFT_test_nested_select',
             ],
             classToUuidMap: [
                 'lbco_sniper_energy_01_mag' => self::AMMO_OUTPUT_UUID,
@@ -366,6 +629,9 @@ final class BlueprintTest extends ScDataTestCase
                 'BP_CRAFT_lbco_sniper_energy_01_mag' => self::AMMO_BLUEPRINT_UUID,
                 'BP_CRAFT_behr_pistol_ballistic_01' => self::WEAPON_BLUEPRINT_UUID,
                 'BP_CRAFT_rsi_utility_heavy_backpack_02_01_01' => self::ARMOUR_BLUEPRINT_UUID,
+                'BP_CRAFT_test_multi_resource_backpack' => self::MULTI_RESOURCE_BLUEPRINT_UUID,
+                'BP_CRAFT_test_multi_tier_weapon' => self::MULTI_TIER_BLUEPRINT_UUID,
+                'BP_CRAFT_test_nested_select' => self::NESTED_SELECT_BLUEPRINT_UUID,
             ],
             uuidToPathMap: [
                 self::AMMO_OUTPUT_UUID => $ammoOutputPath,
@@ -375,6 +641,9 @@ final class BlueprintTest extends ScDataTestCase
                 self::AMMO_BLUEPRINT_UUID => $this->blueprintPaths['ammo'],
                 self::WEAPON_BLUEPRINT_UUID => $this->blueprintPaths['weapon'],
                 self::ARMOUR_BLUEPRINT_UUID => $this->blueprintPaths['armour'],
+                self::MULTI_RESOURCE_BLUEPRINT_UUID => $this->blueprintPaths['multi_resource'],
+                self::MULTI_TIER_BLUEPRINT_UUID => $this->blueprintPaths['multi_tier'],
+                self::NESTED_SELECT_BLUEPRINT_UUID => $this->blueprintPaths['nested_select'],
             ],
         );
         $this->writeResourceTypeCache([
@@ -389,7 +658,7 @@ final class BlueprintTest extends ScDataTestCase
         $this->initializeBlueprintFormattingServices();
     }
 
-    public function test_to_array_formats_resource_only_ammo_blueprint_and_applies_quantity_multiplier(): void
+    public function test_to_array_formats_v2_root_group_and_resource_leaf_with_plain_string_names(): void
     {
         $blueprint = $this->loadBlueprint('ammo');
 
@@ -408,7 +677,6 @@ final class BlueprintTest extends ScDataTestCase
                 'grade' => '1',
                 'name' => 'Atzkav Sniper Rifle Battery (8 cap)',
             ],
-            'craft_time_seconds' => 10,
             'availability' => [
                 'default' => false,
                 'reward_pools' => [
@@ -418,146 +686,365 @@ final class BlueprintTest extends ScDataTestCase
                     ],
                 ],
             ],
-            'slots' => [
+            'tiers' => [
                 [
-                    'slot_key' => 'MAGAZINE',
-                    'slot_name' => 'Magazine',
-                    'inputs' => [
-                        [
-                            'kind' => 'resource',
-                            'uuid' => self::HEPHAESTANITE_UUID,
-                            'name' => 'Hephaestanite',
-                            'quantity_scu' => 0.0345,
-                            'min_quality' => 0,
+                    'tier_index' => 0,
+                    'craft_time_seconds' => 10,
+                    'requirements' => [
+                        'kind' => 'root',
+                        'children' => [
+                            [
+                                'kind' => 'group',
+                                'key' => 'MAGAZINE',
+                                'name' => 'Magazine',
+                                'required_count' => 1,
+                                'children' => [
+                                    [
+                                        'kind' => 'resource',
+                                        'uuid' => self::HEPHAESTANITE_UUID,
+                                        'name' => 'Hephaestanite',
+                                        'quantity_scu' => 0.0345,
+                                        'min_quality' => 0,
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                 ],
             ],
         ], $formatted);
+
+        self::assertArrayNotHasKey('schema_version', $formatted);
+        self::assertArrayNotHasKey('node_type', $formatted['tiers'][0]['requirements']);
     }
 
-    public function test_to_array_formats_quality_sensitive_weapon_blueprint_stat_modifiers(): void
+    public function test_to_array_preserves_required_input_count_and_resource_input_modifiers(): void
+    {
+        $blueprint = $this->loadBlueprint('multi_resource');
+
+        $formatted = (new Blueprint($blueprint))->toArray();
+        $slot = $formatted['tiers'][0]['requirements']['children'][0];
+        $hephaestanite = $slot['children'][0];
+        $gold = $slot['children'][1];
+
+        self::assertSame('group', $slot['kind']);
+        self::assertSame('ARMOURED CARAPACE', $slot['key']);
+        self::assertSame('Armoured Carapace', $slot['name']);
+        self::assertSame(2, $slot['required_count']);
+
+        self::assertSame('resource', $hephaestanite['kind']);
+        self::assertSame(self::HEPHAESTANITE_UUID, $hephaestanite['uuid']);
+        self::assertSame('Hephaestanite', $hephaestanite['name']);
+        self::assertSame(0.04, $hephaestanite['quantity_scu']);
+        self::assertSame(0, $hephaestanite['min_quality']);
+        self::assertSame(self::WEAPON_DAMAGE_PROPERTY_UUID, $hephaestanite['modifiers'][0]['property_uuid']);
+        self::assertArrayNotHasKey('stat_modifiers', $hephaestanite);
+
+        self::assertSame('resource', $gold['kind']);
+        self::assertSame(self::GOLD_UUID, $gold['uuid']);
+        self::assertSame('Gold', $gold['name']);
+        self::assertSame(0.04, $gold['quantity_scu']);
+        self::assertSame(500, $gold['min_quality']);
+        self::assertSame(self::WEAPON_DAMAGE_PROPERTY_UUID, $gold['modifiers'][0]['property_uuid']);
+    }
+
+    public function test_to_array_preserves_unnamed_top_level_select_requirements(): void
+    {
+        $path = $this->writeFile(
+            'Data/Libs/Foundry/Records/crafting/blueprints/crafting/test/bp_craft_test_unnamed_select.xml',
+            <<<'XML'
+            <CraftingBlueprintRecord.BP_CRAFT_test_unnamed_select __type="CraftingBlueprintRecord" __ref="3a266cfb-3eff-472f-a15c-228eb2f782f3" __path="libs/foundry/records/crafting/blueprints/crafting/test/bp_craft_test_unnamed_select.xml">
+              <blueprint>
+                <CraftingBlueprint category="f9ccf95d-ad0e-4c33-97e0-e56c847a7e37" blueprintName="Unnamed Select Blueprint">
+                  <processSpecificData>
+                    <CraftingProcess_Creation entityClass="8177489f-ed83-44ac-afd4-2b32a80fa0a6" />
+                  </processSpecificData>
+                  <tiers>
+                    <CraftingBlueprintTier>
+                      <recipe>
+                        <CraftingRecipe>
+                          <costs>
+                            <CraftingRecipeCosts>
+                              <mandatoryCost>
+                                <CraftingCost_Select count="2">
+                                  <context>
+                                    <CraftingCostContext_ResultGameplayPropertyModifiers>
+                                      <gameplayPropertyModifiers>
+                                        <CraftingGameplayPropertyModifiers_List>
+                                          <gameplayPropertyModifiers>
+                                            <CraftingGameplayPropertyModifierCommon gameplayPropertyRecord="cfc129ce-488a-46f2-92f7-9272cd0cfdfb">
+                                              <valueRanges>
+                                                <CraftingGameplayPropertyModifierValueRange_Linear startQuality="0" endQuality="1000" modifierAtStart="0.925" modifierAtEnd="1.075" />
+                                              </valueRanges>
+                                            </CraftingGameplayPropertyModifierCommon>
+                                          </gameplayPropertyModifiers>
+                                        </CraftingGameplayPropertyModifiers_List>
+                                      </gameplayPropertyModifiers>
+                                    </CraftingCostContext_ResultGameplayPropertyModifiers>
+                                  </context>
+                                  <options>
+                                    <CraftingCost_Item entityClass="29dd6d59-9be2-434d-bac4-f463848f71c0" quantity="2" />
+                                    <CraftingCost_Resource resource="61189578-ed7a-4491-9774-37ae2f82b8b0" minQuality="0">
+                                      <quantity>
+                                        <SStandardCargoUnit standardCargoUnits="0.03" />
+                                      </quantity>
+                                    </CraftingCost_Resource>
+                                  </options>
+                                </CraftingCost_Select>
+                              </mandatoryCost>
+                            </CraftingRecipeCosts>
+                          </costs>
+                        </CraftingRecipe>
+                      </recipe>
+                    </CraftingBlueprintTier>
+                  </tiers>
+                </CraftingBlueprint>
+              </blueprint>
+            </CraftingBlueprintRecord.BP_CRAFT_test_unnamed_select>
+            XML
+        );
+
+        $document = new CraftingBlueprintRecord;
+        $document->load($path);
+
+        $formatted = (new Blueprint($document))->toArray();
+        $requirements = $formatted['tiers'][0]['requirements'];
+        $group = $requirements['children'][0];
+
+        self::assertCount(1, $requirements['children']);
+        self::assertSame('group', $group['kind']);
+        self::assertArrayNotHasKey('key', $group);
+        self::assertArrayNotHasKey('name', $group);
+        self::assertSame(2, $group['required_count']);
+        self::assertSame(self::WEAPON_DAMAGE_PROPERTY_UUID, $group['modifiers'][0]['property_uuid']);
+        self::assertSame(['item', 'resource'], array_column($group['children'], 'kind'));
+    }
+
+    public function test_to_array_preserves_anonymous_choose_one_select_groups(): void
+    {
+        $path = $this->writeFile(
+            'Data/Libs/Foundry/Records/crafting/blueprints/crafting/test/bp_craft_test_anonymous_choose_one_select.xml',
+            <<<'XML'
+            <CraftingBlueprintRecord.BP_CRAFT_test_anonymous_choose_one_select __type="CraftingBlueprintRecord" __ref="5322818d-3ec4-4431-a471-abddf5f37f89" __path="libs/foundry/records/crafting/blueprints/crafting/test/bp_craft_test_anonymous_choose_one_select.xml">
+              <blueprint>
+                <CraftingBlueprint category="f9ccf95d-ad0e-4c33-97e0-e56c847a7e37" blueprintName="Anonymous Choose One Blueprint">
+                  <processSpecificData>
+                    <CraftingProcess_Creation entityClass="8177489f-ed83-44ac-afd4-2b32a80fa0a6" />
+                  </processSpecificData>
+                  <tiers>
+                    <CraftingBlueprintTier>
+                      <recipe>
+                        <CraftingRecipe>
+                          <costs>
+                            <CraftingRecipeCosts>
+                              <mandatoryCost>
+                                <CraftingCost_Select count="1">
+                                  <options>
+                                    <CraftingCost_Select count="1">
+                                      <nameInfo debugName="BARREL" displayName="Barrel" />
+                                      <options>
+                                        <CraftingCost_Resource resource="21825507-7923-4683-9bf3-9cfe316940e3" minQuality="0">
+                                          <quantity>
+                                            <SStandardCargoUnit standardCargoUnits="0.01" />
+                                          </quantity>
+                                        </CraftingCost_Resource>
+                                      </options>
+                                    </CraftingCost_Select>
+                                    <CraftingCost_Select count="1">
+                                      <nameInfo debugName="FRAME" displayName="Frame" />
+                                      <options>
+                                        <CraftingCost_Resource resource="61189578-ed7a-4491-9774-37ae2f82b8b0" minQuality="0">
+                                          <quantity>
+                                            <SStandardCargoUnit standardCargoUnits="0.02" />
+                                          </quantity>
+                                        </CraftingCost_Resource>
+                                      </options>
+                                    </CraftingCost_Select>
+                                  </options>
+                                </CraftingCost_Select>
+                              </mandatoryCost>
+                            </CraftingRecipeCosts>
+                          </costs>
+                        </CraftingRecipe>
+                      </recipe>
+                    </CraftingBlueprintTier>
+                  </tiers>
+                </CraftingBlueprint>
+              </blueprint>
+            </CraftingBlueprintRecord.BP_CRAFT_test_anonymous_choose_one_select>
+            XML
+        );
+
+        $document = new CraftingBlueprintRecord;
+        $document->load($path);
+
+        $formatted = (new Blueprint($document))->toArray();
+        $requirements = $formatted['tiers'][0]['requirements'];
+        $group = $requirements['children'][0];
+
+        self::assertCount(1, $requirements['children']);
+        self::assertSame('group', $group['kind']);
+        self::assertArrayNotHasKey('key', $group);
+        self::assertArrayNotHasKey('name', $group);
+        self::assertSame(1, $group['required_count']);
+        self::assertSame(['BARREL', 'FRAME'], array_column($group['children'], 'key'));
+    }
+
+    public function test_to_array_formats_v2_multiple_tiers_without_flattening_them(): void
+    {
+        $blueprint = $this->loadBlueprint('multi_tier');
+
+        $formatted = (new Blueprint($blueprint))->toArray();
+
+        self::assertCount(2, $formatted['tiers']);
+        self::assertSame(45, $formatted['tiers'][0]['craft_time_seconds']);
+        self::assertSame(120, $formatted['tiers'][1]['craft_time_seconds']);
+
+        $resourceSlot = $formatted['tiers'][0]['requirements']['children'][0];
+        $resourceLeaf = $resourceSlot['children'][0];
+        self::assertSame('group', $resourceSlot['kind']);
+        self::assertSame('GRIP', $resourceSlot['key']);
+        self::assertSame('Grip', $resourceSlot['name']);
+        self::assertSame('resource', $resourceLeaf['kind']);
+        self::assertSame(self::GOLD_UUID, $resourceLeaf['uuid']);
+        self::assertSame('Gold', $resourceLeaf['name']);
+
+        $itemSlot = $formatted['tiers'][1]['requirements']['children'][0];
+        $itemLeaf = $itemSlot['children'][0];
+        self::assertSame('group', $itemSlot['kind']);
+        self::assertSame('GRIP', $itemSlot['key']);
+        self::assertSame('Grip', $itemSlot['name']);
+        self::assertSame('item', $itemLeaf['kind']);
+        self::assertSame(self::ARMOUR_INPUT_UUID, $itemLeaf['uuid']);
+        self::assertSame('Hadanite', $itemLeaf['name']);
+        self::assertSame(3, $itemLeaf['quantity']);
+        self::assertSame(600, $itemLeaf['min_quality']);
+    }
+
+    public function test_to_array_formats_v2_preserves_nested_selects_and_unknown_nodes(): void
+    {
+        $blueprint = $this->loadBlueprint('nested_select');
+
+        $formatted = (new Blueprint($blueprint))->toArray();
+
+        $frameNode = $formatted['tiers'][0]['requirements']['children'][0];
+        self::assertSame('group', $frameNode['kind']);
+        self::assertSame('FRAME', $frameNode['key']);
+        self::assertSame('Frame', $frameNode['name']);
+        self::assertSame(self::WEAPON_DAMAGE_PROPERTY_UUID, $frameNode['modifiers'][0]['property_uuid']);
+
+        $innerGroup = $frameNode['children'][0];
+        self::assertSame('group', $innerGroup['kind']);
+        self::assertSame('INNER GROUP', $innerGroup['key']);
+        self::assertSame('Inner Group', $innerGroup['name']);
+
+        $resource = $innerGroup['children'][0];
+        self::assertSame('resource', $resource['kind']);
+        self::assertSame(self::HEPHAESTANITE_UUID, $resource['uuid']);
+        self::assertSame('Hephaestanite', $resource['name']);
+        self::assertSame(self::WEAPON_FIRERATE_PROPERTY_UUID, $resource['modifiers'][0]['property_uuid']);
+
+        $unknown = $innerGroup['children'][1];
+        self::assertSame('unknown', $unknown['kind']);
+        self::assertSame('CraftingCost_Custom', $unknown['xml_node_name']);
+        self::assertSame('custom-node', $unknown['attributes']['customRef']);
+        self::assertSame(2, $unknown['attributes']['count']);
+        self::assertArrayNotHasKey('source_node_name', $unknown);
+    }
+
+    public function test_to_array_preserves_non_trivial_aspects_wrapper_counts(): void
+    {
+        $path = $this->writeFile(
+            'Data/Libs/Foundry/Records/crafting/blueprints/crafting/test/bp_craft_test_aspects_wrapper.xml',
+            <<<'XML'
+            <CraftingBlueprintRecord.BP_CRAFT_test_aspects_wrapper __type="CraftingBlueprintRecord" __ref="c0a1f42b-8df1-4e2a-b1e6-3d1cb9f0ef4c" __path="libs/foundry/records/crafting/blueprints/crafting/test/bp_craft_test_aspects_wrapper.xml">
+              <blueprint>
+                <CraftingBlueprint category="f9ccf95d-ad0e-4c33-97e0-e56c847a7e37" blueprintName="Aspects Wrapper Blueprint">
+                  <processSpecificData>
+                    <CraftingProcess_Creation entityClass="1f3400e1-0aa3-48bf-8595-38f4f4218df9" />
+                  </processSpecificData>
+                  <tiers>
+                    <CraftingBlueprintTier>
+                      <recipe>
+                        <CraftingRecipe>
+                          <costs>
+                            <CraftingRecipeCosts>
+                              <mandatoryCost>
+                                <CraftingCost_Select count="1">
+                                  <options>
+                                    <CraftingCost_Select count="2">
+                                      <nameInfo debugName="ASPECTS" displayName="@LOC_PLACEHOLDER_ASPECTS" />
+                                      <options>
+                                        <CraftingCost_Select count="1">
+                                          <nameInfo debugName="BARREL" displayName="Barrel" />
+                                          <options>
+                                            <CraftingCost_Resource resource="21825507-7923-4683-9bf3-9cfe316940e3" minQuality="0">
+                                              <quantity>
+                                                <SStandardCargoUnit standardCargoUnits="0.01" />
+                                              </quantity>
+                                            </CraftingCost_Resource>
+                                          </options>
+                                        </CraftingCost_Select>
+                                        <CraftingCost_Select count="1">
+                                          <nameInfo debugName="FRAME" displayName="Frame" />
+                                          <options>
+                                            <CraftingCost_Resource resource="61189578-ed7a-4491-9774-37ae2f82b8b0" minQuality="0">
+                                              <quantity>
+                                                <SStandardCargoUnit standardCargoUnits="0.02" />
+                                              </quantity>
+                                            </CraftingCost_Resource>
+                                          </options>
+                                        </CraftingCost_Select>
+                                        <CraftingCost_Select count="1">
+                                          <nameInfo debugName="SIGHT" displayName="Sight" />
+                                          <options>
+                                            <CraftingCost_Item entityClass="29dd6d59-9be2-434d-bac4-f463848f71c0" quantity="1" />
+                                          </options>
+                                        </CraftingCost_Select>
+                                      </options>
+                                    </CraftingCost_Select>
+                                  </options>
+                                </CraftingCost_Select>
+                              </mandatoryCost>
+                            </CraftingRecipeCosts>
+                          </costs>
+                        </CraftingRecipe>
+                      </recipe>
+                    </CraftingBlueprintTier>
+                  </tiers>
+                </CraftingBlueprint>
+              </blueprint>
+            </CraftingBlueprintRecord.BP_CRAFT_test_aspects_wrapper>
+            XML
+        );
+
+        $document = new CraftingBlueprintRecord;
+        $document->load($path);
+
+        $formatted = (new Blueprint($document))->toArray();
+        $groups = $formatted['tiers'][0]['requirements']['children'];
+        $aspects = $groups[0];
+
+        self::assertCount(1, $groups);
+        self::assertSame('group', $aspects['kind']);
+        self::assertSame('ASPECTS', $aspects['key']);
+        self::assertSame('ASPECTS', $aspects['name']);
+        self::assertSame(2, $aspects['required_count']);
+        self::assertSame(['BARREL', 'FRAME', 'SIGHT'], array_column($aspects['children'], 'key'));
+    }
+
+    public function test_to_array_flattens_synthetic_aspects_wrapper(): void
     {
         $blueprint = $this->loadBlueprint('weapon');
 
         $formatted = (new Blueprint($blueprint))->toArray();
+        $groups = $formatted['tiers'][0]['requirements']['children'];
 
-        self::assertSame([
-            'uuid' => self::WEAPON_BLUEPRINT_UUID,
-            'key' => 'BP_CRAFT_behr_pistol_ballistic_01',
-            'kind' => 'creation',
-            'category_uuid' => self::WEAPON_AND_AMMO_CATEGORY_UUID,
-            'output' => [
-                'uuid' => self::WEAPON_OUTPUT_UUID,
-                'class' => 'behr_pistol_ballistic_01',
-                'type' => 'WeaponPersonal',
-                'subtype' => 'Small',
-                'grade' => '1',
-                'name' => 'S38 Pistol',
-            ],
-            'craft_time_seconds' => 90,
-            'availability' => [
-                'default' => false,
-                'reward_pools' => [],
-            ],
-            'quality_sensitive' => true,
-            'slots' => [
-                [
-                    'slot_key' => 'BARREL',
-                    'slot_name' => 'Barrel',
-                    'inputs' => [
-                        [
-                            'kind' => 'resource',
-                            'uuid' => self::GOLD_UUID,
-                            'name' => 'Gold',
-                            'quantity_scu' => 0.01,
-                            'min_quality' => 0,
-                        ],
-                    ],
-                    'stat_modifiers' => [
-                        [
-                            'property_uuid' => self::WEAPON_DAMAGE_PROPERTY_UUID,
-                            'property_key' => 'weapon_damage',
-                            'quality_range' => [
-                                'min' => 0,
-                                'max' => 1000,
-                            ],
-                            'modifier_range' => [
-                                'at_min_quality' => 0.925,
-                                'at_max_quality' => 1.075,
-                            ],
-                        ],
-                        [
-                            'property_uuid' => self::WEAPON_FIRERATE_PROPERTY_UUID,
-                            'property_key' => 'weapon_firerate',
-                            'quality_range' => [
-                                'min' => 0,
-                                'max' => 1000,
-                            ],
-                            'modifier_range' => [
-                                'at_min_quality' => 0.88,
-                                'at_max_quality' => 1.12,
-                            ],
-                        ],
-                    ],
-                ],
-                [
-                    'slot_key' => 'FRAME',
-                    'slot_name' => 'Frame',
-                    'inputs' => [
-                        [
-                            'kind' => 'resource',
-                            'uuid' => self::HEPHAESTANITE_UUID,
-                            'name' => 'Hephaestanite',
-                            'quantity_scu' => 0.02,
-                            'min_quality' => 0,
-                        ],
-                    ],
-                ],
-            ],
-        ], $formatted);
-    }
-
-    public function test_to_array_formats_armour_blueprint_item_inputs_and_minimum_quality(): void
-    {
-        $blueprint = $this->loadBlueprint('armour');
-
-        $formatted = (new Blueprint($blueprint))->toArray();
-
-        self::assertSame([
-            'uuid' => self::ARMOUR_BLUEPRINT_UUID,
-            'key' => 'BP_CRAFT_rsi_utility_heavy_backpack_02_01_01',
-            'kind' => 'creation',
-            'category_uuid' => self::ARMOUR_CATEGORY_UUID,
-            'output' => [
-                'uuid' => self::ARMOUR_OUTPUT_UUID,
-                'class' => 'rsi_utility_heavy_backpack_02_01_01',
-                'type' => 'Char_Armor_Backpack',
-                'subtype' => 'Heavy',
-                'grade' => '1',
-                'name' => 'MacFlex Rucksack',
-            ],
-            'craft_time_seconds' => 390,
-            'availability' => [
-                'default' => true,
-                'reward_pools' => [],
-            ],
-            'slots' => [
-                [
-                    'slot_key' => 'FILTER',
-                    'slot_name' => 'Filter',
-                    'inputs' => [
-                        [
-                            'kind' => 'item',
-                            'uuid' => self::ARMOUR_INPUT_UUID,
-                            'name' => 'Hadanite',
-                            'quantity' => 2,
-                            'min_quality' => 500,
-                        ],
-                    ],
-                ],
-            ],
-        ], $formatted);
+        self::assertCount(2, $groups);
+        self::assertSame(['BARREL', 'FRAME'], array_column($groups, 'key'));
+        self::assertNotContains('ASPECTS', array_column($groups, 'key'));
+        self::assertSame('Barrel', $groups[0]['name']);
+        self::assertSame('Frame', $groups[1]['name']);
     }
 
     private function loadBlueprint(string $fixture): CraftingBlueprintRecord
