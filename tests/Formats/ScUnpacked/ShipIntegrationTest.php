@@ -95,6 +95,27 @@ final class ShipIntegrationTest extends TestCase
     /**
      * @throws JsonException
      */
+    public function test_to_array_strips_trailing_newline_from_localized_vehicle_name(): void
+    {
+        $manufacturerPath = $this->writeManufacturerFile();
+        $this->writeCacheFiles($manufacturerPath);
+        $this->configureServiceFactory();
+
+        $entity = new VehicleDefinition;
+        $entity->load($this->writeVehicleEntityFile());
+
+        $vehicle = new Vehicle;
+        $vehicle->load($this->writeVehicleImplementationFile());
+
+        $ship = new Ship(new VehicleWrapper($vehicle, $entity, $this->makeLoadout()));
+        $result = $ship->toArray();
+
+        self::assertSame('Argo CSV-SM', $result['Name']);
+    }
+
+    /**
+     * @throws JsonException
+     */
     private function configureServiceFactory(): void
     {
         $this->writeLocalizationFile();
@@ -163,7 +184,9 @@ final class ShipIntegrationTest extends TestCase
             <VehicleDefinition.TEST_SHIP __type="EntityClassDefinition" __ref="ship-uuid" __path="libs/foundry/records/entityclassdefinition/test_ship.xml">
                 <Components>
                     <SAttachableComponentParams>
-                        <AttachDef Type="Vehicle" SubType="Ship" Size="2" manufacturer="00000000-0000-0000-0000-000000000000" />
+                        <AttachDef Type="Vehicle" SubType="Ship" Size="2" manufacturer="00000000-0000-0000-0000-000000000000">
+                            <Localization Name="@vehicle_name" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY" />
+                        </AttachDef>
                     </SAttachableComponentParams>
                 </Components>
                 <StaticEntityClassData>
@@ -214,7 +237,10 @@ final class ShipIntegrationTest extends TestCase
             throw new RuntimeException(sprintf('Failed to create directory: %s', $path));
         }
 
-        file_put_contents($path.DIRECTORY_SEPARATOR.'global.ini', "manufacturer_name=Fallback Industries\nLOC_EMPTY=\n");
+        file_put_contents(
+            $path.DIRECTORY_SEPARATOR.'global.ini',
+            "manufacturer_name=Fallback Industries\nvehicle_name=Argo CSV-SM\\n\nLOC_EMPTY=\n"
+        );
     }
 
     /**

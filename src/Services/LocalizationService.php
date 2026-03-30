@@ -106,13 +106,20 @@ final class LocalizationService extends BaseService
             $parts = explode('=', $line, 2);
 
             if (count($parts) === 2) {
-                $translations[$parts[0]] = $parts[1];
+                $translations[$parts[0]] = $this->normalizeTranslationValue($parts[1]);
             }
         }
 
         fclose($fp);
 
         return $translations;
+    }
+
+    private function normalizeTranslationValue(string $value): string
+    {
+        $value = str_replace(['\\r\\n', '\\r', '\\n'], ["\n", "\n", "\n"], $value);
+
+        return trim($value);
     }
 
     public function initialize(): void {}
