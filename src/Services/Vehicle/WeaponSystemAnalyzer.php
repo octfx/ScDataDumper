@@ -3,6 +3,9 @@
 namespace Octfx\ScDataDumper\Services\Vehicle;
 
 use Illuminate\Support\Collection;
+use Octfx\ScDataDumper\Formats\ScUnpacked\ItemPort;
+use Octfx\ScDataDumper\Services\ServiceFactory;
+use RuntimeException;
 
 /**
  * Analyze weapon systems and turret configurations
@@ -27,7 +30,11 @@ final class WeaponSystemAnalyzer implements VehicleDataCalculator
      */
     public function analyzeTurrets(Collection $turrets): array
     {
-        return $turrets->map(fn ($x) => $this->calculateWeaponFitting($x['Port']))->toArray();
+        return $turrets
+            ->filter(fn ($turret) => is_array($turret) && isset($turret['Port']) && is_array($turret['Port']))
+            ->map(fn ($turret) => $this->calculateWeaponFitting($turret['Port'], $turret))
+            ->values()
+            ->toArray();
     }
 
     /**
@@ -36,21 +43,23 @@ final class WeaponSystemAnalyzer implements VehicleDataCalculator
      * @param  array  $port  Port data
      * @return array Weapon fitting configuration
      */
-    public function calculateWeaponFitting(array $port): array
+    public function calculateWeaponFitting(array $port, ?array $part = null): array
     {
+        $summary = $this->buildTurretSummary($port, $part);
+
         if ($this->isWeaponMounting($port)) {
             return [
-                'Size' => $port['Size'],
+                ...$summary,
                 'Gimballed' => $this->isGimbal($port),
                 'Turret' => $this->isTurret($port),
-                'WeaponSizes' => $this->listTurretPortSizes($port),
             ];
         }
 
         return [
-            'Size' => $port['Size'],
+            ...$summary,
             'Fixed' => true,
-            'WeaponSizes' => [$port['Size']],
+            'WeaponSizes' => $summary['WeaponSizes'] ?? [$summary['Size']],
+            'PayloadSizes' => $summary['PayloadSizes'] ?? [$summary['Size']],
         ];
     }
 
@@ -78,21 +87,13 @@ final class WeaponSystemAnalyzer implements VehicleDataCalculator
      */
     private function isTurret(array $port): bool
     {
-        $types = [
-            'Turret.BallTurret',
-            'Turret.CanardTurret',
-            'Turret.MissileTurret',
-            'Turret.NoseMounted',
-            'TurretBase.MannedTurret',
-            'TurretBase.Unmanned',
-        ];
-
         $type = $this->resolveInstalledItemType($port);
-        if (! is_string($type)) {
-            return false;
-        }
 
-        return array_any($types, fn($candidate) => strcasecmp($type, $candidate) === 0);
+        return is_string($type)
+            && (
+                str_starts_with($type, 'TurretBase.')
+                || (str_starts_with($type, 'Turret.') && strcasecmp($type, 'Turret.GunTurret') !== 0)
+            );
     }
 
     /**
@@ -104,34 +105,280 @@ final class WeaponSystemAnalyzer implements VehicleDataCalculator
             return false;
         }
 
-        $acceptedTypes = ['WeaponGun', 'WeaponGun.Gun', 'WeaponMining.Gun'];
-        foreach ($acceptedTypes as $type) {
-            if (in_array($type, $port['Types'], true)) {
-                return true;
+        return ItemPort::accepts($port, 'WeaponGun')
+            || ItemPort::accepts($port, 'WeaponMining.Gun');
+    }
+
+    private function buildTurretSummary(array $port, ?array $part = null): array
+    {
+        $mounts = $this->listTurretMounts($port);
+        $summary = [
+            'PartName' => $part['Name'] ?? null,
+            'HardpointName' => $port['PortName'] ?? null,
+            'DisplayName' => $this->translate($part['DisplayName'] ?? $port['DisplayName'] ?? null),
+            'Size' => $this->resolvePortSize($port),
+            'TurretClassName' => $this->resolveInstalledItemClassName($port),
+            'TurretType' => $this->resolveInstalledItemType($port),
+        ];
+
+        if ($mounts === []) {
+            return $summary;
+        }
+
+        $weaponSizes = $this->extractMountSizes($mounts, 'WeaponSizes');
+        $payloadSizes = $this->extractMountSizes($mounts, 'PayloadSizes');
+        $payloadTypes = $this->extractMountStrings($mounts, 'PayloadTypes');
+
+        $summary['MountCount'] = count($mounts);
+        $summary['Mounts'] = $mounts;
+
+        if ($weaponSizes !== []) {
+            $summary['WeaponSizes'] = $weaponSizes;
+        }
+
+        if ($payloadSizes !== []) {
+            $summary['PayloadSizes'] = $payloadSizes;
+        }
+
+        if ($payloadTypes !== []) {
+            $summary['PayloadTypes'] = $payloadTypes;
+        }
+
+        return $summary;
+    }
+
+    private function listTurretMounts(array $port): array
+    {
+        $mounts = [];
+
+        foreach ($this->extractInstalledPorts($port) as $subPort) {
+            $mount = $this->buildMountSummary($subPort);
+            if ($mount !== null) {
+                $mounts[] = $mount;
             }
         }
 
-        return false;
+        return $mounts;
     }
 
-    /**
-     * List weapon sizes for turret ports
-     */
-    private function listTurretPortSizes(array $port): array
+    private function buildMountSummary(array $port): ?array
+    {
+        $payloads = $this->collectPayloadDescriptors($port);
+        if ($payloads === []) {
+            return null;
+        }
+
+        $mount = [
+            'HardpointName' => $port['PortName'] ?? null,
+            'DisplayName' => $this->translate($port['DisplayName'] ?? null),
+            'Size' => $this->resolvePortSize($port),
+            'MinSize' => $this->normalizeSize($port['MinSize'] ?? null),
+            'MaxSize' => $this->normalizeSize($port['MaxSize'] ?? null),
+            'Types' => $this->extractTypes($port),
+            'MountClassName' => $this->resolveInstalledItemClassName($port),
+            'MountType' => $this->resolveInstalledItemType($port),
+            'PayloadTypes' => $this->uniqueStrings(array_map(
+                static fn ($payload) => $payload['Type'] ?? null,
+                $payloads
+            )),
+            'PayloadClassNames' => $this->uniqueStrings(array_map(
+                static fn ($payload) => $payload['ClassName'] ?? null,
+                $payloads
+            )),
+            'PayloadSizes' => array_map(
+                fn ($payload) => $this->normalizeSize($payload['Size'] ?? null) ?? 0,
+                $payloads
+            ),
+        ];
+
+        $weaponPayloads = array_filter(
+            $payloads,
+            fn ($payload) => $this->isOffensivePayloadType($payload['Type'] ?? null)
+        );
+
+        if ($weaponPayloads !== []) {
+            $mount['WeaponSizes'] = array_map(
+                fn ($payload) => $this->normalizeSize($payload['Size'] ?? null) ?? 0,
+                $weaponPayloads
+            );
+        }
+
+        return $mount;
+    }
+
+    private function collectPayloadDescriptors(array $port): array
+    {
+        $payloads = [];
+
+        foreach ($this->extractInstalledPorts($port) as $childPort) {
+            $payloads = [...$payloads, ...$this->collectPayloadDescriptors($childPort)];
+        }
+
+        if ($payloads !== []) {
+            return $payloads;
+        }
+
+        $payloadType = $this->resolvePayloadType($port);
+        if ($payloadType === null) {
+            return [];
+        }
+
+        return [[
+            'Type' => $payloadType,
+            'ClassName' => $this->resolveInstalledItemClassName($port),
+            'Size' => $this->resolvePortSize($port),
+        ]];
+    }
+
+    private function resolvePayloadType(array $port): ?string
+    {
+        $installedType = $this->resolveInstalledItemType($port);
+        if ($this->isPrimaryPayloadType($installedType)) {
+            return $installedType;
+        }
+
+        foreach ($this->extractTypes($port) as $type) {
+            if ($this->isPrimaryPayloadType($type)) {
+                return $type;
+            }
+        }
+
+        return null;
+    }
+
+    private function isPrimaryPayloadType(?string $type): bool
+    {
+        if (! is_string($type) || $type === '') {
+            return false;
+        }
+
+        return str_starts_with($type, 'WeaponGun')
+            || str_starts_with($type, 'WeaponMining')
+            || str_starts_with($type, 'MissileLauncher')
+            || str_starts_with($type, 'GroundVehicleMissileLauncher')
+            || str_starts_with($type, 'TractorBeam')
+            || strcasecmp($type, 'SalvageHead') === 0
+            || strcasecmp($type, 'TowingBeam') === 0;
+    }
+
+    private function isOffensivePayloadType(?string $type): bool
+    {
+        if (! is_string($type) || $type === '') {
+            return false;
+        }
+
+        return str_starts_with($type, 'WeaponGun')
+            || str_starts_with($type, 'WeaponMining')
+            || str_starts_with($type, 'MissileLauncher')
+            || str_starts_with($type, 'GroundVehicleMissileLauncher');
+    }
+
+    private function extractInstalledPorts(array $port): array
+    {
+        $ports = $port['InstalledItem']['stdItem']['Ports']
+            ?? $port['InstalledItem']['Ports']
+            ?? [];
+
+        if (! is_array($ports)) {
+            return [];
+        }
+
+        return array_values(array_filter($ports, 'is_array'));
+    }
+
+    private function extractTypes(array $port): array
+    {
+        $types = $port['Types'] ?? [];
+
+        if (! is_array($types)) {
+            return [];
+        }
+
+        return array_values(array_filter($types, 'is_string'));
+    }
+
+    private function extractMountSizes(array $mounts, string $key): array
     {
         $sizes = [];
 
-        if (! isset($port['InstalledItem']['Ports']) || ! is_array($port['InstalledItem']['Ports'])) {
-            return $sizes;
-        }
+        foreach ($mounts as $mount) {
+            if (! isset($mount[$key]) || ! is_array($mount[$key])) {
+                continue;
+            }
 
-        foreach ($port['InstalledItem']['Ports'] as $subPort) {
-            if ($this->acceptsWeapon($subPort)) {
-                $sizes[] = $subPort['Size'];
+            foreach ($mount[$key] as $size) {
+                $normalizedSize = $this->normalizeSize($size);
+                if ($normalizedSize !== null) {
+                    $sizes[] = $normalizedSize;
+                }
             }
         }
 
         return $sizes;
+    }
+
+    private function extractMountStrings(array $mounts, string $key): array
+    {
+        $values = [];
+
+        foreach ($mounts as $mount) {
+            if (! isset($mount[$key]) || ! is_array($mount[$key])) {
+                continue;
+            }
+
+            foreach ($mount[$key] as $value) {
+                if (is_string($value) && $value !== '') {
+                    $values[] = $value;
+                }
+            }
+        }
+
+        return $this->uniqueStrings($values);
+    }
+
+    private function uniqueStrings(array $values): array
+    {
+        return array_values(array_unique(array_filter(
+            $values,
+            static fn ($value) => is_string($value) && $value !== ''
+        )));
+    }
+
+    private function resolvePortSize(array $port): int
+    {
+        $candidates = [
+            $port['InstalledItem']['stdItem']['Size'] ?? null,
+            $port['InstalledItem']['Size'] ?? null,
+            $port['Size'] ?? null,
+            $port['MaxSize'] ?? null,
+            $port['MinSize'] ?? null,
+        ];
+
+        foreach ($candidates as $candidate) {
+            $size = $this->normalizeSize($candidate);
+            if ($size !== null && $size > 0) {
+                return $size;
+            }
+        }
+
+        return 0;
+    }
+
+    private function normalizeSize(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_numeric($value)) {
+            return (int) $value;
+        }
+
+        return null;
     }
 
     private function resolveInstalledItemType(array $port): ?string
@@ -144,6 +391,35 @@ final class WeaponSystemAnalyzer implements VehicleDataCalculator
         return $this->itemTypeResolver->resolveSemanticType($installedItem);
     }
 
+    private function resolveInstalledItemClassName(array $port): ?string
+    {
+        $installedItem = $port['InstalledItem'] ?? null;
+        if (! is_array($installedItem)) {
+            return null;
+        }
+
+        $className = $installedItem['stdItem']['ClassName'] ?? $installedItem['ClassName'] ?? null;
+
+        return is_string($className) && $className !== '' ? $className : null;
+    }
+
+    private function translate(?string $value): ?string
+    {
+        if ($value === null || trim($value) === '') {
+            return null;
+        }
+
+        if (! str_starts_with($value, '@')) {
+            return $value;
+        }
+
+        try {
+            return ServiceFactory::getLocalizationService()->getTranslation($value);
+        } catch (RuntimeException) {
+            return $value;
+        }
+    }
+
     public function canCalculate(VehicleDataContext $context): bool
     {
         return true;
@@ -152,10 +428,12 @@ final class WeaponSystemAnalyzer implements VehicleDataCalculator
     public function calculate(VehicleDataContext $context): array
     {
         $mannedTurrets = $context->portSummary['mannedTurrets'] ?? collect([]);
+        $pdcTurrets = $context->portSummary['pdcTurrets'] ?? collect([]);
         $remoteTurrets = $context->portSummary['remoteTurrets'] ?? collect([]);
 
         return [
             'MannedTurrets' => $this->analyzeTurrets($mannedTurrets),
+            'PdcTurrets' => $this->analyzeTurrets($pdcTurrets),
             'RemoteTurrets' => $this->analyzeTurrets($remoteTurrets),
         ];
     }

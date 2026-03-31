@@ -372,6 +372,9 @@ final class Ship extends BaseFormat
         if (! empty($calculatedData['MannedTurrets'])) {
             $summary['MannedTurrets'] = $calculatedData['MannedTurrets'];
         }
+        if (! empty($calculatedData['PdcTurrets'])) {
+            $summary['PdcTurrets'] = $calculatedData['PdcTurrets'];
+        }
         if (! empty($calculatedData['RemoteTurrets'])) {
             $summary['RemoteTurrets'] = $calculatedData['RemoteTurrets'];
         }
