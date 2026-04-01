@@ -22,7 +22,7 @@ final class Blueprint extends BaseFormat
         $blueprint = $this->get();
         $uuid = $this->item?->getUuid();
 
-        return $this->removeNulls([
+        return $this->removeNullValuesPreservingEmptyArrays([
             'uuid' => $uuid,
             'key' => $this->item?->getClassName(),
             'kind' => 'creation',
@@ -40,13 +40,14 @@ final class Blueprint extends BaseFormat
         }
 
         $attachDef = $outputEntity->get('Components/SAttachableComponentParams/AttachDef');
+        $grade = $attachDef?->get('@Grade');
 
-        return $this->removeNulls([
-            'uuid' => $this->readAttribute($outputEntity, '__ref'),
-            'class' => $this->extractClassNameFromPath($this->readAttribute($outputEntity, '__path')),
-            'type' => $this->readAttribute($attachDef, 'Type'),
-            'subtype' => $this->readAttribute($attachDef, 'SubType'),
-            'grade' => $this->readAttribute($attachDef, 'Grade'),
+        return $this->removeNullValuesPreservingEmptyArrays([
+            'uuid' => $outputEntity->get('@__ref'),
+            'class' => $this->extractClassNameFromPath($outputEntity->get('@__path')),
+            'type' => $attachDef?->get('@Type'),
+            'subtype' => $attachDef?->get('@SubType'),
+            'grade' => $grade !== null ? (string) $grade : null,
             'name' => $this->readItemName($outputEntity),
         ]);
     }
@@ -122,7 +123,7 @@ final class Blueprint extends BaseFormat
         $results = [];
 
         foreach ($this->collectTierElements($tiers) as $index => $tier) {
-            $results[] = $this->removeNulls([
+            $results[] = $this->removeNullValuesPreservingEmptyArrays([
                 'tier_index' => $index,
                 'craft_time_seconds' => $this->buildCraftTimeSeconds(
                     $tier->get('recipe/CraftingRecipe/costs/CraftingRecipeCosts/craftTime/TimeValue_Partitioned')
@@ -179,9 +180,9 @@ final class Blueprint extends BaseFormat
         $nameInfo = $node->get('nameInfo');
         $modifiers = $this->buildStatModifiers($node);
 
-        return $this->removeNulls([
+        return $this->removeNullValuesPreservingEmptyArrays([
             'kind' => 'group',
-            'key' => $this->readAttribute($nameInfo, 'debugName'),
+            'key' => $nameInfo?->get('@debugName'),
             'name' => $this->buildResolvedNodeName($nameInfo),
             'required_count' => $this->normalizeNumber($node->get('@count')),
             'modifiers' => $modifiers === [] ? null : $modifiers,
@@ -197,7 +198,7 @@ final class Blueprint extends BaseFormat
     {
         $modifiers = $this->buildStatModifiers($node);
 
-        return $this->removeNulls([
+        return $this->removeNullValuesPreservingEmptyArrays([
             'kind' => $kind,
             ...$payload,
             'modifiers' => $modifiers === [] ? null : $modifiers,
@@ -212,7 +213,7 @@ final class Blueprint extends BaseFormat
         $children = $this->buildCostChildren($node);
         $attributes = $this->buildAttributes($node);
 
-        return $this->removeNulls([
+        return $this->removeNullValuesPreservingEmptyArrays([
             'kind' => 'unknown',
             'xml_node_name' => $node->nodeName,
             'attributes' => $attributes === [] ? null : $attributes,
@@ -292,8 +293,8 @@ final class Blueprint extends BaseFormat
                 || (float) $requiredCount === (float) $selectChildCount;
         }
 
-        $slotKey = $this->readAttribute($nameInfo, 'debugName')
-            ?? $this->readAttribute($nameInfo, 'displayName');
+        $slotKey = $nameInfo->get('@debugName')
+            ?? $nameInfo->get('@displayName');
 
         return is_string($slotKey) && strtoupper($slotKey) === 'ASPECTS';
     }
@@ -330,9 +331,9 @@ final class Blueprint extends BaseFormat
     {
         $inputEntity = $cost->get('InputEntity');
 
-        return $this->removeNulls([
-            'uuid' => $this->readAttribute($inputEntity, '__ref')
-                ?? $this->readAttribute($cost, 'entityClass'),
+        return $this->removeNullValuesPreservingEmptyArrays([
+            'uuid' => $inputEntity?->get('@__ref')
+                ?? $cost->get('@entityClass'),
             'name' => $this->readItemName($inputEntity),
             'quantity' => $this->normalizeNumber($cost->get('@quantity')),
             'min_quality' => $this->normalizeNumber($cost->get('@minQuality')),
@@ -346,16 +347,26 @@ final class Blueprint extends BaseFormat
     {
         $resourceType = $cost->get('ResourceType');
         $quantityScu = Item::convertToScu($cost->get('quantity'));
+        $resourceName = $resourceType?->get('@displayName');
+
+        if (is_string($resourceName) && trim($resourceName) !== '') {
+            try {
+                $resourceName = ServiceFactory::getLocalizationService()->getTranslation($resourceName);
+            } catch (RuntimeException) {
+            }
+        } else {
+            $resourceName = null;
+        }
 
         if ($quantityScu !== null) {
             // XML quantities are decimal strings, so round after applying multipliers to avoid float artifacts.
             $quantityScu = round($quantityScu * $this->readResourceQuantityMultiplier($cost), 9);
         }
 
-        return $this->removeNulls([
-            'uuid' => $this->readAttribute($resourceType, '__ref')
-                ?? $this->readAttribute($cost, 'resource'),
-            'name' => $this->translate($this->readAttribute($resourceType, 'displayName')),
+        return $this->removeNullValuesPreservingEmptyArrays([
+            'uuid' => $resourceType?->get('@__ref')
+                ?? $cost->get('@resource'),
+            'name' => $resourceName,
             'quantity_scu' => $quantityScu,
             'min_quality' => $this->normalizeNumber($cost->get('@minQuality')),
         ]);
@@ -431,28 +442,28 @@ final class Blueprint extends BaseFormat
         $valueRange = $modifier->get('valueRanges/CraftingGameplayPropertyModifierValueRange_Linear')
             ?? $modifier->get('valueRange/CraftingGameplayPropertyModifierValueRange_Linear');
 
-        $formatted = $this->removeNulls([
-            'property_uuid' => $this->readAttribute($property, '__ref')
-                ?? $this->readAttribute($modifier, 'gameplayPropertyRecord'),
+        $formatted = $this->removeNullValuesPreservingEmptyArrays([
+            'property_uuid' => $property?->get('@__ref')
+                ?? $modifier->get('@gameplayPropertyRecord'),
             'property_key' => $this->extractGameplayPropertyKey($property),
-            'quality_range' => $this->removeNulls([
+            'quality_range' => $this->removeNullValuesPreservingEmptyArrays([
                 'min' => $this->normalizeNumber(
-                    $this->readAttribute($valueRange, 'startQuality')
-                    ?? $this->readAttribute($valueRange, 'minInputValue')
+                    $valueRange?->get('@startQuality')
+                    ?? $valueRange?->get('@minInputValue')
                 ),
                 'max' => $this->normalizeNumber(
-                    $this->readAttribute($valueRange, 'endQuality')
-                    ?? $this->readAttribute($valueRange, 'maxInputValue')
+                    $valueRange?->get('@endQuality')
+                    ?? $valueRange?->get('@maxInputValue')
                 ),
             ]),
-            'modifier_range' => $this->removeNulls([
+            'modifier_range' => $this->removeNullValuesPreservingEmptyArrays([
                 'at_min_quality' => $this->normalizeNumber(
-                    $this->readAttribute($valueRange, 'modifierAtStart')
-                    ?? $this->readAttribute($valueRange, 'minOutputMultiplier')
+                    $valueRange?->get('@modifierAtStart')
+                    ?? $valueRange?->get('@minOutputMultiplier')
                 ),
                 'at_max_quality' => $this->normalizeNumber(
-                    $this->readAttribute($valueRange, 'modifierAtEnd')
-                    ?? $this->readAttribute($valueRange, 'maxOutputMultiplier')
+                    $valueRange?->get('@modifierAtEnd')
+                    ?? $valueRange?->get('@maxOutputMultiplier')
                 ),
             ]),
         ]);
@@ -466,8 +477,19 @@ final class Blueprint extends BaseFormat
             return null;
         }
 
-        return $this->translate($this->readAttribute($nameInfo, 'displayName'))
-            ?? $this->readAttribute($nameInfo, 'debugName');
+        $displayName = $nameInfo->get('@displayName');
+
+        if (is_string($displayName) && trim($displayName) !== '') {
+            try {
+                return ServiceFactory::getLocalizationService()->getTranslation($displayName);
+            } catch (RuntimeException) {
+                return $displayName;
+            }
+        }
+
+        $debugName = $nameInfo->get('@debugName');
+
+        return is_string($debugName) && trim($debugName) !== '' ? $debugName : null;
     }
 
     private function readItemName(?Element $entity): ?string
@@ -483,7 +505,11 @@ final class Blueprint extends BaseFormat
             return null;
         }
 
-        return $this->translate($name);
+        try {
+            return ServiceFactory::getLocalizationService()->getTranslation($name);
+        } catch (RuntimeException) {
+            return $name;
+        }
     }
 
     private function extractClassNameFromPath(?string $path): ?string
@@ -497,9 +523,9 @@ final class Blueprint extends BaseFormat
 
     private function extractGameplayPropertyKey(?Element $property): ?string
     {
-        $path = $this->readAttribute($property, '__path');
+        $path = $property?->get('@__path');
 
-        if ($path === null) {
+        if (! is_string($path) || trim($path) === '') {
             return null;
         }
 
@@ -517,12 +543,12 @@ final class Blueprint extends BaseFormat
      */
     private function buildBlueprintReferenceInput(Element $cost): array
     {
-        $uuid = $this->readAttribute($cost, 'blueprintRecord')
-            ?? $this->readAttribute($cost, 'blueprint')
-            ?? $this->readAttribute($cost, 'entityClass')
-            ?? $this->readAttribute($cost, 'record');
+        $uuid = $cost->get('@blueprintRecord')
+            ?? $cost->get('@blueprint')
+            ?? $cost->get('@entityClass')
+            ?? $cost->get('@record');
 
-        return $this->removeNulls([
+        return $this->removeNullValuesPreservingEmptyArrays([
             'uuid' => $uuid,
             'key' => $this->readBlueprintKey($uuid),
             'name' => $this->readBlueprintName($uuid),
@@ -578,105 +604,16 @@ final class Blueprint extends BaseFormat
             return null;
         }
 
-        return $this->translate($record->get('blueprint/CraftingBlueprint@blueprintName'));
-    }
+        $name = $record->get('blueprint/CraftingBlueprint@blueprintName');
 
-    private function readAttribute(?Element $element, string $name): ?string
-    {
-        if ($element === null) {
+        if (! is_string($name) || trim($name) === '') {
             return null;
-        }
-
-        $value = $element->getNode()->attributes?->getNamedItem($name)?->nodeValue;
-
-        if (! is_string($value) || trim($value) === '') {
-            return null;
-        }
-
-        return $value;
-    }
-
-    private function translate(?string $value): ?string
-    {
-        if ($value === null || trim($value) === '') {
-            return null;
-        }
-
-        if (! str_starts_with($value, '@')) {
-            return $value;
         }
 
         try {
-            return ServiceFactory::getLocalizationService()->getTranslation($value);
+            return ServiceFactory::getLocalizationService()->getTranslation($name);
         } catch (RuntimeException) {
-            return $value;
+            return $name;
         }
-    }
-
-    private function normalizeNumber(mixed $value): int|float|null
-    {
-        if (! is_int($value) && ! is_float($value) && ! (is_string($value) && is_numeric($value))) {
-            return null;
-        }
-
-        $number = (float) $value;
-
-        if ((float) ((int) $number) === $number) {
-            return (int) $number;
-        }
-
-        return $number;
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    private function removeNulls(array $data): array
-    {
-        foreach ($data as $key => $value) {
-            if ($value === null) {
-                unset($data[$key]);
-
-                continue;
-            }
-
-            if (is_array($value)) {
-                $data[$key] = array_is_list($value)
-                    ? array_map(
-                        static fn (mixed $item): mixed => is_array($item) ? self::removeNestedNulls($item) : $item,
-                        $value
-                    )
-                    : self::removeNestedNulls($value);
-            }
-        }
-
-        return $data;
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    private static function removeNestedNulls(array $data): array
-    {
-        foreach ($data as $key => $value) {
-            if ($value === null) {
-                unset($data[$key]);
-
-                continue;
-            }
-
-            if (is_array($value)) {
-                $data[$key] = array_is_list($value)
-                    ? array_map(
-                        static fn (mixed $item): mixed => is_array($item) ? self::removeNestedNulls($item) : $item,
-                        $value
-                    )
-                    : self::removeNestedNulls($value);
-            }
-        }
-
-        return $data;
     }
 }

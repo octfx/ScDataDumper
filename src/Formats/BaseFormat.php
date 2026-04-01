@@ -270,4 +270,46 @@ abstract class BaseFormat
 
         return $data;
     }
+
+    /**
+     * Recursively removes only null values while preserving empty arrays.
+     */
+    protected function removeNullValuesPreservingEmptyArrays(array $data): array
+    {
+        foreach ($data as $key => $value) {
+            if ($value === null) {
+                unset($data[$key]);
+
+                continue;
+            }
+
+            if (is_array($value)) {
+                $data[$key] = array_is_list($value)
+                    ? array_map(
+                        fn (mixed $item): mixed => is_array($item)
+                            ? $this->removeNullValuesPreservingEmptyArrays($item)
+                            : $item,
+                        $value
+                    )
+                    : $this->removeNullValuesPreservingEmptyArrays($value);
+            }
+        }
+
+        return $data;
+    }
+
+    protected function normalizeNumber(mixed $value): int|float|null
+    {
+        if (! is_int($value) && ! is_float($value) && ! (is_string($value) && is_numeric($value))) {
+            return null;
+        }
+
+        $number = (float) $value;
+
+        if ((float) ((int) $number) === $number) {
+            return (int) $number;
+        }
+
+        return $number;
+    }
 }
