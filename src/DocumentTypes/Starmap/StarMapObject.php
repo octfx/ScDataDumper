@@ -6,7 +6,7 @@ namespace Octfx\ScDataDumper\DocumentTypes\Starmap;
 
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\Faction\Faction;
-use Octfx\ScDataDumper\DocumentTypes\Faction_LEGACY;
+use Octfx\ScDataDumper\DocumentTypes\Faction\Faction_LEGACY;
 use Octfx\ScDataDumper\DocumentTypes\Radar\RadarContactTypeEntry;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\Services\ServiceFactory;

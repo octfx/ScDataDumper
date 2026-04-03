@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Octfx\ScDataDumper\DocumentTypes;
+namespace Octfx\ScDataDumper\DocumentTypes\Faction;
+
+use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 
 final class Faction_LEGACY extends RootDocument {
     public function getDisplayName(): string

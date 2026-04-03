@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Commands;
 
 use JsonException;
-use Octfx\ScDataDumper\DocumentTypes\Faction;
+use Octfx\ScDataDumper\DocumentTypes\Faction\Faction;
+use Octfx\ScDataDumper\Formats\ScUnpacked\Faction as ScUnpackedFaction;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -41,6 +42,7 @@ class LoadFactions extends Command
         $fac->initialize();
 
         $overwrite = ($input->getOption('overwrite') ?? false) === true;
+        $scUnpackedFormat = ($input->getOption('scUnpackedFormat') ?? false) === true;
 
         $service = ServiceFactory::getFoundryLookupService();
 
@@ -65,7 +67,11 @@ class LoadFactions extends Command
             }
 
             try {
-                if (! $this->writeJsonFile($filePath, $faction->toJson(), $io)) {
+                $json = $scUnpackedFormat
+                    ? json_encode((new ScUnpackedFaction($faction))->toArray(), JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
+                    : $faction->toJson();
+
+                if (! $this->writeJsonFile($filePath, $json, $io)) {
                     $io->warning(sprintf('Skipping faction %s due to write failure', $fileName));
                     $io->progressAdvance();
 
@@ -129,7 +135,7 @@ class LoadFactions extends Command
             'scUnpackedFormat',
             null,
             InputOption::VALUE_NONE,
-            'Export factions in SC Unpacked format (currently has no effect)'
+            'Export factions in SC Unpacked format'
         );
     }
 }

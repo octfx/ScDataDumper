@@ -9,13 +9,17 @@ use Octfx\ScDataDumper\DocumentTypes\AmmoParams;
 use Octfx\ScDataDumper\DocumentTypes\ConsumableSubtype;
 use Octfx\ScDataDumper\DocumentTypes\CraftingGameplayPropertyDef;
 use Octfx\ScDataDumper\DocumentTypes\DamageResistanceMacro;
-use Octfx\ScDataDumper\DocumentTypes\Faction;
-use Octfx\ScDataDumper\DocumentTypes\Faction_LEGACY;
+use Octfx\ScDataDumper\DocumentTypes\Faction\Faction;
+use Octfx\ScDataDumper\DocumentTypes\Faction\Faction_LEGACY;
+use Octfx\ScDataDumper\DocumentTypes\Faction\FactionReputation;
 use Octfx\ScDataDumper\DocumentTypes\FoundryRecord;
 use Octfx\ScDataDumper\DocumentTypes\MeleeCombatConfig;
 use Octfx\ScDataDumper\DocumentTypes\MiningLaserGlobalParams;
 use Octfx\ScDataDumper\DocumentTypes\Radar\RadarContactTypeEntry;
 use Octfx\ScDataDumper\DocumentTypes\RadarSystemSharedParams;
+use Octfx\ScDataDumper\DocumentTypes\Reputation\SReputationContextUI;
+use Octfx\ScDataDumper\DocumentTypes\Reputation\SReputationScopeParams;
+use Octfx\ScDataDumper\DocumentTypes\Reputation\SReputationStandingParams;
 use Octfx\ScDataDumper\DocumentTypes\ResourceType;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\DocumentTypes\Starmap\Jurisdiction;
@@ -153,9 +157,9 @@ final class FoundryLookupService extends BaseService
         return $this->getByReference($uuid, ['/records/missiondata/pu_organizations/']);
     }
 
-    public function getFactionReputationByReference(?string $uuid): ?FoundryRecord
+    public function getFactionReputationByReference(?string $uuid): ?FactionReputation
     {
-        return $this->getByReference($uuid, ['/records/factions/factionreputation/']);
+        return $this->getByReference($uuid, ['/records/factions/factionreputation/'], FactionReputation::class);
     }
 
     /**
@@ -189,14 +193,19 @@ final class FoundryLookupService extends BaseService
         return $this->getByReference($uuid, ['/records/starmapamenitytypes/'], StarMapAmenityTypeEntry::class);
     }
 
-    public function getReputationStandingByReference(?string $uuid): ?FoundryRecord
+    public function getReputationStandingByReference(?string $uuid): ?SReputationStandingParams
     {
-        return $this->getByReference($uuid, ['/records/reputation/standings/']);
+        return $this->getByReference($uuid, ['/records/reputation/standings/'], SReputationStandingParams::class);
     }
 
-    public function getReputationScopeByReference(?string $uuid): ?FoundryRecord
+    public function getReputationScopeByReference(?string $uuid): ?SReputationScopeParams
     {
-        return $this->getByReference($uuid, ['/records/reputation/scopes/']);
+        return $this->getByReference($uuid, ['/records/reputation/scopes/'], SReputationScopeParams::class);
+    }
+
+    public function getReputationContextByReference(?string $uuid): ?SReputationContextUI
+    {
+        return $this->getByReference($uuid, ['/records/reputation/contexts/'], SReputationContextUI::class);
     }
 
     public function getReputationRewardByReference(?string $uuid): ?FoundryRecord
