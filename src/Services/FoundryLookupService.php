@@ -6,6 +6,7 @@ namespace Octfx\ScDataDumper\Services;
 
 use Generator;
 use Octfx\ScDataDumper\DocumentTypes\AmmoParams;
+use Octfx\ScDataDumper\DocumentTypes\ConsumableSubtype;
 use Octfx\ScDataDumper\DocumentTypes\CraftingGameplayPropertyDef;
 use Octfx\ScDataDumper\DocumentTypes\DamageResistanceMacro;
 use Octfx\ScDataDumper\DocumentTypes\Faction;
@@ -69,6 +70,11 @@ final class FoundryLookupService extends BaseService
     public function getAmmoParamsByReference(?string $uuid): ?AmmoParams
     {
         return $this->getByReference($uuid, class: AmmoParams::class);
+    }
+
+    public function getConsumableSubtypeByReference(?string $uuid): ?ConsumableSubtype
+    {
+        return $this->getByReference($uuid, class: ConsumableSubtype::class);
     }
 
     public function countDocumentType(string $mapKey): int

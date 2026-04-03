@@ -107,14 +107,20 @@ class LoadItems extends Command
 
             try {
                 if ($input->getOption('scUnpackedFormat')) {
+                    $rawEntity = $itemExport['item']->toArray();
                     $json = json_encode([
                         'Raw' => [
-                            'Entity' => $itemExport['rawEntity'],
+                            'Entity' => [
+                                ...$rawEntity,
+                                'ClassName' => $itemExport['item']->getClassName(),
+                                '__ref' => $itemExport['item']->getUuid(),
+                                '__type' => $itemExport['item']->getAttachType(),
+                            ],
                         ],
                         'Item' => $stdItem,
                     ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
                 } else {
-                    $json = $itemExport['defaultJson'];
+                    $json = $itemExport['item']->toJson();
                 }
 
                 if (! $this->writeJsonFile($filePath, $json, $io)) {
@@ -163,7 +169,7 @@ class LoadItems extends Command
     }
 
     /**
-     * @return iterable<int, array{className: string, formatted: array, rawEntity: array, defaultJson: string}>
+     * @return iterable<int, array{className: string, formatted: array, item: EntityClassDefinition}>
      *
      * @throws JsonException
      */
@@ -184,19 +190,10 @@ class LoadItems extends Command
                 continue;
             }
 
-            $rawEntity = $item->toArray();
-            $formatted = new Item($item)->toArray();
-
             yield [
                 'className' => $item->getClassName(),
-                'formatted' => $formatted,
-                'rawEntity' => [
-                    ...$rawEntity,
-                    'ClassName' => $item->getClassName(),
-                    '__ref' => $item->getUuid(),
-                    '__type' => $item->getAttachType(),
-                ],
-                'defaultJson' => $item->toJson(),
+                'formatted' => new Item($item)->toArray(),
+                'item' => $item,
             ];
         }
     }

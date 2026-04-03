@@ -19,12 +19,13 @@ final class LoadItemsCommandTest extends ScDataTestCase
                     'classification' => 'Ship.Weapon.LaserCannon',
                     'stdItem' => ['ClassName' => 'SHIP_GUN', 'Name' => 'Ship Gun'],
                 ],
-                'rawEntity' => [
-                    'ClassName' => 'SHIP_GUN',
-                    '__ref' => 'ship-gun-uuid',
-                    '__type' => 'WeaponGun',
-                ],
-                'defaultJson' => json_encode(['fallback' => 'ship-gun'], JSON_THROW_ON_ERROR),
+                'item' => new MockItem(
+                    'SHIP_GUN',
+                    'ship-gun-uuid',
+                    'WeaponGun',
+                    ['ClassName' => 'SHIP_GUN'],
+                    json_encode(['fallback' => 'ship-gun'], JSON_THROW_ON_ERROR),
+                ),
             ],
             [
                 'className' => 'FPS_RIFLE',
@@ -32,12 +33,13 @@ final class LoadItemsCommandTest extends ScDataTestCase
                     'classification' => 'FPS.Weapon.AssaultRifle',
                     'stdItem' => ['ClassName' => 'FPS_RIFLE', 'Name' => 'FPS Rifle'],
                 ],
-                'rawEntity' => [
-                    'ClassName' => 'FPS_RIFLE',
-                    '__ref' => 'fps-rifle-uuid',
-                    '__type' => 'WeaponPersonal',
-                ],
-                'defaultJson' => json_encode(['fallback' => 'fps-rifle'], JSON_THROW_ON_ERROR),
+                'item' => new MockItem(
+                    'FPS_RIFLE',
+                    'fps-rifle-uuid',
+                    'WeaponPersonal',
+                    ['ClassName' => 'FPS_RIFLE'],
+                    json_encode(['fallback' => 'fps-rifle'], JSON_THROW_ON_ERROR),
+                ),
             ],
         ]);
 
@@ -77,7 +79,7 @@ final class LoadItemsCommandTest extends ScDataTestCase
 final class TestLoadItemsCommand extends LoadItems
 {
     /**
-     * @param  array<int, array{className: string, formatted: array, rawEntity: array, defaultJson: string}>  $records
+     * @param  array<int, array{className: string, formatted: array, item: MockItem}>  $records
      */
     public function __construct(private readonly array $records)
     {
@@ -103,5 +105,41 @@ final class TestLoadItemsCommand extends LoadItems
 
             yield $record;
         }
+    }
+}
+
+final class MockItem
+{
+    public function __construct(
+        private readonly string $className,
+        private readonly string $uuid,
+        private readonly string $attachType,
+        private readonly array $toArrayResult,
+        private readonly string $toJsonResult,
+    ) {}
+
+    public function getClassName(): string
+    {
+        return $this->className;
+    }
+
+    public function getUuid(): string
+    {
+        return $this->uuid;
+    }
+
+    public function getAttachType(): string
+    {
+        return $this->attachType;
+    }
+
+    public function toArray(): array
+    {
+        return $this->toArrayResult;
+    }
+
+    public function toJson(): string
+    {
+        return $this->toJsonResult;
     }
 }

@@ -37,9 +37,13 @@ final class BlueprintService extends BaseService
     private array $rewardPoolsByBlueprint = [];
 
     /**
+     * LRU document cache keyed by file path.
+     *
      * @var array<string, CraftingBlueprintRecord>
      */
     protected static array $documentCache = [];
+
+    private const CACHE_LIMIT = 200;
 
     public static function resetDocumentCache(): void
     {
@@ -85,15 +89,15 @@ final class BlueprintService extends BaseService
             throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
         }
 
-        if (isset(self::$documentCache[$filePath])) {
-            return self::$documentCache[$filePath];
+        $document = self::cacheGet(self::$documentCache, $filePath);
+        if ($document instanceof CraftingBlueprintRecord) {
+            return $document;
         }
 
         $document = new CraftingBlueprintRecord;
         $document->load($filePath);
         $document->checkValidity();
-
-        self::$documentCache[$filePath] = $document;
+        self::cachePut(self::$documentCache, $filePath, $document, self::CACHE_LIMIT);
 
         return $document;
     }

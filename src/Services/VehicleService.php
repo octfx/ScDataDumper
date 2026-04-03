@@ -21,11 +21,13 @@ final class VehicleService extends BaseService
     private array $vehicles;
 
     /**
-     * Document cache keyed by file path
+     * LRU document cache keyed by file path or composite key.
      *
      * @var array<string, VehicleDefinition|Vehicle>
      */
     protected static array $documentCache = [];
+
+    private const CACHE_LIMIT = 200;
 
     public static function resetDocumentCache(): void
     {
@@ -157,13 +159,11 @@ final class VehicleService extends BaseService
             throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
         }
 
-        if (isset(self::$documentCache[$filePath])) {
-            $vehicle = self::$documentCache[$filePath];
-            assert($vehicle instanceof VehicleDefinition);
-        } else {
+        $vehicle = self::cacheGet(self::$documentCache, $filePath);
+        if (! $vehicle instanceof VehicleDefinition) {
             $vehicle = new VehicleDefinition;
             $vehicle->load($filePath);
-            self::$documentCache[$filePath] = $vehicle;
+            self::cachePut(self::$documentCache, $filePath, $vehicle, self::CACHE_LIMIT);
         }
 
         $implementation = $vehicle->get('Components/VehicleComponentParams@vehicleDefinition');
@@ -207,10 +207,8 @@ final class VehicleService extends BaseService
     {
         $cacheKey = $vehiclePath.'|'.$modificationName;
 
-        if (isset(self::$documentCache[$cacheKey])) {
-            $doc = self::$documentCache[$cacheKey];
-            assert($doc instanceof Vehicle);
-
+        $doc = self::cacheGet(self::$documentCache, $cacheKey);
+        if ($doc instanceof Vehicle) {
             return $doc;
         }
 
@@ -222,7 +220,7 @@ final class VehicleService extends BaseService
             $this->processModificationElems($doc, $modificationName);
         }
 
-        self::$documentCache[$cacheKey] = $doc;
+        self::cachePut(self::$documentCache, $cacheKey, $doc, self::CACHE_LIMIT);
 
         return $doc;
     }

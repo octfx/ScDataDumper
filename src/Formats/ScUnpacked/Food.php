@@ -118,10 +118,10 @@ class Food extends BaseFormat
         $bloodDrugLevelTotal = 0.0;
         $bloodDrugLevelPerMicroSCU = null;
 
-        $consumableService = ServiceFactory::getConsumableSubtypeService();
+        $consumableService = ServiceFactory::getFoundryLookupService();
 
         foreach ($defaultContents as $content) {
-            $subtype = $consumableService->getByUuid($content['uuid']);
+            $subtype = $consumableService->getConsumableSubtypeByReference($content['uuid']);
 
             if ($subtype === null) {
                 continue;
@@ -202,10 +202,10 @@ class Food extends BaseFormat
         $healthPerMicroSCU = 0.0;
         $hasHealth = false;
 
-        $consumableService = ServiceFactory::getConsumableSubtypeService();
+        $consumableService = ServiceFactory::getFoundryLookupService();
 
         foreach ($defaultContents as $content) {
-            $subtype = $consumableService->getByUuid($content['uuid']);
+            $subtype = $consumableService->getConsumableSubtypeByReference($content['uuid']);
 
             if ($subtype === null) {
                 continue;
@@ -250,10 +250,10 @@ class Food extends BaseFormat
     protected function calculateBuffs(array $defaultContents): ?array
     {
         $buffs = [];
-        $consumableService = ServiceFactory::getConsumableSubtypeService();
+        $consumableService = ServiceFactory::getFoundryLookupService();
 
         foreach ($defaultContents as $content) {
-            $subtype = $consumableService->getByUuid($content['uuid']);
+            $subtype = $consumableService->getConsumableSubtypeByReference($content['uuid']);
 
             if ($subtype === null) {
                 continue;
@@ -288,10 +288,10 @@ class Food extends BaseFormat
     protected function calculateDebuffs(array $defaultContents): ?array
     {
         $debuffs = [];
-        $consumableService = ServiceFactory::getConsumableSubtypeService();
+        $consumableService = ServiceFactory::getFoundryLookupService();
 
         foreach ($defaultContents as $content) {
-            $subtype = $consumableService->getByUuid($content['uuid']);
+            $subtype = $consumableService->getConsumableSubtypeByReference($content['uuid']);
 
             if ($subtype === null) {
                 continue;
@@ -341,10 +341,10 @@ class Food extends BaseFormat
             'ImpactResistance' => [],
         ];
 
-        $consumableService = ServiceFactory::getConsumableSubtypeService();
+        $consumableService = ServiceFactory::getFoundryLookupService();
 
         foreach ($defaultContents as $content) {
-            $subtype = $consumableService->getByUuid($content['uuid']);
+            $subtype = $consumableService->getConsumableSubtypeByReference($content['uuid']);
 
             if ($subtype === null) {
                 continue;

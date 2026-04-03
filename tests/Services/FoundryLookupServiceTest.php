@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Tests\Services;
 
+use Octfx\ScDataDumper\DocumentTypes\ConsumableSubtype;
 use Octfx\ScDataDumper\DocumentTypes\FoundryRecord;
 use Octfx\ScDataDumper\DocumentTypes\ResourceType;
 use Octfx\ScDataDumper\Services\FoundryLookupService;
@@ -18,6 +19,8 @@ final class FoundryLookupServiceTest extends ScDataTestCase
     private const MISSION_TYPE_UUID = '33333333-3333-3333-3333-333333333333';
 
     private const GENERIC_RECORD_UUID = '44444444-4444-4444-4444-444444444444';
+
+    private const CONSUMABLE_SUBTYPE_UUID = '55555555-5555-5555-5555-555555555555';
 
     protected function setUp(): void
     {
@@ -50,6 +53,15 @@ final class FoundryLookupServiceTest extends ScDataTestCase
             sprintf(
                 '<FoundryRecord.GenericRecord __type="FoundryRecord" __ref="%1$s" __path="libs/foundry/records/misc/genericrecord.xml" />',
                 self::GENERIC_RECORD_UUID,
+            )
+        );
+
+        $this->writeFoundryRecord(
+            self::CONSUMABLE_SUBTYPE_UUID,
+            'records/entities/consumables/subtypes',
+            sprintf(
+                '<ConsumableSubtype.TestConsumable __type="ConsumableSubtype" __ref="%1$s" __path="libs/foundry/records/entities/consumables/subtypes/test_consumable.xml" typeName="Food" consumableName="Fruit Bar"><effectsPerMicroSCU><ConsumableEffectModifyActorStatus statType="Hunger" statPointChange="4.5" /></effectsPerMicroSCU></ConsumableSubtype.TestConsumable>',
+                self::CONSUMABLE_SUBTYPE_UUID,
             )
         );
     }
@@ -105,6 +117,22 @@ final class FoundryLookupServiceTest extends ScDataTestCase
 
         self::assertInstanceOf(FoundryRecord::class, $record);
         self::assertSame('PickupMission', $record?->getClassName());
+    }
+
+    public function test_get_consumable_subtype_by_reference_returns_typed_document_and_reuses_cached_instance(): void
+    {
+        $service = new FoundryLookupService($this->tempDir);
+        $service->initialize();
+
+        $document = $service->getConsumableSubtypeByReference(strtoupper(self::CONSUMABLE_SUBTYPE_UUID));
+        $secondDocument = $service->getConsumableSubtypeByReference(self::CONSUMABLE_SUBTYPE_UUID);
+        $cachedDocument = $service->getConsumableSubtypeByReference(self::CONSUMABLE_SUBTYPE_UUID);
+
+        self::assertInstanceOf(ConsumableSubtype::class, $document);
+        self::assertNotSame($document, $secondDocument);
+        self::assertSame($secondDocument, $cachedDocument);
+        self::assertSame('Fruit Bar', $document?->getConsumableName());
+        self::assertNull($service->getConsumableSubtypeByReference('00000000-0000-0000-0000-000000000000'));
     }
 
     private function writeFoundryRecord(string $uuid, string $relativeDirectory, string $xml): void

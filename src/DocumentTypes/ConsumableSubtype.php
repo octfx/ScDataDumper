@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes;
 
+use DOMElement;
+
 /**
- * Represents a ConsumableSubtype definition from the cache
- * Contains nutrition values, buff/debuff effects, and durations
+ * Represents an extracted ConsumableSubtype document.
  */
-final class ConsumableSubtype
+final class ConsumableSubtype extends RootDocument
 {
-    // Buff types that are positive effects
     private const array BUFFS = [
         'Energizing',
         'CognitiveBoost',
@@ -29,7 +29,6 @@ final class ConsumableSubtype
         'ImpactResistanceFlinchMask',
     ];
 
-    // Buff types that are negative effects
     private const array DEBUFFS = [
         'CognitiveImpair',
         'Dehydrating',
@@ -37,7 +36,6 @@ final class ConsumableSubtype
         'Atrophic',
     ];
 
-    // Medical effect categories
     private const array MEDICAL_PAIN_MASKING = [
         'HurtLocomotionMask',
         'PainGruntMask',
@@ -65,30 +63,18 @@ final class ConsumableSubtype
         'ImpactResistanceFlinchMask',
     ];
 
-    public function __construct(
-        private readonly string $uuid,
-        private readonly array $data
-    ) {}
-
-    public function getUuid(): string
-    {
-        return $this->uuid;
-    }
-
     public function getTypeName(): string
     {
-        return $this->data['typeName'] ?? '';
+        return $this->documentElement?->getAttribute('typeName') ?? '';
     }
 
     public function getConsumableName(): string
     {
-        return $this->data['consumableName'] ?? '';
+        return $this->documentElement?->getAttribute('consumableName') ?? '';
     }
 
     /**
-     * Get all stat modifications (Hunger, Thirst, BloodDrugLevel, BodyRadiation)
-     *
-     * @return array{Hunger: ?float, Thirst: ?float, BloodDrugLevel: ?float, Stun: ?float}
+     * @return array{Hunger: ?float, Thirst: ?float, BloodDrugLevel: ?float, BodyRadiation: ?float, Stun: ?float}
      */
     public function getStatModifications(): array
     {
@@ -100,95 +86,95 @@ final class ConsumableSubtype
             'Stun' => null,
         ];
 
-        foreach ($this->data['effects'] ?? [] as $effect) {
-            if ($effect['type'] === 'ModifyActorStatus') {
-                $statType = $effect['statType'];
+        foreach ($this->getEffects() as $effect) {
+            if (($effect['type'] ?? null) !== 'ModifyActorStatus') {
+                continue;
+            }
 
-                if (array_key_exists($statType, $stats)) {
-                    $stats[$statType] = $effect['statPointChange'];
-                }
+            $statType = $effect['statType'] ?? null;
+            if (is_string($statType) && array_key_exists($statType, $stats)) {
+                $stats[$statType] = (float) ($effect['statPointChange'] ?? 0.0);
             }
         }
 
         return $stats;
     }
 
-    /**
-     * Get total health change per microSCU (may combine multiple effects)
-     */
     public function getHealthChangePerMicroScu(): ?float
     {
         $total = 0.0;
         $hasHealth = false;
 
-        foreach ($this->data['effects'] ?? [] as $effect) {
-            if ($effect['type'] === 'Health') {
-                $total += (float) ($effect['healthChange'] ?? 0.0);
-                $hasHealth = true;
+        foreach ($this->getEffects() as $effect) {
+            if (($effect['type'] ?? null) !== 'Health') {
+                continue;
             }
+
+            $total += (float) ($effect['healthChange'] ?? 0.0);
+            $hasHealth = true;
         }
 
         return $hasHealth ? $total : null;
     }
 
     /**
-     * Get all buff effects (positive) with durations
-     *
      * @return array<array{Type: string, Duration: ?int}>|null
      */
     public function getBuffs(): ?array
     {
         $buffs = [];
 
-        foreach ($this->data['effects'] ?? [] as $effect) {
-            if ($effect['type'] === 'AddBuffEffect') {
-                $buffType = $effect['buffType'];
-
-                if (in_array($buffType, self::BUFFS, true)) {
-                    $buffs[] = [
-                        'Type' => $buffType,
-                        'Duration' => $effect['duration'] ?? null,
-                    ];
-                }
+        foreach ($this->getEffects() as $effect) {
+            if (($effect['type'] ?? null) !== 'AddBuffEffect') {
+                continue;
             }
+
+            $buffType = $effect['buffType'] ?? null;
+            if (! is_string($buffType) || ! in_array($buffType, self::BUFFS, true)) {
+                continue;
+            }
+
+            $buffs[] = [
+                'Type' => $buffType,
+                'Duration' => $effect['duration'] ?? null,
+            ];
         }
 
-        return empty($buffs) ? null : $buffs;
+        return $buffs === [] ? null : $buffs;
     }
 
     /**
-     * Get all debuff effects (negative) with durations
-     *
      * @return array<array{Type: string, Duration: ?int}>|null
      */
     public function getDebuffs(): ?array
     {
         $debuffs = [];
 
-        foreach ($this->data['effects'] ?? [] as $effect) {
-            if ($effect['type'] === 'AddBuffEffect') {
-                $buffType = $effect['buffType'];
-
-                if (in_array($buffType, self::DEBUFFS, true)) {
-                    $debuffs[] = [
-                        'Type' => $buffType,
-                        'Duration' => $effect['duration'] ?? null,
-                    ];
-                }
+        foreach ($this->getEffects() as $effect) {
+            if (($effect['type'] ?? null) !== 'AddBuffEffect') {
+                continue;
             }
+
+            $buffType = $effect['buffType'] ?? null;
+            if (! is_string($buffType) || ! in_array($buffType, self::DEBUFFS, true)) {
+                continue;
+            }
+
+            $debuffs[] = [
+                'Type' => $buffType,
+                'Duration' => $effect['duration'] ?? null,
+            ];
         }
 
-        return empty($debuffs) ? null : $debuffs;
+        return $debuffs === [] ? null : $debuffs;
     }
 
     /**
-     * Get medical effects categorized by type
-     *
      * @return array{
-     *     PainMasking: string[],
-     *     CombatBuffs: string[],
-     *     StaminaEffects: string[],
-     *     ImpactResistance: string[]
+     *     PainMasking?: string[],
+     *     CombatBuffs?: string[],
+     *     StaminaEffects?: string[],
+     *     ImpactResistance?: string[]
      * }|null
      */
     public function getMedicalEffects(): ?array
@@ -200,45 +186,126 @@ final class ConsumableSubtype
             'ImpactResistance' => [],
         ];
 
-        foreach ($this->data['effects'] ?? [] as $effect) {
-            if ($effect['type'] === 'AddBuffEffect') {
-                $buffType = $effect['buffType'];
+        foreach ($this->getEffects() as $effect) {
+            if (($effect['type'] ?? null) !== 'AddBuffEffect') {
+                continue;
+            }
 
-                if (in_array($buffType, self::MEDICAL_PAIN_MASKING, true)) {
-                    $medical['PainMasking'][] = $buffType;
-                }
+            $buffType = $effect['buffType'] ?? null;
+            if (! is_string($buffType) || $buffType === '') {
+                continue;
+            }
 
-                if (in_array($buffType, self::MEDICAL_COMBAT_BUFFS, true)) {
-                    $medical['CombatBuffs'][] = $buffType;
-                }
+            if (in_array($buffType, self::MEDICAL_PAIN_MASKING, true)) {
+                $medical['PainMasking'][] = $buffType;
+            }
 
-                if (in_array($buffType, self::MEDICAL_STAMINA_EFFECTS, true)) {
-                    $medical['StaminaEffects'][] = $buffType;
-                }
+            if (in_array($buffType, self::MEDICAL_COMBAT_BUFFS, true)) {
+                $medical['CombatBuffs'][] = $buffType;
+            }
 
-                if (in_array($buffType, self::MEDICAL_IMPACT_RESISTANCE, true)) {
-                    $medical['ImpactResistance'][] = $buffType;
-                }
+            if (in_array($buffType, self::MEDICAL_STAMINA_EFFECTS, true)) {
+                $medical['StaminaEffects'][] = $buffType;
+            }
+
+            if (in_array($buffType, self::MEDICAL_IMPACT_RESISTANCE, true)) {
+                $medical['ImpactResistance'][] = $buffType;
             }
         }
 
-        $hasEffects = ! empty($medical['PainMasking']) ||
-                     ! empty($medical['CombatBuffs']) ||
-                     ! empty($medical['StaminaEffects']) ||
-                     ! empty($medical['ImpactResistance']);
+        $hasEffects = ! empty($medical['PainMasking'])
+            || ! empty($medical['CombatBuffs'])
+            || ! empty($medical['StaminaEffects'])
+            || ! empty($medical['ImpactResistance']);
 
         if (! $hasEffects) {
             return null;
         }
 
-        return array_filter($medical, fn ($effects) => ! empty($effects));
+        return array_filter($medical, static fn (array $effects): bool => $effects !== []);
     }
 
     /**
-     * Get all effects (raw data)
+     * @return array<int, array<string, mixed>>
      */
     public function getEffects(): array
     {
-        return $this->data['effects'] ?? [];
+        $effects = [];
+
+        foreach ($this->getEffectElements() as $effectElement) {
+            $effect = $this->parseEffect($effectElement);
+            if ($effect !== null) {
+                $effects[] = $effect;
+            }
+        }
+
+        return $effects;
+    }
+
+    /**
+     * @return list<DOMElement>
+     */
+    private function getEffectElements(): array
+    {
+        $containers = $this->documentElement?->getElementsByTagName('effectsPerMicroSCU');
+        $container = $containers?->item(0);
+
+        if (! $container instanceof DOMElement) {
+            return [];
+        }
+
+        $effects = [];
+
+        foreach ($container->childNodes as $node) {
+            if ($node instanceof DOMElement) {
+                $effects[] = $node;
+            }
+        }
+
+        return $effects;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function parseEffect(DOMElement $effectElement): ?array
+    {
+        $effectType = $effectElement->getAttribute('__polymorphicType');
+        if ($effectType === '') {
+            $effectType = $effectElement->nodeName;
+        }
+
+        return match ($effectType) {
+            'ConsumableEffectModifyActorStatus' => [
+                'type' => 'ModifyActorStatus',
+                'statType' => $effectElement->getAttribute('statType'),
+                'statPointChange' => (float) $effectElement->getAttribute('statPointChange'),
+                'statCooldownChange' => (float) ($effectElement->getAttribute('statCooldownChange') ?: 0),
+            ],
+            'ConsumableEffectHealth' => [
+                'type' => 'Health',
+                'healthChange' => (float) $effectElement->getAttribute('healthChange'),
+            ],
+            'ConsumableEffectAddBuffEffect' => [
+                'type' => 'AddBuffEffect',
+                'buffType' => $effectElement->getAttribute('buffType'),
+                'duration' => $this->extractBuffDuration($effectElement),
+            ],
+            default => null,
+        };
+    }
+
+    private function extractBuffDuration(DOMElement $effectElement): ?int
+    {
+        $durationNodes = $effectElement->getElementsByTagName('BuffDurationOverride');
+        $durationNode = $durationNodes->item(0);
+
+        if (! $durationNode instanceof DOMElement) {
+            return null;
+        }
+
+        $duration = $durationNode->getAttribute('durationOverride');
+
+        return $duration === '' ? null : (int) $duration;
     }
 }

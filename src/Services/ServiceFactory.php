@@ -89,7 +89,6 @@ final class ServiceFactory
         return self::getService('AmmoParamsService');
     }
 
-
     public static function getVehicleService(): VehicleService
     {
         return self::getService('VehicleService');
@@ -103,11 +102,6 @@ final class ServiceFactory
     public static function getLoadoutFileService(): LoadoutFileService
     {
         return self::getService('LoadoutFileService');
-    }
-
-    public static function getConsumableSubtypeService(): ConsumableSubtypeService
-    {
-        return self::getService('ConsumableSubtypeService');
     }
 
     private static function getService(string $serviceName): mixed
@@ -143,7 +137,6 @@ final class ServiceFactory
             'VehicleService' => new VehicleService(self::$activeScDataPath),
             'FoundryLookupService' => new FoundryLookupService(self::$activeScDataPath),
             'LoadoutFileService' => new LoadoutFileService(self::$activeScDataPath),
-            'ConsumableSubtypeService' => new ConsumableSubtypeService(self::$activeScDataPath),
             default => throw new RuntimeException('Unknown service: '.$serviceName),
         };
 

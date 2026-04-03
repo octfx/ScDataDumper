@@ -192,6 +192,29 @@ abstract class BaseService
         }
     }
 
+    protected static function cacheGet(array &$cache, string $key): mixed
+    {
+        if (! array_key_exists($key, $cache)) {
+            return null;
+        }
+
+        $value = $cache[$key];
+        unset($cache[$key]);
+        $cache[$key] = $value;
+
+        return $value;
+    }
+
+    protected static function cachePut(array &$cache, string $key, mixed $value, int $limit): void
+    {
+        unset($cache[$key]);
+        $cache[$key] = $value;
+
+        if (count($cache) > $limit) {
+            $cache = array_slice($cache, -$limit, preserve_keys: true);
+        }
+    }
+
     public static function resetSharedState(): void
     {
         self::$uuidToPathMap = [];

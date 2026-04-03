@@ -13,11 +13,14 @@ final class ItemService extends BaseService
     private array $entityPaths;
 
     /**
-     * Document cache keyed by file path
+     * LRU document cache keyed by file path.
+     * Most-recently-used entries are at the end; oldest at the front.
      *
      * @var array<string, EntityClassDefinition>
      */
     protected static array $documentCache = [];
+
+    private const CACHE_LIMIT = 2000;
 
     public static function resetDocumentCache(): void
     {
@@ -88,13 +91,13 @@ final class ItemService extends BaseService
 
     public function load(string $filePath, string $class = EntityClassDefinition::class): EntityClassDefinition
     {
-        if (isset(self::$documentCache[$filePath])) {
-            return self::$documentCache[$filePath];
+        $item = self::cacheGet(self::$documentCache, $filePath);
+        if ($item instanceof EntityClassDefinition) {
+            return $item;
         }
 
         $item = $this->loadDocument($filePath, $class, $class === EntityClassDefinition::class);
-
-        self::$documentCache[$filePath] = $item;
+        self::cachePut(self::$documentCache, $filePath, $item, self::CACHE_LIMIT);
 
         return $item;
     }
