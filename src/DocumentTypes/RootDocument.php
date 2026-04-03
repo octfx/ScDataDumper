@@ -129,16 +129,44 @@ abstract class RootDocument extends DOMDocument
         return $values;
     }
 
-    protected function getStringAttribute(string $name): ?string
+    protected function getString(string $path): ?string
     {
-        $value = $this->get('@'.$name);
+        $this->assertAttributePath($path);
+        $value = $this->get($path);
 
         return is_string($value) && $value !== '' ? $value : null;
     }
 
-    protected function getBooleanAttribute(string $name): bool
+    protected function getInt(string $path): ?int
     {
-        return (int) ($this->get('@'.$name) ?? 0) === 1;
+        $this->assertAttributePath($path);
+        $value = $this->get($path);
+
+        return is_numeric($value) ? (int) $value : null;
+    }
+
+    protected function getFloat(string $path): ?float
+    {
+        $this->assertAttributePath($path);
+        $value = $this->get($path);
+
+        return is_numeric($value) ? (float) $value : null;
+    }
+
+    protected function getBool(string $path): bool
+    {
+        $this->assertAttributePath($path);
+
+        return (int) ($this->get($path) ?? 0) === 1;
+    }
+
+    protected function getNullableBool(string $path): ?bool
+    {
+        $this->assertAttributePath($path);
+
+        $value = $this->get($path);
+
+        return is_numeric($value) ? (int) $value === 1 : null;
     }
 
     /**
@@ -176,5 +204,15 @@ abstract class RootDocument extends DOMDocument
     protected function getDomDocument(): DOMDocument
     {
         return $this;
+    }
+
+    private function assertAttributePath(string $path): void
+    {
+        if (! str_contains($path, '@')) {
+            throw new RuntimeException(sprintf(
+                'Attribute path must include "@": %s',
+                $path
+            ));
+        }
     }
 }

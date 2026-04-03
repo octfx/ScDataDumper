@@ -10,12 +10,18 @@ use Octfx\ScDataDumper\DocumentTypes\ConsumableSubtype;
 use Octfx\ScDataDumper\DocumentTypes\CraftingGameplayPropertyDef;
 use Octfx\ScDataDumper\DocumentTypes\DamageResistanceMacro;
 use Octfx\ScDataDumper\DocumentTypes\Faction;
+use Octfx\ScDataDumper\DocumentTypes\Faction_LEGACY;
 use Octfx\ScDataDumper\DocumentTypes\FoundryRecord;
 use Octfx\ScDataDumper\DocumentTypes\MeleeCombatConfig;
 use Octfx\ScDataDumper\DocumentTypes\MiningLaserGlobalParams;
+use Octfx\ScDataDumper\DocumentTypes\Radar\RadarContactTypeEntry;
 use Octfx\ScDataDumper\DocumentTypes\RadarSystemSharedParams;
 use Octfx\ScDataDumper\DocumentTypes\ResourceType;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
+use Octfx\ScDataDumper\DocumentTypes\Starmap\Jurisdiction;
+use Octfx\ScDataDumper\DocumentTypes\Starmap\StarMapAmenityTypeEntry;
+use Octfx\ScDataDumper\DocumentTypes\Starmap\StarMapObject;
+use Octfx\ScDataDumper\DocumentTypes\Starmap\StarMapObjectType;
 
 final class FoundryLookupService extends BaseService
 {
@@ -39,6 +45,11 @@ final class FoundryLookupService extends BaseService
     public function getRadarSystemParamsByReference(?string $uuid): ?RadarSystemSharedParams
     {
         return $this->getByReference($uuid, class: RadarSystemSharedParams::class);
+    }
+
+    public function getRadarContactTypeByReference(?string $uuid): ?RadarContactTypeEntry
+    {
+        return $this->getByReference($uuid, ['foundry/records/radarsystem'], RadarContactTypeEntry::class);
     }
 
     public function getCraftingGameplayPropertyByReference(?string $uuid): ?CraftingGameplayPropertyDef
@@ -103,9 +114,23 @@ final class FoundryLookupService extends BaseService
         }
     }
 
-    public function getFactionByReference(string $uuid): ?Faction
+    public function getFactionByReference(string $uuid): ?RootDocument
     {
-        return $this->getByReference($uuid, ['factions/'], Faction::class);
+        $path = $this->resolvePathByReference($uuid);
+
+        if ($path === null) {
+            return null;
+        }
+
+        if ($this->pathMatches($path, ['/records/factions_legacy/'])) {
+            return $this->load($path, Faction_LEGACY::class);
+        }
+
+        if ($this->pathMatches($path, ['/records/factions/'])) {
+            return $this->load($path, Faction::class);
+        }
+
+        return null;
     }
 
     public function getMissionTypeByReference(?string $uuid): ?FoundryRecord
@@ -144,9 +169,24 @@ final class FoundryLookupService extends BaseService
     /**
      * Starmap objects represent concrete navigable places (stars, planets, stations, outposts, etc).
      */
-    public function getStarMapObjectByReference(?string $uuid): ?FoundryRecord
+    public function getStarMapObjectByReference(?string $uuid): ?StarMapObject
     {
-        return $this->getByReference($uuid, ['/records/starmap/pu/']);
+        return $this->getByReference($uuid, ['/records/starmap/pu/'], StarMapObject::class);
+    }
+
+    public function getJurisdictionByReference(?string $uuid): ?Jurisdiction
+    {
+        return $this->getByReference($uuid, ['/records/lawsystem/jurisdictions/'], Jurisdiction::class);
+    }
+
+    public function getStarMapObjectTypeByReference(?string $uuid): ?StarMapObjectType
+    {
+        return $this->getByReference($uuid, ['/records/starmap/'], StarMapObjectType::class);
+    }
+
+    public function getStarMapAmenityTypeByReference(?string $uuid): ?StarMapAmenityTypeEntry
+    {
+        return $this->getByReference($uuid, ['/records/starmapamenitytypes/'], StarMapAmenityTypeEntry::class);
     }
 
     public function getReputationStandingByReference(?string $uuid): ?FoundryRecord

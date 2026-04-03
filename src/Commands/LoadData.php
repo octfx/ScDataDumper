@@ -142,6 +142,21 @@ class LoadData extends Command
             return $result;
         }
 
+        $io->section('Loading starmap');
+        $starmapArgs = [
+            'scDataPath' => $scDataPath,
+            'jsonOutPath' => $jsonOutPath,
+        ];
+        if ($overwrite) {
+            $starmapArgs['--overwrite'] = true;
+        }
+
+        $result = $runCommand('load:starmap', $starmapArgs);
+
+        if ($result !== Command::SUCCESS) {
+            return $result;
+        }
+
         $io->section('Loading manufacturers');
         $result = $runCommand('load:manufacturers', [
             'scDataPath' => $scDataPath,
