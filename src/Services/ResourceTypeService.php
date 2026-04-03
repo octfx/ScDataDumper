@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Services;
 
-use DOMDocument;
 use Generator;
 use JsonException;
 use Octfx\ScDataDumper\DocumentTypes\ResourceType;
@@ -12,125 +11,81 @@ use RuntimeException;
 
 final class ResourceTypeService extends BaseService
 {
-    /**
-     * @var array<string, string>
-     */
-    private array $resourceTypeXmlByUuid = [];
+    private array $resourceTypePaths = [];
 
     /**
+     * Document cache keyed by file path
+     *
      * @var array<string, ResourceType>
      */
-    private array $instances = [];
+    protected static array $documentCache = [];
+
+    public static function resetDocumentCache(): void
+    {
+        self::$documentCache = [];
+    }
 
     /**
      * @throws JsonException
      */
     public function initialize(): void
     {
-        $cachePath = $this->makeCachePath();
+        $resourceTypePaths = json_decode(
+            file_get_contents($this->classToPathMapPath),
+            true,
+            512,
+            JSON_THROW_ON_ERROR
+        )['ResourceType'] ?? null;
 
-        if (! file_exists($cachePath)) {
+        if (! is_array($resourceTypePaths)) {
             throw new RuntimeException(sprintf(
-                'Missing resource type cache at %s. Run generate:cache with blueprint support first.',
-                $cachePath
+                'Missing resource type paths in %s. Run generate:cache first.',
+                $this->classToPathMapPath
             ));
         }
 
-        $this->loadCache($cachePath);
+        $this->resourceTypePaths = $resourceTypePaths;
     }
 
     public function count(): int
     {
-        return count($this->resourceTypeXmlByUuid);
+        return count($this->resourceTypePaths);
     }
 
     public function iterator(): Generator
     {
-        foreach (array_keys($this->resourceTypeXmlByUuid) as $uuid) {
-            $resourceType = $this->getByReference($uuid);
-
-            if ($resourceType !== null) {
-                yield $resourceType;
-            }
+        foreach ($this->resourceTypePaths as $path) {
+            yield $this->load($path);
         }
     }
 
-    public function getByReference(?string $uuid): ?ResourceType
+    public function getByReference(?string $reference): ?ResourceType
     {
-        $normalizedUuid = $this->normalizeUuid($uuid);
-
-        if ($normalizedUuid === null) {
+        if ($reference === null || ! isset(self::$uuidToPathMap[$reference])) {
             return null;
         }
 
-        if (isset($this->instances[$normalizedUuid])) {
-            return $this->instances[$normalizedUuid];
+        return $this->load(self::$uuidToPathMap[$reference]);
+    }
+
+    public function load(string $filePath, string $class = ResourceType::class): ResourceType
+    {
+        if (! file_exists($filePath)) {
+            throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
         }
 
-        if (! isset($this->resourceTypeXmlByUuid[$normalizedUuid])) {
-            return null;
+        if (isset(self::$documentCache[$filePath])) {
+            return self::$documentCache[$filePath];
         }
 
-        $resourceType = $this->hydrateResourceType($this->resourceTypeXmlByUuid[$normalizedUuid]);
-
-        if ($resourceType === null) {
-            return null;
+        $resourceType = new $class;
+        $resourceType->load($filePath);
+        if ($class === ResourceType::class) {
+            $resourceType->checkValidity();
         }
 
-        $this->instances[$normalizedUuid] = $resourceType;
+        self::$documentCache[$filePath] = $resourceType;
 
         return $resourceType;
-    }
-
-    private function hydrateResourceType(string $xml): ?ResourceType
-    {
-        $document = new DOMDocument;
-        $previousErrorSetting = libxml_use_internal_errors(true);
-        $loaded = $document->loadXML($xml, LIBXML_NOCDATA | LIBXML_NOBLANKS | LIBXML_COMPACT);
-        libxml_clear_errors();
-        libxml_use_internal_errors($previousErrorSetting);
-
-        if (! $loaded || $document->documentElement === null) {
-            return null;
-        }
-
-        $resourceType = ResourceType::fromNode($document->documentElement);
-        $resourceType?->checkValidity();
-
-        return $resourceType;
-    }
-
-    /**
-     * @throws JsonException
-     */
-    private function loadCache(string $path): void
-    {
-        $this->resourceTypeXmlByUuid = json_decode(
-            file_get_contents($path),
-            true,
-            512,
-            JSON_THROW_ON_ERROR
-        );
-    }
-
-    private function makeCachePath(): string
-    {
-        return sprintf(
-            '%s%sresource-type-cache-%s.json',
-            $this->scDataDir,
-            DIRECTORY_SEPARATOR,
-            PHP_OS_FAMILY
-        );
-    }
-
-    private function normalizeUuid(?string $uuid): ?string
-    {
-        if (! is_string($uuid)) {
-            return null;
-        }
-
-        $normalizedUuid = strtolower(trim($uuid));
-
-        return $normalizedUuid === '' ? null : $normalizedUuid;
     }
 }

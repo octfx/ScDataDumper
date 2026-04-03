@@ -4,116 +4,83 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Services;
 
-use DOMDocument;
+use Generator;
 use JsonException;
 use Octfx\ScDataDumper\DocumentTypes\CraftingGameplayPropertyDef;
 use RuntimeException;
 
 final class CraftingGameplayPropertyService extends BaseService
 {
-    /**
-     * @var array<string, string>
-     */
-    private array $gameplayPropertyXmlByUuid = [];
+    private array $gameplayPropertyPaths = [];
 
     /**
+     * Document cache keyed by file path
+     *
      * @var array<string, CraftingGameplayPropertyDef>
      */
-    private array $instances = [];
+    protected static array $documentCache = [];
+
+    public static function resetDocumentCache(): void
+    {
+        self::$documentCache = [];
+    }
 
     /**
      * @throws JsonException
      */
     public function initialize(): void
     {
-        $cachePath = $this->makeCachePath();
-
-        if (! file_exists($cachePath)) {
-            throw new RuntimeException(sprintf(
-                'Missing crafting gameplay property cache at %s. Run generate:cache with blueprint support first.',
-                $cachePath
-            ));
-        }
-
-        $this->loadCache($cachePath);
-    }
-
-    public function getByReference(?string $uuid): ?CraftingGameplayPropertyDef
-    {
-        $normalizedUuid = $this->normalizeUuid($uuid);
-
-        if ($normalizedUuid === null) {
-            return null;
-        }
-
-        if (isset($this->instances[$normalizedUuid])) {
-            return $this->instances[$normalizedUuid];
-        }
-
-        if (! isset($this->gameplayPropertyXmlByUuid[$normalizedUuid])) {
-            return null;
-        }
-
-        $property = $this->hydrateProperty($this->gameplayPropertyXmlByUuid[$normalizedUuid]);
-
-        if ($property === null) {
-            return null;
-        }
-
-        $this->instances[$normalizedUuid] = $property;
-
-        return $property;
-    }
-
-    private function hydrateProperty(string $xml): ?CraftingGameplayPropertyDef
-    {
-        $document = new DOMDocument;
-        $previousErrorSetting = libxml_use_internal_errors(true);
-        $loaded = $document->loadXML($xml, LIBXML_NOCDATA | LIBXML_NOBLANKS | LIBXML_COMPACT);
-        libxml_clear_errors();
-        libxml_use_internal_errors($previousErrorSetting);
-
-        if (! $loaded || $document->documentElement === null) {
-            return null;
-        }
-
-        $property = CraftingGameplayPropertyDef::fromNode($document->documentElement);
-        $property?->checkValidity();
-
-        return $property;
-    }
-
-    /**
-     * @throws JsonException
-     */
-    private function loadCache(string $path): void
-    {
-        $this->gameplayPropertyXmlByUuid = json_decode(
-            file_get_contents($path),
+        $gameplayPropertyPaths = json_decode(
+            file_get_contents($this->classToPathMapPath),
             true,
             512,
             JSON_THROW_ON_ERROR
-        );
+        )['CraftingGameplayPropertyDef'] ?? null;
+
+        if (! is_array($gameplayPropertyPaths)) {
+            throw new RuntimeException(sprintf(
+                'Missing crafting gameplay property paths in %s. Run generate:cache first.',
+                $this->classToPathMapPath
+            ));
+        }
+
+        $this->gameplayPropertyPaths = $gameplayPropertyPaths;
     }
 
-    private function makeCachePath(): string
+    public function iterator(): Generator
     {
-        return sprintf(
-            '%s%scrafting-gameplay-property-cache-%s.json',
-            $this->scDataDir,
-            DIRECTORY_SEPARATOR,
-            PHP_OS_FAMILY
-        );
+        foreach ($this->gameplayPropertyPaths as $path) {
+            yield $this->load($path);
+        }
     }
 
-    private function normalizeUuid(?string $uuid): ?string
+    public function getByReference(?string $reference): ?CraftingGameplayPropertyDef
     {
-        if (! is_string($uuid)) {
+        if ($reference === null || ! isset(self::$uuidToPathMap[$reference])) {
             return null;
         }
 
-        $normalizedUuid = strtolower(trim($uuid));
+        return $this->load(self::$uuidToPathMap[$reference]);
+    }
 
-        return $normalizedUuid === '' ? null : $normalizedUuid;
+    public function load(string $filePath, string $class = CraftingGameplayPropertyDef::class): CraftingGameplayPropertyDef
+    {
+        if (! file_exists($filePath)) {
+            throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
+        }
+
+        if (isset(self::$documentCache[$filePath])) {
+            return self::$documentCache[$filePath];
+        }
+
+        $property = new $class;
+        $property->load($filePath);
+        if ($class === CraftingGameplayPropertyDef::class) {
+            $property->checkValidity();
+        }
+
+        self::$documentCache[$filePath] = $property;
+
+        return $property;
     }
 }

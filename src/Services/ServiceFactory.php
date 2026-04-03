@@ -45,6 +45,8 @@ final class ServiceFactory
         BaseService::resetSharedState();
         BlueprintService::resetDocumentCache();
         ItemService::resetDocumentCache();
+        ResourceTypeService::resetDocumentCache();
+        CraftingGameplayPropertyService::resetDocumentCache();
         VehicleService::resetDocumentCache();
         ItemClassifierService::resetCache();
     }
@@ -94,11 +96,6 @@ final class ServiceFactory
         return self::getService('ItemClassifierService');
     }
 
-    public static function getRadarSystemService(): RadarSystemService
-    {
-        return self::getService('RadarSystemService');
-    }
-
     public static function getAmmoParamsService(): AmmoParamsService
     {
         return self::getService('AmmoParamsService');
@@ -127,6 +124,11 @@ final class ServiceFactory
     public static function getFactionService(): FactionService
     {
         return self::getService('FactionService');
+    }
+
+    public static function getFoundryLookupService(): FoundryLookupService
+    {
+        return self::getService('FoundryLookupService');
     }
 
     public static function getLoadoutFileService(): LoadoutFileService
@@ -170,13 +172,13 @@ final class ServiceFactory
             'LocalizationService' => new LocalizationService(self::$activeScDataPath),
             'ItemClassifierService' => new ItemClassifierService,
             'TagDatabaseService' => new TagDatabaseService(self::$activeScDataPath),
-            'RadarSystemService' => new RadarSystemService(self::$activeScDataPath),
             'AmmoParamsService' => new AmmoParamsService(self::$activeScDataPath),
             'DamageResistanceMacroService' => new DamageResistanceMacroService(self::$activeScDataPath),
             'MeleeCombatConfigService' => new MeleeCombatConfigService(self::$activeScDataPath),
             'MiningLaserGlobalParamsService' => new MiningLaserGlobalParamsService(self::$activeScDataPath),
             'VehicleService' => new VehicleService(self::$activeScDataPath),
             'FactionService' => new FactionService(self::$activeScDataPath),
+            'FoundryLookupService' => new FoundryLookupService(self::$activeScDataPath),
             'LoadoutFileService' => new LoadoutFileService(self::$activeScDataPath),
             'ConsumableSubtypeService' => new ConsumableSubtypeService(self::$activeScDataPath),
             default => throw new RuntimeException('Unknown service: '.$serviceName),

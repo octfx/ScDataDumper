@@ -19,13 +19,13 @@ final class CraftingGameplayPropertyServiceTest extends ScDataTestCase
         parent::setUp();
 
         $this->writeCacheFiles();
-        $this->writeCraftingGameplayPropertyCache([
+        $this->writeExtractedCraftingGameplayPropertyFiles([
             self::WEAPON_DAMAGE_UUID => '<CraftingGameplayPropertyDef.GPP_Weapon_Damage propertyName="Weapon Damage" unitFormat="Percent" __type="CraftingGameplayPropertyDef" __ref="cfc129ce-488a-46f2-92f7-9272cd0cfdfb" __path="libs/foundry/records/crafting/craftedproperties/gpp_weapon_damage.xml" />',
             self::WEAPON_FIRERATE_UUID => '<CraftingGameplayPropertyDef.GPP_Weapon_FireRate propertyName="Weapon Fire Rate" unitFormat="RPM" __type="CraftingGameplayPropertyDef" __ref="551b651c-8a34-438f-9d19-93fdffe56246" __path="libs/foundry/records/crafting/craftedproperties/gpp_weapon_firerate.xml" />',
         ]);
     }
 
-    public function test_get_by_reference_returns_gameplay_property_document_from_cache(): void
+    public function test_get_by_reference_returns_gameplay_property_document_from_extracted_file(): void
     {
         $service = new CraftingGameplayPropertyService($this->tempDir);
         $service->initialize();
@@ -36,27 +36,31 @@ final class CraftingGameplayPropertyServiceTest extends ScDataTestCase
         self::assertSame(self::WEAPON_DAMAGE_UUID, $property?->getUuid());
         self::assertSame('GPP_Weapon_Damage', $property?->getClassName());
         self::assertSame('weapon_damage', $property?->getPropertyKey());
-        self::assertFileExists($this->getCachePath());
     }
 
-    public function test_initialize_fails_when_cache_is_missing(): void
+    public function test_iterator_skips_malformed_gameplay_property_documents(): void
     {
-        unlink($this->getCachePath());
+        $invalidUuid = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Missing crafting gameplay property cache');
+        $this->writeExtractedCraftingGameplayPropertyFiles([
+            $invalidUuid => '<CraftingGameplayPropertyDef.Broken',
+        ]);
 
         $service = new CraftingGameplayPropertyService($this->tempDir);
         $service->initialize();
+
+        self::assertNull($service->getByReference($invalidUuid));
+        self::assertCount(2, iterator_to_array($service->iterator()));
     }
 
-    private function getCachePath(): string
+    public function test_initialize_fails_when_gameplay_property_paths_are_missing(): void
     {
-        return sprintf(
-            '%s%scrafting-gameplay-property-cache-%s.json',
-            $this->tempDir,
-            DIRECTORY_SEPARATOR,
-            PHP_OS_FAMILY
-        );
+        $this->writeCacheFiles(classToPathMap: []);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Missing crafting gameplay property paths');
+
+        $service = new CraftingGameplayPropertyService($this->tempDir);
+        $service->initialize();
     }
 }

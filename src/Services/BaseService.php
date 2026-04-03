@@ -41,6 +41,13 @@ abstract class BaseService
     protected static array $classToUuidMap = [];
 
     /**
+     * Maps class name to path
+     *
+     * @var array|mixed
+     */
+    protected static array $classToPathMap = [];
+
+    /**
      * @throws JsonException
      */
     public function __construct(protected readonly string $scDataDir)
@@ -73,6 +80,10 @@ abstract class BaseService
 
         if (empty(self::$uuidToClassMap)) {
             self::$uuidToClassMap = json_decode(file_get_contents($this->uuidToClassMapPath), true, 512, JSON_THROW_ON_ERROR);
+        }
+
+        if (empty(self::$classToPathMap)) {
+            self::$classToPathMap = json_decode(file_get_contents($this->classToPathMapPath), true, 512, JSON_THROW_ON_ERROR);
         }
 
         if (empty(self::$classToUuidMap)) {

@@ -19,7 +19,7 @@ final class ResourceTypeServiceTest extends ScDataTestCase
         parent::setUp();
 
         $this->writeCacheFiles();
-        $this->writeResourceTypeCache([
+        $this->writeExtractedResourceTypeFiles([
             self::GOLD_UUID => <<<'XML'
             <ResourceType.Gold displayName="@items_commodities_gold" description="@items_commodities_gold_desc" defaultThumbnailPath="UI/SharedAssets/commodityLogos/Inv_Icon_Gold.tif" rttThumbnailEntityClass="2c2b877d-0ae6-4139-8244-363b4daf365e" validateDefaultCargoBox="1" __type="ResourceType" __ref="21825507-7923-4683-9bf3-9cfe316940e3" __path="libs/foundry/records/resourcetypedatabase/resourcetypedatabase.xml">
               <densityType>
@@ -45,7 +45,7 @@ final class ResourceTypeServiceTest extends ScDataTestCase
         ]);
     }
 
-    public function test_get_by_reference_returns_resource_type_document_from_cache(): void
+    public function test_get_by_reference_returns_resource_type_document_from_extracted_file(): void
     {
         $service = new ResourceTypeService($this->tempDir);
         $service->initialize();
@@ -56,27 +56,31 @@ final class ResourceTypeServiceTest extends ScDataTestCase
         self::assertSame(self::GOLD_UUID, $resourceType?->getUuid());
         self::assertSame('Gold', $resourceType?->getClassName());
         self::assertSame('@items_commodities_gold', $resourceType?->get('@displayName'));
-        self::assertFileExists($this->getCachePath());
     }
 
-    public function test_initialize_fails_when_cache_is_missing(): void
+    public function test_iterator_skips_malformed_resource_type_documents(): void
     {
-        unlink($this->getCachePath());
+        $invalidUuid = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Missing resource type cache');
+        $this->writeExtractedResourceTypeFiles([
+            $invalidUuid => '<ResourceType.Broken',
+        ]);
 
         $service = new ResourceTypeService($this->tempDir);
         $service->initialize();
+
+        self::assertNull($service->getByReference($invalidUuid));
+        self::assertCount(2, iterator_to_array($service->iterator()));
     }
 
-    private function getCachePath(): string
+    public function test_initialize_fails_when_resource_type_paths_are_missing(): void
     {
-        return sprintf(
-            '%s%sresource-type-cache-%s.json',
-            $this->tempDir,
-            DIRECTORY_SEPARATOR,
-            PHP_OS_FAMILY
-        );
+        $this->writeCacheFiles(classToPathMap: []);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Missing resource type paths');
+
+        $service = new ResourceTypeService($this->tempDir);
+        $service->initialize();
     }
 }

@@ -5,33 +5,14 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Services;
 
 use JsonException;
-use RuntimeException;
 use XMLReader;
 
 final class TagDatabaseService extends BaseService
 {
-    private array $tagNameByUuid = [];
-
-    private readonly string $gameDataPath;
-
     /**
-     * @throws JsonException
+     * @var array<string, array{name: string, legacyGUID: string}>
      */
-    public function __construct(string $scDataDir)
-    {
-        parent::__construct($scDataDir);
-
-        $this->gameDataPath = sprintf(
-            '%s%sData%sGame2.xml',
-            $scDataDir,
-            DIRECTORY_SEPARATOR,
-            DIRECTORY_SEPARATOR,
-        );
-
-        if (! file_exists($this->gameDataPath)) {
-            throw new RuntimeException(sprintf('Missing Game2.xml at %s', $this->gameDataPath));
-        }
-    }
+    private array $tagByUuid = [];
 
     public function initialize(): void
     {
@@ -48,7 +29,17 @@ final class TagDatabaseService extends BaseService
     {
         $key = strtolower($uuid);
 
-        return $this->tagNameByUuid[$key] ?? null;
+        return $this->tagByUuid[$key]['name'] ?? null;
+    }
+
+    /**
+     * @return array{name: string, legacyGUID: string}|null
+     */
+    public function getTag(string $uuid): ?array
+    {
+        $key = strtolower($uuid);
+
+        return $this->tagByUuid[$key] ?? null;
     }
 
     /**
@@ -70,48 +61,60 @@ final class TagDatabaseService extends BaseService
     }
 
     /**
-     * @return array<string, string> Map of uuid => tagName
+     * @return array<string, array{name: string, legacyGUID: string}>
      */
     public function getTagMap(): array
     {
-        return $this->tagNameByUuid;
+        return $this->tagByUuid;
     }
 
     /**
-     * Build cache by parsing Game2.xml
-     *
      * @return array<string, string>
+     */
+    public function getTagNameMap(): array
+    {
+        return array_map(static function ($tag) {
+            return $tag['name'];
+        }, $this->tagByUuid);
+    }
+
+    /**
+     * Build cache by parsing extracted Tag XML files referenced in classToPathMap.
+     *
+     * @return array<string, array{name: string, legacyGUID: string}>
+     * @throws JsonException
      */
     private function loadTagDatabase(): array
     {
-        $reader = new XMLReader;
+        $classToPathMap = json_decode(
+            file_get_contents($this->classToPathMapPath),
+            true,
+            512,
+            JSON_THROW_ON_ERROR
+        );
 
-        if (! $reader->open($this->gameDataPath)) {
-            throw new RuntimeException(sprintf('Failed to open %s', $this->gameDataPath));
+        $tagPaths = $classToPathMap['Tag'] ?? [];
+        if (! is_array($tagPaths)) {
+            return [];
         }
 
         $tags = [];
 
-        while ($reader->read()) {
-            if ($reader->nodeType !== XMLReader::ELEMENT) {
+        foreach ($tagPaths as $path) {
+            if (! is_string($path) || $path === '') {
                 continue;
             }
 
-            if (! str_starts_with($reader->name, 'Tag.')) {
+            $tag = $this->readTagFile($path);
+            if ($tag === null) {
                 continue;
             }
 
-            $tagName = $reader->getAttribute('tagName');
-            $uuid = $reader->getAttribute('__ref');
-
-            if ($tagName === null || $uuid === null) {
-                continue;
-            }
-
-            $tags[strtolower($uuid)] = $tagName;
+            $tags[strtolower($tag['uuid'])] = [
+                'name' => $tag['name'],
+                'legacyGUID' => $tag['legacyGUID'],
+            ];
         }
-
-        $reader->close();
 
         return $tags;
     }
@@ -121,13 +124,7 @@ final class TagDatabaseService extends BaseService
      */
     private function buildCache(): void
     {
-        if (! file_exists($this->gameDataPath)) {
-            $this->tagNameByUuid = [];
-
-            return;
-        }
-
-        $this->tagNameByUuid = $this->loadTagDatabase();
+        $this->tagByUuid = $this->loadTagDatabase();
         $this->writeCache();
     }
 
@@ -141,7 +138,7 @@ final class TagDatabaseService extends BaseService
         $ref = fopen($cachePath, 'wb');
         fwrite(
             $ref,
-            json_encode($this->tagNameByUuid, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT)
+            json_encode($this->tagByUuid, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT)
         );
         fclose($ref);
     }
@@ -151,7 +148,7 @@ final class TagDatabaseService extends BaseService
      */
     private function loadCache(string $path): void
     {
-        $this->tagNameByUuid = json_decode(
+        $this->tagByUuid = json_decode(
             file_get_contents($path),
             true,
             512,
@@ -162,10 +159,46 @@ final class TagDatabaseService extends BaseService
     private function makeCachePath(): string
     {
         return sprintf(
-            '%s%stagdatabase-cache-%s.json',
+            '%s%stagdatabase-%s.json',
             $this->scDataDir,
             DIRECTORY_SEPARATOR,
             PHP_OS_FAMILY
         );
+    }
+
+    /**
+     * @return array{uuid: string, name: string, legacyGUID: string}|null
+     */
+    private function readTagFile(string $path): ?array
+    {
+        $reader = XMLReader::open($path, null, LIBXML_NONET | LIBXML_COMPACT);
+        if ($reader === false) {
+            return null;
+        }
+
+        try {
+            while ($reader->read()) {
+                if ($reader->nodeType !== XMLReader::ELEMENT) {
+                    continue;
+                }
+
+                $uuid = $reader->getAttribute('__ref') ?? '';
+                $name = $reader->getAttribute('tagName') ?? '';
+
+                if ($uuid === '' || $name === '') {
+                    return null;
+                }
+
+                return [
+                    'uuid' => $uuid,
+                    'name' => $name,
+                    'legacyGUID' => $reader->getAttribute('legacyGUID') ?? '',
+                ];
+            }
+        } finally {
+            $reader->close();
+        }
+
+        return null;
     }
 }

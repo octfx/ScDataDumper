@@ -6,11 +6,8 @@ namespace Octfx\ScDataDumper\Commands;
 
 use Exception;
 use Octfx\ScDataDumper\Services\CacheService;
-use Octfx\ScDataDumper\Services\ConsumableSubtypeService;
-use Octfx\ScDataDumper\Services\CraftingGameplayPropertyCacheBuilder;
-use Octfx\ScDataDumper\Services\ResourceTypeCacheBuilder;
+use Octfx\ScDataDumper\Services\DataDumper\Game2ExtractorService;
 use Octfx\ScDataDumper\Services\ServiceFactory;
-use Octfx\ScDataDumper\Services\TagDatabaseService;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -61,38 +58,17 @@ class GenerateCache extends Command
                 DIRECTORY_SEPARATOR,
                 PHP_OS_FAMILY
             ),
-            sprintf(
-                '%s%sconsumable-subType-cache-%s.json',
-                $input->getArgument('path'),
-                DIRECTORY_SEPARATOR,
-                PHP_OS_FAMILY
-            ),
-            sprintf(
-                '%s%stagdatabase-cache-%s.json',
-                $input->getArgument('path'),
-                DIRECTORY_SEPARATOR,
-                PHP_OS_FAMILY
-            ),
         ];
-
-        $cacheFiles[] = sprintf(
-            '%s%sresource-type-cache-%s.json',
-            $input->getArgument('path'),
-            DIRECTORY_SEPARATOR,
-            PHP_OS_FAMILY
-        );
-        $cacheFiles[] = sprintf(
-            '%s%scrafting-gameplay-property-cache-%s.json',
-            $input->getArgument('path'),
-            DIRECTORY_SEPARATOR,
-            PHP_OS_FAMILY
-        );
 
         $allExist = array_reduce($cacheFiles, static fn ($carry, $item) => $carry && file_exists($item), true);
 
         if ($allExist && ! $input->getOption('overwrite')) {
             return Command::SUCCESS;
         }
+
+        $io->title('[ScDataDumper] Extracting missing Game2 files');
+        $service = new Game2ExtractorService($input->getArgument('path'), $io);
+        $service->extract();
 
         $io->title('[ScDataDumper] Generating cache files');
 
@@ -102,25 +78,6 @@ class GenerateCache extends Command
         $start = microtime(true);
         try {
             $service->makeCacheFiles();
-
-            // Generate ConsumableSubtype cache
-            $io->section('Generating ConsumableSubtype cache');
-            $consumableService = new ConsumableSubtypeService($input->getArgument('path'));
-            $consumableService->initialize();
-            $io->success('Generated ConsumableSubtype cache with '.$consumableService->getCount().' entries');
-
-            $io->section('Generating Tag Database cache');
-            $tagDatabaseService = new TagDatabaseService($input->getArgument('path'));
-            $tagDatabaseService->initialize();
-            $io->success('Generated Tag Database cache');
-
-            $io->section('Generating Resource Type cache');
-            $resourceTypeCount = new ResourceTypeCacheBuilder($input->getArgument('path'))->build();
-            $io->success('Generated Resource Type cache with '.$resourceTypeCount.' entries');
-
-            $io->section('Generating Crafting Gameplay Property cache');
-            $propertyCount = new CraftingGameplayPropertyCacheBuilder($input->getArgument('path'))->build();
-            $io->success('Generated Crafting Gameplay Property cache with '.$propertyCount.' entries');
         } catch (Exception $e) {
             $io->error($e->getMessage());
 
