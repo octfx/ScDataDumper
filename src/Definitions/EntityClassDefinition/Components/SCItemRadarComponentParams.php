@@ -16,8 +16,8 @@ class SCItemRadarComponentParams extends Element
 
         parent::initialize($document);
 
-        $svc = ServiceFactory::getRadarSystemService();
-        $radarSystem = $svc->getByReference($this->get('@sharedParams'));
+        $svc = ServiceFactory::getFoundryLookupService();
+        $radarSystem = $svc->getRadarSystemParamsByReference($this->get('@sharedParams'));
 
         if ($this->get('RadarSystem@__ref') !== $this->get('@sharedParams')) {
             $this->appendNode($document, $radarSystem, 'RadarSystem');
