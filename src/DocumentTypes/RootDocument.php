@@ -114,6 +114,34 @@ abstract class RootDocument extends DOMDocument
     }
 
     /**
+     * @return list<string>
+     */
+    protected function queryAttributeValues(string $xPath, string $attribute): array
+    {
+        $values = [];
+
+        foreach ($this->getAll($xPath.'/@'.$attribute) as $value) {
+            if (is_string($value) && $value !== '') {
+                $values[] = $value;
+            }
+        }
+
+        return $values;
+    }
+
+    protected function getStringAttribute(string $name): ?string
+    {
+        $value = $this->get('@'.$name);
+
+        return is_string($value) && $value !== '' ? $value : null;
+    }
+
+    protected function getBooleanAttribute(string $name): bool
+    {
+        return (int) ($this->get('@'.$name) ?? 0) === 1;
+    }
+
+    /**
      * Recursively walks the given xml $element and turns it into an array.
      * If a node name matches a class in Definitions, it is passed to the matching definition and `toArray()` is called on the instance
      *

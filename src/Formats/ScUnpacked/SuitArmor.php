@@ -32,7 +32,7 @@ final class SuitArmor extends BaseFormat
             $signatures[$part->get('@signatureType')] = $part->get('@signatureEmission');
         }
 
-        $damageResistanceMacro = ServiceFactory::getDamageResistanceMacroService()->getByReference(
+        $damageResistanceMacro = ServiceFactory::getFoundryLookupService()->getDamageResistanceMacroByReference(
             $armor->get('@damageResistance')
         );
 

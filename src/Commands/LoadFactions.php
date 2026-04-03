@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Commands;
 
 use JsonException;
+use Octfx\ScDataDumper\DocumentTypes\Faction;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -41,9 +42,9 @@ class LoadFactions extends Command
 
         $overwrite = ($input->getOption('overwrite') ?? false) === true;
 
-        $service = ServiceFactory::getFactionService();
+        $service = ServiceFactory::getFoundryLookupService();
 
-        $io->progressStart($service->count());
+        $io->progressStart($service->countDocumentType('Faction'));
 
         $outDir = sprintf('%s%sfactions', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
 
@@ -53,7 +54,7 @@ class LoadFactions extends Command
 
         $start = microtime(true);
 
-        foreach ($service->iterator() as $faction) {
+        foreach ($service->getDocumentType('Faction', Faction::class) as $faction) {
             $fileName = strtolower($faction->getClassName());
             $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
 

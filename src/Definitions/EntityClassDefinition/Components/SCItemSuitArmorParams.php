@@ -16,8 +16,8 @@ class SCItemSuitArmorParams extends Element
 
         parent::initialize($document);
 
-        $svc = ServiceFactory::getDamageResistanceMacroService();
-        $damageResistance = $svc->getByReference($this->get('@damageResistance'));
+        $svc = ServiceFactory::getFoundryLookupService();
+        $damageResistance = $svc->getDamageResistanceMacroByReference($this->get('@damageResistance'));
 
         if ($this->get('DamageResistance@__ref') !== $this->get('@damageResistance')) {
             $this->appendNode($document, $damageResistance, 'DamageResistance');

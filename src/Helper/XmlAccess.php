@@ -3,6 +3,7 @@
 namespace Octfx\ScDataDumper\Helper;
 
 use DOMDocument;
+use DOMElement;
 use DOMXPath;
 use Octfx\ScDataDumper\Definitions\Element;
 
@@ -93,6 +94,65 @@ trait XmlAccess
         }
 
         return $default;
+    }
+
+    /**
+     * Retrieve all matching elements or attribute values using an XPath-like query.
+     *
+     * The query is evaluated with the current element as the context node (if this trait is used
+     * in Element) or the document element otherwise. Relative and absolute path behavior matches
+     * {@see get()}.
+     *
+     * Attribute lookups use the same @ syntax as {@see get()}. When querying attributes, values
+     * are returned for every matched node that defines the attribute; missing attributes are
+     * skipped. Numeric attribute values are cast to float.
+     *
+     * @return list<Element|float|string>
+     */
+    public function getAll(string $xPath): array
+    {
+        if ($this->domXPath === null) {
+            $this->initXPath();
+        }
+
+        [$query, $attribute] = $this->splitXPathAttribute($xPath);
+
+        $document = $this->getDomDocument();
+        $contextNode = $this instanceof Element
+            ? $this->getNode()
+            : ($document->documentElement ?? $document);
+
+        if ($query === '') {
+            $query = '.';
+        }
+
+        $nodes = $this->domXPath->query($query, $contextNode);
+
+        if ($nodes === false || $nodes->length === 0) {
+            return [];
+        }
+
+        $results = [];
+
+        foreach ($nodes as $node) {
+            if ($attribute !== null) {
+                $value = $node?->attributes?->getNamedItem($attribute)?->nodeValue;
+
+                if ($value === null) {
+                    continue;
+                }
+
+                $results[] = is_numeric($value) ? (float) $value : $value;
+
+                continue;
+            }
+
+            if ($node instanceof DOMElement) {
+                $results[] = new Element($node);
+            }
+        }
+
+        return $results;
     }
 
     /**

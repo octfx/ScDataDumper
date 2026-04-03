@@ -7,6 +7,8 @@ namespace Octfx\ScDataDumper\Services;
 use DOMDocument;
 use JsonException;
 use Octfx\ScDataDumper\DocumentTypes\ConsumableSubtype;
+use RuntimeException;
+use XMLReader;
 
 final class ConsumableSubtypeService extends BaseService
 {
@@ -74,73 +76,52 @@ final class ConsumableSubtypeService extends BaseService
     }
 
     /**
-     * Build cache by parsing Game2.xml
+     * Build cache by parsing extracted ConsumableSubtype XML files referenced in classToPathMap.
      *
      * @throws JsonException
      */
     private function buildCache(): void
     {
-        $game2Path = $this->scDataDir.DIRECTORY_SEPARATOR.'Data'.DIRECTORY_SEPARATOR.'Game2.xml';
-
-        if (! file_exists($game2Path)) {
-            $this->consumableSubtypeData = [];
-
-            return;
-        }
-
-        $this->consumableSubtypeData = $this->parseGame2Xml($game2Path);
+        $this->consumableSubtypeData = $this->loadConsumableSubtypeData();
         $this->writeCache();
     }
 
     /**
-     * Parse Game2.xml to extract ConsumableSubtype entries
+     * @return array<string, array{typeName: string, consumableName: string, effects: array<int, array<string, mixed>>}>
+     *
+     * @throws JsonException
      */
-    private function parseGame2Xml(string $filePath): array
+    private function loadConsumableSubtypeData(): array
     {
-        $consumableSubtypes = [];
+        $classToPathMap = json_decode(
+            file_get_contents($this->classToPathMapPath),
+            true,
+            512,
+            JSON_THROW_ON_ERROR
+        );
 
-        $reader = fopen($filePath, 'rb');
-        if (! $reader) {
-            return [];
+        $consumableSubtypePaths = $classToPathMap['ConsumableSubtype'] ?? [];
+        if (! is_array($consumableSubtypePaths)) {
+            throw new RuntimeException(sprintf(
+                'Missing consumable subtype paths in %s. Run generate:cache first.',
+                $this->classToPathMapPath
+            ));
         }
 
-        $inConsumableSubtype = false;
-        $currentSubtype = '';
-        $currentUuid = '';
+        $consumableSubtypes = [];
 
-        while (($line = fgets($reader)) !== false) {
-            if (preg_match('/<ConsumableSubtype\.([a-f0-9_]+)\s/', $line, $matches)) {
-                $inConsumableSubtype = true;
-                $currentUuid = str_replace('_', '-', $matches[1]);
-                $currentSubtype = $line;
-
+        foreach ($consumableSubtypePaths as $path) {
+            if (! is_string($path) || $path === '') {
                 continue;
             }
 
-            if ($inConsumableSubtype) {
-                $currentSubtype .= $line;
-
-                if (str_contains($line, '</ConsumableSubtype.')) {
-                    $dom = new DOMDocument;
-                    $dom->preserveWhiteSpace = false;
-
-                    $prevErrorSetting = libxml_use_internal_errors(true);
-
-                    if ($dom->loadXML($currentSubtype)) {
-                        $subtypeData = $this->parseConsumableSubtypeXml($dom);
-                        $consumableSubtypes[$currentUuid] = $subtypeData;
-                    }
-
-                    libxml_use_internal_errors($prevErrorSetting);
-
-                    $inConsumableSubtype = false;
-                    $currentSubtype = '';
-                    $currentUuid = '';
-                }
+            $consumableSubtype = $this->readConsumableSubtypeFile($path);
+            if ($consumableSubtype === null) {
+                continue;
             }
-        }
 
-        fclose($reader);
+            $consumableSubtypes[$consumableSubtype['uuid']] = $consumableSubtype['data'];
+        }
 
         return $consumableSubtypes;
     }
@@ -204,6 +185,55 @@ final class ConsumableSubtypeService extends BaseService
         }
 
         return $data;
+    }
+
+    /**
+     * @return array{
+     *     uuid: string,
+     *     data: array{typeName: string, consumableName: string, effects: array<int, array<string, mixed>>}
+     * }|null
+     */
+    private function readConsumableSubtypeFile(string $path): ?array
+    {
+        $reader = XMLReader::open($path, null, LIBXML_NONET | LIBXML_COMPACT);
+        if ($reader === false) {
+            return null;
+        }
+
+        try {
+            while ($reader->read()) {
+                if ($reader->nodeType !== XMLReader::ELEMENT) {
+                    continue;
+                }
+
+                $uuid = $reader->getAttribute('__ref') ?? '';
+                $xml = $reader->readOuterXml();
+                if ($uuid === '' || $xml === '') {
+                    return null;
+                }
+
+                $dom = new DOMDocument;
+                $dom->preserveWhiteSpace = false;
+
+                $prevErrorSetting = libxml_use_internal_errors(true);
+                try {
+                    if (! $dom->loadXML($xml)) {
+                        return null;
+                    }
+                } finally {
+                    libxml_use_internal_errors($prevErrorSetting);
+                }
+
+                return [
+                    'uuid' => $uuid,
+                    'data' => $this->parseConsumableSubtypeXml($dom),
+                ];
+            }
+        } finally {
+            $reader->close();
+        }
+
+        return null;
     }
 
     /**

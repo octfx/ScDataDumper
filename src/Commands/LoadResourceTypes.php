@@ -6,7 +6,6 @@ namespace Octfx\ScDataDumper\Commands;
 
 use JsonException;
 use Octfx\ScDataDumper\DocumentTypes\ResourceType;
-use Octfx\ScDataDumper\Services\ResourceTypeService;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -50,13 +49,13 @@ class LoadResourceTypes extends Command
 
         $this->prepareServices($input, $output);
 
-        $service = ServiceFactory::getResourceTypeService();
-        $io->progressStart($service->count());
+        $service = ServiceFactory::getFoundryLookupService();
+        $io->progressStart($service->countDocumentType('ResourceType'));
         $start = microtime(true);
 
         $resourceTypes = [];
-        foreach ($service->iterator() as $resourceType) {
-            $resourceTypes[] = $this->buildResourceTypeExportEntry($resourceType, $service);
+        foreach ($service->getDocumentType('ResourceType', ResourceType::class) as $resourceType) {
+            $resourceTypes[] = $this->buildResourceTypeExportEntry($resourceType);
             $io->progressAdvance();
         }
 
@@ -110,7 +109,7 @@ class LoadResourceTypes extends Command
      *     box_sizes_scu: list<float|int>
      * }
      */
-    protected function buildResourceTypeExportEntry(ResourceType $resourceType, ResourceTypeService $service): array
+    protected function buildResourceTypeExportEntry(ResourceType $resourceType): array
     {
         $resourceTypeData = $resourceType->toArray();
         $refinedVersionUuid = $this->normalizeString($resourceTypeData['refinedVersion'] ?? null);
@@ -124,7 +123,7 @@ class LoadResourceTypes extends Command
             'name' => $this->resolveLocalizedString($resourceTypeData['displayName'] ?? null) ?? $resourceType->getClassName(),
             'description' => $this->resolveLocalizedString($resourceTypeData['description'] ?? null),
             'refined_version_uuid' => $refinedVersionUuid,
-            'refined_version_name' => $this->resolveRefinedVersionName($refinedVersionUuid, $service),
+            'refined_version_name' => $this->resolveRefinedVersionName($refinedVersionUuid),
             'validate_default_cargo_box' => $this->normalizeBool($resourceTypeData['validateDefaultCargoBox'] ?? null),
             'has_default_cargo_containers' => $boxSizes !== [],
             'box_sizes_scu' => $boxSizes,
@@ -185,13 +184,13 @@ class LoadResourceTypes extends Command
         return $boxSizes;
     }
 
-    private function resolveRefinedVersionName(?string $uuid, ResourceTypeService $service): ?string
+    private function resolveRefinedVersionName(?string $uuid): ?string
     {
         if ($uuid === null) {
             return null;
         }
 
-        $refinedVersion = $service->getByReference($uuid);
+        $refinedVersion = ServiceFactory::getFoundryLookupService()->getResourceTypeByReference($uuid);
 
         if ($refinedVersion === null) {
             return null;

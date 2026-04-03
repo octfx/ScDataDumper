@@ -7,7 +7,6 @@ namespace Octfx\ScDataDumper\Services;
 use Generator;
 use JsonException;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
-use RuntimeException;
 
 final class ItemService extends BaseService
 {
@@ -63,11 +62,13 @@ final class ItemService extends BaseService
 
     public function getByReference(?string $reference): ?EntityClassDefinition
     {
-        if ($reference === null || ! isset(self::$uuidToPathMap[$reference])) {
+        $path = $this->resolvePathByReference($reference);
+
+        if ($path === null) {
             return null;
         }
 
-        return $this->load(self::$uuidToPathMap[$reference]);
+        return $this->load($path);
     }
 
     /**
@@ -87,19 +88,11 @@ final class ItemService extends BaseService
 
     public function load(string $filePath, string $class = EntityClassDefinition::class): EntityClassDefinition
     {
-        if (! file_exists($filePath)) {
-            throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
-        }
-
         if (isset(self::$documentCache[$filePath])) {
             return self::$documentCache[$filePath];
         }
 
-        $item = new $class;
-        $item->load($filePath);
-        if ($class === EntityClassDefinition::class) {
-            $item->checkValidity();
-        }
+        $item = $this->loadDocument($filePath, $class, $class === EntityClassDefinition::class);
 
         self::$documentCache[$filePath] = $item;
 

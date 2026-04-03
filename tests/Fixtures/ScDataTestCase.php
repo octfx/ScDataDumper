@@ -98,6 +98,52 @@ abstract class ScDataTestCase extends TestCase
     protected function writeResourceTypeCache(array $resourceTypes): void
     {
         $this->writeCacheFile('resource-type-cache', $resourceTypes);
+        $this->writeExtractedResourceTypeFiles($resourceTypes);
+    }
+
+    /**
+     * @param  array<string, string>  $resourceTypes
+     *
+     * @throws JsonException
+     */
+    protected function writeExtractedResourceTypeFiles(array $resourceTypes): void
+    {
+        $resourceTypePathMap = [];
+        $uuidToPathMap = $this->readCacheFileOrEmpty('uuidToPathMap');
+        $uuidToClassMap = $this->readCacheFileOrEmpty('uuidToClassMap');
+        $classToUuidMap = $this->readCacheFileOrEmpty('classToUuidMap');
+
+        foreach ($resourceTypes as $uuid => $xml) {
+            $normalizedUuid = strtolower($uuid);
+            $path = $this->writeFile(
+                sprintf('Game2/libs/foundry/records/resourcetypedatabase/%s.xml', $normalizedUuid),
+                $xml
+            );
+            $className = $this->extractDocumentClassName($xml) ?? $normalizedUuid;
+
+            $resourceTypePathMap[$uuid] = $path;
+            $uuidToPathMap[$normalizedUuid] = $path;
+            $uuidToClassMap[$normalizedUuid] = $className;
+            $classToUuidMap[$className] = $normalizedUuid;
+        }
+
+        $classToPathMapPath = sprintf(
+            '%s%sclassToPathMap-%s.json',
+            $this->tempDir,
+            DIRECTORY_SEPARATOR,
+            PHP_OS_FAMILY
+        );
+
+        $classToPathMap = file_exists($classToPathMapPath)
+            ? json_decode(file_get_contents($classToPathMapPath), true, 512, JSON_THROW_ON_ERROR)
+            : [];
+
+        $classToPathMap['ResourceType'] = array_replace($classToPathMap['ResourceType'] ?? [], $resourceTypePathMap);
+
+        $this->writeCacheFile('classToPathMap', $classToPathMap);
+        $this->writeCacheFile('uuidToPathMap', $uuidToPathMap);
+        $this->writeCacheFile('uuidToClassMap', $uuidToClassMap);
+        $this->writeCacheFile('classToUuidMap', $classToUuidMap);
     }
 
     /**
@@ -108,11 +154,60 @@ abstract class ScDataTestCase extends TestCase
     protected function writeCraftingGameplayPropertyCache(array $properties): void
     {
         $this->writeCacheFile('crafting-gameplay-property-cache', $properties);
+        $this->writeExtractedCraftingGameplayPropertyFiles($properties);
+    }
+
+    /**
+     * @param  array<string, string>  $properties
+     *
+     * @throws JsonException
+     */
+    protected function writeExtractedCraftingGameplayPropertyFiles(array $properties): void
+    {
+        $propertyPathMap = [];
+        $uuidToPathMap = $this->readCacheFileOrEmpty('uuidToPathMap');
+        $uuidToClassMap = $this->readCacheFileOrEmpty('uuidToClassMap');
+        $classToUuidMap = $this->readCacheFileOrEmpty('classToUuidMap');
+
+        foreach ($properties as $uuid => $xml) {
+            $normalizedUuid = strtolower($uuid);
+            $path = $this->writeFile(
+                sprintf('Game2/libs/foundry/records/crafting/craftedproperties/%s.xml', $normalizedUuid),
+                $xml
+            );
+            $className = $this->extractDocumentClassName($xml) ?? $normalizedUuid;
+
+            $propertyPathMap[$uuid] = $path;
+            $uuidToPathMap[$normalizedUuid] = $path;
+            $uuidToClassMap[$normalizedUuid] = $className;
+            $classToUuidMap[$className] = $normalizedUuid;
+        }
+
+        $classToPathMapPath = sprintf(
+            '%s%sclassToPathMap-%s.json',
+            $this->tempDir,
+            DIRECTORY_SEPARATOR,
+            PHP_OS_FAMILY
+        );
+
+        $classToPathMap = file_exists($classToPathMapPath)
+            ? json_decode(file_get_contents($classToPathMapPath), true, 512, JSON_THROW_ON_ERROR)
+            : [];
+
+        $classToPathMap['CraftingGameplayPropertyDef'] = array_replace(
+            $classToPathMap['CraftingGameplayPropertyDef'] ?? [],
+            $propertyPathMap
+        );
+
+        $this->writeCacheFile('classToPathMap', $classToPathMap);
+        $this->writeCacheFile('uuidToPathMap', $uuidToPathMap);
+        $this->writeCacheFile('uuidToClassMap', $uuidToClassMap);
+        $this->writeCacheFile('classToUuidMap', $classToUuidMap);
     }
 
     /**
      * @param  array<string, string>  $translations
-     * @param  array<int, array{name: string, uuid: string}>  $tags
+     * @param  array<int, array{name: string, uuid: string, legacyGUID?: string}>  $tags
      *
      * @throws JsonException
      */
@@ -130,17 +225,7 @@ abstract class ScDataTestCase extends TestCase
             implode(PHP_EOL, $localizationLines)
         );
 
-        $tagNodes = array_map(
-            static fn (array $tag): string => sprintf(
-                '<Tag.%s tagName="%s" __ref="%s" />',
-                strtoupper(str_replace('-', '_', $tag['name'])),
-                $tag['name'],
-                $tag['uuid']
-            ),
-            $tags
-        );
-
-        $this->writeFile('Data/Game2.xml', "<GameData>\n    ".implode("\n    ", $tagNodes)."\n</GameData>");
+        $this->writeExtractedTagFiles($tags);
 
         $inventoryContainerService = new InventoryContainerService($this->tempDir);
         $inventoryContainerService->initialize();
@@ -176,6 +261,48 @@ abstract class ScDataTestCase extends TestCase
     }
 
     /**
+     * @param  array<int, array{name: string, uuid: string, legacyGUID?: string}>  $tags
+     *
+     * @throws JsonException
+     */
+    protected function writeExtractedTagFiles(array $tags): void
+    {
+        $tagPathMap = [];
+
+        foreach ($tags as $tag) {
+            $uuid = $tag['uuid'];
+            $legacyGUID = $tag['legacyGUID'] ?? '4294967295';
+            $path = $this->writeFile(
+                sprintf('Game2/libs/foundry/records/tagdatabase/%s.xml', $uuid),
+                sprintf(
+                    '<Tag.%1$s tagName="%2$s" legacyGUID="%3$s" __type="Tag" __ref="%4$s" __path="libs/foundry/records/tagdatabase/tagdatabase.tagdatabase.xml" />',
+                    $uuid,
+                    $tag['name'],
+                    $legacyGUID,
+                    $uuid
+                )
+            );
+
+            $tagPathMap[$uuid] = $path;
+        }
+
+        $classToPathMapPath = sprintf(
+            '%s%sclassToPathMap-%s.json',
+            $this->tempDir,
+            DIRECTORY_SEPARATOR,
+            PHP_OS_FAMILY
+        );
+
+        $classToPathMap = file_exists($classToPathMapPath)
+            ? json_decode(file_get_contents($classToPathMapPath), true, 512, JSON_THROW_ON_ERROR)
+            : [];
+
+        $classToPathMap['Tag'] = array_replace($classToPathMap['Tag'] ?? [], $tagPathMap);
+
+        $this->writeCacheFile('classToPathMap', $classToPathMap);
+    }
+
+    /**
      * @throws JsonException
      */
     protected function initializeBlueprintDefinitionServices(): void
@@ -189,10 +316,37 @@ abstract class ScDataTestCase extends TestCase
         file_put_contents($path, json_encode($payload, JSON_THROW_ON_ERROR));
     }
 
+    /**
+     * @return array<string, mixed>
+     *
+     * @throws JsonException
+     */
+    private function readCacheFileOrEmpty(string $name): array
+    {
+        $path = sprintf('%s%s%s-%s.json', $this->tempDir, DIRECTORY_SEPARATOR, $name, PHP_OS_FAMILY);
+
+        if (! file_exists($path)) {
+            return [];
+        }
+
+        return json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    private function extractDocumentClassName(string $xml): ?string
+    {
+        if (! preg_match('/<([A-Za-z0-9_]+\.[^ \/>\t\r\n]+)/', $xml, $matches)) {
+            return null;
+        }
+
+        $parts = explode('.', $matches[1], 2);
+
+        return $parts[1] ?? null;
+    }
+
     private function resetServiceState(): void
     {
         $baseService = new ReflectionClass(BaseService::class);
-        foreach (['uuidToPathMap', 'uuidToClassMap', 'classToUuidMap'] as $propertyName) {
+        foreach (['uuidToPathMap', 'uuidToClassMap', 'classToUuidMap', 'classToPathMap'] as $propertyName) {
             $baseService->getProperty($propertyName)->setValue(null, []);
         }
 

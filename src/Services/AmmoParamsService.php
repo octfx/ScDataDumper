@@ -13,32 +13,14 @@ use RuntimeException;
 
 final class AmmoParamsService extends BaseService
 {
-    private array $ammoParams = [];
 
-    /**
-     * @throws JsonException
-     */
     public function initialize(): void
     {
-        $classes = json_decode(file_get_contents($this->classToPathMapPath), true, 512, JSON_THROW_ON_ERROR);
-
-        $this->ammoParams = $classes['AmmoParams'] ?? [];
-    }
-
-    public function iterator(): Generator
-    {
-        foreach ($this->ammoParams as $path) {
-            yield $this->load($path);
-        }
     }
 
     public function getByReference(?string $uuid): ?AmmoParams
     {
-        if ($uuid === null || ! isset(self::$uuidToPathMap[$uuid])) {
-            return null;
-        }
-
-        return $this->load(self::$uuidToPathMap[$uuid]);
+        return ServiceFactory::getFoundryLookupService()->getAmmoParamsByReference($uuid);
     }
 
     public function getByEntity(Element|EntityClassDefinition $item): ?AmmoParams
@@ -62,18 +44,5 @@ final class AmmoParamsService extends BaseService
 
         // And the magazine's SAmmoContainerComponentParams will tell us about the ammo
         return $this->getByReference($mag->get('Components/SAmmoContainerComponentParams@ammoParamsRecord'));
-    }
-
-    public function load(string $filePath): ?AmmoParams
-    {
-        if (! file_exists($filePath)) {
-            throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
-        }
-
-        $ammoParams = new AmmoParams;
-        $ammoParams->load($filePath);
-        $ammoParams->checkValidity();
-
-        return $ammoParams;
     }
 }

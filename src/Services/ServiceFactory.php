@@ -45,8 +45,6 @@ final class ServiceFactory
         BaseService::resetSharedState();
         BlueprintService::resetDocumentCache();
         ItemService::resetDocumentCache();
-        ResourceTypeService::resetDocumentCache();
-        CraftingGameplayPropertyService::resetDocumentCache();
         VehicleService::resetDocumentCache();
         ItemClassifierService::resetCache();
     }
@@ -71,19 +69,9 @@ final class ServiceFactory
         return self::getService('LocalizationService');
     }
 
-    public static function getResourceTypeService(): ResourceTypeService
-    {
-        return self::getService('ResourceTypeService');
-    }
-
     public static function getBlueprintService(): BlueprintService
     {
         return self::getService('BlueprintService');
-    }
-
-    public static function getCraftingGameplayPropertyService(): CraftingGameplayPropertyService
-    {
-        return self::getService('CraftingGameplayPropertyService');
     }
 
     public static function getTagDatabaseService(): TagDatabaseService
@@ -101,29 +89,10 @@ final class ServiceFactory
         return self::getService('AmmoParamsService');
     }
 
-    public static function getDamageResistanceMacroService(): DamageResistanceMacroService
-    {
-        return self::getService('DamageResistanceMacroService');
-    }
-
-    public static function getMeleeCombatConfigService(): MeleeCombatConfigService
-    {
-        return self::getService('MeleeCombatConfigService');
-    }
-
-    public static function getMiningLaserGlobalParamsService(): MiningLaserGlobalParamsService
-    {
-        return self::getService('MiningLaserGlobalParamsService');
-    }
 
     public static function getVehicleService(): VehicleService
     {
         return self::getService('VehicleService');
-    }
-
-    public static function getFactionService(): FactionService
-    {
-        return self::getService('FactionService');
     }
 
     public static function getFoundryLookupService(): FoundryLookupService
@@ -166,18 +135,12 @@ final class ServiceFactory
             'InventoryContainerService' => new InventoryContainerService(self::$activeScDataPath),
             'ManufacturerService' => new ManufacturerService(self::$activeScDataPath),
             'ItemService' => new ItemService(self::$activeScDataPath),
-            'ResourceTypeService' => new ResourceTypeService(self::$activeScDataPath),
-            'CraftingGameplayPropertyService' => new CraftingGameplayPropertyService(self::$activeScDataPath),
             'BlueprintService' => new BlueprintService(self::$activeScDataPath),
             'LocalizationService' => new LocalizationService(self::$activeScDataPath),
             'ItemClassifierService' => new ItemClassifierService,
             'TagDatabaseService' => new TagDatabaseService(self::$activeScDataPath),
             'AmmoParamsService' => new AmmoParamsService(self::$activeScDataPath),
-            'DamageResistanceMacroService' => new DamageResistanceMacroService(self::$activeScDataPath),
-            'MeleeCombatConfigService' => new MeleeCombatConfigService(self::$activeScDataPath),
-            'MiningLaserGlobalParamsService' => new MiningLaserGlobalParamsService(self::$activeScDataPath),
             'VehicleService' => new VehicleService(self::$activeScDataPath),
-            'FactionService' => new FactionService(self::$activeScDataPath),
             'FoundryLookupService' => new FoundryLookupService(self::$activeScDataPath),
             'LoadoutFileService' => new LoadoutFileService(self::$activeScDataPath),
             'ConsumableSubtypeService' => new ConsumableSubtypeService(self::$activeScDataPath),

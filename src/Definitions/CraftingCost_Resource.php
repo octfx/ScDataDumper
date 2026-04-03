@@ -17,7 +17,7 @@ final class CraftingCost_Resource extends Element
 
         parent::initialize($document);
 
-        $resourceType = ServiceFactory::getResourceTypeService()->getByReference($this->get('@resource'));
+        $resourceType = ServiceFactory::getFoundryLookupService()->getResourceTypeByReference($this->get('@resource'));
 
         if ($resourceType === null) {
             return;

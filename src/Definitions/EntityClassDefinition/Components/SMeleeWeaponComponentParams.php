@@ -18,8 +18,8 @@ class SMeleeWeaponComponentParams extends Element
 
         parent::initialize($document);
 
-        $svc = ServiceFactory::getMeleeCombatConfigService();
-        $meleeCombatConfig = $svc->getByReference($this->get('@meleeCombatConfig'));
+        $svc = ServiceFactory::getFoundryLookupService();
+        $meleeCombatConfig = $svc->getMeleeCombatConfigByReference($this->get('@meleeCombatConfig'));
 
         if ($this->get('MeleeCombatConfig@__ref') !== $this->get('@meleeCombatConfig')) {
             $this->appendNode($document, $meleeCombatConfig, 'MeleeCombatConfig');

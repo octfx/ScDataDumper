@@ -35,11 +35,11 @@ final class InventoryContainerService extends BaseService
 
     public function getByReference($uuid): ?InventoryContainer
     {
-        if (! is_string($uuid) || ! isset(self::$uuidToPathMap[$uuid])) {
+        $filePath = $this->resolvePathByReference(is_string($uuid) ? $uuid : null);
+
+        if ($filePath === null) {
             return null;
         }
-
-        $filePath = self::$uuidToPathMap[$uuid];
 
         // Some references (e.g. item __ref values) point to EntityClassDefinition
         // files rather than standalone InventoryContainer records. Loading those
@@ -90,15 +90,7 @@ final class InventoryContainerService extends BaseService
 
     protected function load(string $filePath): InventoryContainer
     {
-        if (! file_exists($filePath)) {
-            throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
-        }
-
-        $container = new InventoryContainer;
-        $container->load($filePath);
-        $container->checkValidity();
-
-        return $container;
+        return $this->loadDocument($filePath, InventoryContainer::class);
     }
 
     private function isInventoryContainerFile(string $filePath): bool

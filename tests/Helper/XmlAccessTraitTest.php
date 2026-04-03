@@ -200,6 +200,52 @@ class XmlAccessTraitTest extends TestCase
     }
 
     /**
+     * Test that all matching elements are returned
+     */
+    public function test_get_all_returns_all_matching_elements(): void
+    {
+        $domDocument = new DOMDocument;
+        $domDocument->loadXML('<?xml version="1.0" encoding="UTF-8"?>
+<root>
+    <entry id="1" />
+    <entry id="2" />
+    <group>
+        <entry id="3" />
+    </group>
+</root>');
+
+        $rootElement = new Element($domDocument->documentElement);
+        $entries = $rootElement->getAll('entry');
+
+        $this->assertCount(2, $entries, 'Should return every matching child element');
+        $this->assertContainsOnlyInstancesOf(Element::class, $entries, 'Should wrap matches as Element instances');
+        $this->assertEquals('1', $entries[0]->getAttribute('id'), 'First result should keep document order');
+        $this->assertEquals('2', $entries[1]->getAttribute('id'), 'Second result should keep document order');
+    }
+
+    /**
+     * Test that all matching attribute values are returned
+     */
+    public function test_get_all_returns_all_matching_attribute_values(): void
+    {
+        $domDocument = new DOMDocument;
+        $domDocument->loadXML('<?xml version="1.0" encoding="UTF-8"?>
+<root>
+    <item type="weapon" code="W1" />
+    <item type="armor" code="A1" />
+    <item type="armor" />
+</root>');
+
+        $rootElement = new Element($domDocument->documentElement);
+
+        $allCodes = $rootElement->getAll('item@code');
+        $armorCodes = $rootElement->getAll("item[@type='armor']@code");
+
+        $this->assertSame(['W1', 'A1'], $allCodes, 'Should return attribute values for each matching node that defines the attribute');
+        $this->assertSame(['A1'], $armorCodes, 'Should skip matched nodes that do not define the requested attribute');
+    }
+
+    /**
      * Test splitXPathAttribute() method with various patterns including predicates and @ in brackets
      */
     public function test_split_x_path_attribute(): void
@@ -323,6 +369,32 @@ class XmlAccessTraitTest extends TestCase
 
         $this->assertEquals($default, $rootMissing, 'RootDocument::get() should return default for non-existent path');
         $this->assertEquals($default, $elementMissing, 'Element::get() should return default for non-existent path');
+    }
+
+    /**
+     * Test XmlAccess::getAll() behavior on RootDocument instance
+     */
+    public function test_get_all_on_root_document(): void
+    {
+        $rootDocument = new TestRootDocument;
+        $rootDocument->load(__DIR__.'/../Fixtures/xml/entityclassdefinition_sample.xml');
+
+        $element = new Element($rootDocument->documentElement);
+
+        $rootElements = $rootDocument->getAll('Components/*');
+        $elementElements = $element->getAll('Components/*');
+        $rootAttributes = $rootDocument->getAll('defaultEditorColor@r');
+        $elementAttributes = $element->getAll('defaultEditorColor@r');
+
+        $this->assertContainsOnlyInstancesOf(Element::class, $rootElements, 'RootDocument::getAll() should return Element instances for element queries');
+        $this->assertContainsOnlyInstancesOf(Element::class, $elementElements, 'Element::getAll() should return Element instances for element queries');
+        $this->assertSame(
+            array_map(static fn (Element $match): string => $match->nodeName, $elementElements),
+            array_map(static fn (Element $match): string => $match->nodeName, $rootElements),
+            'RootDocument and Element should return the same element matches'
+        );
+        $this->assertSame([1.0], $rootAttributes, 'RootDocument::getAll() should return all matching attribute values');
+        $this->assertSame($rootAttributes, $elementAttributes, 'RootDocument and Element should return the same attribute matches');
     }
 }
 

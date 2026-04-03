@@ -18,8 +18,8 @@ class SEntityComponentMiningLaserParams extends Element
 
         parent::initialize($document);
 
-        $svc = ServiceFactory::getMiningLaserGlobalParamsService();
-        $globalParams = $svc->getByReference($this->get('@globalParams'));
+        $svc = ServiceFactory::getFoundryLookupService();
+        $globalParams = $svc->getMiningLaserGlobalParamsByReference($this->get('@globalParams'));
 
         if ($this->get('MiningLaserGlobalParams@__ref') !== $this->get('@globalParams')) {
             $this->appendNode($document, $globalParams, 'MiningLaserGlobalParams');

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Services;
 
+use Generator;
 use JsonException;
+use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use RuntimeException;
 
 abstract class BaseService
@@ -121,11 +123,81 @@ abstract class BaseService
 
     abstract public function initialize(): void;
 
+    protected function normalizeReference(?string $reference): ?string
+    {
+        if (! is_string($reference)) {
+            return null;
+        }
+
+        $normalizedReference = strtolower(trim($reference));
+
+        return $normalizedReference === '' ? null : $normalizedReference;
+    }
+
+    protected function resolvePathByReference(?string $reference): ?string
+    {
+        $normalizedReference = $this->normalizeReference($reference);
+
+        if ($normalizedReference === null) {
+            return null;
+        }
+
+        return self::$uuidToPathMap[$normalizedReference] ?? null;
+    }
+
+    protected function normalizePath(string $path): string
+    {
+        return strtolower(str_replace('\\', '/', $path));
+    }
+
+    protected function pathMatches(string $path, array $pathNeedles): bool
+    {
+        $normalizedPath = $this->normalizePath($path);
+
+        return array_any($pathNeedles, fn ($needle) => str_contains($normalizedPath, strtolower($needle)));
+    }
+
+    /**
+     * @template T of RootDocument
+     *
+     * @param  class-string<T> $class
+     * @return T
+     */
+    protected function loadDocument(string $filePath, string $class, bool $checkValidity = true): RootDocument
+    {
+        if (empty($filePath) || ! file_exists($filePath)) {
+            throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
+        }
+
+        $document = new $class;
+        $document->load($filePath);
+
+        if ($checkValidity) {
+            $document->checkValidity();
+        }
+
+        return $document;
+    }
+
+    /**
+     * @template T of RootDocument
+     *
+     * @param  class-string<T> $class
+     * @return Generator<int, T, mixed, void>
+     */
+    protected function iterateDocumentType(string $mapKey, string $class): Generator
+    {
+        foreach (self::$classToPathMap[$mapKey] ?? [] as $path) {
+            yield $this->loadDocument($path, $class);
+        }
+    }
+
     public static function resetSharedState(): void
     {
         self::$uuidToPathMap = [];
         self::$uuidToClassMap = [];
         self::$classToUuidMap = [];
+        self::$classToPathMap = [];
     }
 
     private function makePath(string $fileName): string

@@ -17,7 +17,7 @@ final class CraftingGameplayPropertyModifierCommon extends Element
 
         parent::initialize($document);
 
-        $property = ServiceFactory::getCraftingGameplayPropertyService()->getByReference($this->get('@gameplayPropertyRecord'));
+        $property = ServiceFactory::getFoundryLookupService()->getCraftingGameplayPropertyByReference($this->get('@gameplayPropertyRecord'));
 
         if ($property === null) {
             return;

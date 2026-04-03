@@ -6,7 +6,6 @@ namespace Octfx\ScDataDumper\Services;
 
 use Generator;
 use Octfx\ScDataDumper\DocumentTypes\SCItemManufacturer;
-use RuntimeException;
 
 final class ManufacturerService extends BaseService
 {
@@ -49,27 +48,17 @@ final class ManufacturerService extends BaseService
 
     public function getByReference($uuid): ?SCItemManufacturer
     {
-        if (! is_string($uuid)) {
+        $path = $this->resolvePathByReference(is_string($uuid) ? $uuid : null);
+
+        if ($path === null || ! in_array($path, $this->manufacturerPaths, true)) {
             return null;
         }
 
-        if (! isset($this->manufacturerPaths[$uuid])) {
-            return null;
-        }
-
-        return $this->load($this->manufacturerPaths[$uuid]);
+        return $this->load($path);
     }
 
     public function load(string $filePath): ?SCItemManufacturer
     {
-        if (! file_exists($filePath)) {
-            throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
-        }
-
-        $manufacturer = new SCItemManufacturer;
-        $manufacturer->load($filePath);
-        $manufacturer->checkValidity();
-
-        return $manufacturer;
+        return $this->loadDocument($filePath, SCItemManufacturer::class);
     }
 }

@@ -4,33 +4,102 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Services;
 
+use Generator;
+use Octfx\ScDataDumper\DocumentTypes\AmmoParams;
+use Octfx\ScDataDumper\DocumentTypes\CraftingGameplayPropertyDef;
+use Octfx\ScDataDumper\DocumentTypes\DamageResistanceMacro;
+use Octfx\ScDataDumper\DocumentTypes\Faction;
 use Octfx\ScDataDumper\DocumentTypes\FoundryRecord;
+use Octfx\ScDataDumper\DocumentTypes\MeleeCombatConfig;
+use Octfx\ScDataDumper\DocumentTypes\MiningLaserGlobalParams;
 use Octfx\ScDataDumper\DocumentTypes\RadarSystemSharedParams;
+use Octfx\ScDataDumper\DocumentTypes\ResourceType;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
-use RuntimeException;
 
 final class FoundryLookupService extends BaseService
 {
+    /**
+     * @var array<class-string<RootDocument>, array<string, RootDocument>>
+     */
     private array $cache;
+
+    private array $hits;
 
     public function __construct(string $scDataDir)
     {
         parent::__construct($scDataDir);
 
         $this->cache = [];
+        $this->hits = [];
     }
 
     public function initialize(): void {}
 
-    public function getRadarSystemParamsByReference(string $uuid): ?RadarSystemSharedParams
+    public function getRadarSystemParamsByReference(?string $uuid): ?RadarSystemSharedParams
     {
-        $path = $this->resolvePath($uuid);
+        return $this->getByReference($uuid, class: RadarSystemSharedParams::class);
+    }
 
-        if (empty($path)) {
-            return null;
+    public function getCraftingGameplayPropertyByReference(?string $uuid): ?CraftingGameplayPropertyDef
+    {
+        return $this->getByReference($uuid, class: CraftingGameplayPropertyDef::class);
+    }
+
+    public function getMeleeCombatConfigByReference(?string $uuid): ?MeleeCombatConfig
+    {
+        return $this->getByReference($uuid, class: MeleeCombatConfig::class);
+    }
+
+    public function getMiningLaserGlobalParamsByReference(?string $uuid): ?MiningLaserGlobalParams
+    {
+        return $this->getByReference($uuid, class: MiningLaserGlobalParams::class);
+    }
+
+    public function getResourceTypeByReference(?string $uuid): ?ResourceType
+    {
+        return $this->getByReference($uuid, class: ResourceType::class);
+    }
+
+    public function getDamageResistanceMacroByReference(?string $uuid): ?DamageResistanceMacro
+    {
+        return $this->getByReference($uuid, class: DamageResistanceMacro::class);
+
+    }
+
+    public function getAmmoParamsByReference(?string $uuid): ?AmmoParams
+    {
+        return $this->getByReference($uuid, class: AmmoParams::class);
+    }
+
+    public function countDocumentType(string $mapKey): int
+    {
+        return count(self::$classToPathMap[$mapKey] ?? []);
+    }
+
+    /**
+     * @return Generator<int, ResourceType, mixed, void>
+     */
+    public function getResourceTypes(): Generator
+    {
+        yield from $this->getDocumentType('ResourceType', ResourceType::class);
+    }
+
+    /**
+     * @template T of RootDocument
+     *
+     * @param  class-string<T> $class
+     * @return Generator<int, T, mixed, void>
+     */
+    public function getDocumentType(string $mapKey, string $class): Generator
+    {
+        foreach (self::$classToPathMap[$mapKey] ?? [] as $path) {
+            yield $this->load($path, $class);
         }
+    }
 
-        return $this->load($path, RadarSystemSharedParams::class);
+    public function getFactionByReference(string $uuid): ?Faction
+    {
+        return $this->getByReference($uuid, ['factions/'], Faction::class);
     }
 
     public function getMissionTypeByReference(?string $uuid): ?FoundryRecord
@@ -89,54 +158,50 @@ final class FoundryLookupService extends BaseService
         return $this->getByReference($uuid, ['/records/reputation/rewards/missionrewards_reputation/']);
     }
 
-    private function getByReference(?string $uuid, array $pathNeedles): ?FoundryRecord
+    /**
+     * @template T of RootDocument
+     *
+     * @param  ?string $uuid
+     * @param  ?array<int, string> $pathNeedles
+     * @param  class-string<T> $class
+     * @return T|null
+     */
+    private function getByReference(?string $uuid, ?array $pathNeedles = null, string $class = FoundryRecord::class): ?RootDocument
     {
-        $path = $this->resolvePath($uuid);
+        $path = $this->resolvePathByReference($uuid);
 
-        if ($path === null || ! $this->pathMatches($path, $pathNeedles)) {
+        if ($path === null) {
             return null;
         }
 
-        return $this->load($path);
-    }
-
-    private function resolvePath(?string $uuid): ?string
-    {
-        if (! is_string($uuid)) {
+        if (! empty($pathNeedles) && ! $this->pathMatches($path, $pathNeedles)) {
             return null;
         }
 
-        $trimmed = trim($uuid);
-
-        if ($trimmed === '') {
-            return null;
-        }
-
-        return self::$uuidToPathMap[$trimmed] ?? self::$uuidToPathMap[strtolower($trimmed)] ?? null;
+        return $this->load($path, $class);
     }
 
-    private function pathMatches(string $path, array $pathNeedles): bool
+    /**
+     * @template T of RootDocument
+     *
+     * @param  class-string<T> $class
+     * @return T
+     */
+    private function load(string $filePath, string $class = FoundryRecord::class): RootDocument
     {
-        $normalizedPath = strtolower(str_replace('\\', '/', $path));
-
-        return array_any($pathNeedles, fn($needle) => str_contains($normalizedPath, $needle));
-    }
-
-    private function load(string $filePath, ?string $class = FoundryRecord::class): RootDocument
-    {
-        if (empty($filePath) || ! file_exists($filePath)) {
-            throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
-        }
-
         if (isset($this->cache[$class][$filePath])) {
+            /** @var T */
             return $this->cache[$class][$filePath];
         }
 
-        $document = new $class;
-        $document->load($filePath);
-        $document->checkValidity();
+        $this->hits[$filePath] ??= 0;
+        $this->hits[$filePath]++;
 
-        $this->cache[$class][$filePath] = $document;
+        $document = $this->loadDocument($filePath, $class);
+
+        if ($this->hits[$filePath] > 1) {
+            $this->cache[$class][$filePath] = $document;
+        }
 
         return $document;
     }
