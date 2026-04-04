@@ -266,23 +266,4 @@ class StarMapObject extends RootDocument
     {
         return $this->getNullableBool('locationParams/StarMapObjectLocationParams@excludeFromLevelLoad');
     }
-
-    /**
-     * @template T of RootDocument
-     *
-     * @param  class-string<T> $class
-     * @return T|null
-     */
-    private function getHydratedDocument(string $path, string $class): ?RootDocument
-    {
-        $node = $this->get($path);
-
-        if (! $node instanceof Element) {
-            return null;
-        }
-
-        $document = $class::fromNode($node->getNode());
-
-        return $document instanceof $class ? $document : null;
-    }
 }

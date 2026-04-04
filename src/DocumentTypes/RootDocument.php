@@ -170,6 +170,25 @@ abstract class RootDocument extends DOMDocument
     }
 
     /**
+     * @template T of RootDocument
+     *
+     * @param  class-string<T>  $class
+     * @return T|null
+     */
+    protected function getHydratedDocument(string $path, string $class): ?RootDocument
+    {
+        $node = $this->get($path);
+
+        if (! $node instanceof Element) {
+            return null;
+        }
+
+        $document = $class::fromNode($node->getNode());
+
+        return $document instanceof $class ? $document : null;
+    }
+
+    /**
      * Recursively walks the given xml $element and turns it into an array.
      * If a node name matches a class in Definitions, it is passed to the matching definition and `toArray()` is called on the instance
      *

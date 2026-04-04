@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Tests\DocumentTypes;
 
-use Octfx\ScDataDumper\DocumentTypes\CraftingBlueprintRecord;
+use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingBlueprintRecord;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 
 final class CraftingBlueprintRecordTest extends ScDataTestCase

@@ -7,13 +7,21 @@ namespace Octfx\ScDataDumper\Services;
 use Generator;
 use Octfx\ScDataDumper\DocumentTypes\AmmoParams;
 use Octfx\ScDataDumper\DocumentTypes\ConsumableSubtype;
-use Octfx\ScDataDumper\DocumentTypes\CraftingGameplayPropertyDef;
+use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingGameplayPropertyDef;
+use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityDistributionRecord;
+use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityLocationOverrideRecord;
 use Octfx\ScDataDumper\DocumentTypes\DamageResistanceMacro;
 use Octfx\ScDataDumper\DocumentTypes\Faction\Faction;
 use Octfx\ScDataDumper\DocumentTypes\Faction\Faction_LEGACY;
 use Octfx\ScDataDumper\DocumentTypes\Faction\FactionReputation;
 use Octfx\ScDataDumper\DocumentTypes\FoundryRecord;
+use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestableClusterPreset;
+use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestablePreset;
+use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestableSetup;
 use Octfx\ScDataDumper\DocumentTypes\MeleeCombatConfig;
+use Octfx\ScDataDumper\DocumentTypes\Mining\MineableComposition;
+use Octfx\ScDataDumper\DocumentTypes\Mining\MineableElement;
+use Octfx\ScDataDumper\DocumentTypes\Mining\MiningGlobalParams;
 use Octfx\ScDataDumper\DocumentTypes\MiningLaserGlobalParams;
 use Octfx\ScDataDumper\DocumentTypes\Radar\RadarContactTypeEntry;
 use Octfx\ScDataDumper\DocumentTypes\RadarSystemSharedParams;
@@ -71,9 +79,28 @@ final class FoundryLookupService extends BaseService
         return $this->getByReference($uuid, class: MiningLaserGlobalParams::class);
     }
 
+    public function getMiningGlobalParamsByReference(?string $uuid): ?MiningGlobalParams
+    {
+        return $this->getByReference($uuid, ['/records/mining/miningglobalparams'], MiningGlobalParams::class);
+    }
+
     public function getResourceTypeByReference(?string $uuid): ?ResourceType
     {
         return $this->getByReference($uuid, class: ResourceType::class);
+    }
+
+    public function getCraftingQualityDistributionByReference(?string $uuid): ?CraftingQualityDistributionRecord
+    {
+        return $this->getByReference($uuid, ['/records/crafting/qualitydistribution/'], CraftingQualityDistributionRecord::class);
+    }
+
+    public function getCraftingQualityLocationOverrideByReference(?string $uuid): ?CraftingQualityLocationOverrideRecord
+    {
+        return $this->getByReference(
+            $uuid,
+            ['/records/crafting/qualitydistribution/'],
+            CraftingQualityLocationOverrideRecord::class
+        );
     }
 
     public function getDamageResistanceMacroByReference(?string $uuid): ?DamageResistanceMacro
@@ -145,6 +172,31 @@ final class FoundryLookupService extends BaseService
     public function getMissionGiverByReference(?string $uuid): ?FoundryRecord
     {
         return $this->getByReference($uuid, ['/records/missiongiver/']);
+    }
+
+    public function getHarvestablePresetByReference(?string $uuid): ?HarvestablePreset
+    {
+        return $this->getByReference($uuid, ['/records/harvestable/harvestablepresets/'], HarvestablePreset::class);
+    }
+
+    public function getHarvestableClusterPresetByReference(?string $uuid): ?HarvestableClusterPreset
+    {
+        return $this->getByReference($uuid, ['/records/harvestable/clusteringpresets/'], HarvestableClusterPreset::class);
+    }
+
+    public function getHarvestableSetupByReference(?string $uuid): ?HarvestableSetup
+    {
+        return $this->getByReference($uuid, ['/records/harvestable/harvestablesetups/'], HarvestableSetup::class);
+    }
+
+    public function getMineableCompositionByReference(?string $uuid): ?MineableComposition
+    {
+        return $this->getByReference($uuid, ['/records/mining/rockcompositionpresets/'], MineableComposition::class);
+    }
+
+    public function getMineableElementByReference(?string $uuid): ?MineableElement
+    {
+        return $this->getByReference($uuid, ['/records/mining/mineableelements/'], MineableElement::class);
     }
 
     public function getMissionLocalityByReference(?string $uuid): ?FoundryRecord

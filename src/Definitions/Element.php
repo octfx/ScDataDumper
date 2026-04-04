@@ -7,6 +7,7 @@ use DOMException;
 use DOMNode;
 use DOMXPath;
 use Generator;
+use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\Helper\XmlAccess;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
@@ -82,6 +83,23 @@ class Element
             }
         } else {
             $this->node->appendChild($importedNode);
+        }
+    }
+
+    protected function hydrateFoundryReference(
+        DOMDocument $document,
+        string $referencePath,
+        string $childNodeName,
+        ?RootDocument $record
+    ): void {
+        $reference = $this->get($referencePath);
+
+        if (! is_string($reference) || $reference === '' || $this->get($childNodeName.'@__ref') === $reference) {
+            return;
+        }
+
+        if ($record !== null) {
+            $this->appendNode($document, $record, $childNodeName);
         }
     }
 

@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Octfx\ScDataDumper\DocumentTypes;
+namespace Octfx\ScDataDumper\DocumentTypes\Crafting;
 
 use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 
 final class CraftingBlueprintRecord extends RootDocument
 {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes;
 
+use Octfx\ScDataDumper\DocumentTypes\Mining\MineableParams;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
@@ -41,5 +42,10 @@ class EntityClassDefinition extends RootDocument
         $tags = $this->get('Components/SAttachableComponentParams/AttachDef@RequiredTags', '') ?? '';
 
         return array_filter(array_map(static fn ($tag) => trim($tag), explode(' ', $tags)));
+    }
+
+    public function getMineableParams(): ?MineableParams
+    {
+        return $this->getHydratedDocument('Components/MineableParams', MineableParams::class);
     }
 }
