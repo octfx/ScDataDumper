@@ -69,6 +69,7 @@ abstract class ScDataTestCase extends TestCase
      * @param  array<string, string>  $uuidToClassMap
      * @param  array<string, string>  $classToUuidMap
      * @param  array<string, string>  $uuidToPathMap
+     * @param  array<string, array{uuid: string, path: string, type: string, sub_type: ?string}>  $entityMetadataMap
      *
      * @throws JsonException
      */
@@ -77,7 +78,8 @@ abstract class ScDataTestCase extends TestCase
         array $classToPathMap = [],
         array $uuidToClassMap = [],
         array $classToUuidMap = [],
-        array $uuidToPathMap = []
+        array $uuidToPathMap = [],
+        array $entityMetadataMap = []
     ): void {
         $this->writeCacheFile('classToTypeMap', $classToTypeMap);
         $this->writeCacheFile('classToPathMap', array_replace_recursive([
@@ -88,6 +90,7 @@ abstract class ScDataTestCase extends TestCase
         $this->writeCacheFile('uuidToClassMap', $uuidToClassMap);
         $this->writeCacheFile('classToUuidMap', $classToUuidMap);
         $this->writeCacheFile('uuidToPathMap', $uuidToPathMap);
+        $this->writeCacheFile('entityMetadataMap', $entityMetadataMap);
     }
 
     /**
@@ -346,9 +349,10 @@ abstract class ScDataTestCase extends TestCase
     private function resetServiceState(): void
     {
         $baseService = new ReflectionClass(BaseService::class);
-        foreach (['uuidToPathMap', 'uuidToClassMap', 'classToUuidMap', 'classToPathMap'] as $propertyName) {
+        foreach (['uuidToPathMap', 'uuidToClassMap', 'classToUuidMap', 'classToPathMap', 'entityMetadataMap'] as $propertyName) {
             $baseService->getProperty($propertyName)->setValue(null, []);
         }
+        $baseService->getProperty('entityMetadataMapLoaded')->setValue(null, false);
 
         $itemService = new ReflectionClass(ItemService::class);
         $itemService->getProperty('documentCache')->setValue(null, []);

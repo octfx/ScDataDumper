@@ -10,7 +10,7 @@ use Symfony\Component\Console\Tester\CommandTester;
 
 final class LoadBlueprintsCommandTest extends ScDataTestCase
 {
-    public function test_execute_writes_formatted_index_and_raw_blueprint_files_by_default(): void
+    public function test_execute_writes_scunpacked_payload_by_default(): void
     {
         $command = new TestLoadBlueprintsCommand([
             [
@@ -90,13 +90,13 @@ final class LoadBlueprintsCommandTest extends ScDataTestCase
         self::assertArrayNotHasKey('schema_version', $index[0]);
 
         $blueprintFile = $this->readJsonFile('blueprints/bp_craft_test_ammo.json');
-        self::assertArrayHasKey('blueprint', $blueprintFile);
-        self::assertArrayNotHasKey('Blueprint', $blueprintFile);
+        self::assertSame('ammo-category', $blueprintFile['Raw']['Blueprint']['blueprint']['CraftingBlueprint']['category']);
+        self::assertSame('BP_CRAFT_TEST_AMMO', $blueprintFile['Blueprint']['key']);
     }
 
-    public function test_execute_writes_scunpacked_payload_when_requested(): void
+    public function test_execute_accepts_scunpacked_flag_as_a_noop(): void
     {
-        $command = new TestLoadBlueprintsCommand([
+        $records = [
             [
                 'className' => 'BP_CRAFT_TEST_AMMO',
                 'formatted' => [
@@ -135,21 +135,34 @@ final class LoadBlueprintsCommandTest extends ScDataTestCase
                     ],
                 ], JSON_THROW_ON_ERROR),
             ],
+        ];
+
+        $defaultOutputDir = $this->tempDir.DIRECTORY_SEPARATOR.'default';
+        mkdir($defaultOutputDir, 0777, true);
+        $defaultTester = new CommandTester(new TestLoadBlueprintsCommand($records));
+        $defaultExitCode = $defaultTester->execute([
+            'scDataPath' => $this->tempDir,
+            'jsonOutPath' => $defaultOutputDir,
         ]);
 
-        $tester = new CommandTester($command);
-        $exitCode = $tester->execute([
+        self::assertSame(0, $defaultExitCode);
+        $defaultContents = file_get_contents($defaultOutputDir.DIRECTORY_SEPARATOR.'blueprints/bp_craft_test_ammo.json');
+        self::assertNotFalse($defaultContents);
+
+        $flaggedOutputDir = $this->tempDir.DIRECTORY_SEPARATOR.'flagged';
+        mkdir($flaggedOutputDir, 0777, true);
+        $flaggedTester = new CommandTester(new TestLoadBlueprintsCommand($records));
+        $flaggedExitCode = $flaggedTester->execute([
             'scDataPath' => $this->tempDir,
-            'jsonOutPath' => $this->tempDir,
+            'jsonOutPath' => $flaggedOutputDir,
             '--scUnpackedFormat' => true,
         ]);
 
-        self::assertSame(0, $exitCode);
+        self::assertSame(0, $flaggedExitCode);
+        $flaggedContents = file_get_contents($flaggedOutputDir.DIRECTORY_SEPARATOR.'blueprints/bp_craft_test_ammo.json');
+        self::assertNotFalse($flaggedContents);
 
-        $blueprintFile = $this->readJsonFile('blueprints/bp_craft_test_ammo.json');
-        self::assertSame('ammo-category', $blueprintFile['Raw']['Blueprint']['blueprint']['CraftingBlueprint']['category']);
-        self::assertSame('BP_CRAFT_TEST_AMMO', $blueprintFile['Blueprint']['key']);
-        self::assertSame('root', $blueprintFile['Blueprint']['tiers'][0]['requirements']['kind']);
+        self::assertSame($defaultContents, $flaggedContents);
     }
 
     /**

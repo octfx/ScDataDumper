@@ -47,6 +47,12 @@ class GenerateCache extends Command
                 PHP_OS_FAMILY
             ),
             sprintf(
+                '%s%sentityMetadataMap-%s.json',
+                $input->getArgument('path'),
+                DIRECTORY_SEPARATOR,
+                PHP_OS_FAMILY
+            ),
+            sprintf(
                 '%s%suuidToClassMap-%s.json',
                 $input->getArgument('path'),
                 DIRECTORY_SEPARATOR,

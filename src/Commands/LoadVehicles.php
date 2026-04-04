@@ -14,7 +14,6 @@ use Symfony\Component\Console\Exception\ExceptionInterface;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
-use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
@@ -23,7 +22,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     description: 'Load and dump SC Vehicles',
     hidden: false
 )]
-class LoadVehicles extends Command
+class LoadVehicles extends AbstractDataCommand
 {
     /**
      * @throws JsonException|ExceptionInterface
@@ -42,11 +41,9 @@ class LoadVehicles extends Command
         $outDir = sprintf('%s%sships', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
         $indexFilePath = sprintf('%s%sships.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
 
-        if (! is_dir($outDir) && ! mkdir($outDir, 0777, true) && ! is_dir($outDir)) {
-            throw new RuntimeException(sprintf('Directory "%s" was not created', $outDir));
-        }
+        $this->ensureDirectory($outDir);
 
-        $indexHandle = fopen($indexFilePath, 'wb');
+        $indexHandle = @fopen($indexFilePath, 'wb');
         if (! $indexHandle) {
             throw new RuntimeException('Failed to open ships index file for writing');
         }
@@ -57,8 +54,7 @@ class LoadVehicles extends Command
 
         $start = microtime(true);
 
-        $nameFilter = $input->getOption('filter');
-        $nameFilter = is_string($nameFilter) && $nameFilter !== '' ? strtolower($nameFilter) : null;
+        $nameFilter = $this->normalizeFilter($input->getOption('filter'));
 
         foreach ($this->iterateVehicleExports($nameFilter) as $vehicleExport) {
             $out = [
@@ -130,15 +126,6 @@ class LoadVehicles extends Command
         return Command::SUCCESS;
     }
 
-    protected function prepareServices(InputInterface $input, OutputInterface $output): void
-    {
-        $cacheCommand = new GenerateCache;
-        $cacheCommand->run(new StringInput($input->getArgument('scDataPath')), $output);
-
-        $fac = new ServiceFactory($input->getArgument('scDataPath'));
-        $fac->initialize();
-    }
-
     protected function getVehicleExportCount(): int
     {
         return ServiceFactory::getVehicleService()->count();
@@ -157,28 +144,6 @@ class LoadVehicles extends Command
                 'vehicle' => $vehicle->getVehicleArray(),
                 'loadout' => $vehicle->loadout,
             ];
-        }
-    }
-
-    /**
-     * Safely write JSON content to file
-     */
-    private function writeJsonFile(string $filePath, string $content, SymfonyStyle $io): bool
-    {
-        try {
-            $bytesWritten = file_put_contents($filePath, $content);
-
-            if ($bytesWritten === false) {
-                $io->error(sprintf('Failed to write file: %s', $filePath));
-
-                return false;
-            }
-
-            return true;
-        } catch (\Throwable $e) {
-            $io->error(sprintf('Error writing %s: %s', $filePath, $e->getMessage()));
-
-            return false;
         }
     }
 
@@ -203,7 +168,7 @@ class LoadVehicles extends Command
             'scUnpackedFormat',
             null,
             InputOption::VALUE_NONE,
-            'Export vehicles in SC Unpacked format (currently has no effect)'
+            'Deprecated: SC Unpacked format is now the default and this option has no effect'
         );
         $this->addOption(
             'with-raw',

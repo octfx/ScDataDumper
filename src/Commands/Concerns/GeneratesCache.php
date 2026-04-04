@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Commands\Concerns;
 
+use Octfx\ScDataDumper\Commands\GenerateCache;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -21,11 +22,15 @@ trait GeneratesCache
     {
         $application = $this->getApplication();
 
-        if ($application === null) {
-            return Command::FAILURE;
+        if ($application !== null) {
+            $cacheCommand = $application->find('generate:cache');
+            $cacheInput = new ArrayInput(['path' => $scDataPath]);
+            $cacheInput->setInteractive(false);
+
+            return $cacheCommand->run($cacheInput, $output);
         }
 
-        $cacheCommand = $application->find('generate:cache');
+        $cacheCommand = new GenerateCache;
         $cacheInput = new ArrayInput(['path' => $scDataPath]);
         $cacheInput->setInteractive(false);
 

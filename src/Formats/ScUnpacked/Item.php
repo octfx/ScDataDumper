@@ -110,6 +110,7 @@ final class Item extends BaseFormat
                 'FlightController' => new FlightController($this->item),
                 'JumpDrive' => new JumpDrive($this->item),
                 'MiningLaser' => new MiningLaser($this->item),
+                'Mineable' => new Mineable($this->item),
                 'MiningModule' => new MiningModule($this->item),
                 'HeatConnection' => new HeatConnection($this->item),
                 'Temperature' => new Temperature($this->item),

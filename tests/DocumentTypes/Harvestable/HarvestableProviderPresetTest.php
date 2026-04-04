@@ -49,6 +49,10 @@ final class HarvestableProviderPresetTest extends ScDataTestCase
                   </harvestables>
                 </HarvestableElementGroup>
               </harvestableGroups>
+              <areas>
+                <Area name="Deserts" globalModifier="1" />
+                <Area name="Savanna" globalModifier="2.5" />
+              </areas>
             </HarvestableProviderPreset.Sample>
             XML
         );
@@ -208,5 +212,19 @@ final class HarvestableProviderPresetTest extends ScDataTestCase
         self::assertEqualsWithDelta(2 / 3, $probabilities[0], 0.00001);
         self::assertEqualsWithDelta(1 / 3, $probabilities[1], 0.00001);
         self::assertNull($group->getHarvestableElementProbability($otherGroupElement));
+    }
+
+    public function test_provider_accessors_expose_areas(): void
+    {
+        $document = new HarvestableProviderPreset;
+        $document->load($this->tempDir.'/Game2/libs/foundry/records/harvestable/providerpresets/system/test/sample.xml');
+
+        $areas = $document->getAreas();
+
+        self::assertCount(2, $areas);
+        self::assertSame('Deserts', $areas[0]['name']);
+        self::assertSame(1.0, $areas[0]['globalModifier']);
+        self::assertSame('Savanna', $areas[1]['name']);
+        self::assertSame(2.5, $areas[1]['globalModifier']);
     }
 }

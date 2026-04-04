@@ -66,12 +66,19 @@ final class CacheServiceTest extends TestCase
 
         $classToPathMap = $this->readCacheFile('classToPathMap');
         $classToTypeMap = $this->readCacheFile('classToTypeMap');
+        $entityMetadataMap = $this->readCacheFile('entityMetadataMap');
         $classToUuidMap = $this->readCacheFile('classToUuidMap');
         $uuidToClassMap = $this->readCacheFile('uuidToClassMap');
         $uuidToPathMap = $this->readCacheFile('uuidToPathMap');
 
         $this->assertSame($entityPath, $classToPathMap['EntityClassDefinition'][$className] ?? null);
         $this->assertSame('Weapon', $classToTypeMap['EntityClassDefinition.'.$className] ?? null);
+        $this->assertSame([
+            'uuid' => $uuid,
+            'path' => $entityPath,
+            'type' => 'Weapon',
+            'sub_type' => 'LaserRepeater',
+        ], $entityMetadataMap[$className] ?? null);
         $this->assertSame($uuid, $classToUuidMap[$className] ?? null);
         $this->assertSame($className, $uuidToClassMap[$uuid] ?? null);
         $this->assertSame($entityPath, $uuidToPathMap[$uuid] ?? null);
@@ -203,6 +210,46 @@ final class CacheServiceTest extends TestCase
         $this->assertStringContainsString('InventoryContainer.collision-grid', $consoleOutput);
     }
 
+    /**
+     * @throws JsonException
+     */
+    public function test_entity_metadata_map_only_contains_entity_records(): void
+    {
+        $entityClassName = 'COMP_MISC_MINER';
+        $entityUuid = 'uuid-entity-metadata-1';
+        $entityPath = $this->writeXmlFile(
+            'records/entity/mineable.xml',
+            <<<XML
+                <EntityClassDefinition.COMP_MISC_MINER __type="EntityClassDefinition" __ref="uuid-entity-metadata-1" __path="libs/foundry/records/entityclassdefinition/comp_misc_miner.xml">
+                    <Components>
+                        <SAttachableComponentParams>
+                            <AttachDef Type="Misc" SubType="Mineable"/>
+                        </SAttachableComponentParams>
+                    </Components>
+                </EntityClassDefinition.COMP_MISC_MINER>
+                XML
+        );
+
+        $this->writeXmlFile(
+            'records/resource/resource.xml',
+            <<<XML
+                <ResourceType.Carinite __type="ResourceType" __ref="uuid-resource-metadata-1" __path="libs/foundry/records/resourcetypedatabase/carinite.xml" />
+                XML
+        );
+
+        $this->generateCacheFiles();
+
+        $entityMetadataMap = $this->readCacheFile('entityMetadataMap');
+
+        $this->assertSame([
+            'uuid' => $entityUuid,
+            'path' => $entityPath,
+            'type' => 'Misc',
+            'sub_type' => 'Mineable',
+        ], $entityMetadataMap[$entityClassName] ?? null);
+        $this->assertCount(1, $entityMetadataMap);
+    }
+
     private function writeXmlFile(string $relativePath, string $contents): string
     {
         $fullPath = $this->tempDir.DIRECTORY_SEPARATOR.$relativePath;
@@ -319,10 +366,11 @@ final class CacheServiceTest extends TestCase
     private function resetServiceState(): void
     {
         $baseService = new ReflectionClass(BaseService::class);
-        foreach (['uuidToPathMap', 'uuidToClassMap', 'classToUuidMap'] as $propertyName) {
+        foreach (['uuidToPathMap', 'uuidToClassMap', 'classToUuidMap', 'classToPathMap', 'entityMetadataMap'] as $propertyName) {
             $property = $baseService->getProperty($propertyName);
             $property->setValue(null, []);
         }
+        $baseService->getProperty('entityMetadataMapLoaded')->setValue(null, false);
 
         $itemService = new ReflectionClass(ItemService::class);
         $documentCache = $itemService->getProperty('documentCache');

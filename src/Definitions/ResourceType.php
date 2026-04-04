@@ -17,24 +17,34 @@ final class ResourceType extends Element
 
         parent::initialize($document);
 
+        $qualityDistributionReference = $this->get(
+            'properties/ResourceTypeCraftingData/qualityDistribution/CraftingQualityDistribution_RecordRef@qualityDistributionRecord'
+        );
+        $qualityLocationOverrideReference = $this->get(
+            'properties/ResourceTypeCraftingData/qualityLocationOverride/CraftingQualityLocationOverride_RecordRef@locationOverrideRecord'
+        );
+
+        if (
+            (! is_string($qualityDistributionReference) || $qualityDistributionReference === '') &&
+            (! is_string($qualityLocationOverrideReference) || $qualityLocationOverrideReference === '')
+        ) {
+            return;
+        }
+
         $lookup = ServiceFactory::getFoundryLookupService();
 
         $this->hydrateFoundryReference(
             $document,
             'properties/ResourceTypeCraftingData/qualityDistribution/CraftingQualityDistribution_RecordRef@qualityDistributionRecord',
             'QualityDistribution',
-            $lookup->getCraftingQualityDistributionByReference($this->get(
-                'properties/ResourceTypeCraftingData/qualityDistribution/CraftingQualityDistribution_RecordRef@qualityDistributionRecord'
-            ))
+            $lookup->getCraftingQualityDistributionByReference($qualityDistributionReference)
         );
 
         $this->hydrateFoundryReference(
             $document,
             'properties/ResourceTypeCraftingData/qualityLocationOverride/CraftingQualityLocationOverride_RecordRef@locationOverrideRecord',
             'QualityLocationOverride',
-            $lookup->getCraftingQualityLocationOverrideByReference($this->get(
-                'properties/ResourceTypeCraftingData/qualityLocationOverride/CraftingQualityLocationOverride_RecordRef@locationOverrideRecord'
-            ))
+            $lookup->getCraftingQualityLocationOverrideByReference($qualityLocationOverrideReference)
         );
     }
 

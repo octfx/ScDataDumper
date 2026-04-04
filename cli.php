@@ -11,6 +11,7 @@ use Octfx\ScDataDumper\Commands\LoadData;
 use Octfx\ScDataDumper\Commands\LoadFactions;
 use Octfx\ScDataDumper\Commands\LoadItems;
 use Octfx\ScDataDumper\Commands\LoadManufacturers;
+use Octfx\ScDataDumper\Commands\LoadMineables;
 use Octfx\ScDataDumper\Commands\LoadResourceTypes;
 use Octfx\ScDataDumper\Commands\LoadStarmap;
 use Octfx\ScDataDumper\Commands\LoadTags;
@@ -31,5 +32,6 @@ $application->addCommand(new LoadData);
 $application->addCommand(new LoadTranslations);
 $application->addCommand(new LoadManufacturers);
 $application->addCommand(new LoadTags);
+$application->addCommand(new LoadMineables());
 
 $application->run();

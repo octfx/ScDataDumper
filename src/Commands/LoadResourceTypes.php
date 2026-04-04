@@ -11,7 +11,6 @@ use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Exception\ExceptionInterface;
-use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -23,7 +22,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     description: 'Load and dump SC resource types',
     hidden: false
 )]
-class LoadResourceTypes extends Command
+class LoadResourceTypes extends AbstractDataCommand
 {
     /**
      * @throws ExceptionInterface|JsonException
@@ -34,9 +33,7 @@ class LoadResourceTypes extends Command
         $io->title('[ScDataDumper] Loading resource types');
 
         $outputDir = $input->getArgument('jsonOutPath');
-        if (! is_dir($outputDir) && ! mkdir($outputDir, 0777, true) && ! is_dir($outputDir)) {
-            throw new RuntimeException(sprintf('Directory "%s" was not created', $outputDir));
-        }
+        $this->ensureDirectory((string) $outputDir);
 
         $indexFilePath = sprintf('%s%sresource-types.json', $outputDir, DIRECTORY_SEPARATOR);
         $overwrite = ($input->getOption('overwrite') ?? false) === true;
@@ -85,17 +82,6 @@ class LoadResourceTypes extends Command
         return Command::SUCCESS;
     }
 
-    protected function prepareServices(InputInterface $input, OutputInterface $output): void
-    {
-        $cacheCommand = new GenerateCache;
-        $cacheInput = new ArrayInput($this->makeCacheArguments($input));
-        $cacheInput->setInteractive(false);
-        $cacheCommand->run($cacheInput, $output);
-
-        $factory = new ServiceFactory($input->getArgument('scDataPath'));
-        $factory->initialize();
-    }
-
     /**
      * @return array{
      *     uuid: string,
@@ -136,7 +122,7 @@ class LoadResourceTypes extends Command
     protected function makeCacheArguments(InputInterface $input): array
     {
         return [
-            'path' => $input->getArgument('scDataPath'),
+            'path' => $this->getScDataPath($input),
         ];
     }
 

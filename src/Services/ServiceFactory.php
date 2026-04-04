@@ -3,6 +3,7 @@
 namespace Octfx\ScDataDumper\Services;
 
 use JsonException;
+use Octfx\ScDataDumper\Services\Mining\MineableService;
 use RuntimeException;
 
 final class ServiceFactory
@@ -11,27 +12,45 @@ final class ServiceFactory
 
     private static ?string $activeScDataPath = null;
 
+    private static ?string $activeJsonOutPath = null;
+
     /**
      * @var BaseService[]
      */
     private static array $services = [];
 
-    public function __construct(private readonly string $scDataPath) {}
+    public function __construct(
+        private readonly string $scDataPath,
+        private readonly ?string $jsonOutPath = null,
+    ) {}
 
     /**
      * @throws JsonException
      */
     public function initialize(): void
     {
-        if (self::$initialized && self::$activeScDataPath === $this->scDataPath) {
+        $jsonOutPath = $this->jsonOutPath ?? $this->scDataPath;
+
+        if (
+            self::$initialized
+            && self::$activeScDataPath === $this->scDataPath
+            && self::$activeJsonOutPath === $jsonOutPath
+        ) {
             return;
         }
 
-        if (self::$activeScDataPath !== null && self::$activeScDataPath !== $this->scDataPath) {
+        if (
+            self::$activeScDataPath !== null
+            && (
+                self::$activeScDataPath !== $this->scDataPath
+                || self::$activeJsonOutPath !== $jsonOutPath
+            )
+        ) {
             self::$services = [];
         }
 
         self::$activeScDataPath = $this->scDataPath;
+        self::$activeJsonOutPath = $jsonOutPath;
 
         self::$initialized = true;
     }
@@ -40,6 +59,7 @@ final class ServiceFactory
     {
         self::$initialized = false;
         self::$activeScDataPath = null;
+        self::$activeJsonOutPath = null;
         self::$services = [];
 
         BaseService::resetSharedState();
@@ -99,6 +119,11 @@ final class ServiceFactory
         return self::getService('FoundryLookupService');
     }
 
+    public static function getMineableService(): MineableService
+    {
+        return self::getService('MineableService');
+    }
+
     public static function getLoadoutFileService(): LoadoutFileService
     {
         return self::getService('LoadoutFileService');
@@ -136,6 +161,7 @@ final class ServiceFactory
             'AmmoParamsService' => new AmmoParamsService(self::$activeScDataPath),
             'VehicleService' => new VehicleService(self::$activeScDataPath),
             'FoundryLookupService' => new FoundryLookupService(self::$activeScDataPath),
+            'MineableService' => new MineableService(self::$activeJsonOutPath, self::$activeScDataPath),
             'LoadoutFileService' => new LoadoutFileService(self::$activeScDataPath),
             default => throw new RuntimeException('Unknown service: '.$serviceName),
         };

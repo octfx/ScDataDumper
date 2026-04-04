@@ -12,31 +12,25 @@ use Symfony\Component\Console\Exception\ExceptionInterface;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
-use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Throwable;
 
 #[AsCommand(
     name: 'load:tags',
     description: 'Dumps all tags to tags.json',
     hidden: false
 )]
-class LoadTags extends Command
+class LoadTags extends AbstractDataCommand
 {
     /**
      * @throws JsonException|ExceptionInterface
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $cacheCommand = new GenerateCache;
-        $cacheCommand->run(new StringInput($input->getArgument('scDataPath')), $output);
-
         $io = new SymfonyStyle($input, $output);
         $io->title('[ScDataDumper] Loading tags');
 
-        $fac = new ServiceFactory($input->getArgument('scDataPath'));
-        $fac->initialize();
+        $this->prepareServices($input, $output);
 
         $overwrite = ($input->getOption('overwrite') ?? false) === true;
 
@@ -70,25 +64,6 @@ class LoadTags extends Command
         $io->success(sprintf('Loaded tags (Path: %s)', $input->getArgument('jsonOutPath')));
 
         return Command::SUCCESS;
-    }
-
-    private function writeJsonFile(string $filePath, string $content, SymfonyStyle $io): bool
-    {
-        try {
-            $bytesWritten = file_put_contents($filePath, $content);
-
-            if ($bytesWritten === false) {
-                $io->error(sprintf('Failed to write file: %s', $filePath));
-
-                return false;
-            }
-
-            return true;
-        } catch (Throwable $e) {
-            $io->error(sprintf('Error writing %s: %s', $filePath, $e->getMessage()));
-
-            return false;
-        }
     }
 
     protected function configure(): void

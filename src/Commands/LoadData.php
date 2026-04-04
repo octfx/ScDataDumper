@@ -38,153 +38,19 @@ class LoadData extends Command
             return Command::FAILURE;
         }
 
-        // Helper to run commands
-        $runCommand = static function (string $name, array $args) use ($application, $output) {
-            $command = $application->find($name);
-            $commandInput = new ArrayInput($args);
-            $commandInput->setInteractive(false);
+        foreach ($this->subcommands() as $definition) {
+            $io->section($definition['label']);
 
-            return $command->run($commandInput, $output);
-        };
+            $result = $this->runSubcommand(
+                $application,
+                $output,
+                $definition['name'],
+                $this->buildSubcommandArguments($definition['name'], $definition['options'], $scDataPath, $jsonOutPath, $overwrite, $scUnpackedFormat)
+            );
 
-        // Execute commands in sequence
-        $io->section('Generating cache');
-        $result = $runCommand('generate:cache', ['path' => $scDataPath]);
-
-        if ($result !== Command::SUCCESS) {
-            return $result;
-        }
-
-        $io->section('Loading items');
-        $itemArgs = [
-            'scDataPath' => $scDataPath,
-            'jsonOutPath' => $jsonOutPath,
-        ];
-        if ($overwrite) {
-            $itemArgs['--overwrite'] = true;
-        }
-        if ($scUnpackedFormat) {
-            $itemArgs['--scUnpackedFormat'] = true;
-        }
-
-        $result = $runCommand('load:items', $itemArgs);
-
-        if ($result !== Command::SUCCESS) {
-            return $result;
-        }
-
-        $io->section('Loading blueprints');
-        $blueprintArgs = [
-            'scDataPath' => $scDataPath,
-            'jsonOutPath' => $jsonOutPath,
-        ];
-        if ($overwrite) {
-            $blueprintArgs['--overwrite'] = true;
-        }
-        if ($scUnpackedFormat) {
-            $blueprintArgs['--scUnpackedFormat'] = true;
-        }
-
-        $result = $runCommand('load:blueprints', $blueprintArgs);
-
-        if ($result !== Command::SUCCESS) {
-            return $result;
-        }
-
-        $io->section('Loading resource types');
-        $resourceTypeArgs = [
-            'scDataPath' => $scDataPath,
-            'jsonOutPath' => $jsonOutPath,
-        ];
-        if ($overwrite) {
-            $resourceTypeArgs['--overwrite'] = true;
-        }
-
-        $result = $runCommand('load:resource-types', $resourceTypeArgs);
-
-        if ($result !== Command::SUCCESS) {
-            return $result;
-        }
-
-        $io->section('Loading vehicles');
-        $vehicleArgs = [
-            'scDataPath' => $scDataPath,
-            'jsonOutPath' => $jsonOutPath,
-        ];
-        if ($overwrite) {
-            $vehicleArgs['--overwrite'] = true;
-        }
-        if ($scUnpackedFormat) {
-            $vehicleArgs['--scUnpackedFormat'] = true;
-        }
-
-        $result = $runCommand('load:vehicles', $vehicleArgs);
-
-        if ($result !== Command::SUCCESS) {
-            return $result;
-        }
-
-        $io->section('Loading factions');
-        $factionArgs = [
-            'scDataPath' => $scDataPath,
-            'jsonOutPath' => $jsonOutPath,
-        ];
-        if ($overwrite) {
-            $factionArgs['--overwrite'] = true;
-        }
-        if ($scUnpackedFormat) {
-            $factionArgs['--scUnpackedFormat'] = true;
-        }
-
-        $result = $runCommand('load:factions', $factionArgs);
-
-        if ($result !== Command::SUCCESS) {
-            return $result;
-        }
-
-        $io->section('Loading starmap');
-        $starmapArgs = [
-            'scDataPath' => $scDataPath,
-            'jsonOutPath' => $jsonOutPath,
-        ];
-        if ($overwrite) {
-            $starmapArgs['--overwrite'] = true;
-        }
-
-        $result = $runCommand('load:starmap', $starmapArgs);
-
-        if ($result !== Command::SUCCESS) {
-            return $result;
-        }
-
-        $io->section('Loading manufacturers');
-        $result = $runCommand('load:manufacturers', [
-            'scDataPath' => $scDataPath,
-            'jsonOutPath' => $jsonOutPath,
-        ]);
-
-        if ($result !== Command::SUCCESS) {
-            return $result;
-        }
-
-        $io->section('Loading translations');
-        $result = $runCommand('load:translations', [
-            'scDataPath' => $scDataPath,
-            'jsonOutPath' => $jsonOutPath,
-        ]);
-
-        if ($result !== Command::SUCCESS) {
-            return $result;
-        }
-
-        $io->section('Loading Tags');
-        $result = $runCommand('load:tags', [
-            'scDataPath' => $scDataPath,
-            'jsonOutPath' => $jsonOutPath,
-        ]);
-
-        if ($result !== Command::SUCCESS) {
-            return $result;
+            if ($result !== Command::SUCCESS) {
+                return $result;
+            }
         }
 
         $io->success('All data loaded successfully');
@@ -207,7 +73,76 @@ class LoadData extends Command
             'scUnpackedFormat',
             null,
             InputOption::VALUE_NONE,
-            'Export data in SC Unpacked format with Raw entity data'
+            'Deprecated: SC Unpacked format is now the default and this option has no effect'
         );
+    }
+
+    /**
+     * @return list<array{name: string, label: string, options: list<string>}>
+     */
+    private function subcommands(): array
+    {
+        return [
+            ['name' => 'generate:cache', 'label' => 'Generating cache', 'options' => []],
+            ['name' => 'load:items', 'label' => 'Loading items', 'options' => ['overwrite', 'scUnpackedFormat']],
+            ['name' => 'load:blueprints', 'label' => 'Loading blueprints', 'options' => ['overwrite', 'scUnpackedFormat']],
+            ['name' => 'load:resource-types', 'label' => 'Loading resource types', 'options' => ['overwrite']],
+            ['name' => 'load:vehicles', 'label' => 'Loading vehicles', 'options' => ['overwrite', 'scUnpackedFormat']],
+            ['name' => 'load:factions', 'label' => 'Loading factions', 'options' => ['overwrite', 'scUnpackedFormat']],
+            ['name' => 'load:starmap', 'label' => 'Loading starmap', 'options' => ['overwrite']],
+            ['name' => 'load:mineables', 'label' => 'Loading mineables', 'options' => ['overwrite']],
+            ['name' => 'load:manufacturers', 'label' => 'Loading manufacturers', 'options' => []],
+            ['name' => 'load:translations', 'label' => 'Loading translations', 'options' => []],
+            ['name' => 'load:tags', 'label' => 'Loading tags', 'options' => ['overwrite']],
+        ];
+    }
+
+    /**
+     * @param  list<string>  $options
+     * @return array<string, bool|string>
+     */
+    private function buildSubcommandArguments(
+        string $commandName,
+        array $options,
+        string $scDataPath,
+        string $jsonOutPath,
+        bool $overwrite,
+        bool $scUnpackedFormat,
+    ): array {
+        $arguments = $commandName === 'generate:cache'
+            ? ['path' => $scDataPath]
+            : [
+                'scDataPath' => $scDataPath,
+                'jsonOutPath' => $jsonOutPath,
+            ];
+
+        $optionValues = [
+            'overwrite' => $overwrite,
+            'scUnpackedFormat' => $scUnpackedFormat,
+        ];
+
+        foreach ($options as $option) {
+            if (($optionValues[$option] ?? false) === true) {
+                $arguments['--'.$option] = true;
+            }
+        }
+
+        return $arguments;
+    }
+
+    /**
+     * @param  array<string, bool|string>  $arguments
+     */
+    private function runSubcommand(
+        \Symfony\Component\Console\Application $application,
+        OutputInterface $output,
+        string $name,
+        array $arguments,
+    ): int {
+        $command = $application->find($name);
+        $commandInput = new ArrayInput($arguments);
+        $commandInput->setInteractive(false);
+
+        return $command->run($commandInput, $output);
     }
 }

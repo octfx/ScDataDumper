@@ -6,11 +6,12 @@ namespace Octfx\ScDataDumper\Tests\Commands;
 
 use Octfx\ScDataDumper\Commands\LoadItems;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
+use RuntimeException;
 use Symfony\Component\Console\Tester\CommandTester;
 
 final class LoadItemsCommandTest extends ScDataTestCase
 {
-    public function test_execute_writes_split_indexes_and_scunpacked_item_files(): void
+    public function test_execute_writes_split_indexes_and_scunpacked_item_files_by_default(): void
     {
         $command = new TestLoadItemsCommand([
             [
@@ -47,7 +48,6 @@ final class LoadItemsCommandTest extends ScDataTestCase
         $exitCode = $tester->execute([
             'scDataPath' => $this->tempDir,
             'jsonOutPath' => $this->tempDir,
-            '--scUnpackedFormat' => true,
         ]);
 
         self::assertSame(0, $exitCode);
@@ -62,6 +62,79 @@ final class LoadItemsCommandTest extends ScDataTestCase
         $fpsItemFile = $this->readJsonFile('items/fps_rifle.json');
         self::assertSame('FPS_RIFLE', $fpsItemFile['Raw']['Entity']['ClassName']);
         self::assertSame('FPS_RIFLE', $fpsItemFile['Item']['stdItem']['ClassName']);
+    }
+
+    public function test_execute_accepts_scunpacked_flag_as_a_noop(): void
+    {
+        $records = [
+            [
+                'className' => 'SHIP_GUN',
+                'formatted' => [
+                    'classification' => 'Ship.Weapon.LaserCannon',
+                    'stdItem' => ['ClassName' => 'SHIP_GUN', 'Name' => 'Ship Gun'],
+                ],
+                'item' => new MockItem(
+                    'SHIP_GUN',
+                    'ship-gun-uuid',
+                    'WeaponGun',
+                    ['ClassName' => 'SHIP_GUN'],
+                    json_encode(['fallback' => 'ship-gun'], JSON_THROW_ON_ERROR),
+                ),
+            ],
+        ];
+
+        $defaultOutputDir = $this->tempDir.DIRECTORY_SEPARATOR.'default';
+        mkdir($defaultOutputDir, 0777, true);
+        $defaultTester = new CommandTester(new TestLoadItemsCommand($records));
+        $defaultTester->execute([
+            'scDataPath' => $this->tempDir,
+            'jsonOutPath' => $defaultOutputDir,
+        ]);
+        $defaultContents = file_get_contents($defaultOutputDir.DIRECTORY_SEPARATOR.'items/ship_gun.json');
+        self::assertNotFalse($defaultContents);
+
+        $flaggedOutputDir = $this->tempDir.DIRECTORY_SEPARATOR.'flagged';
+        mkdir($flaggedOutputDir, 0777, true);
+        $flaggedTester = new CommandTester(new TestLoadItemsCommand($records));
+        $flaggedTester->execute([
+            'scDataPath' => $this->tempDir,
+            'jsonOutPath' => $flaggedOutputDir,
+            '--scUnpackedFormat' => true,
+        ]);
+        $flaggedContents = file_get_contents($flaggedOutputDir.DIRECTORY_SEPARATOR.'items/ship_gun.json');
+        self::assertNotFalse($flaggedContents);
+
+        self::assertSame($defaultContents, $flaggedContents);
+    }
+
+    public function test_execute_throws_runtime_exception_when_index_file_cannot_be_opened(): void
+    {
+        self::assertTrue(mkdir($this->tempDir.DIRECTORY_SEPARATOR.'items.json', 0777, true) || is_dir($this->tempDir.DIRECTORY_SEPARATOR.'items.json'));
+
+        $tester = new CommandTester(new TestLoadItemsCommand([
+            [
+                'className' => 'SHIP_GUN',
+                'formatted' => [
+                    'classification' => 'Ship.Weapon.LaserCannon',
+                    'stdItem' => ['ClassName' => 'SHIP_GUN', 'Name' => 'Ship Gun'],
+                ],
+                'item' => new MockItem(
+                    'SHIP_GUN',
+                    'ship-gun-uuid',
+                    'WeaponGun',
+                    ['ClassName' => 'SHIP_GUN'],
+                    json_encode(['fallback' => 'ship-gun'], JSON_THROW_ON_ERROR),
+                ),
+            ],
+        ]));
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Failed to open index output files for writing');
+
+        $tester->execute([
+            'scDataPath' => $this->tempDir,
+            'jsonOutPath' => $this->tempDir,
+        ]);
     }
 
     /**

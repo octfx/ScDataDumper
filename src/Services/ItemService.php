@@ -75,6 +75,34 @@ final class ItemService extends BaseService
     }
 
     /**
+     * @return array<int, string>
+     */
+    public function getPathsBySubType(string $subType): array
+    {
+        $this->requireEntityMetadata();
+
+        $normalizedSubType = strtolower(trim($subType));
+        if ($normalizedSubType === '') {
+            return [];
+        }
+
+        $paths = [];
+
+        foreach (self::$entityMetadataMap as $metadata) {
+            $metadataSubType = strtolower((string) ($metadata['sub_type'] ?? ''));
+            $path = $metadata['path'] ?? null;
+
+            if ($metadataSubType !== $normalizedSubType || ! is_string($path) || $path === '') {
+                continue;
+            }
+
+            $paths[] = $path;
+        }
+
+        return $paths;
+    }
+
+    /**
      * Get item UUID by class name using the cache map
      *
      * @param  string|null  $className  The entity class name

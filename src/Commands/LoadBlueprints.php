@@ -11,7 +11,6 @@ use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Exception\ExceptionInterface;
-use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -23,7 +22,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     description: 'Load and dump SC crafting blueprints',
     hidden: false
 )]
-class LoadBlueprints extends Command
+class LoadBlueprints extends AbstractDataCommand
 {
     /**
      * @throws JsonException|ExceptionInterface
@@ -41,11 +40,9 @@ class LoadBlueprints extends Command
         $outDir = sprintf('%s%sblueprints', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
         $indexFilePath = sprintf('%s%sblueprints.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
 
-        if (! is_dir($outDir) && ! mkdir($outDir, 0777, true) && ! is_dir($outDir)) {
-            throw new RuntimeException(sprintf('Directory "%s" was not created', $outDir));
-        }
+        $this->ensureDirectory($outDir);
 
-        $indexHandle = fopen($indexFilePath, 'wb');
+        $indexHandle = @fopen($indexFilePath, 'wb');
         if (! $indexHandle) {
             throw new RuntimeException('Failed to open blueprints index file for writing');
         }
@@ -84,16 +81,12 @@ class LoadBlueprints extends Command
             }
 
             try {
-                if ($input->getOption('scUnpackedFormat')) {
-                    $json = json_encode([
-                        'Raw' => [
-                            'Blueprint' => $blueprintExport['rawBlueprint'],
-                        ],
-                        'Blueprint' => $formatted,
-                    ], $jsonFlags);
-                } else {
-                    $json = $blueprintExport['defaultJson'];
-                }
+                $json = json_encode([
+                    'Raw' => [
+                        'Blueprint' => $blueprintExport['rawBlueprint'],
+                    ],
+                    'Blueprint' => $formatted,
+                ], $jsonFlags);
 
                 if (! $this->writeJsonFile($filePath, $json, $io)) {
                     $io->warning(sprintf('Skipping blueprint %s due to write failure', $fileName));
@@ -125,19 +118,6 @@ class LoadBlueprints extends Command
         return Command::SUCCESS;
     }
 
-    protected function prepareServices(InputInterface $input, OutputInterface $output): void
-    {
-        $cacheCommand = new GenerateCache;
-        $cacheInput = new ArrayInput([
-            'path' => $input->getArgument('scDataPath'),
-        ]);
-        $cacheInput->setInteractive(false);
-        $cacheCommand->run($cacheInput, $output);
-
-        $fac = new ServiceFactory($input->getArgument('scDataPath'));
-        $fac->initialize();
-    }
-
     protected function getBlueprintExportCount(): int
     {
         return ServiceFactory::getBlueprintService()->count();
@@ -166,25 +146,6 @@ class LoadBlueprints extends Command
         }
     }
 
-    private function writeJsonFile(string $filePath, string $content, SymfonyStyle $io): bool
-    {
-        try {
-            $bytesWritten = file_put_contents($filePath, $content);
-
-            if ($bytesWritten === false) {
-                $io->error(sprintf('Failed to write file: %s', $filePath));
-
-                return false;
-            }
-
-            return true;
-        } catch (\Throwable $e) {
-            $io->error(sprintf('Error writing %s: %s', $filePath, $e->getMessage()));
-
-            return false;
-        }
-    }
-
     protected function configure(): void
     {
         $this->setHelp('php cli.php load:blueprints Path/To/ScDataDir Path/To/JsonOutDir');
@@ -206,7 +167,7 @@ class LoadBlueprints extends Command
             'scUnpackedFormat',
             null,
             InputOption::VALUE_NONE,
-            'Export blueprints in SC Unpacked format with raw blueprint data'
+            'Deprecated: SC Unpacked format is now the default and this option has no effect'
         );
     }
 }

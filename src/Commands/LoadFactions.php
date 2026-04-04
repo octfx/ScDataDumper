@@ -8,41 +8,33 @@ use JsonException;
 use Octfx\ScDataDumper\DocumentTypes\Faction\Faction;
 use Octfx\ScDataDumper\Formats\ScUnpacked\Faction as ScUnpackedFaction;
 use Octfx\ScDataDumper\Services\ServiceFactory;
-use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Exception\ExceptionInterface;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
-use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Throwable;
 
 #[AsCommand(
     name: 'load:factions',
     description: 'Load and dump SC Factions',
     hidden: false
 )]
-class LoadFactions extends Command
+class LoadFactions extends AbstractDataCommand
 {
     /**
      * @throws JsonException|ExceptionInterface
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $cacheCommand = new GenerateCache;
-        $cacheCommand->run(new StringInput($input->getArgument('scDataPath')), $output);
-
         $io = new SymfonyStyle($input, $output);
         $io->title('[ScDataDumper] Loading factions');
 
-        $fac = new ServiceFactory($input->getArgument('scDataPath'));
-        $fac->initialize();
+        $this->prepareServices($input, $output);
 
         $overwrite = ($input->getOption('overwrite') ?? false) === true;
-        $scUnpackedFormat = ($input->getOption('scUnpackedFormat') ?? false) === true;
 
         $service = ServiceFactory::getFoundryLookupService();
 
@@ -50,9 +42,7 @@ class LoadFactions extends Command
 
         $outDir = sprintf('%s%sfactions', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
 
-        if (! is_dir($outDir) && ! mkdir($outDir, 0777, true) && ! is_dir($outDir)) {
-            throw new RuntimeException(sprintf('Directory "%s" was not created', $outDir));
-        }
+        $this->ensureDirectory($outDir);
 
         $start = microtime(true);
 
@@ -67,9 +57,7 @@ class LoadFactions extends Command
             }
 
             try {
-                $json = $scUnpackedFormat
-                    ? json_encode((new ScUnpackedFaction($faction))->toArray(), JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
-                    : $faction->toJson();
+                $json = json_encode((new ScUnpackedFaction($faction))->toArray(), JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
                 if (! $this->writeJsonFile($filePath, $json, $io)) {
                     $io->warning(sprintf('Skipping faction %s due to write failure', $fileName));
@@ -98,28 +86,6 @@ class LoadFactions extends Command
         return Command::SUCCESS;
     }
 
-    /**
-     * Safely write JSON content to file
-     */
-    private function writeJsonFile(string $filePath, string $content, SymfonyStyle $io): bool
-    {
-        try {
-            $bytesWritten = file_put_contents($filePath, $content);
-
-            if ($bytesWritten === false) {
-                $io->error(sprintf('Failed to write file: %s', $filePath));
-
-                return false;
-            }
-
-            return true;
-        } catch (Throwable $e) {
-            $io->error(sprintf('Error writing %s: %s', $filePath, $e->getMessage()));
-
-            return false;
-        }
-    }
-
     protected function configure(): void
     {
         $this->setHelp('php cli.php load:factions Path/To/ScDataDir Path/To/JsonOutDir');
@@ -135,7 +101,7 @@ class LoadFactions extends Command
             'scUnpackedFormat',
             null,
             InputOption::VALUE_NONE,
-            'Export factions in SC Unpacked format'
+            'Deprecated: SC Unpacked format is now the default and this option has no effect'
         );
     }
 }

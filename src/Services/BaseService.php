@@ -21,6 +21,8 @@ abstract class BaseService
 
     protected readonly string $classToUuidMapPath;
 
+    protected readonly string $entityMetadataMapPath;
+
     /**
      * Maps UUID to a file Path
      *
@@ -50,6 +52,15 @@ abstract class BaseService
     protected static array $classToPathMap = [];
 
     /**
+     * Maps entity class name to compact metadata used for prefiltering.
+     *
+     * @var array<string, array{uuid: string, path: string, type: string, sub_type: ?string}>
+     */
+    protected static array $entityMetadataMap = [];
+
+    protected static bool $entityMetadataMapLoaded = false;
+
+    /**
      * @throws JsonException
      */
     public function __construct(protected readonly string $scDataDir)
@@ -59,6 +70,7 @@ abstract class BaseService
         $this->uuidToClassMapPath = $this->makePath(sprintf('uuidToClassMap-%s.json', PHP_OS_FAMILY));
         $this->uuidToPathMapPath = $this->makePath(sprintf('uuidToPathMap-%s.json', PHP_OS_FAMILY));
         $this->classToUuidMapPath = $this->makePath(sprintf('classToUuidMap-%s.json', PHP_OS_FAMILY));
+        $this->entityMetadataMapPath = $this->makePath(sprintf('entityMetadataMap-%s.json', PHP_OS_FAMILY));
 
         foreach ([
             $this->classToTypeMapPath,
@@ -98,6 +110,16 @@ abstract class BaseService
             }
         }
 
+        if (! self::$entityMetadataMapLoaded) {
+            if (file_exists($this->entityMetadataMapPath)) {
+                self::$entityMetadataMap = json_decode(file_get_contents($this->entityMetadataMapPath), true, 512, JSON_THROW_ON_ERROR);
+            } else {
+                self::$entityMetadataMap = [];
+            }
+
+            self::$entityMetadataMapLoaded = true;
+        }
+
         $this->validateCachePaths();
     }
 
@@ -123,26 +145,30 @@ abstract class BaseService
 
     abstract public function initialize(): void;
 
-    protected function normalizeReference(?string $reference): ?string
+    protected function hasEntityMetadata(): bool
     {
-        if (! is_string($reference)) {
-            return null;
+        return file_exists($this->entityMetadataMapPath);
+    }
+
+    protected function requireEntityMetadata(): void
+    {
+        if ($this->hasEntityMetadata()) {
+            return;
         }
 
-        $normalizedReference = strtolower(trim($reference));
-
-        return $normalizedReference === '' ? null : $normalizedReference;
+        throw new RuntimeException(sprintf(
+            'Did not find required file %s. Generate cache files including entity metadata before querying item subtypes.',
+            $this->entityMetadataMapPath
+        ));
     }
 
     protected function resolvePathByReference(?string $reference): ?string
     {
-        $normalizedReference = $this->normalizeReference($reference);
-
-        if ($normalizedReference === null) {
+        if (! is_string($reference) || $reference === '') {
             return null;
         }
 
-        return self::$uuidToPathMap[$normalizedReference] ?? null;
+        return self::$uuidToPathMap[$reference] ?? null;
     }
 
     protected function normalizePath(string $path): string
@@ -221,6 +247,8 @@ abstract class BaseService
         self::$uuidToClassMap = [];
         self::$classToUuidMap = [];
         self::$classToPathMap = [];
+        self::$entityMetadataMap = [];
+        self::$entityMetadataMapLoaded = false;
     }
 
     private function makePath(string $fileName): string

@@ -30,6 +30,7 @@ final readonly class CacheService
 
         $classToPathMap = [];
         $classToTypeMap = [];
+        $entityMetadataMap = [];
         $uuidToClassMap = [];
         $uuidToPathMap = [];
 
@@ -69,9 +70,15 @@ final readonly class CacheService
                 $uuidToPathMap[$parsed['uuid']] = $normalizedFilePath;
 
                 if ($parsed['docType'] === 'EntityClassDefinition') {
-                    $entityType = $this->extractEntityClassType($filePath);
-                    if ($entityType !== null) {
-                        $classToTypeMap[$parsed['docType'].'.'.$parsed['className']] = $entityType;
+                    $entityMetadata = $this->extractEntityMetadata($filePath);
+                    if ($entityMetadata !== null) {
+                        $classToTypeMap[$parsed['docType'].'.'.$parsed['className']] = $entityMetadata['type'];
+                        $entityMetadataMap[$parsed['className']] = [
+                            'uuid' => $parsed['uuid'],
+                            'path' => $normalizedFilePath,
+                            'type' => $entityMetadata['type'],
+                            'sub_type' => $entityMetadata['sub_type'],
+                        ];
                     }
                 } elseif ($parsed['type'] !== '') {
                     $classToTypeMap[$parsed['docType']] = $parsed['type'];
@@ -87,6 +94,10 @@ final readonly class CacheService
             [
                 sprintf('classToTypeMap-%s.json', PHP_OS_FAMILY),
                 $classToTypeMap,
+            ],
+            [
+                sprintf('entityMetadataMap-%s.json', PHP_OS_FAMILY),
+                $entityMetadataMap,
             ],
             [
                 sprintf('classToUuidMap-%s.json', PHP_OS_FAMILY),
@@ -197,7 +208,10 @@ final readonly class CacheService
         return pathinfo($baseName, PATHINFO_FILENAME);
     }
 
-    private function extractEntityClassType(string $filePath): ?string
+    /**
+     * @return array{type: string, sub_type: ?string}|null
+     */
+    private function extractEntityMetadata(string $filePath): ?array
     {
         $reader = XMLReader::open($filePath, null, LIBXML_NONET | LIBXML_COMPACT);
         if (! $reader) {
@@ -213,8 +227,11 @@ final readonly class CacheService
                 if ($reader->name === 'AttachDef') {
                     $type = $reader->getAttribute('Type');
                     $subType = $reader->getAttribute('SubType');
-                    if ($type !== null && $type !== '' && $subType !== null && $subType !== '') {
-                        return $type;
+                    if ($type !== null && $type !== '') {
+                        return [
+                            'type' => $type,
+                            'sub_type' => $subType !== null && $subType !== '' ? $subType : null,
+                        ];
                     }
 
                     return null;

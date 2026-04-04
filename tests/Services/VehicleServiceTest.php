@@ -177,6 +177,22 @@ final class VehicleServiceTest extends ScDataTestCase
         self::assertSame([], $wrapper->loadout);
     }
 
+    public function test_initialize_does_not_require_entity_metadata_cache(): void
+    {
+        $this->writeCacheFiles();
+        unlink(sprintf('%s%sentityMetadataMap-%s.json', $this->tempDir, DIRECTORY_SEPARATOR, PHP_OS_FAMILY));
+        $this->writeVehicleImplementationFile(
+            'Data/Scripts/Entities/Vehicles/Implementations/Xml/.gitkeep',
+            '<placeholder />'
+        );
+
+        $service = new VehicleService($this->tempDir);
+        $this->setImplementations($service, []);
+        $service->initialize();
+
+        self::assertSame(0, $service->count());
+    }
+
     /**
      * @param  array<int, array<string, mixed>>  $ports
      * @param  array<int, array<string, mixed>>  $defaultLoadout

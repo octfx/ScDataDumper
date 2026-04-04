@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Tests\Formats\ScUnpacked;
 
-use Octfx\ScDataDumper\DocumentTypes\CraftingBlueprintRecord;
+use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingBlueprintRecord;
 use Octfx\ScDataDumper\Formats\ScUnpacked\Blueprint;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;

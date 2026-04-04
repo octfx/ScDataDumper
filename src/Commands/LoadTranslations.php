@@ -18,7 +18,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     description: 'Dumps all translations to a file called labels.json',
     hidden: false
 )]
-class LoadTranslations extends Command
+class LoadTranslations extends AbstractDataCommand
 {
     /**
      * @throws JsonException
@@ -50,28 +50,6 @@ class LoadTranslations extends Command
         }
 
         return Command::SUCCESS;
-    }
-
-    /**
-     * Safely write JSON content to file
-     */
-    private function writeJsonFile(string $filePath, string $content, SymfonyStyle $io): bool
-    {
-        try {
-            $bytesWritten = file_put_contents($filePath, $content);
-
-            if ($bytesWritten === false) {
-                $io->error(sprintf('Failed to write file: %s', $filePath));
-
-                return false;
-            }
-
-            return true;
-        } catch (\Throwable $e) {
-            $io->error(sprintf('Error writing %s: %s', $filePath, $e->getMessage()));
-
-            return false;
-        }
     }
 
     protected function configure(): void

@@ -10,6 +10,30 @@ use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 final class HarvestableProviderPreset extends RootDocument
 {
     /**
+     * @return list<array{name: ?string, globalModifier: ?float}>
+     */
+    public function getAreas(): array
+    {
+        $areas = [];
+
+        foreach ($this->getAll('areas/*') as $node) {
+            if (! $node instanceof Element) {
+                continue;
+            }
+
+            $name = $node->get('@name');
+            $globalModifier = $node->get('@globalModifier');
+
+            $areas[] = [
+                'name' => is_string($name) && $name !== '' ? $name : null,
+                'globalModifier' => is_numeric($globalModifier) ? (float) $globalModifier : null,
+            ];
+        }
+
+        return $areas;
+    }
+
+    /**
      * @return list<HarvestableElementGroup>
      */
     public function getHarvestableGroups(): array
