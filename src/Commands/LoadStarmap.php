@@ -37,26 +37,30 @@ final class LoadStarmap extends AbstractDataCommand
         $service = ServiceFactory::getFoundryLookupService();
         $filter = $this->normalizeFilter($input->getOption('filter'));
 
-        $exports = [];
-        $io->progressStart($service->countDocumentType('StarMapObject'));
+        $exports = $this->withLazyReferenceHydration([$service], function () use ($service, $filter, $io): array {
+            $exports = [];
+            $io->progressStart($service->countDocumentType('StarMapObject'));
 
-        foreach ($service->getDocumentType('StarMapObject', StarMapObjectDocument::class) as $object) {
-            if ($filter !== null && ! str_contains(strtolower($object->getClassName()), $filter)) {
+            foreach ($service->getDocumentType('StarMapObject', StarMapObjectDocument::class) as $object) {
+                if ($filter !== null && ! str_contains(strtolower($object->getClassName()), $filter)) {
+                    $io->progressAdvance();
+
+                    continue;
+                }
+
+                $formatted = new StarMapObjectFormat($object)->toArray();
+
+                if ($formatted !== null) {
+                    $exports[] = $formatted;
+                }
+
                 $io->progressAdvance();
-
-                continue;
             }
 
-            $formatted = new StarMapObjectFormat($object)->toArray();
+            $io->progressFinish();
 
-            if ($formatted !== null) {
-                $exports[] = $formatted;
-            }
-
-            $io->progressAdvance();
-        }
-
-        $io->progressFinish();
+            return $exports;
+        });
 
         $outPath = sprintf('%s%sstarmap.json', rtrim((string) $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR), DIRECTORY_SEPARATOR);
         $outDir = dirname($outPath);

@@ -2,11 +2,11 @@
 
 namespace Octfx\ScDataDumper\DocumentTypes\Faction;
 
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\Reputation\SReputationContextUI;
 use Octfx\ScDataDumper\DocumentTypes\Reputation\SReputationScopeParams;
 use Octfx\ScDataDumper\DocumentTypes\Reputation\SReputationStandingParams;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
+use Octfx\ScDataDumper\Services\ServiceFactory;
 
 class FactionReputation extends RootDocument
 {
@@ -37,15 +37,15 @@ class FactionReputation extends RootDocument
 
     public function getReputationContext(): ?SReputationContextUI
     {
-        $contextNode = $this->get('ReputationContextUI');
+        $resolved = $this->resolveRelatedDocument(
+            'ReputationContextUI',
+            SReputationContextUI::class,
+            $this->getReputationContextReference(),
+            static fn (string $reference): ?SReputationContextUI => ServiceFactory::getFoundryLookupService()
+                ->getReputationContextByReference($reference)
+        );
 
-        if (! $contextNode instanceof Element) {
-            return null;
-        }
-
-        $context = SReputationContextUI::fromNode($contextNode->getNode());
-
-        return $context instanceof SReputationContextUI ? $context : null;
+        return $resolved instanceof SReputationContextUI ? $resolved : null;
     }
 
     public function getHostilityScopeReference(): ?string
@@ -90,27 +90,27 @@ class FactionReputation extends RootDocument
 
     private function resolveScope(string $path): ?SReputationScopeParams
     {
-        $scopeNode = $this->get($path);
+        $resolved = $this->resolveRelatedDocument(
+            $path,
+            SReputationScopeParams::class,
+            $this->getString(str_replace('/Scope', '@scope', $path)),
+            static fn (string $reference): ?SReputationScopeParams => ServiceFactory::getFoundryLookupService()
+                ->getReputationScopeByReference($reference)
+        );
 
-        if (! $scopeNode instanceof Element) {
-            return null;
-        }
-
-        $scope = SReputationScopeParams::fromNode($scopeNode->getNode());
-
-        return $scope instanceof SReputationScopeParams ? $scope : null;
+        return $resolved instanceof SReputationScopeParams ? $resolved : null;
     }
 
     private function resolveStanding(string $path): ?SReputationStandingParams
     {
-        $standingNode = $this->get($path);
+        $resolved = $this->resolveRelatedDocument(
+            $path,
+            SReputationStandingParams::class,
+            $this->getString(str_replace('/Standing', '@standing', $path)),
+            static fn (string $reference): ?SReputationStandingParams => ServiceFactory::getFoundryLookupService()
+                ->getReputationStandingByReference($reference)
+        );
 
-        if (! $standingNode instanceof Element) {
-            return null;
-        }
-
-        $standing = SReputationStandingParams::fromNode($standingNode->getNode());
-
-        return $standing instanceof SReputationStandingParams ? $standing : null;
+        return $resolved instanceof SReputationStandingParams ? $resolved : null;
     }
 }

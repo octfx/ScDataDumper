@@ -41,19 +41,13 @@ final class MineableCompositionPart extends RootDocument
 
     public function getMineableElement(): ?MineableElement
     {
-        $mineableElement = $this->getHydratedDocument('MineableElement', MineableElement::class);
-
-        if ($mineableElement instanceof MineableElement) {
-            return $mineableElement;
-        }
-
-        $reference = $this->getMineableElementReference();
-
-        if ($reference === null) {
-            return null;
-        }
-
-        $resolved = ServiceFactory::getFoundryLookupService()->getMineableElementByReference($reference);
+        $resolved = $this->resolveRelatedDocument(
+            'MineableElement',
+            MineableElement::class,
+            $this->getMineableElementReference(),
+            static fn (string $reference): ?MineableElement => ServiceFactory::getFoundryLookupService()
+                ->getMineableElementByReference($reference)
+        );
 
         return $resolved instanceof MineableElement ? $resolved : null;
     }

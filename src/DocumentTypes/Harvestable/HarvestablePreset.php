@@ -17,19 +17,12 @@ final class HarvestablePreset extends RootDocument
 
     public function getEntityClass(): ?EntityClassDefinition
     {
-        $entityClass = $this->getHydratedDocument('EntityClass', EntityClassDefinition::class);
-
-        if ($entityClass instanceof EntityClassDefinition) {
-            return $entityClass;
-        }
-
-        $reference = $this->getEntityClassReference();
-
-        if ($reference === null) {
-            return null;
-        }
-
-        $resolved = ServiceFactory::getItemService()->getByReference($reference);
+        $resolved = $this->resolveRelatedDocument(
+            'EntityClass',
+            EntityClassDefinition::class,
+            $this->getEntityClassReference(),
+            static fn (string $reference): ?EntityClassDefinition => ServiceFactory::getItemService()->getByReference($reference)
+        );
 
         return $resolved instanceof EntityClassDefinition ? $resolved : null;
     }

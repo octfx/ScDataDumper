@@ -45,7 +45,7 @@ final class LoadMineablesCommandTest extends ScDataTestCase
         $entityTwoPath = $this->writeFile(
             'Game2/libs/foundry/records/entities/mineable/sample_entity_two.xml',
             sprintf(
-                '<EntityClassDefinition.SampleEntityTwo __type="EntityClassDefinition" __ref="%1$s" __path="libs/foundry/records/entities/mineable/sample_entity_two.xml"><Components><SAttachableComponentParams><AttachDef Type="Misc" SubType="Mineable" Size="1" Grade="1"><Localization><English Name="Sample Entity Two" /></Localization></AttachDef></SAttachableComponentParams><MineableParams globalParams="%2$s" composition="%3$s" /><SSCSignatureSystemParams><radarProperties><SSCRadarContactProperites><baseSignatureParams><SSCSignatureSystemBaseSignatureParams><signatures><Signature value="0" /><Signature value="0" /><Signature value="0" /><Signature value="0" /><Signature value="3200" /></signatures></SSCSignatureSystemBaseSignatureParams></baseSignatureParams></SSCRadarContactProperites></radarProperties></SSCSignatureSystemParams></Components></EntityClassDefinition.SampleEntityTwo>',
+                '<EntityClassDefinition.SampleEntityTwo __type="EntityClassDefinition" __ref="%1$s" __path="libs/foundry/records/entities/mineable/sample_entity_two.xml"><Components><SAttachableComponentParams><AttachDef Type="Misc" SubType="Mineable" Size="1" Grade="1"><Localization Name="@sample_entity_two" /></AttachDef></SAttachableComponentParams><MineableParams globalParams="%2$s" composition="%3$s" /><SSCSignatureSystemParams><radarProperties><SSCRadarContactProperites><baseSignatureParams><SSCSignatureSystemBaseSignatureParams><signatures><Signature value="0" /><Signature value="0" /><Signature value="0" /><Signature value="0" /><Signature value="3200" /></signatures></SSCSignatureSystemBaseSignatureParams></baseSignatureParams></SSCRadarContactProperites></radarProperties></SSCSignatureSystemParams></Components></EntityClassDefinition.SampleEntityTwo>',
                 self::ENTITY_TWO_UUID,
                 self::GLOBAL_PARAMS_UUID,
                 self::COMPOSITION_UUID,
@@ -289,7 +289,7 @@ final class LoadMineablesCommandTest extends ScDataTestCase
 
         $this->writeFile(
             'Data/Localization/english/global.ini',
-            "resource_carinite=Carinite\nsample_deposit=Sample Deposit\n"
+            "resource_carinite=Carinite\nsample_deposit=Sample Deposit\nsample_entity_two=Sample Entity Two\n"
         );
     }
 

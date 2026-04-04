@@ -46,34 +46,36 @@ class LoadFactions extends AbstractDataCommand
 
         $start = microtime(true);
 
-        foreach ($service->getDocumentType('Faction', Faction::class) as $faction) {
-            $fileName = strtolower($faction->getClassName());
-            $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
+        $this->withLazyReferenceHydration([$service], function () use ($service, $overwrite, $io, $outDir): void {
+            foreach ($service->getDocumentType('Faction', Faction::class) as $faction) {
+                $fileName = strtolower($faction->getClassName());
+                $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
 
-            if (! $overwrite && file_exists($filePath)) {
-                $io->progressAdvance();
-
-                continue;
-            }
-
-            try {
-                $json = json_encode((new ScUnpackedFaction($faction))->toArray(), JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-
-                if (! $this->writeJsonFile($filePath, $json, $io)) {
-                    $io->warning(sprintf('Skipping faction %s due to write failure', $fileName));
+                if (! $overwrite && file_exists($filePath)) {
                     $io->progressAdvance();
 
                     continue;
                 }
-            } catch (JsonException $e) {
-                $io->warning(sprintf('Failed to encode JSON for faction %s: %s', $fileName, $e->getMessage()));
+
+                try {
+                    $json = json_encode((new ScUnpackedFaction($faction))->toArray(), JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+                    if (! $this->writeJsonFile($filePath, $json, $io)) {
+                        $io->warning(sprintf('Skipping faction %s due to write failure', $fileName));
+                        $io->progressAdvance();
+
+                        continue;
+                    }
+                } catch (JsonException $e) {
+                    $io->warning(sprintf('Failed to encode JSON for faction %s: %s', $fileName, $e->getMessage()));
+                    $io->progressAdvance();
+
+                    continue;
+                }
+
                 $io->progressAdvance();
-
-                continue;
             }
-
-            $io->progressAdvance();
-        }
+        });
 
         $end = microtime(true);
         $io->progressFinish();

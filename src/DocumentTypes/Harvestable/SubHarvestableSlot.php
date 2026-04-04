@@ -16,19 +16,13 @@ final class SubHarvestableSlot extends RootDocument
 
     public function getHarvestable(): ?HarvestablePreset
     {
-        $harvestable = $this->getHydratedDocument('Harvestable', HarvestablePreset::class);
-
-        if ($harvestable instanceof HarvestablePreset) {
-            return $harvestable;
-        }
-
-        $reference = $this->getHarvestableReference();
-
-        if ($reference === null) {
-            return null;
-        }
-
-        $resolved = ServiceFactory::getFoundryLookupService()->getHarvestablePresetByReference($reference);
+        $resolved = $this->resolveRelatedDocument(
+            'Harvestable',
+            HarvestablePreset::class,
+            $this->getHarvestableReference(),
+            static fn (string $reference): ?HarvestablePreset => ServiceFactory::getFoundryLookupService()
+                ->getHarvestablePresetByReference($reference)
+        );
 
         return $resolved instanceof HarvestablePreset ? $resolved : null;
     }

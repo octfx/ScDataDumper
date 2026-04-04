@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Commands;
 
 use Octfx\ScDataDumper\Commands\Concerns\GeneratesCache;
+use Octfx\ScDataDumper\Services\BaseService;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
 use Symfony\Component\Console\Command\Command;
@@ -71,6 +72,31 @@ abstract class AbstractDataCommand extends Command
             $io->error(sprintf('Error writing %s: %s', $filePath, $e->getMessage()));
 
             return false;
+        }
+    }
+
+    /**
+     * @template T
+     *
+     * @param  list<BaseService>  $services
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    protected function withLazyReferenceHydration(array $services, callable $callback): mixed
+    {
+        $previousSettings = [];
+
+        foreach ($services as $index => $service) {
+            $previousSettings[$index] = $service->isReferenceHydrationEnabled();
+            $service->setReferenceHydrationEnabled(false);
+        }
+
+        try {
+            return $callback();
+        } finally {
+            foreach ($services as $index => $service) {
+                $service->setReferenceHydrationEnabled($previousSettings[$index] ?? false);
+            }
         }
     }
 }

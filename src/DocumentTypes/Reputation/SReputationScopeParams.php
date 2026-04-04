@@ -6,6 +6,7 @@ namespace Octfx\ScDataDumper\DocumentTypes\Reputation;
 
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
+use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class SReputationScopeParams extends RootDocument
 {
@@ -61,6 +62,11 @@ final class SReputationScopeParams extends RootDocument
             }
         }
 
-        return $standings;
+        return $this->resolveRelatedDocuments(
+            $standings,
+            $this->getStandingReferences(),
+            static fn (string $reference): ?SReputationStandingParams => ServiceFactory::getFoundryLookupService()
+                ->getReputationStandingByReference($reference)
+        );
     }
 }

@@ -17,19 +17,13 @@ final class MineableElement extends RootDocument
 
     public function getResourceType(): ?ResourceType
     {
-        $resourceType = $this->getHydratedDocument('ResourceType', ResourceType::class);
-
-        if ($resourceType instanceof ResourceType) {
-            return $resourceType;
-        }
-
-        $reference = $this->getResourceTypeReference();
-
-        if ($reference === null) {
-            return null;
-        }
-
-        $resolved = ServiceFactory::getFoundryLookupService()->getResourceTypeByReference($reference);
+        $resolved = $this->resolveRelatedDocument(
+            'ResourceType',
+            ResourceType::class,
+            $this->getResourceTypeReference(),
+            static fn (string $reference): ?ResourceType => ServiceFactory::getFoundryLookupService()
+                ->getResourceTypeByReference($reference)
+        );
 
         return $resolved instanceof ResourceType ? $resolved : null;
     }

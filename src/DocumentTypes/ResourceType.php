@@ -41,38 +41,26 @@ final class ResourceType extends RootDocument
 
     public function getQualityDistribution(): ?CraftingQualityDistributionRecord
     {
-        $distribution = $this->getHydratedDocument('QualityDistribution', CraftingQualityDistributionRecord::class);
-
-        if ($distribution instanceof CraftingQualityDistributionRecord) {
-            return $distribution;
-        }
-
-        $reference = $this->getQualityDistributionReference();
-
-        if ($reference === null) {
-            return null;
-        }
-
-        $resolved = ServiceFactory::getFoundryLookupService()->getCraftingQualityDistributionByReference($reference);
+        $resolved = $this->resolveRelatedDocument(
+            'QualityDistribution',
+            CraftingQualityDistributionRecord::class,
+            $this->getQualityDistributionReference(),
+            static fn (string $reference): ?CraftingQualityDistributionRecord => ServiceFactory::getFoundryLookupService()
+                ->getCraftingQualityDistributionByReference($reference)
+        );
 
         return $resolved instanceof CraftingQualityDistributionRecord ? $resolved : null;
     }
 
     public function getQualityLocationOverride(): ?CraftingQualityLocationOverrideRecord
     {
-        $override = $this->getHydratedDocument('QualityLocationOverride', CraftingQualityLocationOverrideRecord::class);
-
-        if ($override instanceof CraftingQualityLocationOverrideRecord) {
-            return $override;
-        }
-
-        $reference = $this->getQualityLocationOverrideReference();
-
-        if ($reference === null) {
-            return null;
-        }
-
-        $resolved = ServiceFactory::getFoundryLookupService()->getCraftingQualityLocationOverrideByReference($reference);
+        $resolved = $this->resolveRelatedDocument(
+            'QualityLocationOverride',
+            CraftingQualityLocationOverrideRecord::class,
+            $this->getQualityLocationOverrideReference(),
+            static fn (string $reference): ?CraftingQualityLocationOverrideRecord => ServiceFactory::getFoundryLookupService()
+                ->getCraftingQualityLocationOverrideByReference($reference)
+        );
 
         return $resolved instanceof CraftingQualityLocationOverrideRecord ? $resolved : null;
     }

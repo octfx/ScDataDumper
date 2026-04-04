@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes\Reputation;
 
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
+use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class SReputationContextUI extends RootDocument
 {
@@ -21,14 +21,14 @@ final class SReputationContextUI extends RootDocument
 
     public function getPrimaryScope(): ?SReputationScopeParams
     {
-        $scopeNode = $this->get('PrimaryScope');
+        $resolved = $this->resolveRelatedDocument(
+            'PrimaryScope',
+            SReputationScopeParams::class,
+            $this->getPrimaryScopeReference(),
+            static fn (string $reference): ?SReputationScopeParams => ServiceFactory::getFoundryLookupService()
+                ->getReputationScopeByReference($reference)
+        );
 
-        if (! $scopeNode instanceof Element) {
-            return null;
-        }
-
-        $scope = SReputationScopeParams::fromNode($scopeNode->getNode());
-
-        return $scope instanceof SReputationScopeParams ? $scope : null;
+        return $resolved instanceof SReputationScopeParams ? $resolved : null;
     }
 }

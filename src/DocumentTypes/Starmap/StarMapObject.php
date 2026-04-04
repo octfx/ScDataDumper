@@ -50,36 +50,77 @@ class StarMapObject extends RootDocument
         return $this->getString('@affiliation');
     }
 
+    public function getRadarContactTypeReference(): ?string
+    {
+        return $this->getString('radarProperties/SSCRadarContactProperites@contactType');
+    }
+
     public function getJurisdiction(): ?Jurisdiction
     {
-        return $this->getHydratedDocument('Jurisdiction', Jurisdiction::class);
+        $resolved = $this->resolveRelatedDocument(
+            'Jurisdiction',
+            Jurisdiction::class,
+            $this->getJurisdictionReference(),
+            static fn (string $reference): ?Jurisdiction => ServiceFactory::getFoundryLookupService()
+                ->getJurisdictionByReference($reference)
+        );
+
+        return $resolved instanceof Jurisdiction ? $resolved : null;
     }
 
     public function getRadarContactType(): ?RadarContactTypeEntry
     {
-        return $this->getHydratedDocument('RadarContactType', RadarContactTypeEntry::class);
+        $resolved = $this->resolveRelatedDocument(
+            'RadarContactType',
+            RadarContactTypeEntry::class,
+            $this->getRadarContactTypeReference(),
+            static fn (string $reference): ?RadarContactTypeEntry => ServiceFactory::getFoundryLookupService()
+                ->getRadarContactTypeByReference($reference)
+        );
+
+        return $resolved instanceof RadarContactTypeEntry ? $resolved : null;
     }
 
     public function getTypeDocument(): ?StarMapObjectType
     {
-        return $this->getHydratedDocument('Type', StarMapObjectType::class);
+        $resolved = $this->resolveRelatedDocument(
+            'Type',
+            StarMapObjectType::class,
+            $this->getTypeReference(),
+            static fn (string $reference): ?StarMapObjectType => ServiceFactory::getFoundryLookupService()
+                ->getStarMapObjectTypeByReference($reference)
+        );
+
+        return $resolved instanceof StarMapObjectType ? $resolved : null;
     }
 
     public function getAffiliation(): ?RootDocument
     {
         $affiliation = $this->get('Affiliation');
 
-        if (! $affiliation instanceof Element) {
-            return null;
+        if ($affiliation instanceof Element) {
+            $documentType = $affiliation->get('@__type');
+
+            return match ($documentType) {
+                'Faction' => $this->getHydratedDocument('Affiliation', Faction::class),
+                'Faction_LEGACY' => $this->getHydratedDocument('Affiliation', Faction_LEGACY::class),
+                default => null,
+            };
         }
 
-        $documentType = $affiliation->get('@__type');
+        $resolved = $this->getAffiliationReference() !== null && $this->getAffiliationReference() !== ''
+            ? ServiceFactory::getFoundryLookupService()->getFactionByReference($this->getAffiliationReference())
+            : null;
 
-        return match ($documentType) {
-            'Faction' => $this->getHydratedDocument('Affiliation', Faction::class),
-            'Faction_LEGACY' => $this->getHydratedDocument('Affiliation', Faction_LEGACY::class),
-            default => null,
-        };
+        return $resolved instanceof RootDocument ? $resolved : null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function getAmenityReferences(): array
+    {
+        return $this->queryAttributeValues('amenities/Reference', 'value');
     }
 
     /**
@@ -101,7 +142,12 @@ class StarMapObject extends RootDocument
             }
         }
 
-        return $amenities;
+        return $this->resolveRelatedDocuments(
+            $amenities,
+            $this->getAmenityReferences(),
+            static fn (string $reference): ?StarMapAmenityTypeEntry => ServiceFactory::getFoundryLookupService()
+                ->getStarMapAmenityTypeByReference($reference)
+        );
     }
 
     public function getAsteroidRing(): ?StarMapAsteroidRing

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes\Faction;
 
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
+use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class Faction extends RootDocument {
     public function getName(): string
@@ -55,14 +55,14 @@ final class Faction extends RootDocument {
 
     public function getFactionReputation(): ?FactionReputation
     {
-        $reputationNode = $this->get('FactionReputation');
+        $resolved = $this->resolveRelatedDocument(
+            'FactionReputation',
+            FactionReputation::class,
+            $this->getFactionReputationReference(),
+            static fn (string $reference): ?FactionReputation => ServiceFactory::getFoundryLookupService()
+                ->getFactionReputationByReference($reference)
+        );
 
-        if (! $reputationNode instanceof Element) {
-            return null;
-        }
-
-        $reputation = FactionReputation::fromNode($reputationNode->getNode());
-
-        return $reputation instanceof FactionReputation ? $reputation : null;
+        return $resolved instanceof FactionReputation ? $resolved : null;
     }
 }

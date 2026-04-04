@@ -59,7 +59,10 @@ final class LoadMineables extends AbstractDataCommand
 
         $this->prepareServices($input, $output);
 
-        [$mineables, $locations] = $this->withLazyReferenceHydration(function () use ($io): array {
+        [$mineables, $locations] = $this->withLazyReferenceHydration([
+            ServiceFactory::getItemService(),
+            ServiceFactory::getFoundryLookupService(),
+        ], function () use ($io): array {
             $mineables = $this->buildMineableIndex($io);
             $locations = $this->buildLocationsExport($mineables, $io);
 
@@ -246,7 +249,7 @@ final class LoadMineables extends AbstractDataCommand
         return [
             'uuid' => $item->getUuid(),
             'key' => $item->getClassName(),
-            'name' => $this->translate($attachDef?->get('Localization/English@Name')) ?? $item->getClassName(),
+            'name' => $this->resolveAttachableName($attachDef) ?? $item->getClassName(),
             'signature' => is_numeric($mineableData['Signature'] ?? null) ? (float) $mineableData['Signature'] : null,
             'global_params' => $this->buildGlobalParams($mineableParams->getGlobalParams()),
             'composition' => [
@@ -418,9 +421,19 @@ final class LoadMineables extends AbstractDataCommand
     ): ?string {
         $attachDef = $entityClass?->getAttachDef();
 
-        return $this->translate($attachDef?->get('Localization/English@Name'))
+        return $this->resolveAttachableName($attachDef)
             ?? $entityClass?->getClassName()
             ?? $harvestablePreset?->getClassName();
+    }
+
+    private function resolveAttachableName(?\Octfx\ScDataDumper\Definitions\Element $attachDef): ?string
+    {
+        if ($attachDef === null) {
+            return null;
+        }
+
+        return $this->translate($attachDef->get('Localization/English@Name'))
+            ?? $this->translate($attachDef->get('Localization@Name'));
     }
 
     private function normalizePercentage(float|int|null $value): float|int|null
@@ -542,29 +555,5 @@ final class LoadMineables extends AbstractDataCommand
         }
 
         return $translated;
-    }
-
-    /**
-     * @template T
-     *
-     * @param callable(): T $callback
-     * @return T
-     */
-    private function withLazyReferenceHydration(callable $callback): mixed
-    {
-        $itemService = ServiceFactory::getItemService();
-        $lookupService = ServiceFactory::getFoundryLookupService();
-        $previousItemSetting = $itemService->isReferenceHydrationEnabled();
-        $previousLookupSetting = $lookupService->isReferenceHydrationEnabled();
-
-        $itemService->setReferenceHydrationEnabled(false);
-        $lookupService->setReferenceHydrationEnabled(false);
-
-        try {
-            return $callback();
-        } finally {
-            $itemService->setReferenceHydrationEnabled($previousItemSetting);
-            $lookupService->setReferenceHydrationEnabled($previousLookupSetting);
-        }
     }
 }

@@ -38,76 +38,51 @@ final class HarvestableElement extends RootDocument
 
     public function getHarvestable(): ?HarvestablePreset
     {
-        $harvestable = $this->getHydratedDocument('Harvestable', HarvestablePreset::class);
-
-        if ($harvestable instanceof HarvestablePreset) {
-            return $harvestable;
-        }
-
-        $reference = $this->getHarvestableReference();
-
-        if ($reference === null) {
-            return null;
-        }
-
-        $resolved = ServiceFactory::getFoundryLookupService()->getHarvestablePresetByReference($reference);
+        $resolved = $this->resolveRelatedDocument(
+            'Harvestable',
+            HarvestablePreset::class,
+            $this->getHarvestableReference(),
+            static fn (string $reference): ?HarvestablePreset => ServiceFactory::getFoundryLookupService()
+                ->getHarvestablePresetByReference($reference)
+        );
 
         return $resolved instanceof HarvestablePreset ? $resolved : null;
     }
 
     public function getHarvestableEntity(): ?EntityClassDefinition
     {
-        $entityClass = $this->getHydratedDocument('HarvestableEntity', EntityClassDefinition::class);
-
-        if ($entityClass instanceof EntityClassDefinition) {
-            return $entityClass;
-        }
-
-        $reference = $this->getHarvestableEntityClassReference();
-
-        if ($reference === null) {
-            return null;
-        }
-
-        $resolved = ServiceFactory::getItemService()->getByReference($reference);
+        $resolved = $this->resolveRelatedDocument(
+            'HarvestableEntity',
+            EntityClassDefinition::class,
+            $this->getHarvestableEntityClassReference(),
+            static fn (string $reference): ?EntityClassDefinition => ServiceFactory::getItemService()->getByReference($reference)
+        );
 
         return $resolved instanceof EntityClassDefinition ? $resolved : null;
     }
 
     public function getClustering(): ?HarvestableClusterPreset
     {
-        $clustering = $this->getHydratedDocument('Clustering', HarvestableClusterPreset::class);
-
-        if ($clustering instanceof HarvestableClusterPreset) {
-            return $clustering;
-        }
-
-        $reference = $this->getClusteringReference();
-
-        if ($reference === null) {
-            return null;
-        }
-
-        $resolved = ServiceFactory::getFoundryLookupService()->getHarvestableClusterPresetByReference($reference);
+        $resolved = $this->resolveRelatedDocument(
+            'Clustering',
+            HarvestableClusterPreset::class,
+            $this->getClusteringReference(),
+            static fn (string $reference): ?HarvestableClusterPreset => ServiceFactory::getFoundryLookupService()
+                ->getHarvestableClusterPresetByReference($reference)
+        );
 
         return $resolved instanceof HarvestableClusterPreset ? $resolved : null;
     }
 
     public function getHarvestableSetup(): ?HarvestableSetup
     {
-        $setup = $this->getHydratedDocument('HarvestableSetup', HarvestableSetup::class);
-
-        if ($setup instanceof HarvestableSetup) {
-            return $setup;
-        }
-
-        $reference = $this->getHarvestableSetupReference();
-
-        if ($reference === null) {
-            return null;
-        }
-
-        $resolved = ServiceFactory::getFoundryLookupService()->getHarvestableSetupByReference($reference);
+        $resolved = $this->resolveRelatedDocument(
+            'HarvestableSetup',
+            HarvestableSetup::class,
+            $this->getHarvestableSetupReference(),
+            static fn (string $reference): ?HarvestableSetup => ServiceFactory::getFoundryLookupService()
+                ->getHarvestableSetupByReference($reference)
+        );
 
         return $resolved instanceof HarvestableSetup ? $resolved : null;
     }
