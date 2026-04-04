@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingBlueprintRecord;
+use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingGameplayPropertyDef;
+use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
+use Octfx\ScDataDumper\DocumentTypes\ResourceType;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
@@ -27,24 +31,24 @@ final class Blueprint extends BaseFormat
             'key' => $this->item?->getClassName(),
             'kind' => 'creation',
             'category_uuid' => $blueprint->get('@category'),
-            'output' => $this->buildOutput($blueprint->get('processSpecificData/CraftingProcess_Creation/OutputEntity')),
+            'output' => $this->buildOutput($this->resolveOutputEntity()),
             'availability' => $this->buildAvailability($uuid),
             'tiers' => $this->buildTiers($blueprint->get('tiers')),
         ]);
     }
 
-    private function buildOutput(?Element $outputEntity): array
+    private function buildOutput(?EntityClassDefinition $outputEntity): array
     {
         if ($outputEntity === null) {
             return [];
         }
 
-        $attachDef = $outputEntity->get('Components/SAttachableComponentParams/AttachDef');
+        $attachDef = $outputEntity->getAttachDef();
         $grade = $attachDef?->get('@Grade');
 
         return $this->removeNullValuesPreservingEmptyArrays([
-            'uuid' => $outputEntity->get('@__ref'),
-            'class' => $this->extractClassNameFromPath($outputEntity->get('@__path')),
+            'uuid' => $outputEntity->getUuid(),
+            'class' => $this->extractClassNameFromPath($outputEntity->getPath()),
             'type' => $attachDef?->get('@Type'),
             'subtype' => $attachDef?->get('@SubType'),
             'grade' => $grade !== null ? (string) $grade : null,
@@ -329,10 +333,10 @@ final class Blueprint extends BaseFormat
      */
     private function buildItemInput(Element $cost): array
     {
-        $inputEntity = $cost->get('InputEntity');
+        $inputEntity = $this->resolveInputEntity($cost);
 
         return $this->removeNullValuesPreservingEmptyArrays([
-            'uuid' => $inputEntity?->get('@__ref')
+            'uuid' => $inputEntity?->getUuid()
                 ?? $cost->get('@entityClass'),
             'name' => $this->readItemName($inputEntity),
             'quantity' => $this->normalizeNumber($cost->get('@quantity')),
@@ -345,9 +349,9 @@ final class Blueprint extends BaseFormat
      */
     private function buildResourceInput(Element $cost): array
     {
-        $resourceType = $cost->get('ResourceType');
+        $resourceType = $this->resolveResourceType($cost);
         $quantityScu = Item::convertToScu($cost->get('quantity'));
-        $resourceName = $resourceType?->get('@displayName');
+        $resourceName = $resourceType?->getDisplayName();
 
         if (is_string($resourceName) && trim($resourceName) !== '') {
             try {
@@ -364,7 +368,7 @@ final class Blueprint extends BaseFormat
         }
 
         return $this->removeNullValuesPreservingEmptyArrays([
-            'uuid' => $resourceType?->get('@__ref')
+            'uuid' => $resourceType?->getUuid()
                 ?? $cost->get('@resource'),
             'name' => $resourceName,
             'quantity_scu' => $quantityScu,
@@ -438,12 +442,12 @@ final class Blueprint extends BaseFormat
      */
     private function buildStatModifier(Element $modifier): ?array
     {
-        $property = $modifier->get('GameplayProperty');
+        $property = $this->resolveGameplayProperty($modifier);
         $valueRange = $modifier->get('valueRanges/CraftingGameplayPropertyModifierValueRange_Linear')
             ?? $modifier->get('valueRange/CraftingGameplayPropertyModifierValueRange_Linear');
 
         $formatted = $this->removeNullValuesPreservingEmptyArrays([
-            'property_uuid' => $property?->get('@__ref')
+            'property_uuid' => $property?->getUuid()
                 ?? $modifier->get('@gameplayPropertyRecord'),
             'property_key' => $this->extractGameplayPropertyKey($property),
             'quality_range' => $this->removeNullValuesPreservingEmptyArrays([
@@ -471,6 +475,70 @@ final class Blueprint extends BaseFormat
         return $formatted === [] ? null : $formatted;
     }
 
+    private function resolveOutputEntity(): ?EntityClassDefinition
+    {
+        return $this->item instanceof CraftingBlueprintRecord
+            ? $this->item->getOutputEntity()
+            : null;
+    }
+
+    private function resolveInputEntity(Element $cost): ?EntityClassDefinition
+    {
+        $inputEntity = $cost->get('InputEntity');
+
+        if ($inputEntity instanceof Element) {
+            $entity = EntityClassDefinition::fromNode($inputEntity->getNode());
+
+            if ($entity instanceof EntityClassDefinition) {
+                return $entity;
+            }
+        }
+
+        $reference = $cost->get('@entityClass');
+
+        return is_string($reference) && $reference !== ''
+            ? ServiceFactory::getItemService()->getByReference($reference)
+            : null;
+    }
+
+    private function resolveResourceType(Element $cost): ?ResourceType
+    {
+        $resourceType = $cost->get('ResourceType');
+
+        if ($resourceType instanceof Element) {
+            $resolved = ResourceType::fromNode($resourceType->getNode());
+
+            if ($resolved instanceof ResourceType) {
+                return $resolved;
+            }
+        }
+
+        $reference = $cost->get('@resource');
+
+        return is_string($reference) && $reference !== ''
+            ? ServiceFactory::getFoundryLookupService()->getResourceTypeByReference($reference)
+            : null;
+    }
+
+    private function resolveGameplayProperty(Element $modifier): ?CraftingGameplayPropertyDef
+    {
+        $property = $modifier->get('GameplayProperty');
+
+        if ($property instanceof Element) {
+            $resolved = CraftingGameplayPropertyDef::fromNode($property->getNode());
+
+            if ($resolved instanceof CraftingGameplayPropertyDef) {
+                return $resolved;
+            }
+        }
+
+        $reference = $modifier->get('@gameplayPropertyRecord');
+
+        return is_string($reference) && $reference !== ''
+            ? ServiceFactory::getFoundryLookupService()->getCraftingGameplayPropertyByReference($reference)
+            : null;
+    }
+
     private function buildResolvedNodeName(?Element $nameInfo): ?string
     {
         if ($nameInfo === null) {
@@ -492,14 +560,15 @@ final class Blueprint extends BaseFormat
         return is_string($debugName) && trim($debugName) !== '' ? $debugName : null;
     }
 
-    private function readItemName(?Element $entity): ?string
+    private function readItemName(?EntityClassDefinition $entity): ?string
     {
         if ($entity === null) {
             return null;
         }
 
-        $name = $entity->get('Components/SAttachableComponentParams/AttachDef/Localization/English@Name')
-            ?? $entity->get('Components/SAttachableComponentParams/AttachDef/Localization@Name');
+        $attachDef = $entity->getAttachDef();
+        $name = $attachDef?->get('Localization/English@Name')
+            ?? $attachDef?->get('Localization@Name');
 
         if (! is_string($name) || trim($name) === '') {
             return null;
@@ -521,19 +590,13 @@ final class Blueprint extends BaseFormat
         return pathinfo($path, PATHINFO_FILENAME);
     }
 
-    private function extractGameplayPropertyKey(?Element $property): ?string
+    private function extractGameplayPropertyKey(?CraftingGameplayPropertyDef $property): ?string
     {
-        $path = $property?->get('@__path');
-
-        if (! is_string($path) || trim($path) === '') {
+        if ($property === null) {
             return null;
         }
 
-        $key = strtolower(pathinfo($path, PATHINFO_FILENAME));
-
-        if (str_starts_with($key, 'gpp_')) {
-            $key = substr($key, 4);
-        }
+        $key = $property->getPropertyKey();
 
         return $key === '' ? null : $key;
     }

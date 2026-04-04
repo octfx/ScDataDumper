@@ -56,53 +56,67 @@ class LoadBlueprints extends AbstractDataCommand
         $nameFilter = $input->getOption('filter');
         $nameFilter = is_string($nameFilter) && $nameFilter !== '' ? strtolower($nameFilter) : null;
 
-        foreach ($this->iterateBlueprintExports($nameFilter) as $blueprintExport) {
-            $formatted = $blueprintExport['formatted'];
-            if ($formatted === null) {
-                $io->progressAdvance();
-
-                continue;
-            }
-
-            $fileName = strtolower((string) $blueprintExport['className']);
-            $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
-
-            $encodedBlueprint = json_encode($formatted, $jsonFlags);
-            if (! $indexFirst) {
-                fwrite($indexHandle, ",\n");
-            }
-            fwrite($indexHandle, $encodedBlueprint);
-            $indexFirst = false;
-
-            if (! $overwrite && file_exists($filePath)) {
-                $io->progressAdvance();
-
-                continue;
-            }
-
-            try {
-                $json = json_encode([
-                    'Raw' => [
-                        'Blueprint' => $blueprintExport['rawBlueprint'],
-                    ],
-                    'Blueprint' => $formatted,
-                ], $jsonFlags);
-
-                if (! $this->writeJsonFile($filePath, $json, $io)) {
-                    $io->warning(sprintf('Skipping blueprint %s due to write failure', $fileName));
+        $this->withLazyReferenceHydration([
+            ServiceFactory::getItemService(),
+            ServiceFactory::getFoundryLookupService(),
+            ServiceFactory::getBlueprintService(),
+        ], function () use (
+            $nameFilter,
+            $overwrite,
+            $outDir,
+            $io,
+            $indexHandle,
+            &$indexFirst,
+            $jsonFlags
+        ): void {
+            foreach ($this->iterateBlueprintExports($nameFilter) as $blueprintExport) {
+                $formatted = $blueprintExport['formatted'];
+                if ($formatted === null) {
                     $io->progressAdvance();
 
                     continue;
                 }
-            } catch (JsonException $e) {
-                $io->warning(sprintf('Failed to encode JSON for blueprint %s: %s', $fileName, $e->getMessage()));
+
+                $fileName = strtolower((string) $blueprintExport['className']);
+                $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
+
+                $encodedBlueprint = json_encode($formatted, JSON_THROW_ON_ERROR | $jsonFlags);
+                if (! $indexFirst) {
+                    fwrite($indexHandle, ",\n");
+                }
+                fwrite($indexHandle, $encodedBlueprint);
+                $indexFirst = false;
+
+                if (! $overwrite && file_exists($filePath)) {
+                    $io->progressAdvance();
+
+                    continue;
+                }
+
+                try {
+                    $json = json_encode([
+                        'Raw' => [
+                            'Blueprint' => $blueprintExport['rawBlueprint'],
+                        ],
+                        'Blueprint' => $formatted,
+                    ], JSON_THROW_ON_ERROR | $jsonFlags);
+
+                    if (! $this->writeJsonFile($filePath, $json, $io)) {
+                        $io->warning(sprintf('Skipping blueprint %s due to write failure', $fileName));
+                        $io->progressAdvance();
+
+                        continue;
+                    }
+                } catch (JsonException $e) {
+                    $io->warning(sprintf('Failed to encode JSON for blueprint %s: %s', $fileName, $e->getMessage()));
+                    $io->progressAdvance();
+
+                    continue;
+                }
+
                 $io->progressAdvance();
-
-                continue;
             }
-
-            $io->progressAdvance();
-        }
+        });
 
         $end = microtime(true);
         $io->progressFinish();

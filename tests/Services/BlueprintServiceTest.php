@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Tests\Services;
 
-use Octfx\ScDataDumper\DocumentTypes\CraftingBlueprintRecord;
+use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingBlueprintRecord;
 use Octfx\ScDataDumper\Services\BlueprintService;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 
@@ -13,6 +13,10 @@ final class BlueprintServiceTest extends ScDataTestCase
     private const BLUEPRINT_UUID = 'd1da140e-b7ee-46ba-b76a-f5dd33c0348c';
 
     private const BLUEPRINT_CLASS = 'BP_CRAFT_lbco_sniper_energy_01_mag';
+
+    private const OUTPUT_ITEM_UUID = '8177489f-ed83-44ac-afd4-2b32a80fa0a6';
+
+    private const OUTPUT_ITEM_CLASS = 'OUTPUT_AMMO';
 
     private const RESOURCE_UUID = '61189578-ed7a-4491-9774-37ae2f82b8b0';
 
@@ -27,6 +31,19 @@ final class BlueprintServiceTest extends ScDataTestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        $outputItemPath = $this->writeFile(
+            'Data/Libs/Foundry/Records/entities/items/output_ammo.xml',
+            <<<'XML'
+            <EntityClassDefinition.OUTPUT_AMMO __type="EntityClassDefinition" __ref="8177489f-ed83-44ac-afd4-2b32a80fa0a6" __path="libs/foundry/records/entities/items/output_ammo.xml">
+              <Components>
+                <SAttachableComponentParams>
+                  <AttachDef Type="WeaponAmmo" SubType="Magazine" Size="1" />
+                </SAttachableComponentParams>
+              </Components>
+            </EntityClassDefinition.OUTPUT_AMMO>
+            XML
+        );
 
         $blueprintPath = $this->writeFile(
             'Data/Libs/Foundry/Records/crafting/blueprints/crafting/fpsgear/ammo/electron/bp_craft_lbco_sniper_energy_01_mag.xml',
@@ -117,20 +134,26 @@ final class BlueprintServiceTest extends ScDataTestCase
 
         $this->writeCacheFiles(
             classToPathMap: [
+                'EntityClassDefinition' => [
+                    self::OUTPUT_ITEM_CLASS => $outputItemPath,
+                ],
                 'CraftingBlueprintRecord' => [
                     self::BLUEPRINT_CLASS => $blueprintPath,
                     'IGNORED_BLUEPRINT' => $ignoredBlueprintPath,
                 ],
             ],
             uuidToClassMap: [
+                self::OUTPUT_ITEM_UUID => self::OUTPUT_ITEM_CLASS,
                 self::BLUEPRINT_UUID => self::BLUEPRINT_CLASS,
                 self::IGNORED_BLUEPRINT_UUID => 'IGNORED_BLUEPRINT',
             ],
             classToUuidMap: [
+                self::OUTPUT_ITEM_CLASS => self::OUTPUT_ITEM_UUID,
                 self::BLUEPRINT_CLASS => self::BLUEPRINT_UUID,
                 'IGNORED_BLUEPRINT' => self::IGNORED_BLUEPRINT_UUID,
             ],
             uuidToPathMap: [
+                self::OUTPUT_ITEM_UUID => $outputItemPath,
                 self::BLUEPRINT_UUID => $blueprintPath,
                 self::IGNORED_BLUEPRINT_UUID => $ignoredBlueprintPath,
             ],
@@ -198,5 +221,17 @@ final class BlueprintServiceTest extends ScDataTestCase
                 'key' => self::REWARD_POOL_KEY,
             ],
         ], $service->getRewardPoolsForBlueprint(self::BLUEPRINT_UUID));
+    }
+
+    public function test_get_by_reference_resolves_output_entity_when_reference_hydration_is_disabled(): void
+    {
+        $service = new BlueprintService($this->tempDir);
+        $service->setReferenceHydrationEnabled(false);
+        $service->initialize();
+
+        $blueprint = $service->getByReference(self::BLUEPRINT_UUID);
+
+        self::assertInstanceOf(CraftingBlueprintRecord::class, $blueprint);
+        self::assertSame(self::OUTPUT_ITEM_UUID, $blueprint?->getOutputEntity()?->getUuid());
     }
 }

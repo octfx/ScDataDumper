@@ -717,6 +717,19 @@ final class BlueprintTest extends ScDataTestCase
         self::assertArrayNotHasKey('node_type', $formatted['tiers'][0]['requirements']);
     }
 
+    public function test_to_array_resolves_relations_when_reference_hydration_is_disabled(): void
+    {
+        $blueprint = $this->loadBlueprint('ammo');
+        $blueprint->setReferenceHydrationEnabled(false);
+
+        $formatted = (new Blueprint($blueprint))->toArray();
+
+        self::assertSame(self::AMMO_OUTPUT_UUID, $formatted['output']['uuid']);
+        self::assertSame('Atzkav Sniper Rifle Battery (8 cap)', $formatted['output']['name']);
+        self::assertSame(self::HEPHAESTANITE_UUID, $formatted['tiers'][0]['requirements']['children'][0]['children'][0]['uuid']);
+        self::assertSame('Hephaestanite', $formatted['tiers'][0]['requirements']['children'][0]['children'][0]['name']);
+    }
+
     public function test_to_array_preserves_required_input_count_and_resource_input_modifiers(): void
     {
         $blueprint = $this->loadBlueprint('multi_resource');

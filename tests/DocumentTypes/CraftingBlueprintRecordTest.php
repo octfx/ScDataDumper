@@ -175,4 +175,29 @@ final class CraftingBlueprintRecordTest extends ScDataTestCase
         self::assertSame(self::GAMEPLAY_PROPERTY_UUID, $modifier['GameplayProperty']['__ref']);
         self::assertSame('Percent', $modifier['GameplayProperty']['unitFormat']);
     }
+
+    public function test_resolves_output_entity_when_reference_hydration_is_disabled(): void
+    {
+        $path = $this->writeFile(
+            'Data/Libs/Foundry/Records/crafting/blueprints/crafting/test/bp_craft_phase_two_lazy.xml',
+            <<<'XML'
+            <CraftingBlueprintRecord.BP_CRAFT_PHASE_TWO_LAZY __type="CraftingBlueprintRecord" __ref="11111111-2222-3333-4444-555555555555" __path="libs/foundry/records/crafting/blueprints/crafting/test/bp_craft_phase_two_lazy.xml">
+              <blueprint>
+                <CraftingBlueprint category="f9ccf95d-ad0e-4c33-97e0-e56c847a7e37" blueprintName="Phase Two Blueprint">
+                  <processSpecificData>
+                    <CraftingProcess_Creation entityClass="8177489f-ed83-44ac-afd4-2b32a80fa0a6" />
+                  </processSpecificData>
+                </CraftingBlueprint>
+              </blueprint>
+            </CraftingBlueprintRecord.BP_CRAFT_PHASE_TWO_LAZY>
+            XML
+        );
+
+        $document = (new CraftingBlueprintRecord)
+            ->setReferenceHydrationEnabled(false);
+        $document->load($path);
+
+        self::assertSame(self::OUTPUT_ITEM_UUID, $document->getOutputEntity()?->getUuid());
+        self::assertSame('WeaponAmmo', $document->getOutputEntity()?->getAttachType());
+    }
 }

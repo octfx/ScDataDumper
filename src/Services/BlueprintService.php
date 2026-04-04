@@ -7,8 +7,8 @@ namespace Octfx\ScDataDumper\Services;
 use Generator;
 use JsonException;
 use Octfx\ScDataDumper\DocumentTypes\BlueprintPoolRecord;
-use Octfx\ScDataDumper\DocumentTypes\CraftingBlueprintRecord;
-use Octfx\ScDataDumper\DocumentTypes\CraftingGlobalParams;
+use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingBlueprintRecord;
+use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingGlobalParams;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RuntimeException;
@@ -36,9 +36,12 @@ final class BlueprintService extends BaseService
      */
     private array $rewardPoolsByBlueprint = [];
 
+    private ?float $dismantleEfficiency = null;
+
+    private ?int $dismantleTimeSeconds = null;
+
     /**
-     * LRU document cache keyed by file path.
-     *
+     * LRU document cache keyed by file path.     *
      * @var array<string, CraftingBlueprintRecord>
      */
     protected static array $documentCache = [];
@@ -61,8 +64,24 @@ final class BlueprintService extends BaseService
     public function initialize(): void
     {
         $this->loadBlueprintPaths();
+        $this->loadDismantleBlueprint();
         $this->loadDefaultBlueprintWhitelist();
         $this->loadRewardPools();
+    }
+
+    /**
+     * @return array{efficiency: float, time_seconds: int}|null
+     */
+    public function getDismantleParams(): ?array
+    {
+        if ($this->dismantleEfficiency === null) {
+            return null;
+        }
+
+        return [
+            'efficiency' => $this->dismantleEfficiency,
+            'time_seconds' => $this->dismantleTimeSeconds,
+        ];
     }
 
     public function iterator(): Generator
@@ -89,15 +108,20 @@ final class BlueprintService extends BaseService
             throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
         }
 
-        $document = self::cacheGet(self::$documentCache, $filePath);
+        $cacheKey = sprintf(
+            '%d:%s',
+            $this->isReferenceHydrationEnabled() ? 1 : 0,
+            $filePath
+        );
+
+        $document = self::cacheGet(self::$documentCache, $cacheKey);
         if ($document instanceof CraftingBlueprintRecord) {
             return $document;
         }
 
-        $document = new CraftingBlueprintRecord;
-        $document->load($filePath);
+        $document = $this->loadDocument($filePath, CraftingBlueprintRecord::class);
         $document->checkValidity();
-        self::cachePut(self::$documentCache, $filePath, $document, self::CACHE_LIMIT);
+        self::cachePut(self::$documentCache, $cacheKey, $document, self::CACHE_LIMIT);
 
         return $document;
     }
@@ -151,6 +175,45 @@ final class BlueprintService extends BaseService
         }
 
         ksort($this->blueprintPathsByClass);
+    }
+
+    private function loadDismantleBlueprint(): void
+    {
+        $this->dismantleEfficiency = null;
+        $this->dismantleTimeSeconds = null;
+
+        $blueprintPaths = self::$classToPathMap['CraftingBlueprintRecord'] ?? [];
+        $dismantlePath = $blueprintPaths['GlobalGenericDismantle'] ?? null;
+
+        if ($dismantlePath === null || ! file_exists($dismantlePath)) {
+            return;
+        }
+
+        $document = $this->loadDocument($dismantlePath, CraftingBlueprintRecord::class);
+
+        $efficiency = $document->get(
+            'blueprint/GenericCraftingBlueprint/processSpecificData/GenericCraftingProcess_Dismantle@efficiency'
+        );
+        $this->dismantleEfficiency = is_numeric($efficiency) ? (float) $efficiency : null;
+
+        if ($this->dismantleEfficiency === null) {
+            return;
+        }
+
+        $timeElement = $document->get(
+            'blueprint/GenericCraftingBlueprint/processSpecificData/GenericCraftingProcess_Dismantle/dismantleTime/TimeValue_Partitioned'
+        );
+
+        if ($timeElement === null) {
+            return;
+        }
+
+        $days = (float) ($timeElement->get('@days') ?? 0);
+        $hours = (float) ($timeElement->get('@hours') ?? 0);
+        $minutes = (float) ($timeElement->get('@minutes') ?? 0);
+        $seconds = (float) ($timeElement->get('@seconds') ?? 0);
+
+        $this->dismantleTimeSeconds = (int) (($days * 86400) + ($hours * 3600) + ($minutes * 60) + $seconds);
     }
 
     private function loadDefaultBlueprintWhitelist(): void
