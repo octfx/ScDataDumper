@@ -7,8 +7,12 @@ use InvalidArgumentException;
 use JsonException;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
+use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
 
+/**
+ * @template TItem of RootDocument|Element|null
+ */
 abstract class BaseFormat
 {
     /**
@@ -34,9 +38,16 @@ abstract class BaseFormat
      */
     protected ?string $elementKey = null;
 
-    public function __construct(protected RootDocument|Element|DOMNode|null $item)
+    /** @var TItem|DOMNode|null */
+    protected RootDocument|Element|DOMNode|null $item;
+
+    /**
+     * @param  TItem|DOMNode  $item
+     */
+    public function __construct(RootDocument|Element|DOMNode|null $item)
     {
-        $this->item = match (true) {
+        /** @var TItem $normalizedItem */
+        $normalizedItem = match (true) {
             $item instanceof Element => $item,
             $item instanceof RootDocument => $item,
             $item instanceof DOMNode => new Element($item),
@@ -44,6 +55,8 @@ abstract class BaseFormat
             // $item === null => throw new InvalidArgumentException('Cannot build format from null DOM node'),
             default => throw new InvalidArgumentException('Unsupported node type: '.get_debug_type($item)),
         };
+
+        $this->item = $normalizedItem;
     }
 
     abstract public function toArray(): ?array;
@@ -213,6 +226,31 @@ abstract class BaseFormat
         $acronyms = ['Uuid' => 'UUID', 'Scu' => 'SCU', 'Ifcs' => 'IFCS', 'Emp' => 'EMP', 'StdItem' => 'stdItem'];
 
         return $acronyms[$result] ?? $result;
+    }
+
+    protected function translateLocalizationValue(mixed $value): string
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return '';
+        }
+
+        $trimmed = trim($value);
+
+        if (in_array($trimmed, ['@LOC_EMPTY', '@blank_space'], true)) {
+            return '';
+        }
+
+        if (! str_starts_with($trimmed, '@')) {
+            return $trimmed;
+        }
+
+        $translated = ServiceFactory::getLocalizationService()->getTranslation($trimmed);
+
+        if ($translated === $trimmed || in_array($translated, ['@LOC_EMPTY', '@blank_space'], true)) {
+            return '';
+        }
+
+        return trim($translated);
     }
 
     /**

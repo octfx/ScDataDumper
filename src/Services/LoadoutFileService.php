@@ -15,7 +15,21 @@ use SplFileInfo;
 
 final class LoadoutFileService extends BaseService
 {
+    /**
+     * LRU document cache keyed by file path or composite key.
+     *
+     * @var array<string, Loadout>
+     */
+    protected static array $documentCache = [];
+
+    private const CACHE_LIMIT = 200;
+
     private array $loadoutPaths = [];
+
+    public static function resetDocumentCache(): void
+    {
+        self::$documentCache = [];
+    }
 
     public function count(): int
     {
@@ -42,7 +56,9 @@ final class LoadoutFileService extends BaseService
     private function mapLoadoutFiles(string $directory): array
     {
         $files = [];
-        $basePathLength = strlen($this->scDataDir.DIRECTORY_SEPARATOR.'Data'.DIRECTORY_SEPARATOR);
+        $dataRoot = realpath($this->scDataDir.DIRECTORY_SEPARATOR.'Data')
+            ?: $this->scDataDir.DIRECTORY_SEPARATOR.'Data';
+        $basePathLength = strlen(rtrim($dataRoot, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR);
 
         $iterator = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS)
@@ -89,8 +105,20 @@ final class LoadoutFileService extends BaseService
             throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
         }
 
-        $loadout = new Loadout;
-        $loadout->load($filePath);
+        $cacheKey = sprintf(
+            '%d:%s',
+            $this->isReferenceHydrationEnabled() ? 1 : 0,
+            $filePath
+        );
+
+        $loadout = self::cacheGet(self::$documentCache, $cacheKey);
+        if ($loadout instanceof Loadout) {
+            return $loadout;
+        }
+
+        $loadout = $this->loadDocument($filePath, Loadout::class, false);
+        $loadout->checkValidity();
+        self::cachePut(self::$documentCache, $cacheKey, $loadout, self::CACHE_LIMIT);
 
         return $loadout;
     }

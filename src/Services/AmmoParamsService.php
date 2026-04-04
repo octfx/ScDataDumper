@@ -25,6 +25,10 @@ final class AmmoParamsService extends BaseService
 
     public function getByEntity(Element|EntityClassDefinition $item): ?AmmoParams
     {
+        if ($item instanceof EntityClassDefinition) {
+            return $item->getAmmoParams() ?? $item->getMagazine()?->getAmmoParams();
+        }
+
         // If this is a weapon that contains its own ammo, or if it is a magazine, then it will have an SCAmmoContainerComponentParams component.
         $ammoRef = $item->get('Components/SAmmoContainerComponentParams@ammoParamsRecord');
         if ($ammoRef !== null) {

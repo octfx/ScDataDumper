@@ -319,7 +319,8 @@ abstract class AbstractWeapon extends BaseFormat
 
     private function buildMagazine(): array
     {
-        $magazine = $this->item->get('Components/SCItemWeaponComponentParams/Magazine/Components/SAmmoContainerComponentParams');
+        $magazineEntity = $this->item->getMagazine();
+        $magazine = $magazineEntity?->get('Components/SAmmoContainerComponentParams');
 
         if ($magazine === null) {
             return [];
@@ -327,7 +328,7 @@ abstract class AbstractWeapon extends BaseFormat
 
         return [
             'UUID' => $magazine->get('@ammoParamsRecord'),
-            'Type' => $this->item->get('Components/SCItemWeaponComponentParams/Magazine/Components/SAttachableComponentParams/AttachDef@SubType'),
+            'Type' => $magazineEntity?->getAttachSubType(),
             'InitialAmmoCount' => $magazine->get('@initialAmmoCount'),
             'MaxAmmoCount' => $magazine->get('@maxAmmoCount'),
             'MaxRestockCount' => $magazine->get('@maxRestockCount'),

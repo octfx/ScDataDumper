@@ -3,8 +3,6 @@
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\Formats\BaseFormat;
-use Octfx\ScDataDumper\Services\ServiceFactory;
-
 final class InventoryContainer extends BaseFormat
 {
     protected ?string $elementKey = 'Components/SCItemInventoryContainerComponentParams@containerParams';
@@ -15,7 +13,7 @@ final class InventoryContainer extends BaseFormat
             return null;
         }
 
-        $container = ServiceFactory::getInventoryContainerService()->getByReference($this->get());
+        $container = $this->item?->getInventoryContainer();
 
         return [
             'SCU' => $container?->getSCU(),
@@ -33,6 +31,6 @@ final class InventoryContainer extends BaseFormat
 
     public function canTransform(): bool
     {
-        return parent::canTransform() && ServiceFactory::getInventoryContainerService()->getByReference($this->get());
+        return parent::canTransform() && $this->item?->getInventoryContainer() !== null;
     }
 }

@@ -9,6 +9,9 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 use Octfx\ScDataDumper\Helper\ItemDescriptionParser;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
+/**
+ * @extends BaseFormat<EntityClassDefinition>
+ */
 final class Item extends BaseFormat
 {
     protected ?string $elementKey = 'Components/SAttachableComponentParams/AttachDef';
@@ -17,9 +20,8 @@ final class Item extends BaseFormat
     {
         $attach = $this->get();
 
-        $manufacturer = $attach->get('@Manufacturer');
         /** @var SCItemManufacturer|null $manufacturer */
-        $manufacturer = ServiceFactory::getManufacturerService()->getByReference($manufacturer);
+        $manufacturer = $this->item->getManufacturer();
 
         $defaultManufacturer = [
             'Name' => 'Unknown Manufacturer',
@@ -29,9 +31,9 @@ final class Item extends BaseFormat
 
         $hasManufacturer = $manufacturer && $manufacturer->get('Localization@__Name') !== '@LOC_PLACEHOLDER';
 
-        $descriptionData = ItemDescriptionParser::parse(
-            $attach->get('Localization/English@Description', '')
-        );
+        $name = $this->translateLocalizationValue($attach->get('Localization@Name'));
+        $description = $this->translateLocalizationValue($attach->get('Localization@Description'));
+        $descriptionData = ItemDescriptionParser::parse($description);
 
         $entityTagsXml = $this->item->get('tags')?->children();
         $entityTags = [];
@@ -54,7 +56,7 @@ final class Item extends BaseFormat
             'subType' => $attach->get('@SubType'),
             'size' => $attach->get('@Size'),
             'grade' => $attach->get('@Grade'),
-            'name' => $attach->get('Localization/English@Name'),
+            'name' => $name !== '' ? $name : null,
             'tags' => $attach->get('@Tags'),
             'required_tags' => $attach->get('@RequiredTags'),
             'entity_tags' => $entityTags,
@@ -78,13 +80,13 @@ final class Item extends BaseFormat
                 'InventoryOccupancy' => new InventoryOccupancy($this->item),
                 'Mass' => $this->item->get('Components/SEntityPhysicsControllerParams/PhysType/SEntityRigidPhysicsControllerParams@Mass', 0),
                 'Type' => self::buildTypeName($attach->get('@Type', 'UNKNOWN'), $attach->get('@SubType', 'UNKNOWN')),
-                'Name' => $attach->get('Localization/English@Name', ''),
-                'Description' => $attach->get('Localization/English@Description', ''),
+                'Name' => $name,
+                'Description' => $description,
                 'DescriptionData' => $descriptionData['data'] ?? null,
                 'DescriptionText' => $descriptionData['description'] ?? null,
                 'Manufacturer' => $hasManufacturer ? [
                     'Code' => $manufacturer->getCode(),
-                    'Name' => $manufacturer->get('Localization/English@Name'),
+                    'Name' => $this->translateLocalizationValue($manufacturer->get('Localization@Name')),
                     'UUID' => $manufacturer->getUuid(),
                 ] : $defaultManufacturer,
                 'Tags' => $this->item->getTagList(),
@@ -287,38 +289,19 @@ final class Item extends BaseFormat
     private function buildLoadoutMap(): array
     {
         $loadoutMap = [];
-
-        $loadoutEntries = $this->item->get(
-            'Components/SEntityComponentDefaultLoadoutParams/loadout/SItemPortLoadoutManualParams/entries'
-        );
-
-        if (! $loadoutEntries) {
-            return $loadoutMap;
-        }
-
         $itemService = ServiceFactory::getItemService();
 
-        foreach ($loadoutEntries->children() ?? [] as $entry) {
-            $itemUuid = null;
-
-            $entityClassName = $entry->get('@entityClassName');
-            if (! empty($entityClassName)) {
-                $itemUuid = $itemService->getUuidByClassName($entityClassName);
-            }
-
-            if ($itemUuid === null) {
-                $entityClassReference = $entry->get('@entityClassReference');
-                if (! empty($entityClassReference) && $entityClassReference !== '00000000-0000-0000-0000-000000000000') {
-                    $itemUuid = $entityClassReference;
-                }
-            }
-
-            if ($itemUuid === null) {
+        foreach ($this->item->getDefaultLoadoutEntries() as $entry) {
+            $portName = $entry->getPortName();
+            if ($portName === null || $portName === '') {
                 continue;
             }
 
-            $portName = $entry->get('@itemPortName');
-            if (empty($portName)) {
+            $itemUuid = $entry->getInstalledItem()?->getUuid()
+                ?? $entry->getEntityClassReference()
+                ?? (($className = $entry->getEntityClassName()) ? $itemService->getUuidByClassName($className) : null);
+
+            if ($itemUuid === null || $itemUuid === '') {
                 continue;
             }
 

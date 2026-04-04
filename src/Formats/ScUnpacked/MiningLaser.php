@@ -2,10 +2,15 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
+use DOMElement;
 use Illuminate\Support\Arr;
 use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 
+/**
+ * @extends BaseFormat<EntityClassDefinition>
+ */
 final class MiningLaser extends BaseFormat
 {
     protected ?string $elementKey = 'Components/SEntityComponentMiningLaserParams';
@@ -32,7 +37,10 @@ final class MiningLaser extends BaseFormat
 
         $extractionThroughput = $this->extractThroughput($extractionAction);
 
-        $laserParamsData = $laserParams?->get('MiningLaserGlobalParams')?->attributesToArray(['__ref', '__path'], pascalCase: true);
+        $globalParams = $this->item->getMiningLaserGlobalParams();
+        $laserParamsData = $globalParams?->documentElement instanceof DOMElement
+            ? new Element($globalParams->documentElement)->attributesToArray(['__ref', '__path'], pascalCase: true)
+            : null;
 
         $throttleMinimum = $laserParams?->get('@throttleMinimum');
         $throttleHoldAccFactor = Arr::get($laserParamsData, 'ThrottleHoldAccFactor');

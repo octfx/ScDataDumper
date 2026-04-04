@@ -186,6 +186,8 @@ class Element
 
     /**
      * Returns all child elements and wraps it in DOMElementProxy
+     *
+     * @return Generator<int, self, mixed, void>
      */
     public function children(): Generator
     {

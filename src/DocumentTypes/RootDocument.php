@@ -21,9 +21,9 @@ abstract class RootDocument extends DOMDocument
 {
     use XmlAccess;
 
-    private bool $referenceHydrationEnabled = true;
+    private bool $referenceHydrationEnabled = false;
 
-    public static function fromNode(?DOMNode $node, bool $referenceHydrationEnabled = true): ?self
+    public static function fromNode(?DOMNode $node, bool $referenceHydrationEnabled = false): ?self
     {
         if (! $node) {
             return null;
@@ -40,28 +40,24 @@ abstract class RootDocument extends DOMDocument
 
     public function load(string $filename, int $options = 0): bool
     {
-        $success = parent::load($filename, $options | LIBXML_NOCDATA | LIBXML_NOBLANKS | LIBXML_COMPACT);
-
-        if (! $success) {
+        if (! parent::load($filename, $options | LIBXML_NOCDATA | LIBXML_NOBLANKS | LIBXML_COMPACT)) {
             throw new RuntimeException('Failed to load document');
         }
 
         $this->initializeLoadedDocument();
 
-        return $success;
+        return true;
     }
 
     public function loadXML(string $source, int $options = 0): bool
     {
-        $success = parent::loadXML($source, $options | LIBXML_NOCDATA | LIBXML_NOBLANKS | LIBXML_COMPACT);
-
-        if (! $success) {
+        if (! parent::loadXML($source, $options | LIBXML_NOCDATA | LIBXML_NOBLANKS | LIBXML_COMPACT)) {
             throw new RuntimeException('Failed to load document');
         }
 
         $this->initializeLoadedDocument();
 
-        return $success;
+        return true;
     }
 
     public function setReferenceHydrationEnabled(bool $enabled): static
@@ -210,6 +206,57 @@ abstract class RootDocument extends DOMDocument
         $document = $class::fromNode($node->getNode(), $this->referenceHydrationEnabled);
 
         return $document instanceof $class ? $document : null;
+    }
+
+    /**
+     * @template T of RootDocument
+     *
+     * @param  class-string<T>  $class
+     * @param  callable(string): ?T  $resolver
+     * @return T|null
+     */
+    protected function resolveRelatedDocument(string $path, string $class, ?string $reference, callable $resolver): ?RootDocument
+    {
+        $document = $this->getHydratedDocument($path, $class);
+
+        if ($document instanceof $class) {
+            return $document;
+        }
+
+        if (! is_string($reference) || $reference === '') {
+            return null;
+        }
+
+        $resolved = $resolver($reference);
+
+        return $resolved instanceof $class ? $resolved : null;
+    }
+
+    /**
+     * @template T of RootDocument
+     *
+     * @param  list<T>  $documents
+     * @param  list<string>  $references
+     * @param  callable(string): ?T  $resolver
+     * @return list<T>
+     */
+    protected function resolveRelatedDocuments(array $documents, array $references, callable $resolver): array
+    {
+        if ($documents !== []) {
+            return $documents;
+        }
+
+        $resolved = [];
+
+        foreach ($references as $reference) {
+            $document = $resolver($reference);
+
+            if ($document instanceof self) {
+                $resolved[] = $document;
+            }
+        }
+
+        return $resolved;
     }
 
     /**

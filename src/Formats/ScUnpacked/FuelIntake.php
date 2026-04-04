@@ -2,8 +2,12 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
+use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 
+/**
+ * @extends BaseFormat<EntityClassDefinition>
+ */
 final class FuelIntake extends BaseFormat
 {
     protected ?string $elementKey = 'Components/SCItemFuelIntakeParams';

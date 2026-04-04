@@ -15,9 +15,14 @@ final class MeleeWeapon extends BaseFormat
         }
 
         $melee = $this->get();
-        $attackConfig = $melee->get('@meleeCombatConfig');
+        $attackConfig = $this->item?->getMeleeCombatConfigReference();
 
         if ($attackConfig === null || $attackConfig === '00000000-0000-0000-0000-000000000000') {
+            return null;
+        }
+
+        $combatConfig = $this->item?->getMeleeCombatConfig();
+        if ($combatConfig === null) {
             return null;
         }
 
@@ -33,7 +38,7 @@ final class MeleeWeapon extends BaseFormat
             'AttackConfig' => [],
         ];
 
-        foreach ($melee->get('MeleeCombatConfig/attackCategoryParams')?->children() ?? [] as $attackCategory) {
+        foreach ($combatConfig->get('attackCategoryParams')?->children() ?? [] as $attackCategory) {
             $attributes = $attackCategory->attributesToArray([
                 'cameraShakeParams',
                 'fullbodyAnimation',

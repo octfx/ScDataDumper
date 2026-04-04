@@ -2,9 +2,7 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Formats\BaseFormat;
-use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class SuitArmor extends BaseFormat
 {
@@ -24,7 +22,7 @@ final class SuitArmor extends BaseFormat
         }
 
         $signatures = [];
-        foreach ($armor->get('signatureParams')?->children() ?? [] as /** @var Element $part */ $part) {
+        foreach ($armor->get('signatureParams')?->children() ?? [] as $part) {
             if ($part->getNode()->nodeName !== 'ItemSuitArmorSignatureParams') {
                 continue;
             }
@@ -32,9 +30,7 @@ final class SuitArmor extends BaseFormat
             $signatures[$part->get('@signatureType')] = $part->get('@signatureEmission');
         }
 
-        $damageResistanceMacro = ServiceFactory::getFoundryLookupService()->getDamageResistanceMacroByReference(
-            $armor->get('@damageResistance')
-        );
+        $damageResistanceMacro = $this->item?->getDamageResistance();
 
         return [
             'DamageResistance' => $damageResistanceMacro?->documentElement

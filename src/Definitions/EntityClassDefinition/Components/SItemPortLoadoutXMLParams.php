@@ -12,11 +12,11 @@ class SItemPortLoadoutXMLParams extends Element
 {
     public function initialize(DOMDocument $document): void
     {
-        if ($this->get('@loadoutPath') === null) {
+        $path = $this->get('@loadoutPath');
+
+        if ($path === null) {
             return;
         }
-
-        $path = $this->get('@loadoutPath');
 
         $loadOutSvc = ServiceFactory::getLoadoutFileService();
 
@@ -26,13 +26,7 @@ class SItemPortLoadoutXMLParams extends Element
             return;
         }
 
-        if ($this->get('InstalledItem')) {
-            return;
-        }
-
         parent::initialize($document);
-
-        $svc = ServiceFactory::getItemService();
 
         $parentEl = new Element($this->node->parentNode);
         if ($parentEl->get('SItemPortLoadoutManualParams')) {
@@ -58,32 +52,20 @@ class SItemPortLoadoutXMLParams extends Element
             $entries = $manualParams->get('entries');
         }
 
-        foreach ($file->get('//Loadout/Items')?->children() as $node) {
-            $item = $svc->getByClassName($node->get('@itemName'));
+        foreach ($file->getEntries() as $entry) {
+            $portName = $entry->getPortName();
+            $className = $entry->getEntityClassName();
 
-            if (! $item) {
+            if ($portName === null || $portName === '' || $className === null || $className === '') {
                 continue;
             }
 
-            $importedNode = $document->importNode($item->documentElement, true);
-
             $port = $document->createElement('SItemPortLoadoutEntryParams');
-            $port->setAttribute('itemPortName', $node->get('@portName'));
-            $port->setAttribute('entityClassReference', $node->get('@itemName'));
-            $element = $document->createElement('InstalledItem');
-
-            if ($item->firstChild?->attributes) {
-                foreach ($item->firstChild?->attributes as $name => $attribute) {
-                    $element->setAttribute($name, $attribute->nodeValue);
-                }
-            }
-
-            $element->append(...$importedNode->childNodes);
-
-            $port->appendChild($element);
+            $port->setAttribute('itemPortName', $portName);
+            $port->setAttribute('entityClassName', $className);
             $entries->appendChild($port);
-
-            $this->node->parentNode->appendChild($manualParams);
         }
+
+        $this->node->parentNode->appendChild($manualParams);
     }
 }

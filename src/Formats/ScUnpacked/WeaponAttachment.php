@@ -5,10 +5,14 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
+use Octfx\ScDataDumper\DocumentTypes\Loadout\LoadoutEntry;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 use Octfx\ScDataDumper\Helper\ItemDescriptionParser;
-use Octfx\ScDataDumper\Services\ServiceFactory;
 
+/**
+ * @extends BaseFormat<EntityClassDefinition>
+ */
 final class WeaponAttachment extends BaseFormat
 {
     protected ?string $elementKey = 'Components/SAttachableComponentParams/AttachDef';
@@ -35,8 +39,7 @@ final class WeaponAttachment extends BaseFormat
 
         $utilityClass = null;
         if ($subType === 'Utility') {
-            $description = $attachDef->get('Localization/English@Description', '') ?? '';
-            $utilityClass = $this->parseUtilityClassFromDescription($description);
+            $utilityClass = $this->parseUtilityClassFromDescription($this->resolveAttachmentDescription($attachDef));
         }
 
         $data = [
@@ -205,7 +208,7 @@ final class WeaponAttachment extends BaseFormat
 
     private function resolveBarrelType(Element $attachDef): ?string
     {
-        $description = $attachDef->get('Localization/English@Description', '') ?? '';
+        $description = $this->resolveAttachmentDescription($attachDef);
         $parsed = ItemDescriptionParser::parse($description, ['Type' => 'Type', 'Item Type' => 'ItemType']);
         $parsedData = $parsed['data'] ?? [];
         $type = strtolower($parsedData['Type'] ?? $parsedData['ItemType'] ?? '');
@@ -243,36 +246,28 @@ final class WeaponAttachment extends BaseFormat
         return null;
     }
 
-    private function loadFlashlightModes(): array
+    private function resolveAttachmentDescription(Element $attachDef): string
     {
-        $entries = $this->item->get('Components/SEntityComponentDefaultLoadoutParams/loadout/SItemPortLoadoutManualParams/entries');
+        $englishDescription = $attachDef->get('Localization/English@Description');
 
-        if ($entries === null) {
-            return [];
+        if (is_string($englishDescription) && trim($englishDescription) !== '') {
+            return $this->translateLocalizationValue($englishDescription);
         }
 
-        $itemService = ServiceFactory::getItemService();
+        return $this->translateLocalizationValue($attachDef->get('Localization@Description'));
+    }
+
+    private function loadFlashlightModes(): array
+    {
         $modes = [];
 
-        foreach ($entries->children() ?? [] as $entry) {
-            if ((int)$entry->get('@skipPart') === 1) {
+        foreach ($this->item?->getDefaultLoadoutEntries() ?? [] as $entry) {
+            if (! $entry instanceof LoadoutEntry || (int) ($entry->get('@skipPart') ?? 0) === 1) {
                 continue;
             }
 
-            $className = $entry->get('@entityClassName');
-            $item = null;
-
-            if (! empty($className)) {
-                $item = $itemService->getByClassName($className);
-            }
-
-            if ($item === null) {
-                $entityClassReference = $entry->get('@entityClassReference');
-                if (! empty($entityClassReference) && $entityClassReference !== '00000000-0000-0000-0000-000000000000') {
-                    $item = $itemService->getByReference($entityClassReference);
-                }
-            }
-
+            $className = $entry->getEntityClassName();
+            $item = $entry->getInstalledItem();
             if ($item === null) {
                 continue;
             }
@@ -290,9 +285,9 @@ final class WeaponAttachment extends BaseFormat
             $colorNormalized = $this->normalizeRgbToCssRange($color);
 
             $mode = [
-                'PortName' => $entry->get('@itemPortName'),
+                'PortName' => $entry->getPortName(),
                 'ClassName' => $resolvedClassName,
-                'Name' => $this->deriveFlashlightModeName($resolvedClassName, $entry->get('@itemPortName')),
+                'Name' => $this->deriveFlashlightModeName($resolvedClassName, $entry->getPortName()),
                 'LightType' => $light->get('@lightType'),
                 'LightRadius' => $light->get('sizeParams@lightRadius'),
                 'Intensity' => $defaultState?->get('@intensity'),

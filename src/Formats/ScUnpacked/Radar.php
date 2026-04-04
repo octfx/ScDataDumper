@@ -36,7 +36,11 @@ final class Radar extends BaseFormat
             return null;
         }
 
-        $radar = $this->get();
+        $radar = $this->item?->getRadarSystem();
+
+        if ($radar === null) {
+            return null;
+        }
 
         $signatureList = [];
         foreach (($radar?->get('signatureDetection')?->children() ?? []) as $sig) {

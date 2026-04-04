@@ -3,10 +3,13 @@
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 
 /**
  * Mining Modules and Gadgets.
+ *
+ * @extends BaseFormat<EntityClassDefinition>
  */
 final class MiningModule extends BaseFormat
 {

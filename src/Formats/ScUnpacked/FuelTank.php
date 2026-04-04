@@ -3,9 +3,13 @@
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 
+/**
+ * @extends BaseFormat<EntityClassDefinition>
+ */
 final class FuelTank extends BaseFormat
 {
     protected ?string $elementKey = 'Components/ResourceContainer';

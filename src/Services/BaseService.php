@@ -60,7 +60,7 @@ abstract class BaseService
 
     protected static bool $entityMetadataMapLoaded = false;
 
-    protected bool $referenceHydrationEnabled = true;
+    protected bool $referenceHydrationEnabled = false;
 
     /**
      * @throws JsonException

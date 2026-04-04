@@ -6,8 +6,6 @@ namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Formats\BaseFormat;
-use Octfx\ScDataDumper\Services\ServiceFactory;
-
 final class Ammunition extends BaseFormat
 {
     public function toArray(): ?array
@@ -16,7 +14,8 @@ final class Ammunition extends BaseFormat
             return null;
         }
 
-        $ammo = ServiceFactory::getAmmoParamsService()->getByEntity($this->item);
+        $magazine = $this->item->getMagazine();
+        $ammo = $this->item->getAmmoParams() ?? $magazine?->getAmmoParams();
 
         if ($ammo === null) {
             return null;
@@ -33,7 +32,7 @@ final class Ammunition extends BaseFormat
         $lifetime = $ammoAttrs['lifetime'] ? round($ammoAttrs['lifetime'], 2) : null;
         $speed = $ammoAttrs['speed'] ?? null;
         $ammoContainer = $this->item->get('Components/SAmmoContainerComponentParams')
-            ?? $this->item->get('Components/SCItemWeaponComponentParams/Magazine/Components/SAmmoContainerComponentParams');
+            ?? $magazine?->get('Components/SAmmoContainerComponentParams');
 
         $data = [
             'UUID' => $ammo->getUuid(),

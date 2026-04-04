@@ -3,8 +3,12 @@
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 
+/**
+ * @extends BaseFormat<EntityClassDefinition>
+ */
 final class MissileRack extends BaseFormat
 {
     protected ?string $elementKey = 'Components/SItemPortContainerComponentParams';
