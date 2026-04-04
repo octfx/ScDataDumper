@@ -58,15 +58,7 @@ final class InventoryContainerResolver
         InventoryContainerService $inventoryService,
         InventoryContainerResult $result
     ): void {
-        $vehicleComponent = $vehicle->entity->get('Components/VehicleComponentParams')
-            ?? $vehicle->entity->getAttachDef();
-
-        $containerRef = $vehicleComponent?->get('@inventoryContainerParams');
-        if (! $containerRef) {
-            return;
-        }
-
-        $container = $inventoryService->getByReference($containerRef);
+        $container = $vehicle->entity->getInventoryContainer();
         if (! $container) {
             return;
         }

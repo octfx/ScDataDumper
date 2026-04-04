@@ -3,7 +3,6 @@
 namespace Octfx\ScDataDumper\Services\Vehicle\CargoGridStrategies;
 
 use Octfx\ScDataDumper\Helper\VehicleWrapper;
-use Octfx\ScDataDumper\Services\ServiceFactory;
 use Octfx\ScDataDumper\ValueObjects\CargoGridResult;
 
 /**
@@ -20,16 +19,7 @@ final class VehicleComponentCargoStrategy implements CargoGridStrategyInterface
             return;
         }
 
-        $inventoryContainerService = ServiceFactory::getInventoryContainerService();
-        $vehicleComponent = $vehicle->entity->get('Components/VehicleComponentParams')
-            ?? $vehicle->entity->getAttachDef();
-
-        $inventoryContainerRef = $vehicleComponent?->get('@inventoryContainerParams');
-        if (! $inventoryContainerRef) {
-            return;
-        }
-
-        $container = $inventoryContainerService->getByReference($inventoryContainerRef);
+        $container = $vehicle->entity->getInventoryContainer();
         if (! $container) {
             return;
         }

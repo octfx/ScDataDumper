@@ -77,16 +77,14 @@ final class Ship extends BaseFormat
             $vehicleComponent = $this->vehicleWrapper->entity->getAttachDef();
         }
 
-        $manufacturerRef = $vehicleComponent->get('@manufacturer');
-
-        // Some actor-based vehicles (e.g. power suits) don't carry a valid manufacturer on AttachDef
-        // and lack VehicleComponentParams entirely. Fall back to the insurance display params
-        // which still hold the canonical manufacturer reference.
-        if ($manufacturerRef === null || $manufacturerRef === '00000000-0000-0000-0000-000000000000') {
+        $manufacturer = $this->vehicleWrapper->entity->getManufacturer();
+        if ($manufacturer === null) {
+            // Some actor-based vehicles (e.g. power suits) don't carry a valid manufacturer on AttachDef
+            // and lack VehicleComponentParams entirely. Fall back to the insurance display params
+            // which still hold the canonical manufacturer reference.
             $manufacturerRef = $this->item->get('StaticEntityClassData/SEntityInsuranceProperties/displayParams@manufacturer');
+            $manufacturer = ServiceFactory::getManufacturerService()->getByReference($manufacturerRef);
         }
-
-        $manufacturer = ServiceFactory::getManufacturerService()->getByReference($manufacturerRef);
 
         $subType = $this->item->get('Components/SAttachableComponentParams/AttachDef@SubType');
         $vehicleCareer = $this->item->get('Components/VehicleComponentParams@vehicleCareer', '');
@@ -109,27 +107,37 @@ final class Ship extends BaseFormat
 
         rsort($dimensions, SORT_NUMERIC);
 
-        $descriptionData = ItemDescriptionParser::parse(
-            $vehicleComponent->get('English@vehicleDescription') ?? $vehicleComponent->get('Localization/English@Description', '')
+        $vehicleName = $this->translateLocalizationValue(
+            Arr::get($vehicleComponentData, 'vehicleName')
+            ?? $vehicleComponent->get('@vehicleName')
+            ?? $attach?->get('Localization@Name')
         );
+        $vehicleDescription = $this->translateLocalizationValue(
+            $vehicleComponent->get('@vehicleDescription')
+            ?? $attach?->get('Localization@Description')
+        );
+        $vehicleCareerLabel = $this->translateLocalizationValue($vehicleComponent->get('@vehicleCareer'));
+        $vehicleRoleLabel = $this->translateLocalizationValue($vehicleComponent->get('@vehicleRole'));
+
+        $descriptionData = ItemDescriptionParser::parse($vehicleDescription);
 
         $physicsParams = $this->vehicleWrapper->entity->get('Components/SSCActorPhysicsControllerComponentParams/physType/SEntityActorPhysicsControllerParams');
 
         $data = [
             'UUID' => $this->item->getUuid(),
             'ClassName' => $this->item->getClassName(),
-            'Name' => trim(Arr::get($vehicleComponentData, 'vehicleName') ?? $vehicleComponent->get('Localization/English@Name') ?? $this->item->getClassName()),
-            'Description' => $vehicleComponent->get('English@vehicleDescription') ?? $vehicleComponent->get('Localization/English@Description', ''),
+            'Name' => trim($vehicleName !== '' ? $vehicleName : $this->item->getClassName()),
+            'Description' => $vehicleDescription,
             'DescriptionData' => $descriptionData['data'] ?? null,
             'DescriptionText' => $descriptionData['description'] ?? null,
 
-            'Career' => $vehicleComponent->get('English@vehicleCareer', ''),
-            'Role' => $vehicleComponent->get('English@vehicleRole', ''),
+            'Career' => $vehicleCareerLabel,
+            'Role' => $vehicleRoleLabel,
 
             'Manufacturer' => $manufacturer ? [
                 'UUID' => $manufacturer->getUuid(),
                 'Code' => $manufacturer->getCode(),
-                'Name' => $manufacturer->get('Localization/English@Name'),
+                'Name' => $this->translateLocalizationValue($manufacturer->get('Localization@Name')),
             ] : [],
 
             'Size' => $attach?->get('@Size', 0) ?? 0,

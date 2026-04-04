@@ -25,20 +25,11 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
             })
             ->filter(fn ($item) => ! $this->isTemplateGrid($item));
 
-        $capacity = $cargoGrids->sum(function ($item) {
-            $dimX = Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.x', 0);
-            $dimY = Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.y', 0);
-            $dimZ = Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.z', 0);
-
-            return ($dimX * $dimY * $dimZ) / ScuCalculator::M_TO_SCU_UNIT;
-        });
-
-        $result->addCapacity($capacity);
-
         $inventoryContainerService = ServiceFactory::getInventoryContainerService();
 
-        $standardisedGrids = $cargoGrids
+        $resolvedCargoGrids = $cargoGrids
             ->map(function ($item) use ($inventoryContainerService) {
+                $inlineScu = $this->calculateInlineGridScu($item);
                 $containerRef = Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.containerParams')
                     ?? Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.__ref')
                     ?? ($item['__ref'] ?? null);
@@ -57,12 +48,9 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
                 }
 
                 if ($container !== null) {
-                    if (str_ends_with(strtolower($container->getClassName()), '_template')) {
-                        return null;
-                    }
                     $dimensions = $container->getInteriorDimensions();
 
-                    return [
+                    $grid = [
                         'uuid' => $container->getUuid(),
                         'class' => $container->getClassName(),
                         'SCU' => $container->getSCU(),
@@ -77,6 +65,12 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
                         'IsExternalContainer' => $container->isExternalContainer(),
                         'IsClosedContainer' => $container->isClosedContainer(),
                     ];
+
+                    return [
+                        // Inline geometry is the authoritative cargo total when present.
+                        'effective_scu' => $inlineScu ?? (float) ($grid['SCU'] ?? 0),
+                        'grid' => $grid,
+                    ];
                 }
 
                 // Fallback to inline component data if no dedicated container document exists
@@ -85,33 +79,50 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
                 $dimZ = Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.z');
 
                 if ($dimX === null || $dimY === null || $dimZ === null) {
-                    return null;
+                    return [
+                        'effective_scu' => 0.0,
+                        'grid' => null,
+                    ];
                 }
 
                 $className = $item['className'] ?? $item['ClassName'] ?? '';
                 if (str_ends_with(strtolower($className), '_template')) {
-                    return null;
+                    return [
+                        'effective_scu' => 0.0,
+                        'grid' => null,
+                    ];
                 }
 
                 $scu = ($dimX * $dimY * $dimZ) / ScuCalculator::M_TO_SCU_UNIT;
 
                 return [
-                    'uuid' => $containerRef,
-                    'class' => $item['className'] ?? $item['ClassName'] ?? null,
-                    'SCU' => $scu,
-                    'capacity' => $scu,
-                    'capacity_name' => 'SCU',
-                    'x' => $dimX,
-                    'y' => $dimY,
-                    'z' => $dimZ,
-                    'MinSize' => Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.inventoryType.InventoryOpenContainerType.minPermittedItemSize'),
-                    'MaxSize' => Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.inventoryType.InventoryOpenContainerType.maxPermittedItemSize'),
-                    'IsOpenContainer' => true,
-                    'IsExternalContainer' => (bool) Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.inventoryType.InventoryOpenContainerType.isExternalContainer'),
-                    'IsClosedContainer' => false,
+                    'effective_scu' => $inlineScu ?? $scu,
+                    'grid' => [
+                        'uuid' => $containerRef,
+                        'class' => $item['className'] ?? $item['ClassName'] ?? null,
+                        'SCU' => $scu,
+                        'capacity' => $scu,
+                        'capacity_name' => 'SCU',
+                        'x' => $dimX,
+                        'y' => $dimY,
+                        'z' => $dimZ,
+                        'MinSize' => Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.inventoryType.InventoryOpenContainerType.minPermittedItemSize'),
+                        'MaxSize' => Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.inventoryType.InventoryOpenContainerType.maxPermittedItemSize'),
+                        'IsOpenContainer' => true,
+                        'IsExternalContainer' => (bool) Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.inventoryType.InventoryOpenContainerType.isExternalContainer'),
+                        'IsClosedContainer' => false,
+                    ],
                 ];
             })
-            ->filter(fn ($x) => $x !== null);
+            ->values();
+
+        $result->addCapacity((float) $resolvedCargoGrids->sum(
+            static fn (array $entry): float => (float) ($entry['effective_scu'] ?? 0)
+        ));
+        $standardisedGrids = $resolvedCargoGrids
+            ->pluck('grid')
+            ->filter(fn ($grid) => $grid !== null)
+            ->values();
 
         // Store standardised grids and track UUIDs
         $result->grids = $result->grids->merge($standardisedGrids);
@@ -220,6 +231,19 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
         $walker($entries);
 
         return count($hits);
+    }
+
+    private function calculateInlineGridScu(array $item): ?float
+    {
+        $dimX = Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.x');
+        $dimY = Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.y');
+        $dimZ = Arr::get($item, 'Components.SCItemInventoryContainerComponentParams.inventoryContainer.interiorDimensions.z');
+
+        if ($dimX === null || $dimY === null || $dimZ === null) {
+            return null;
+        }
+
+        return ($dimX * $dimY * $dimZ) / ScuCalculator::M_TO_SCU_UNIT;
     }
 
     /**

@@ -6,10 +6,12 @@ namespace Octfx\ScDataDumper\Tests\Services\Vehicle;
 
 use JsonException;
 use Octfx\ScDataDumper\Services\ItemClassifierService;
+use Octfx\ScDataDumper\Services\LoadoutFileService;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use Octfx\ScDataDumper\Services\Vehicle\LoadoutBuilder;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 use Octfx\ScDataDumper\Tests\Fixtures\TestRootDocument;
+use ReflectionClass;
 
 final class LoadoutBuilderTest extends ScDataTestCase
 {
@@ -152,6 +154,194 @@ final class LoadoutBuilderTest extends ScDataTestCase
         self::assertSame('LOOP_ITEM', $result[0]['Item']['stdItem']['Ports'][0]['InstalledItem']['stdItem']['ClassName']);
     }
 
+    /**
+     * @throws JsonException
+     */
+    public function test_build_reads_default_loadout_entries_from_xml_loadout_path(): void
+    {
+        $seatPath = $this->writeFile(
+            'records/entity/seat_xml.xml',
+            <<<'XML'
+            <EntityClassDefinition.SEAT_XML __type="EntityClassDefinition" __ref="uuid-seat-xml" __path="libs/foundry/records/entityclassdefinition/seat_xml.xml">
+                <Components>
+                    <SAttachableComponentParams>
+                        <AttachDef Type="Seat" SubType="Pilot" Size="1" Grade="A" Manufacturer="00000000-0000-0000-0000-000000000000">
+                            <Localization>
+                                <English Name="Seat XML" Description="" />
+                            </Localization>
+                        </AttachDef>
+                    </SAttachableComponentParams>
+                    <SEntityPhysicsControllerParams>
+                        <PhysType>
+                            <SEntityRigidPhysicsControllerParams Mass="25" />
+                        </PhysType>
+                    </SEntityPhysicsControllerParams>
+                    <SItemPortContainerComponentParams>
+                        <Ports>
+                            <SItemPortDef Name="BedPort" DisplayName="BedPort" MaxSize="1" MinSize="1">
+                                <Types>
+                                    <Type Type="Bed" SubTypes="Captain" />
+                                </Types>
+                            </SItemPortDef>
+                        </Ports>
+                    </SItemPortContainerComponentParams>
+                    <SEntityComponentDefaultLoadoutParams>
+                        <loadout>
+                            <SItemPortLoadoutXMLParams loadoutPath="Scripts/Loadouts/test_loadout.xml" />
+                        </loadout>
+                    </SEntityComponentDefaultLoadoutParams>
+                </Components>
+            </EntityClassDefinition.SEAT_XML>
+            XML
+        );
+        $bedPath = $this->writeItemFixture('BED_DEFAULT', 'uuid-bed-default', 'Bed', 'Captain', 'Default Bed', 10.0);
+        $this->writeFile(
+            'Data/Scripts/Loadouts/test_loadout.xml',
+            <<<'XML'
+            <Loadout.TEST>
+                <Loadout>
+                    <Items>
+                        <item portName="BedPort" itemName="BED_DEFAULT" />
+                    </Items>
+                </Loadout>
+            </Loadout.TEST>
+            XML
+        );
+
+        $this->writeCacheFiles(
+            classToPathMap: [
+                'EntityClassDefinition' => [
+                    'SEAT_XML' => $seatPath,
+                    'BED_DEFAULT' => $bedPath,
+                ],
+                'InventoryContainer' => [],
+                'CargoGrid' => [],
+            ],
+            uuidToClassMap: [
+                'uuid-seat-xml' => 'SEAT_XML',
+                'uuid-bed-default' => 'BED_DEFAULT',
+            ],
+            classToUuidMap: [
+                'SEAT_XML' => 'uuid-seat-xml',
+                'BED_DEFAULT' => 'uuid-bed-default',
+            ],
+            uuidToPathMap: [
+                'uuid-seat-xml' => $seatPath,
+                'uuid-bed-default' => $bedPath,
+            ],
+        );
+        $this->initializeMinimalItemServices();
+        $this->initializeLoadoutFileService();
+
+        $builder = new LoadoutBuilder(ServiceFactory::getItemService(), new ItemClassifierService);
+        $result = $builder->build($this->loadXmlDocument(<<<XML
+            <SItemPortLoadoutManualParams>
+                <entries>
+                    <SItemPortLoadoutEntryParams itemPortName="seat_mount" entityClassName="SEAT_XML" />
+                </entries>
+            </SItemPortLoadoutManualParams>
+            XML));
+
+        self::assertCount(1, $result);
+        self::assertSame('SEAT_XML', $result[0]['Item']['stdItem']['ClassName']);
+        self::assertSame(['BedPort'], array_column($result[0]['entries'], 'portName'));
+        self::assertSame('BED_DEFAULT', $result[0]['entries'][0]['Item']['stdItem']['ClassName']);
+        self::assertSame('BED_DEFAULT', $result[0]['Item']['stdItem']['Ports'][0]['InstalledItem']['stdItem']['ClassName']);
+    }
+
+    /**
+     * @throws JsonException
+     */
+    public function test_build_reads_default_loadout_entries_from_bare_root_xml_loadout_path(): void
+    {
+        $seatPath = $this->writeFile(
+            'records/entity/seat_xml_bare.xml',
+            <<<'XML'
+            <EntityClassDefinition.SEAT_XML_BARE __type="EntityClassDefinition" __ref="uuid-seat-xml-bare" __path="libs/foundry/records/entityclassdefinition/seat_xml_bare.xml">
+                <Components>
+                    <SAttachableComponentParams>
+                        <AttachDef Type="Seat" SubType="Pilot" Size="1" Grade="A" Manufacturer="00000000-0000-0000-0000-000000000000">
+                            <Localization>
+                                <English Name="Seat XML Bare" Description="" />
+                            </Localization>
+                        </AttachDef>
+                    </SAttachableComponentParams>
+                    <SEntityPhysicsControllerParams>
+                        <PhysType>
+                            <SEntityRigidPhysicsControllerParams Mass="25" />
+                        </PhysType>
+                    </SEntityPhysicsControllerParams>
+                    <SItemPortContainerComponentParams>
+                        <Ports>
+                            <SItemPortDef Name="BedPort" DisplayName="BedPort" MaxSize="1" MinSize="1">
+                                <Types>
+                                    <Type Type="Bed" SubTypes="Captain" />
+                                </Types>
+                            </SItemPortDef>
+                        </Ports>
+                    </SItemPortContainerComponentParams>
+                    <SEntityComponentDefaultLoadoutParams>
+                        <loadout>
+                            <SItemPortLoadoutXMLParams loadoutPath="Scripts/Loadouts/test_loadout_bare.xml" />
+                        </loadout>
+                    </SEntityComponentDefaultLoadoutParams>
+                </Components>
+            </EntityClassDefinition.SEAT_XML_BARE>
+            XML
+        );
+        $bedPath = $this->writeItemFixture('BED_DEFAULT', 'uuid-bed-default', 'Bed', 'Captain', 'Default Bed', 10.0);
+        $this->writeFile(
+            'Data/Scripts/Loadouts/test_loadout_bare.xml',
+            <<<'XML'
+            <Loadout>
+                <Items>
+                    <item portName="BedPort" itemName="BED_DEFAULT" />
+                </Items>
+            </Loadout>
+            XML
+        );
+
+        $this->writeCacheFiles(
+            classToPathMap: [
+                'EntityClassDefinition' => [
+                    'SEAT_XML_BARE' => $seatPath,
+                    'BED_DEFAULT' => $bedPath,
+                ],
+                'InventoryContainer' => [],
+                'CargoGrid' => [],
+            ],
+            uuidToClassMap: [
+                'uuid-seat-xml-bare' => 'SEAT_XML_BARE',
+                'uuid-bed-default' => 'BED_DEFAULT',
+            ],
+            classToUuidMap: [
+                'SEAT_XML_BARE' => 'uuid-seat-xml-bare',
+                'BED_DEFAULT' => 'uuid-bed-default',
+            ],
+            uuidToPathMap: [
+                'uuid-seat-xml-bare' => $seatPath,
+                'uuid-bed-default' => $bedPath,
+            ],
+        );
+        $this->initializeMinimalItemServices();
+        $this->initializeLoadoutFileService();
+
+        $builder = new LoadoutBuilder(ServiceFactory::getItemService(), new ItemClassifierService);
+        $result = $builder->build($this->loadXmlDocument(<<<XML
+            <SItemPortLoadoutManualParams>
+                <entries>
+                    <SItemPortLoadoutEntryParams itemPortName="seat_mount" entityClassName="SEAT_XML_BARE" />
+                </entries>
+            </SItemPortLoadoutManualParams>
+            XML));
+
+        self::assertCount(1, $result);
+        self::assertCount(1, $result[0]['entries']);
+        self::assertSame('BedPort', $result[0]['entries'][0]['portName']);
+        self::assertSame('BED_DEFAULT', $result[0]['entries'][0]['Item']['stdItem']['ClassName']);
+        self::assertSame('BED_DEFAULT', $result[0]['Item']['stdItem']['Ports'][0]['InstalledItem']['stdItem']['ClassName']);
+    }
+
     private function loadXmlDocument(string $xml): TestRootDocument
     {
         $path = $this->writeFile('fixtures/loadout.xml', $xml);
@@ -159,6 +349,17 @@ final class LoadoutBuilderTest extends ScDataTestCase
         $document->load($path);
 
         return $document;
+    }
+
+    private function initializeLoadoutFileService(): void
+    {
+        $service = new LoadoutFileService($this->tempDir);
+        $service->initialize();
+
+        $factory = new ReflectionClass(ServiceFactory::class);
+        $services = $factory->getProperty('services')->getValue();
+        $services['LoadoutFileService'] = $service;
+        $factory->getProperty('services')->setValue(null, $services);
     }
 
     /**

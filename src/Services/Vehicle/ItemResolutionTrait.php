@@ -36,9 +36,12 @@ trait ItemResolutionTrait
             $entity = $this->itemService->getByReference($classReference);
         }
 
-        // Fall back to class name
+        // Fall back to class name. Some legacy loadout sources populate entityClassReference
+        // with a class name rather than a UUID, so use that as a final fallback too.
         if ($entity === null && ! empty($className)) {
             $entity = $this->itemService->getByClassName($className);
+        } elseif ($entity === null && ! empty($classReference) && $classReference !== self::NULL_UUID) {
+            $entity = $this->itemService->getByClassName($classReference);
         }
 
         // Cache the result

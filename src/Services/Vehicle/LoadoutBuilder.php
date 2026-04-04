@@ -6,6 +6,7 @@ namespace Octfx\ScDataDumper\Services\Vehicle;
 
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
+use Octfx\ScDataDumper\DocumentTypes\Loadout\LoadoutEntry;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\Formats\ScUnpacked\Item as ScUnpackedItem;
 use Octfx\ScDataDumper\Services\ItemClassifierService;
@@ -42,7 +43,17 @@ final class LoadoutBuilder
             return $entries;
         }
 
-        foreach ($entriesNode->children() as $cigEntry) {
+        foreach ($entriesNode->children() as $cigEntryNode) {
+            if ($cigEntryNode->nodeName !== 'SItemPortLoadoutEntryParams') {
+                continue;
+            }
+
+            $cigEntry = LoadoutEntry::fromNode($cigEntryNode->getNode());
+
+            if (! $cigEntry instanceof LoadoutEntry) {
+                continue;
+            }
+
             $entry = $this->buildEntry($cigEntry);
             if ($entry !== null) {
                 $entries[] = $entry;
@@ -55,18 +66,18 @@ final class LoadoutBuilder
     /**
      * Build a single loadout entry with recursive item resolution.
      *
-     * @param  Element  $cigEntry  The SItemPortLoadoutEntryParams element
+     * @param  LoadoutEntry  $cigEntry  The SItemPortLoadoutEntryParams element
      * @param  array  $visited  Visited item keys to prevent circular references
      * @param  int  $depth  Current recursion depth
      * @return array|null The built loadout entry or null if invalid
      */
-    private function buildEntry(Element $cigEntry, array $visited = [], int $depth = 0): ?array
+    private function buildEntry(LoadoutEntry $cigEntry, array $visited = [], int $depth = 0): ?array
     {
         if ($depth > self::MAX_RECURSION_DEPTH) {
             return null;
         }
 
-        $portName = $cigEntry->get('@itemPortName');
+        $portName = $cigEntry->getPortName();
 
         if ($portName === null) {
             return null;
@@ -74,8 +85,8 @@ final class LoadoutBuilder
 
         $entry = [
             'portName' => $portName,
-            'className' => $cigEntry->get('@entityClassName'),
-            'classReference' => $cigEntry->get('@entityClassReference'),
+            'className' => $cigEntry->getEntityClassName(),
+            'classReference' => $cigEntry->getEntityClassReference(),
             'entries' => [],
         ];
 
@@ -259,72 +270,21 @@ final class LoadoutBuilder
      */
     private function loadItemLoadout(EntityClassDefinition $entity): array
     {
-        $entries = [];
-
-        // Check for manual loadout params
-        $manualParams = $entity->get('Components/SEntityComponentDefaultLoadoutParams/loadout/SItemPortLoadoutManualParams/entries');
-
-        if ($manualParams !== null) {
-            foreach ($manualParams->children() as $entry) {
-                $entries[] = [
-                    'portName' => $entry->get('@itemPortName'),
-                    'className' => $entry->get('@entityClassName'),
-                    'classReference' => $entry->get('@entityClassReference'),
-                    'entries' => $this->extractNestedEntriesFromManual($entry),
-                ];
-            }
-        }
-
-        // Check for XML loadout params (these are already processed during DOM init via SItemPortLoadoutXMLParams)
-        // The loadoutPath items should already be in the DOM as SItemPortLoadoutManualParams entries
-
-        return $entries;
+        return array_map(
+            static fn (LoadoutEntry $entry): array => $entry->toDefinitionArray(),
+            $entity->getDefaultLoadoutEntries()
+        );
     }
 
     /**
      * Extract nested entries from a loadout entry element.
      */
-    private function extractNestedEntries(Element $cigEntry): array
+    private function extractNestedEntries(LoadoutEntry $cigEntry): array
     {
-        $entries = [];
-
-        $nestedManual = $cigEntry->get('./loadout/SItemPortLoadoutManualParams/entries');
-
-        if ($nestedManual !== null) {
-            foreach ($nestedManual->children() as $entry) {
-                $entries[] = [
-                    'portName' => $entry->get('@itemPortName'),
-                    'className' => $entry->get('@entityClassName'),
-                    'classReference' => $entry->get('@entityClassReference'),
-                    'entries' => $this->extractNestedEntriesFromManual($entry),
-                ];
-            }
-        }
-
-        return $entries;
-    }
-
-    /**
-     * Extract nested entries recursively from manual params entry.
-     */
-    private function extractNestedEntriesFromManual(Element $entry): array
-    {
-        $entries = [];
-
-        $nestedManual = $entry->get('./loadout/SItemPortLoadoutManualParams/entries');
-
-        if ($nestedManual !== null) {
-            foreach ($nestedManual->children() as $nestedEntry) {
-                $entries[] = [
-                    'portName' => $nestedEntry->get('@itemPortName'),
-                    'className' => $nestedEntry->get('@entityClassName'),
-                    'classReference' => $nestedEntry->get('@entityClassReference'),
-                    'entries' => $this->extractNestedEntriesFromManual($nestedEntry),
-                ];
-            }
-        }
-
-        return $entries;
+        return array_map(
+            static fn (LoadoutEntry $entry): array => $entry->toDefinitionArray(),
+            $cigEntry->getNestedEntries()
+        );
     }
 
     /**
