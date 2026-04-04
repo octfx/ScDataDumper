@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Tests\Commands;
 
 use Octfx\ScDataDumper\Commands\LoadItems;
+use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 use RuntimeException;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -105,6 +106,80 @@ final class LoadItemsCommandTest extends ScDataTestCase
         self::assertNotFalse($flaggedContents);
 
         self::assertSame($defaultContents, $flaggedContents);
+    }
+
+    public function test_execute_writes_hydrated_raw_entity_for_real_documents(): void
+    {
+        $manufacturerPath = $this->writeFile(
+            'records/scitemmanufacturer/fallback.xml',
+            <<<'XML'
+            <SCItemManufacturer.FALLBACK Code="FALL" __type="SCItemManufacturer" __ref="11111111-1111-1111-1111-111111111111" __path="libs/foundry/records/scitemmanufacturer/fallback.xml">
+                <Localization Name="@manufacturer_name" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY">
+                    <displayFeatures />
+                </Localization>
+            </SCItemManufacturer.FALLBACK>
+            XML
+        );
+
+        $this->writeCacheFiles(
+            uuidToClassMap: ['11111111-1111-1111-1111-111111111111' => 'FALLBACK'],
+            classToUuidMap: ['FALLBACK' => '11111111-1111-1111-1111-111111111111'],
+            uuidToPathMap: ['11111111-1111-1111-1111-111111111111' => $manufacturerPath]
+        );
+
+        $this->initializeMinimalItemServices([
+            'LOC_EMPTY' => '',
+            'manufacturer_name' => 'Fallback Industries',
+            'item_name' => 'Localized Test Item',
+            'item_description' => 'Hydrated utility item.',
+        ]);
+
+        $entityPath = $this->writeFile(
+            'records/entities/scitem/test_item.xml',
+            <<<'XML'
+            <EntityClassDefinition.TEST_ITEM __type="EntityClassDefinition" __ref="22222222-2222-2222-2222-222222222222" __path="libs/foundry/records/entities/scitem/test_item.xml">
+                <Components>
+                    <SAttachableComponentParams>
+                        <AttachDef Type="SeatDashboard" SubType="UNDEFINED" Size="1" Grade="1" Manufacturer="11111111-1111-1111-1111-111111111111">
+                            <Localization Name="@item_name" ShortName="@LOC_EMPTY" Description="@item_description" />
+                        </AttachDef>
+                    </SAttachableComponentParams>
+                </Components>
+            </EntityClassDefinition.TEST_ITEM>
+            XML
+        );
+
+        $item = new EntityClassDefinition;
+        $item->load($entityPath);
+
+        $command = new TestLoadItemsCommand([
+            [
+                'className' => 'TEST_ITEM',
+                'formatted' => [
+                    'classification' => 'Ship.Component.Dashboard',
+                    'stdItem' => ['ClassName' => 'TEST_ITEM', 'Name' => 'Localized Test Item'],
+                ],
+                'item' => $item,
+            ],
+        ]);
+
+        $tester = new CommandTester($command);
+        $exitCode = $tester->execute([
+            'scDataPath' => $this->tempDir,
+            'jsonOutPath' => $this->tempDir,
+        ]);
+
+        self::assertSame(0, $exitCode);
+
+        $itemFile = $this->readJsonFile('items/test_item.json');
+        self::assertSame(
+            'Localized Test Item',
+            $itemFile['Raw']['Entity']['Components']['SAttachableComponentParams']['AttachDef']['Localization']['English']['Name']
+        );
+        self::assertSame(
+            'Fallback Industries',
+            $itemFile['Raw']['Entity']['Components']['SAttachableComponentParams']['AttachDef']['Manufacturer']['Localization']['English']['Name']
+        );
     }
 
     public function test_execute_throws_runtime_exception_when_index_file_cannot_be_opened(): void

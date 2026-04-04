@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Commands;
 
 use JsonException;
+use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\Formats\ScUnpacked\Item;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
@@ -103,7 +104,7 @@ class LoadItems extends AbstractDataCommand
             }
 
             try {
-                $rawEntity = $itemExport['item']->toArray();
+                $rawEntity = $this->buildRawEntity($itemExport['item']);
                 $json = json_encode([
                     'Raw' => [
                         'Entity' => [
@@ -257,6 +258,25 @@ class LoadItems extends AbstractDataCommand
     private function normalizeTypeToken(string $token): string
     {
         return strtolower(trim($token));
+    }
+
+    /**
+     * Restore historical command behavior where Raw.Entity is emitted from a
+     * hydrated document, while keeping the primary item export on the lazy path.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildRawEntity(object $item): array
+    {
+        if ($item instanceof EntityClassDefinition) {
+            $hydrated = EntityClassDefinition::fromNode($item->documentElement, true);
+
+            if ($hydrated instanceof EntityClassDefinition) {
+                return $hydrated->toArray();
+            }
+        }
+
+        return $item->toArray();
     }
 
     protected function configure(): void
