@@ -60,6 +60,8 @@ abstract class BaseService
 
     protected static bool $entityMetadataMapLoaded = false;
 
+    protected bool $referenceHydrationEnabled = true;
+
     /**
      * @throws JsonException
      */
@@ -145,6 +147,18 @@ abstract class BaseService
 
     abstract public function initialize(): void;
 
+    public function setReferenceHydrationEnabled(bool $enabled): static
+    {
+        $this->referenceHydrationEnabled = $enabled;
+
+        return $this;
+    }
+
+    public function isReferenceHydrationEnabled(): bool
+    {
+        return $this->referenceHydrationEnabled;
+    }
+
     protected function hasEntityMetadata(): bool
     {
         return file_exists($this->entityMetadataMapPath);
@@ -196,6 +210,7 @@ abstract class BaseService
         }
 
         $document = new $class;
+        $document->setReferenceHydrationEnabled($this->referenceHydrationEnabled);
         $document->load($filePath);
 
         if ($checkValidity) {

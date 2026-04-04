@@ -6,6 +6,7 @@ namespace Octfx\ScDataDumper\DocumentTypes;
 
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityDistributionRecord;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityLocationOverrideRecord;
+use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class ResourceType extends RootDocument
 {
@@ -40,11 +41,39 @@ final class ResourceType extends RootDocument
 
     public function getQualityDistribution(): ?CraftingQualityDistributionRecord
     {
-        return $this->getHydratedDocument('QualityDistribution', CraftingQualityDistributionRecord::class);
+        $distribution = $this->getHydratedDocument('QualityDistribution', CraftingQualityDistributionRecord::class);
+
+        if ($distribution instanceof CraftingQualityDistributionRecord) {
+            return $distribution;
+        }
+
+        $reference = $this->getQualityDistributionReference();
+
+        if ($reference === null) {
+            return null;
+        }
+
+        $resolved = ServiceFactory::getFoundryLookupService()->getCraftingQualityDistributionByReference($reference);
+
+        return $resolved instanceof CraftingQualityDistributionRecord ? $resolved : null;
     }
 
     public function getQualityLocationOverride(): ?CraftingQualityLocationOverrideRecord
     {
-        return $this->getHydratedDocument('QualityLocationOverride', CraftingQualityLocationOverrideRecord::class);
+        $override = $this->getHydratedDocument('QualityLocationOverride', CraftingQualityLocationOverrideRecord::class);
+
+        if ($override instanceof CraftingQualityLocationOverrideRecord) {
+            return $override;
+        }
+
+        $reference = $this->getQualityLocationOverrideReference();
+
+        if ($reference === null) {
+            return null;
+        }
+
+        $resolved = ServiceFactory::getFoundryLookupService()->getCraftingQualityLocationOverrideByReference($reference);
+
+        return $resolved instanceof CraftingQualityLocationOverrideRecord ? $resolved : null;
     }
 }

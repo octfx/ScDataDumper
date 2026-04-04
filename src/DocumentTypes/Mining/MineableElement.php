@@ -6,6 +6,7 @@ namespace Octfx\ScDataDumper\DocumentTypes\Mining;
 
 use Octfx\ScDataDumper\DocumentTypes\ResourceType;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
+use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class MineableElement extends RootDocument
 {
@@ -16,7 +17,21 @@ final class MineableElement extends RootDocument
 
     public function getResourceType(): ?ResourceType
     {
-        return $this->getHydratedDocument('ResourceType', ResourceType::class);
+        $resourceType = $this->getHydratedDocument('ResourceType', ResourceType::class);
+
+        if ($resourceType instanceof ResourceType) {
+            return $resourceType;
+        }
+
+        $reference = $this->getResourceTypeReference();
+
+        if ($reference === null) {
+            return null;
+        }
+
+        $resolved = ServiceFactory::getFoundryLookupService()->getResourceTypeByReference($reference);
+
+        return $resolved instanceof ResourceType ? $resolved : null;
     }
 
     public function getInstability(): ?float

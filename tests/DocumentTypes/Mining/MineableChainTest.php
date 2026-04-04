@@ -185,4 +185,19 @@ final class MineableChainTest extends ScDataTestCase
             $data['EntityClass']['Components']['MineableParams']['MineableComposition']['compositionArray'][0]['MineableElement']['ResourceType']['__ref']
         );
     }
+
+    public function test_resolves_the_mineable_chain_when_reference_hydration_is_disabled(): void
+    {
+        $document = (new HarvestablePreset)
+            ->setReferenceHydrationEnabled(false);
+        $document->load($this->tempDir.'/Game2/libs/foundry/records/harvestable/harvestablepresets/sample_mineable.xml');
+
+        self::assertSame(self::ENTITY_UUID, $document->getEntityClass()?->getUuid());
+        self::assertSame(self::GLOBAL_PARAMS_UUID, $document->getEntityClass()?->getMineableParams()?->getGlobalParams()?->getUuid());
+        self::assertSame(
+            self::RESOURCE_A_UUID,
+            $document->getEntityClass()?->getMineableParams()?->getComposition()?->getParts()[0]->getMineableElement()?->getResourceType()?->getUuid()
+        );
+        self::assertArrayNotHasKey('EntityClass', $document->toArray());
+    }
 }

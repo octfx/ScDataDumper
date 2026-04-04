@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\DocumentTypes\Mining;
 
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
+use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class MineableCompositionPart extends RootDocument
 {
@@ -40,6 +41,20 @@ final class MineableCompositionPart extends RootDocument
 
     public function getMineableElement(): ?MineableElement
     {
-        return $this->getHydratedDocument('MineableElement', MineableElement::class);
+        $mineableElement = $this->getHydratedDocument('MineableElement', MineableElement::class);
+
+        if ($mineableElement instanceof MineableElement) {
+            return $mineableElement;
+        }
+
+        $reference = $this->getMineableElementReference();
+
+        if ($reference === null) {
+            return null;
+        }
+
+        $resolved = ServiceFactory::getFoundryLookupService()->getMineableElementByReference($reference);
+
+        return $resolved instanceof MineableElement ? $resolved : null;
     }
 }

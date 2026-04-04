@@ -6,6 +6,7 @@ namespace Octfx\ScDataDumper\DocumentTypes\Mining;
 
 use Octfx\ScDataDumper\DocumentTypes\ResourceType;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
+use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class MiningGlobalParams extends RootDocument
 {
@@ -61,7 +62,21 @@ final class MiningGlobalParams extends RootDocument
 
     public function getWasteResourceType(): ?ResourceType
     {
-        return $this->getHydratedDocument('ResourceType', ResourceType::class);
+        $resourceType = $this->getHydratedDocument('ResourceType', ResourceType::class);
+
+        if ($resourceType instanceof ResourceType) {
+            return $resourceType;
+        }
+
+        $reference = $this->getWasteResourceTypeReference();
+
+        if ($reference === null) {
+            return null;
+        }
+
+        $resolved = ServiceFactory::getFoundryLookupService()->getResourceTypeByReference($reference);
+
+        return $resolved instanceof ResourceType ? $resolved : null;
     }
 
     public function getInstabilityWavePeriod(): ?float

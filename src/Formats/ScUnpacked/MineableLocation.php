@@ -11,6 +11,7 @@ use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestableElementGroup;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestablePreset;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestableProviderPreset;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestableSetup;
+use Octfx\ScDataDumper\DocumentTypes\Harvestable\SubHarvestableSlot;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 use Octfx\ScDataDumper\Services\HarvestableProviderStarmapResolver;
 use Octfx\ScDataDumper\Services\Mining\MiningQualityRangeResolver;
@@ -83,9 +84,31 @@ final class MineableLocation extends BaseFormat
         ?string $systemName
     ): array {
         $deposits = [];
+        $elements = $group->getHarvestableElements();
+        $totalRelativeProbability = 0.0;
+        $hasRelativeProbability = false;
 
-        foreach ($group->getHarvestableElements() as $element) {
-            $deposit = $this->buildDepositExportEntry($element, $locationName, $systemName);
+        foreach ($elements as $element) {
+            $relativeProbability = $element->getRelativeProbability();
+
+            if ($relativeProbability === null) {
+                continue;
+            }
+
+            $totalRelativeProbability += $relativeProbability;
+            $hasRelativeProbability = true;
+        }
+
+        foreach ($elements as $element) {
+            $relativeProbability = $element->getRelativeProbability();
+            $deposit = $this->buildDepositExportEntry(
+                $element,
+                $hasRelativeProbability && is_numeric($relativeProbability) && $totalRelativeProbability > 0.0
+                    ? $relativeProbability / $totalRelativeProbability
+                    : null,
+                $locationName,
+                $systemName
+            );
 
             if ($deposit !== null) {
                 $deposits[] = $deposit;
@@ -94,7 +117,7 @@ final class MineableLocation extends BaseFormat
 
         return [
             'groupName' => $group->getName(),
-            'groupProbability' => $group->getProbability(),
+            'groupProbability' => $this->normalizePercentage($group->getProbability()),
             'deposits' => $deposits,
         ];
     }
@@ -104,10 +127,10 @@ final class MineableLocation extends BaseFormat
      */
     private function buildDepositExportEntry(
         HarvestableElement $element,
+        ?float $relativeProbability,
         ?string $locationName,
         ?string $systemName
     ): ?array {
-        $relativeProbability = $element->getRelativeProbability();
         $entityClassUuid = $this->resolveEntityClassUuid($element);
         $mineable = $entityClassUuid !== null ? ($this->mineableIndex[strtolower($entityClassUuid)] ?? null) : null;
         $harvestablePreset = $this->resolveHarvestablePreset($element);
@@ -197,10 +220,10 @@ final class MineableLocation extends BaseFormat
     private function resolveEntityClassUuid(HarvestableElement $element): ?string
     {
         $harvestablePreset = $this->resolveHarvestablePreset($element);
-        $entityClass = $element->getHarvestableEntity();
 
-        return $harvestablePreset?->getEntityClassReference()
-            ?? $entityClass?->getUuid();
+        return $element->getHarvestableEntityClassReference()
+            ?? $harvestablePreset?->getEntityClassReference()
+            ?? $element->getHarvestableEntity()?->getUuid();
     }
 
     private function resolveEntityClass(HarvestableElement $element, ?string $entityClassUuid): ?EntityClassDefinition
@@ -213,7 +236,8 @@ final class MineableLocation extends BaseFormat
             }
         }
 
-        return $element->getHarvestableEntity();
+        return $element->getHarvestableEntity()
+            ?? $this->resolveHarvestablePreset($element)?->getEntityClass();
     }
 
     private function resolveHarvestablePreset(HarvestableElement $element): ?HarvestablePreset
@@ -294,7 +318,24 @@ final class MineableLocation extends BaseFormat
             'includes_attached_children_for_interaction' => $setup?->includesAttachedChildrenForInteraction(),
             'all_interactions_clear_spawn_point' => $setup?->doAllInteractionsClearSpawnPoint(),
             'special_harvestable_string' => $setup?->getSpecialHarvestableString(),
+            'sub_harvestable_slots' => array_values(array_map(
+                fn (SubHarvestableSlot $slot): array => $this->buildSubHarvestableSlotSummary($slot),
+                $setup?->getSubHarvestableSlots() ?? []
+            )),
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildSubHarvestableSlotSummary(SubHarvestableSlot $slot): array
+    {
+        return $this->removeNullValues([
+            'harvestable' => $slot->getHarvestableReference(),
+            'minCount' => $slot->getMinCount(),
+            'maxCount' => $slot->getMaxCount(),
+            'Harvestable' => $slot->getHarvestable()?->toArray(),
+        ]);
     }
 
     /**
@@ -312,9 +353,9 @@ final class MineableLocation extends BaseFormat
         return [
             'uuid' => $uuid,
             'key' => $clustering?->getClassName(),
-            'probability_of_clustering' => $clustering?->getProbabilityOfClustering(),
+            'probability_of_clustering' => $this->normalizePercentage($clustering?->getProbabilityOfClustering()),
             'summary' => $this->buildClusteringSummaryMetadata($params),
-            'params' => $params,
+            'params' => $this->normalizeClusteringParams($params),
         ];
     }
 
@@ -359,6 +400,52 @@ final class MineableLocation extends BaseFormat
         }
 
         return $mode === 'min' ? min($values) : max($values);
+    }
+
+    /**
+     * @param list<array<string, mixed>> $params
+     * @return list<array<string, mixed>>
+     */
+    private function normalizeClusteringParams(array $params): array
+    {
+        $totalRelativeProbability = 0.0;
+
+        foreach ($params as $param) {
+            $relativeProbability = $param['relativeProbability'] ?? null;
+
+            if (is_numeric($relativeProbability)) {
+                $totalRelativeProbability += (float) $relativeProbability;
+            }
+        }
+
+        $normalized = [];
+
+        foreach ($params as $param) {
+            if (is_numeric($param['relativeProbability'] ?? null) && $totalRelativeProbability > 0.0) {
+                $param['relativeProbability'] = (float) $param['relativeProbability'] / $totalRelativeProbability;
+            }
+
+            $normalized[] = $param;
+        }
+
+        return $normalized;
+    }
+
+    private function normalizePercentage(float|int|null $value): float|int|null
+    {
+        if (! is_numeric($value)) {
+            return null;
+        }
+
+        $normalized = (float) $value;
+
+        if ($normalized > 1.0) {
+            $normalized /= 100.0;
+        }
+
+        return floor($normalized) === $normalized
+            ? (int) $normalized
+            : $normalized;
     }
 
     /**

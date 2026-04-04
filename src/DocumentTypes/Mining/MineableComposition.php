@@ -31,7 +31,7 @@ final class MineableComposition extends RootDocument
                 continue;
             }
 
-            $part = MineableCompositionPart::fromNode($node->getNode());
+            $part = MineableCompositionPart::fromNode($node->getNode(), $this->isReferenceHydrationEnabled());
 
             if ($part instanceof MineableCompositionPart) {
                 $parts[] = $part;

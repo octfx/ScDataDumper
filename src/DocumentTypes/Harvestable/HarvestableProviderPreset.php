@@ -21,7 +21,7 @@ final class HarvestableProviderPreset extends RootDocument
                 continue;
             }
 
-            $name = $node->get('@name');
+            $name = $node->get('@name') ?? $node->get('@debugGroupName');
             $globalModifier = $node->get('@globalModifier');
 
             $areas[] = [
@@ -45,7 +45,7 @@ final class HarvestableProviderPreset extends RootDocument
                 continue;
             }
 
-            $group = HarvestableElementGroup::fromNode($node->getNode());
+            $group = HarvestableElementGroup::fromNode($node->getNode(), $this->isReferenceHydrationEnabled());
 
             if ($group instanceof HarvestableElementGroup) {
                 $groups[] = $group;

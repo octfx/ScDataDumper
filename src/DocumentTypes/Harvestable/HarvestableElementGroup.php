@@ -31,7 +31,7 @@ final class HarvestableElementGroup extends RootDocument
                 continue;
             }
 
-            $element = HarvestableElement::fromNode($node->getNode());
+            $element = HarvestableElement::fromNode($node->getNode(), $this->isReferenceHydrationEnabled());
 
             if ($element instanceof HarvestableElement) {
                 $elements[] = $element;

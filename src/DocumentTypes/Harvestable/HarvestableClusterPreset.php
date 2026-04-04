@@ -21,12 +21,14 @@ final class HarvestableClusterPreset extends RootDocument
     {
         $params = [];
 
-        foreach ($this->getAll('params/*') as $node) {
-            if (! $node instanceof Element) {
-                continue;
-            }
+        foreach (['params/*', 'clusterParamsArray/*'] as $path) {
+            foreach ($this->getAll($path) as $node) {
+                if (! $node instanceof Element) {
+                    continue;
+                }
 
-            $params[] = $this->toArrayRecursive($node);
+                $params[] = $this->toArrayRecursive($node);
+            }
         }
 
         return $params;

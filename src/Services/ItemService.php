@@ -119,14 +119,24 @@ final class ItemService extends BaseService
 
     public function load(string $filePath, string $class = EntityClassDefinition::class): EntityClassDefinition
     {
-        $item = self::cacheGet(self::$documentCache, $filePath);
+        $cacheKey = $this->buildDocumentCacheKey($filePath);
+        $item = self::cacheGet(self::$documentCache, $cacheKey);
         if ($item instanceof EntityClassDefinition) {
             return $item;
         }
 
         $item = $this->loadDocument($filePath, $class, $class === EntityClassDefinition::class);
-        self::cachePut(self::$documentCache, $filePath, $item, self::CACHE_LIMIT);
+        self::cachePut(self::$documentCache, $cacheKey, $item, self::CACHE_LIMIT);
 
         return $item;
+    }
+
+    private function buildDocumentCacheKey(string $filePath): string
+    {
+        return sprintf(
+            '%d:%s',
+            $this->referenceHydrationEnabled ? 1 : 0,
+            $filePath
+        );
     }
 }

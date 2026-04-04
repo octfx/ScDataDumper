@@ -188,6 +188,20 @@ final class HarvestableProviderPresetTest extends ScDataTestCase
         self::assertSame(self::SETUP_UUID, $secondElement->getHarvestableSetup()?->getUuid());
     }
 
+    public function test_harvestable_element_accessors_resolve_relations_when_reference_hydration_is_disabled(): void
+    {
+        $document = (new HarvestableProviderPreset)
+            ->setReferenceHydrationEnabled(false);
+        $document->load($this->tempDir.'/Game2/libs/foundry/records/harvestable/providerpresets/system/test/sample.xml');
+
+        $elements = $document->getHarvestableElements();
+
+        self::assertSame(self::HARVESTABLE_UUID, $elements[0]->getHarvestable()?->getUuid());
+        self::assertSame(self::CLUSTER_UUID, $elements[0]->getClustering()?->getUuid());
+        self::assertSame(self::ENTITY_UUID, $elements[1]->getHarvestableEntity()?->getUuid());
+        self::assertSame(self::SETUP_UUID, $elements[1]->getHarvestableSetup()?->getUuid());
+    }
+
     public function test_harvestable_group_accessors_expose_name_probability_and_child_probabilities(): void
     {
         $document = new HarvestableProviderPreset;

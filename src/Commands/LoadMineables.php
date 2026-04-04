@@ -6,6 +6,8 @@ namespace Octfx\ScDataDumper\Commands;
 
 use JsonException;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
+use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestableElement;
+use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestablePreset;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestableProviderPreset;
 use Octfx\ScDataDumper\DocumentTypes\Mining\MineableCompositionPart;
 use Octfx\ScDataDumper\DocumentTypes\Mining\MiningGlobalParams;
@@ -57,9 +59,12 @@ final class LoadMineables extends AbstractDataCommand
 
         $this->prepareServices($input, $output);
 
-        $filter = $this->normalizeFilter($input->getOption('filter'));
-        $mineables = $this->buildMineableIndex($filter, $io);
-        $locations = $this->buildLocationsExport($mineables, $io);
+        [$mineables, $locations] = $this->withLazyReferenceHydration(function () use ($io): array {
+            $mineables = $this->buildMineableIndex($io);
+            $locations = $this->buildLocationsExport($mineables, $io);
+
+            return [$mineables, $locations];
+        });
 
         $encodedMineables = json_encode($mineables, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
         $encodedLocations = json_encode($locations, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
@@ -90,15 +95,11 @@ final class LoadMineables extends AbstractDataCommand
     /**
      * @return iterable<int, EntityClassDefinition>
      */
-    protected function iterateItems(?string $nameFilter): iterable
+    protected function iterateItems(): iterable
     {
         $itemService = ServiceFactory::getItemService();
 
         foreach ($itemService->iterator() as $item) {
-            if ($nameFilter !== null && ! str_contains(strtolower($item->getClassName()), $nameFilter)) {
-                continue;
-            }
-
             yield $item;
         }
     }
@@ -114,34 +115,39 @@ final class LoadMineables extends AbstractDataCommand
             InputOption::VALUE_NONE,
             'Overwrite existing mineable exports'
         );
-        $this->addOption(
-            'filter',
-            'f',
-            InputOption::VALUE_OPTIONAL,
-            'Only export mineables with this substring in their class name (case-insensitive)'
-        );
     }
 
     /**
      * @return list<array<string, mixed>>
      */
-    private function buildMineableIndex(?string $filter, SymfonyStyle $io): array
+    private function buildMineableIndex(SymfonyStyle $io): array
     {
         $mineables = [];
 
         $io->section('Building mineable index');
-        $io->progressStart($this->getItemExportCount());
+        $providerCount = ServiceFactory::getFoundryLookupService()->countDocumentType('HarvestableProviderPreset');
+        $io->progressStart($this->getItemExportCount() + $providerCount);
 
-        foreach ($this->iterateItems($filter) as $item) {
+        foreach ($this->iterateItems() as $item) {
             $mineable = $this->buildMineableExportEntry($item);
             if ($mineable !== null) {
-                $mineables[] = $mineable;
+                $this->mergeMineableEntry($mineables, $mineable);
+            }
+
+            $io->progressAdvance();
+        }
+
+        foreach (ServiceFactory::getFoundryLookupService()->getDocumentType('HarvestableProviderPreset', HarvestableProviderPreset::class) as $provider) {
+            foreach ($this->iterateHarvestableMineableEntries($provider) as $mineable) {
+                $this->mergeMineableEntry($mineables, $mineable);
             }
 
             $io->progressAdvance();
         }
 
         $io->progressFinish();
+
+        $mineables = array_values($mineables);
 
         usort(
             $mineables,
@@ -251,7 +257,187 @@ final class LoadMineables extends AbstractDataCommand
                     $composition->getParts()
                 )),
             ],
+            'sources' => ['mineable_entity'],
         ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function iterateHarvestableMineableEntries(HarvestableProviderPreset $provider): iterable
+    {
+        foreach ($provider->getHarvestableGroups() as $group) {
+            foreach ($group->getHarvestableElements() as $element) {
+                $entry = $this->buildHarvestableMineableEntry($element);
+
+                if ($entry !== null) {
+                    yield $entry;
+                }
+            }
+        }
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function buildHarvestableMineableEntry(HarvestableElement $element): ?array
+    {
+        $harvestablePreset = $this->resolveHarvestablePreset($element);
+        $entityClassUuid = $this->resolveEntityClassUuid($element, $harvestablePreset);
+
+        if ($entityClassUuid === null || $entityClassUuid === '') {
+            return null;
+        }
+
+        $entityClass = $this->resolveEntityClass($element, $entityClassUuid, $harvestablePreset);
+        $mineable = $entityClass instanceof EntityClassDefinition ? $this->buildMineableExportEntry($entityClass) : null;
+
+        if ($mineable !== null) {
+            $mineable['sources'] = array_values(array_unique([
+                ...((array) ($mineable['sources'] ?? [])),
+                ...$this->buildHarvestableSources($element, $harvestablePreset),
+            ]));
+
+            return $mineable;
+        }
+
+        return [
+            'uuid' => $entityClassUuid,
+            'key' => $entityClass?->getClassName() ?? $harvestablePreset?->getClassName(),
+            'name' => $this->resolveHarvestableEntityName($entityClass, $harvestablePreset),
+            'signature' => null,
+            'global_params' => null,
+            'composition' => null,
+            'sources' => $this->buildHarvestableSources($element, $harvestablePreset),
+        ];
+    }
+
+    /**
+     * @param array<string, array<string, mixed>> $index
+     * @param array<string, mixed> $candidate
+     */
+    private function mergeMineableEntry(array &$index, array $candidate): void
+    {
+        $uuid = is_string($candidate['uuid'] ?? null) ? strtolower($candidate['uuid']) : null;
+
+        if ($uuid === null || $uuid === '') {
+            return;
+        }
+
+        $existing = $index[$uuid] ?? null;
+
+        if (! is_array($existing)) {
+            $candidate['sources'] = array_values(array_unique(array_filter(
+                $candidate['sources'] ?? [],
+                static fn (mixed $source): bool => is_string($source) && $source !== ''
+            )));
+            $index[$uuid] = $candidate;
+
+            return;
+        }
+
+        $existing['key'] ??= null;
+        $existing['name'] ??= null;
+        $existing['signature'] ??= null;
+        $existing['global_params'] ??= null;
+        $existing['composition'] ??= null;
+
+        foreach (['key', 'name', 'signature', 'global_params', 'composition'] as $field) {
+            if (($existing[$field] ?? null) === null && array_key_exists($field, $candidate)) {
+                $existing[$field] = $candidate[$field];
+            }
+        }
+
+        $existing['sources'] = array_values(array_unique(array_filter([
+            ...((array) ($existing['sources'] ?? [])),
+            ...((array) ($candidate['sources'] ?? [])),
+        ], static fn (mixed $source): bool => is_string($source) && $source !== '')));
+
+        $index[$uuid] = $existing;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function buildHarvestableSources(HarvestableElement $element, ?HarvestablePreset $harvestablePreset): array
+    {
+        $sources = [];
+
+        if ($element->getHarvestableEntityClassReference() !== null) {
+            $sources[] = 'harvestable_entity_class';
+        }
+
+        if (($harvestablePreset?->getEntityClassReference()) !== null) {
+            $sources[] = 'harvestable_preset_entity_class';
+        }
+
+        return array_values(array_unique($sources));
+    }
+
+    private function resolveEntityClassUuid(HarvestableElement $element, ?HarvestablePreset $harvestablePreset): ?string
+    {
+        return $element->getHarvestableEntityClassReference()
+            ?? $harvestablePreset?->getEntityClassReference()
+            ?? $element->getHarvestableEntity()?->getUuid()
+            ?? $harvestablePreset?->getEntityClass()?->getUuid();
+    }
+
+    private function resolveEntityClass(
+        HarvestableElement $element,
+        string $entityClassUuid,
+        ?HarvestablePreset $harvestablePreset
+    ): ?EntityClassDefinition {
+        $resolved = ServiceFactory::getItemService()->getByReference($entityClassUuid);
+
+        if ($resolved instanceof EntityClassDefinition) {
+            return $resolved;
+        }
+
+        return $element->getHarvestableEntity()
+            ?? $harvestablePreset?->getEntityClass();
+    }
+
+    private function resolveHarvestablePreset(HarvestableElement $element): ?HarvestablePreset
+    {
+        $reference = $element->getHarvestableReference();
+
+        if ($reference !== null) {
+            $resolved = ServiceFactory::getFoundryLookupService()->getHarvestablePresetByReference($reference);
+
+            if ($resolved instanceof HarvestablePreset) {
+                return $resolved;
+            }
+        }
+
+        return $element->getHarvestable();
+    }
+
+    private function resolveHarvestableEntityName(
+        ?EntityClassDefinition $entityClass,
+        ?HarvestablePreset $harvestablePreset
+    ): ?string {
+        $attachDef = $entityClass?->getAttachDef();
+
+        return $this->translate($attachDef?->get('Localization/English@Name'))
+            ?? $entityClass?->getClassName()
+            ?? $harvestablePreset?->getClassName();
+    }
+
+    private function normalizePercentage(float|int|null $value): float|int|null
+    {
+        if (! is_numeric($value)) {
+            return null;
+        }
+
+        $normalized = (float) $value;
+
+        if ($normalized > 1.0) {
+            $normalized /= 100.0;
+        }
+
+        return floor($normalized) === $normalized
+            ? (int) $normalized
+            : $normalized;
     }
 
     /**
@@ -294,7 +480,7 @@ final class LoadMineables extends AbstractDataCommand
             'resource_type' => $this->buildResourceTypeSummary($resourceType),
             'min_percentage' => $part->getMinPercentage(),
             'max_percentage' => $part->getMaxPercentage(),
-            'probability' => $part->getProbability(),
+            'probability' => $this->normalizePercentage($part->getProbability()),
             'quality_scale' => $part->getQualityScale(),
             'curve_exponent' => $part->getCurveExponent(),
             'instability' => $mineableElement?->getInstability(),
@@ -356,5 +542,29 @@ final class LoadMineables extends AbstractDataCommand
         }
 
         return $translated;
+    }
+
+    /**
+     * @template T
+     *
+     * @param callable(): T $callback
+     * @return T
+     */
+    private function withLazyReferenceHydration(callable $callback): mixed
+    {
+        $itemService = ServiceFactory::getItemService();
+        $lookupService = ServiceFactory::getFoundryLookupService();
+        $previousItemSetting = $itemService->isReferenceHydrationEnabled();
+        $previousLookupSetting = $lookupService->isReferenceHydrationEnabled();
+
+        $itemService->setReferenceHydrationEnabled(false);
+        $lookupService->setReferenceHydrationEnabled(false);
+
+        try {
+            return $callback();
+        } finally {
+            $itemService->setReferenceHydrationEnabled($previousItemSetting);
+            $lookupService->setReferenceHydrationEnabled($previousLookupSetting);
+        }
     }
 }

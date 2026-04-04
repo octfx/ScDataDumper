@@ -296,20 +296,31 @@ final class FoundryLookupService extends BaseService
      */
     private function load(string $filePath, string $class = FoundryRecord::class): RootDocument
     {
-        if (isset($this->cache[$class][$filePath])) {
+        $cacheKey = $this->buildDocumentCacheKey($filePath);
+
+        if (isset($this->cache[$class][$cacheKey])) {
             /** @var T */
-            return $this->cache[$class][$filePath];
+            return $this->cache[$class][$cacheKey];
         }
 
-        $this->hits[$filePath] ??= 0;
-        $this->hits[$filePath]++;
+        $this->hits[$cacheKey] ??= 0;
+        $this->hits[$cacheKey]++;
 
         $document = $this->loadDocument($filePath, $class);
 
-        if ($this->hits[$filePath] > 1) {
-            $this->cache[$class][$filePath] = $document;
+        if ($this->hits[$cacheKey] > 1) {
+            $this->cache[$class][$cacheKey] = $document;
         }
 
         return $document;
+    }
+
+    private function buildDocumentCacheKey(string $filePath): string
+    {
+        return sprintf(
+            '%d:%s',
+            $this->referenceHydrationEnabled ? 1 : 0,
+            $filePath
+        );
     }
 }

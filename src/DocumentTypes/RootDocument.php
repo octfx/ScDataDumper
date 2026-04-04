@@ -21,7 +21,9 @@ abstract class RootDocument extends DOMDocument
 {
     use XmlAccess;
 
-    public static function fromNode(?DOMNode $node): ?self
+    private bool $referenceHydrationEnabled = true;
+
+    public static function fromNode(?DOMNode $node, bool $referenceHydrationEnabled = true): ?self
     {
         if (! $node) {
             return null;
@@ -30,10 +32,8 @@ abstract class RootDocument extends DOMDocument
         $xml = $node->ownerDocument->saveXML($node);
 
         $instance = new static;
+        $instance->setReferenceHydrationEnabled($referenceHydrationEnabled);
         $instance->loadXML($xml);
-
-        ElementLoader::load($instance);
-        $instance->initXPath();
 
         return $instance;
     }
@@ -46,10 +46,34 @@ abstract class RootDocument extends DOMDocument
             throw new RuntimeException('Failed to load document');
         }
 
-        ElementLoader::load($this);
-        $this->initXPath();
+        $this->initializeLoadedDocument();
 
         return $success;
+    }
+
+    public function loadXML(string $source, int $options = 0): bool
+    {
+        $success = parent::loadXML($source, $options | LIBXML_NOCDATA | LIBXML_NOBLANKS | LIBXML_COMPACT);
+
+        if (! $success) {
+            throw new RuntimeException('Failed to load document');
+        }
+
+        $this->initializeLoadedDocument();
+
+        return $success;
+    }
+
+    public function setReferenceHydrationEnabled(bool $enabled): static
+    {
+        $this->referenceHydrationEnabled = $enabled;
+
+        return $this;
+    }
+
+    public function isReferenceHydrationEnabled(): bool
+    {
+        return $this->referenceHydrationEnabled;
     }
 
     /**
@@ -183,7 +207,7 @@ abstract class RootDocument extends DOMDocument
             return null;
         }
 
-        $document = $class::fromNode($node->getNode());
+        $document = $class::fromNode($node->getNode(), $this->referenceHydrationEnabled);
 
         return $document instanceof $class ? $document : null;
     }
@@ -233,5 +257,14 @@ abstract class RootDocument extends DOMDocument
                 $path
             ));
         }
+    }
+
+    private function initializeLoadedDocument(): void
+    {
+        if ($this->referenceHydrationEnabled) {
+            ElementLoader::load($this);
+        }
+
+        $this->initXPath();
     }
 }

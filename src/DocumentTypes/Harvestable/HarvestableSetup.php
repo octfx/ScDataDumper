@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes\Harvestable;
 
+use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 
 final class HarvestableSetup extends RootDocument
@@ -55,5 +56,27 @@ final class HarvestableSetup extends RootDocument
     public function getSpecialHarvestableString(): ?string
     {
         return $this->getString('@specialHarvestableString');
+    }
+
+    /**
+     * @return list<SubHarvestableSlot>
+     */
+    public function getSubHarvestableSlots(): array
+    {
+        $slots = [];
+
+        foreach ($this->getAll('subHarvestableSlots/SubHarvestableSlot') as $node) {
+            if (! $node instanceof Element) {
+                continue;
+            }
+
+            $slot = SubHarvestableSlot::fromNode($node->getNode(), $this->isReferenceHydrationEnabled());
+
+            if ($slot instanceof SubHarvestableSlot) {
+                $slots[] = $slot;
+            }
+        }
+
+        return $slots;
     }
 }
