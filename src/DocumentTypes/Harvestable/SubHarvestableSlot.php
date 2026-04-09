@@ -32,6 +32,16 @@ final class SubHarvestableSlot extends RootDocument
         return $this->getInt('@minCount');
     }
 
+    public function getRelativeProbability(): ?float
+    {
+        return $this->getFloat('@relativeProbability');
+    }
+
+    public function getHarvestableRespawnTimeMultiplier(): ?float
+    {
+        return $this->getFloat('@harvestableRespawnTimeMultiplier');
+    }
+
     public function getMaxCount(): ?int
     {
         return $this->getInt('@maxCount');

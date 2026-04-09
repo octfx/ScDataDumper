@@ -4,11 +4,7 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes;
 
-use Octfx\ScDataDumper\DocumentTypes\RadarSystemSharedParams;
-use Octfx\ScDataDumper\DocumentTypes\DamageResistanceMacro;
-use Octfx\ScDataDumper\DocumentTypes\MeleeCombatConfig;
 use Octfx\ScDataDumper\DocumentTypes\Mining\MineableParams;
-use Octfx\ScDataDumper\DocumentTypes\MiningLaserGlobalParams;
 use Octfx\ScDataDumper\DocumentTypes\Loadout\LoadoutEntry;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Services\ServiceFactory;
@@ -16,9 +12,39 @@ use RuntimeException;
 
 class EntityClassDefinition extends RootDocument
 {
+    private const int RS_SIGNATURE_INDEX = 4;
+
     public function getAttachDef(): ?Element
     {
         return $this->get('Components/SAttachableComponentParams/AttachDef');
+    }
+
+    public function getRadarSignatureByIndex(int $index): ?float
+    {
+        $signatureParams = $this->get(
+            'Components/SSCSignatureSystemParams/radarProperties/SSCRadarContactProperites/baseSignatureParams/SSCSignatureSystemBaseSignatureParams'
+        );
+
+        if (! $signatureParams instanceof Element) {
+            return null;
+        }
+
+        foreach ($signatureParams->get('signatures')?->children() ?? [] as $signatureIndex => $signature) {
+            if ($signatureIndex !== $index) {
+                continue;
+            }
+
+            $value = $signature->get('@value');
+
+            return is_numeric($value) ? (float) $value : null;
+        }
+
+        return null;
+    }
+
+    public function getRsSignature(): ?float
+    {
+        return $this->getRadarSignatureByIndex(self::RS_SIGNATURE_INDEX);
     }
 
     public function getClassification(): ?string

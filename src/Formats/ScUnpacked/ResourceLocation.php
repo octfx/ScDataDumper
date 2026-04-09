@@ -13,25 +13,27 @@ use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestableProviderPreset;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestableSetup;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\SubHarvestableSlot;
 use Octfx\ScDataDumper\Formats\BaseFormat;
-use Octfx\ScDataDumper\Services\HarvestableProviderStarmapResolver;
-use Octfx\ScDataDumper\Services\Mining\MiningQualityRangeResolver;
+use Octfx\ScDataDumper\Services\Resource\HarvestableProviderStarmapResolver;
+use Octfx\ScDataDumper\Services\Resource\QualityRangeResolver;
 use Octfx\ScDataDumper\Services\ServiceFactory;
-use RuntimeException;
 
-final class MineableLocation extends BaseFormat
+final class ResourceLocation extends BaseFormat
 {
     /**
-     * @param array<string, array<string, mixed>> $mineableIndex
+     * @param  array<string, array<string, mixed>>  $resourceIndex
      */
     public function __construct(
         HarvestableProviderPreset $provider,
         private readonly HarvestableProviderStarmapResolver $resolver,
-        private readonly MiningQualityRangeResolver $qualityResolver,
-        private readonly array $mineableIndex
+        private readonly QualityRangeResolver $qualityResolver,
+        private readonly array $resourceIndex
     ) {
         parent::__construct($provider);
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
     public function toArray(): ?array
     {
         if (! $this->item instanceof HarvestableProviderPreset) {
@@ -39,28 +41,51 @@ final class MineableLocation extends BaseFormat
         }
 
         $provider = $this->item;
-        $location = $this->resolver->resolveHarvestableProvider($provider);
-        $locationName = is_string($location['locationName'] ?? null) ? $location['locationName'] : null;
-        $systemName = is_string($location['systemKey'] ?? null) ? $location['systemKey'] : null;
+        $resolved = $this->resolver->resolveHarvestableProvider($provider);
+
+        return $this->buildLocationEntry($provider, $resolved);
+    }
+
+    /**
+     * @param  array{locationName: string, systemKey: ?string, presetFile: string, starmapKey: string, locationType: string, starmapObjectUuid: ?string, starmapLocationHierarchyTagUuid: ?string, starmapLocationHierarchyTagName: ?string, matchStrategy: string, locations: list<array{className: string, starmapObjectUuid: ?string, starmapLocationHierarchyTagUuid: ?string, starmapLocationHierarchyTagName: ?string, name: string, type: string}>}  $resolved
+     * @return array<string, mixed>
+     */
+    private function buildLocationEntry(HarvestableProviderPreset $provider, array $resolved): array
+    {
+        $locationName = is_string($resolved['locationName'] ?? null) ? $resolved['locationName'] : null;
+        $systemName = is_string($resolved['systemKey'] ?? null) ? $resolved['systemKey'] : null;
+
+        $starmapLocations = array_map(static fn (array $loc): array => [
+            'key' => $loc['className'],
+            'object' => $loc['starmapObjectUuid'],
+            'location' => $loc['starmapLocationHierarchyTagName'],
+            'tag' => $loc['starmapLocationHierarchyTagUuid'],
+            'matchStrategy' => $resolved['matchStrategy'],
+            'system' => $systemName,
+            'name' => $loc['name'],
+            'type' => $loc['type'],
+        ], $resolved['locations'] ?? []);
+
+        if ($starmapLocations === []) {
+            $starmapLocations = [[
+                'key' => null,
+                'object' => null,
+                'location' => null,
+                'tag' => null,
+                'matchStrategy' => $resolved['matchStrategy'],
+                'system' => $systemName,
+                'name' => $locationName,
+                'type' => $resolved['locationType'],
+            ]];
+        }
 
         return [
             'provider' => [
                 'uuid' => $provider->getUuid(),
                 'name' => $provider->getClassName(),
-                'presetFile' => $location['presetFile'],
+                'presetFile' => $resolved['presetFile'],
             ],
-            'location' => [
-                'system' => $location['systemKey'],
-                'name' => $location['locationName'],
-                'type' => $location['locationType'],
-            ],
-            'starmap' => [
-                'key' => $location['starmapKey'],
-                'object' => $location['starmapObjectUuid'],
-                'location' => $location['starmapLocationHierarchyTagName'],
-                'tag' => $location['starmapLocationHierarchyTagUuid'],
-                'matchStrategy' => $location['matchStrategy'],
-            ],
+            'locations' => $starmapLocations,
             'areas' => array_values(array_map(
                 static fn (array $area): array => [
                     'name' => $area['name'] ?? null,
@@ -132,61 +157,68 @@ final class MineableLocation extends BaseFormat
         ?string $systemName
     ): ?array {
         $entityClassUuid = $this->resolveEntityClassUuid($element);
-        $mineable = $entityClassUuid !== null ? ($this->mineableIndex[strtolower($entityClassUuid)] ?? null) : null;
-        $harvestablePreset = $this->resolveHarvestablePreset($element);
-        $entityClass = $this->resolveEntityClass($element, $entityClassUuid);
-        $setup = $this->resolveHarvestableSetup($element);
+        $resource = $entityClassUuid !== null ? ($this->resourceIndex[$entityClassUuid] ?? null) : null;
         $clustering = $this->resolveHarvestableClustering($element);
-        $composition = $this->buildCompositionSummary(
-            $mineable['composition'] ?? null,
-            $entityClass?->getMineableParams()?->getCompositionReference(),
-            $locationName,
-            $systemName
-        );
+        $setup = $this->resolveHarvestableSetup($element);
+        $entityClass = $this->resolveEntityClass($element, $entityClassUuid);
 
-        if ($relativeProbability === null && $entityClassUuid === null && $harvestablePreset === null && $setup === null && $clustering === null) {
+        if ($entityClassUuid === null) {
             return null;
         }
 
+        $qualityOverrides = [];
+
+        if (is_array($resource) && ($resource['kind'] ?? null) === 'mineable') {
+            $qualityOverrides = $this->buildQualityOverrides(
+                $resource['composition'] ?? null,
+                $locationName,
+                $systemName
+            );
+        }
+
+        $kind = is_string($resource['kind'] ?? null) ? $resource['kind'] : null;
+
         return $this->removeNullValues([
+            'resource_uuid' => $entityClassUuid,
             'relativeProbability' => $relativeProbability,
-            'uuid' => $entityClassUuid,
-            'name' => $mineable['name'] ?? $this->resolveDepositName($harvestablePreset, $entityClass),
-            'signature' => is_numeric($mineable['signature'] ?? null) ? (float) $mineable['signature'] : null,
-            'composition' => $composition,
+            'resource_qualities' => $qualityOverrides === [] ? null : $qualityOverrides,
             'clustering' => $this->buildClusteringSummary($clustering, $element->getClusteringReference()),
-            'harvestableSetup' => $this->buildHarvestableSetupSummary($setup, $element->getHarvestableSetupReference()),
-            'harvestablePreset' => $this->buildHarvestablePresetSummary($harvestablePreset, $element->getHarvestableReference()),
+            'harvestableSetup' => $kind !== 'mineable'
+                ? $this->buildHarvestableSetupSummary($setup, $element->getHarvestableSetupReference())
+                : null,
         ]);
     }
 
     /**
-     * @return array<string, mixed>|null
+     * @return list<array<string, mixed>>
      */
-    private function buildCompositionSummary(
+    private function buildQualityOverrides(
         mixed $composition,
-        ?string $reference,
         ?string $locationName,
         ?string $systemName
-    ): ?array {
-        $uuid = $this->normalizeValue($reference);
-
+    ): array {
         if (! is_array($composition)) {
-            return $uuid !== null ? ['uuid' => $uuid] : null;
+            return [];
         }
 
-        $parts = [];
+        $overrides = [];
 
         foreach (($composition['parts'] ?? []) as $part) {
             if (! is_array($part)) {
                 continue;
             }
 
-            $resourceType = $part['resource_type'] ?? null;
-            $resourceTypeUuid = is_array($resourceType) && is_string($resourceType['uuid'] ?? null)
-                ? $resourceType['uuid']
+            $resourceTypeUuid = is_string($part['resource_type_uuid'] ?? null)
+                ? $part['resource_type_uuid']
+                : null;
+            $resourceKey = is_string($part['key'] ?? null)
+                ? $part['key']
                 : null;
             $qualityScale = is_numeric($part['quality_scale'] ?? null) ? (float) $part['quality_scale'] : null;
+
+            if ($resourceKey === null) {
+                continue;
+            }
 
             $qualityRange = $this->qualityResolver->resolveForResourceTypeReference(
                 $resourceTypeUuid,
@@ -195,26 +227,22 @@ final class MineableLocation extends BaseFormat
                 $systemName
             );
 
-            if ($qualityRange !== null) {
-                $part['quality_range'] = [
+            if ($qualityRange === null) {
+                continue;
+            }
+
+            $overrides[] = [
+                'resource_key' => $resourceKey,
+                'quality_range' => [
                     'min' => $qualityRange['effective_min'],
                     'max' => $qualityRange['effective_max'],
-                ];
-            }
-
-            if (array_key_exists('resource_type', $part)) {
-                $part['resource'] = $part['resource_type'];
-                unset($part['resource_type']);
-            }
-
-            unset($part['quality_scale'], $part['curve_exponent']);
-            $parts[] = $part;
+                    'mean' => $qualityRange['effective_mean'],
+                    'stddev' => $qualityRange['effective_stddev'],
+                ],
+            ];
         }
 
-        $composition['parts'] = $parts;
-        $composition['uuid'] = $uuid;
-
-        return $composition;
+        return $overrides;
     }
 
     private function resolveEntityClassUuid(HarvestableElement $element): ?string
@@ -285,22 +313,12 @@ final class MineableLocation extends BaseFormat
         return $element->getClustering();
     }
 
-    private function resolveDepositName(?HarvestablePreset $harvestablePreset, ?EntityClassDefinition $entityClass): ?string
-    {
-        /** @var mixed $displayName */
-        $displayName = $harvestablePreset?->get('@displayName');
-
-        return $this->translate(is_string($displayName) ? $displayName : null)
-            ?? $harvestablePreset?->getClassName()
-            ?? $entityClass?->getClassName();
-    }
-
     /**
      * @return array<string, mixed>|null
      */
     private function buildHarvestableSetupSummary(?HarvestableSetup $setup, ?string $reference): ?array
     {
-        $uuid = $this->normalizeValue($reference ?? $setup?->getUuid());
+        $uuid = $this->normalizeString($reference ?? $setup?->getUuid());
 
         if ($setup === null && $uuid === null) {
             return null;
@@ -343,7 +361,7 @@ final class MineableLocation extends BaseFormat
      */
     private function buildClusteringSummary(?HarvestableClusterPreset $clustering, ?string $reference): ?array
     {
-        $uuid = $this->normalizeValue($reference ?? $clustering?->getUuid());
+        $uuid = $this->normalizeString($reference ?? $clustering?->getUuid());
         $params = $clustering?->getParams() ?? [];
 
         if ($clustering === null && $uuid === null) {
@@ -360,7 +378,7 @@ final class MineableLocation extends BaseFormat
     }
 
     /**
-     * @param list<array<string, mixed>> $params
+     * @param  list<array<string, mixed>>  $params
      * @return array<string, float|int>|null
      */
     private function buildClusteringSummaryMetadata(array $params): ?array
@@ -376,7 +394,7 @@ final class MineableLocation extends BaseFormat
     }
 
     /**
-     * @param list<array<string, mixed>> $params
+     * @param  list<array<string, mixed>>  $params
      */
     private function aggregateClusterParam(array $params, string $field, string $mode): float|int|null
     {
@@ -403,7 +421,7 @@ final class MineableLocation extends BaseFormat
     }
 
     /**
-     * @param list<array<string, mixed>> $params
+     * @param  list<array<string, mixed>>  $params
      * @return list<array<string, mixed>>
      */
     private function normalizeClusteringParams(array $params): array
@@ -446,56 +464,5 @@ final class MineableLocation extends BaseFormat
         return floor($normalized) === $normalized
             ? (int) $normalized
             : $normalized;
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function buildHarvestablePresetSummary(?HarvestablePreset $preset, ?string $reference): ?array
-    {
-        $uuid = $this->normalizeValue($reference ?? $preset?->getUuid());
-
-        if ($preset === null && $uuid === null) {
-            return null;
-        }
-
-        return [
-            'uuid' => $uuid,
-            'key' => $preset?->getClassName(),
-        ];
-    }
-
-    private function normalizeValue(?string $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $normalizedValue = trim($value);
-
-        return $normalizedValue === '' ? null : $normalizedValue;
-    }
-
-    private function translate(?string $value): ?string
-    {
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        if (! str_starts_with($value, '@')) {
-            return $value;
-        }
-
-        try {
-            $translated = ServiceFactory::getLocalizationService()->getTranslation($value);
-        } catch (RuntimeException) {
-            return null;
-        }
-
-        if (! is_string($translated) || $translated === '' || $translated === $value) {
-            return null;
-        }
-
-        return $translated;
     }
 }

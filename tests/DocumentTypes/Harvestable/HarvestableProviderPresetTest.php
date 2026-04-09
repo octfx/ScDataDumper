@@ -125,7 +125,8 @@ final class HarvestableProviderPresetTest extends ScDataTestCase
 
     public function test_hydrates_supported_harvestable_references_without_touching_geometry_tags(): void
     {
-        $document = new HarvestableProviderPreset;
+        $document = (new HarvestableProviderPreset)
+            ->setReferenceHydrationEnabled(true);
         $document->load($this->tempDir.'/Game2/libs/foundry/records/harvestable/providerpresets/system/test/sample.xml');
 
         $data = $document->toArray();

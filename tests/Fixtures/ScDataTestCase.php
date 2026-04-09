@@ -41,6 +41,11 @@ abstract class ScDataTestCase extends TestCase
         $this->resetServiceState();
         $this->removeDirectory($this->tempDir);
 
+        $mappingFile = $this->tempDir.DIRECTORY_SEPARATOR.'socpak_mappings.json';
+        if (file_exists($mappingFile)) {
+            @unlink($mappingFile);
+        }
+
         parent::tearDown();
     }
 

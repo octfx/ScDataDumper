@@ -143,7 +143,8 @@ final class CraftingBlueprintRecordTest extends ScDataTestCase
             XML
         );
 
-        $document = new CraftingBlueprintRecord;
+        $document = (new CraftingBlueprintRecord)
+            ->setReferenceHydrationEnabled(true);
         $document->load($path);
 
         $data = $document->toArray();

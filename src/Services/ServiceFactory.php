@@ -3,7 +3,7 @@
 namespace Octfx\ScDataDumper\Services;
 
 use JsonException;
-use Octfx\ScDataDumper\Services\Mining\MineableService;
+use Octfx\ScDataDumper\Services\Resource\ResourceService;
 use RuntimeException;
 
 final class ServiceFactory
@@ -53,6 +53,11 @@ final class ServiceFactory
         self::$activeJsonOutPath = $jsonOutPath;
 
         self::$initialized = true;
+    }
+
+    public static function getActiveScDataPath(): ?string
+    {
+        return self::$activeScDataPath;
     }
 
     public static function reset(): void
@@ -119,9 +124,9 @@ final class ServiceFactory
         return self::getService('FoundryLookupService');
     }
 
-    public static function getMineableService(): MineableService
+    public static function getResourceService(): ResourceService
     {
-        return self::getService('MineableService');
+        return self::getService('ResourceService');
     }
 
     public static function getLoadoutFileService(): LoadoutFileService
@@ -161,7 +166,7 @@ final class ServiceFactory
             'AmmoParamsService' => new AmmoParamsService(self::$activeScDataPath),
             'VehicleService' => new VehicleService(self::$activeScDataPath),
             'FoundryLookupService' => new FoundryLookupService(self::$activeScDataPath),
-            'MineableService' => new MineableService(self::$activeJsonOutPath, self::$activeScDataPath),
+            'ResourceService' => new ResourceService(self::$activeJsonOutPath, self::$activeScDataPath),
             'LoadoutFileService' => new LoadoutFileService(self::$activeScDataPath),
             default => throw new RuntimeException('Unknown service: '.$serviceName),
         };

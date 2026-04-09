@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Octfx\ScDataDumper\Services\Mining;
+namespace Octfx\ScDataDumper\Services\Resource;
 
 use JsonException;
 use RuntimeException;
 
-final class MineableService
+final class ResourceService
 {
     /**
      * @var array<string, array<string, mixed>>
@@ -22,7 +22,7 @@ final class MineableService
     public function __construct(
         private readonly string $basePath,
         private readonly ?string $scDataPath = null,
-        private readonly string $relativeIndexPath = 'mineables/mineables.json'
+        private readonly string $relativeIndexPath = 'resources/resources.json'
     ) {
         $this->loadIndex();
     }
@@ -63,7 +63,7 @@ final class MineableService
 
         if (! file_exists($indexPath)) {
             throw new RuntimeException(sprintf(
-                'Mineable index is missing at %s. Generate it with: php cli.php load:mineables %s %s --overwrite',
+                'Resource index is missing at %s. Generate it with: php cli.php load:resources %s %s --overwrite',
                 $indexPath,
                 $this->scDataPath ?? '<scDataPath>',
                 $this->basePath
@@ -74,14 +74,14 @@ final class MineableService
             $data = json_decode(file_get_contents($indexPath), true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $exception) {
             throw new RuntimeException(sprintf(
-                'Mineable index at %s contains invalid JSON.',
+                'Resource index at %s contains invalid JSON.',
                 $indexPath
             ), previous: $exception);
         }
 
         if (! is_array($data) || ! array_is_list($data)) {
             throw new RuntimeException(sprintf(
-                'Mineable index at %s must be a JSON array of rows.',
+                'Resource index at %s must be a JSON array of rows.',
                 $indexPath
             ));
         }
@@ -91,7 +91,7 @@ final class MineableService
         foreach ($data as $row) {
             if (! is_array($row)) {
                 throw new RuntimeException(sprintf(
-                    'Mineable index at %s contains a non-object row.',
+                    'Resource index at %s contains a non-object row.',
                     $indexPath
                 ));
             }
@@ -100,14 +100,14 @@ final class MineableService
 
             if ($uuid === null) {
                 throw new RuntimeException(sprintf(
-                    'Mineable index at %s contains a row without a valid uuid.',
+                    'Resource index at %s contains a row without a valid uuid.',
                     $indexPath
                 ));
             }
 
             if ($uuid === null) {
                 throw new RuntimeException(sprintf(
-                    'Mineable index at %s contains a row without a valid uuid.',
+                    'Resource index at %s contains a row without a valid uuid.',
                     $indexPath
                 ));
             }

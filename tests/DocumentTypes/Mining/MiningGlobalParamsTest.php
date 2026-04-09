@@ -12,6 +12,7 @@ use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 final class MiningGlobalParamsTest extends ScDataTestCase
 {
     private const GLOBAL_PARAMS_UUID = '20000000-0000-0000-0000-000000000001';
+
     private const WASTE_RESOURCE_UUID = '20000000-0000-0000-0000-000000000002';
 
     protected function setUp(): void
@@ -53,7 +54,8 @@ final class MiningGlobalParamsTest extends ScDataTestCase
 
     public function test_exposes_minimal_player_facing_accessors_and_hydrates_waste_resource_type(): void
     {
-        $document = new MiningGlobalParams;
+        $document = (new MiningGlobalParams)
+            ->setReferenceHydrationEnabled(true);
         $document->load($this->tempDir.'/Game2/libs/foundry/records/mining/miningglobalparams/sample_global_params.xml');
 
         self::assertSame(5.0, $document->getPowerCapacityPerMass());

@@ -5,6 +5,7 @@ namespace Octfx\ScDataDumper\Formats;
 use DOMNode;
 use InvalidArgumentException;
 use JsonException;
+use Octfx\ScDataDumper\Concerns\NormalizesValues;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\Services\ServiceFactory;
@@ -15,6 +16,8 @@ use RuntimeException;
  */
 abstract class BaseFormat
 {
+    use NormalizesValues;
+
     /**
      * XML Elements containing resistances / absorptions refer to resistances using numeric indexes
      * Their order "should" always be the same as defined here in the constructor
@@ -334,20 +337,5 @@ abstract class BaseFormat
         }
 
         return $data;
-    }
-
-    protected function normalizeNumber(mixed $value): int|float|null
-    {
-        if (! is_int($value) && ! is_float($value) && ! (is_string($value) && is_numeric($value))) {
-            return null;
-        }
-
-        $number = (float) $value;
-
-        if ((float) ((int) $number) === $number) {
-            return (int) $number;
-        }
-
-        return $number;
     }
 }

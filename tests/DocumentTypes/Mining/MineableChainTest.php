@@ -16,12 +16,19 @@ use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 final class MineableChainTest extends ScDataTestCase
 {
     private const HARVESTABLE_UUID = '10000000-0000-0000-0000-000000000001';
+
     private const ENTITY_UUID = '10000000-0000-0000-0000-000000000002';
+
     private const GLOBAL_PARAMS_UUID = '10000000-0000-0000-0000-000000000003';
+
     private const COMPOSITION_UUID = '10000000-0000-0000-0000-000000000004';
+
     private const ELEMENT_A_UUID = '10000000-0000-0000-0000-000000000005';
+
     private const ELEMENT_B_UUID = '10000000-0000-0000-0000-000000000006';
+
     private const RESOURCE_A_UUID = '10000000-0000-0000-0000-000000000007';
+
     private const RESOURCE_B_UUID = '10000000-0000-0000-0000-000000000008';
 
     protected function setUp(): void
@@ -136,7 +143,8 @@ final class MineableChainTest extends ScDataTestCase
 
     public function test_hydrates_the_mineable_chain_from_harvestable_preset_to_resource_type(): void
     {
-        $document = new HarvestablePreset;
+        $document = (new HarvestablePreset)
+            ->setReferenceHydrationEnabled(true);
         $document->load($this->tempDir.'/Game2/libs/foundry/records/harvestable/harvestablepresets/sample_mineable.xml');
 
         self::assertSame(self::ENTITY_UUID, $document->getEntityClassReference());

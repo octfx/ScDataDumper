@@ -2,20 +2,24 @@
 
 declare(strict_types=1);
 
-namespace Octfx\ScDataDumper\Services\Mining;
+namespace Octfx\ScDataDumper\Services\Resource;
 
 use Octfx\ScDataDumper\DocumentTypes\Mining\MineableCompositionPart;
 use Octfx\ScDataDumper\DocumentTypes\ResourceType;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
-final class MiningQualityRangeResolver
+final class QualityRangeResolver
 {
     /**
      * @return array{
      *     base_min: int,
      *     base_max: int,
+     *     base_mean: int,
+     *     base_stddev: int,
      *     effective_min: int,
      *     effective_max: int,
+     *     effective_mean: int,
+     *     effective_stddev: int,
      *     quality_scale: ?float
      * }|null
      */
@@ -35,8 +39,12 @@ final class MiningQualityRangeResolver
      * @return array{
      *     base_min: int,
      *     base_max: int,
+     *     base_mean: int,
+     *     base_stddev: int,
      *     effective_min: int,
      *     effective_max: int,
+     *     effective_mean: int,
+     *     effective_stddev: int,
      *     quality_scale: ?float
      * }|null
      */
@@ -61,8 +69,12 @@ final class MiningQualityRangeResolver
      * @return array{
      *     base_min: int,
      *     base_max: int,
+     *     base_mean: int,
+     *     base_stddev: int,
      *     effective_min: int,
      *     effective_max: int,
+     *     effective_mean: int,
+     *     effective_stddev: int,
      *     quality_scale: ?float
      * }|null
      */
@@ -98,11 +110,25 @@ final class MiningQualityRangeResolver
             $qualityScale
         );
 
+        $effectiveMean = $this->applyQualityScaleValue(
+            $distribution['mean'],
+            $qualityScale
+        );
+
+        $effectiveStddev = $this->applyQualityScaleValue(
+            $distribution['stddev'],
+            $qualityScale
+        );
+
         return [
             'base_min' => $distribution['min'],
             'base_max' => $distribution['max'],
+            'base_mean' => $distribution['mean'],
+            'base_stddev' => $distribution['stddev'],
             'effective_min' => $effectiveRange['min'],
             'effective_max' => $effectiveRange['max'],
+            'effective_mean' => $effectiveMean,
+            'effective_stddev' => $effectiveStddev,
             'quality_scale' => $qualityScale,
         ];
     }
@@ -123,5 +149,14 @@ final class MiningQualityRangeResolver
             'min' => (int) round($baseMin * $qualityScale),
             'max' => (int) floor($baseMax * $qualityScale),
         ];
+    }
+
+    private function applyQualityScaleValue(int $value, ?float $qualityScale): int
+    {
+        if ($qualityScale === null || $qualityScale >= 1.0) {
+            return $value;
+        }
+
+        return (int) round($value * $qualityScale);
     }
 }

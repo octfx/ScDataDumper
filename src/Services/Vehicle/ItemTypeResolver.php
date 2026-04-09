@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Services\Vehicle;
 
 use Illuminate\Support\Arr;
+use Octfx\ScDataDumper\Concerns\NormalizesValues;
 use Octfx\ScDataDumper\Services\ItemClassifierService;
 
 final class ItemTypeResolver
 {
+    use NormalizesValues;
+
     private const array CLASSIFIER_PREFIXES = ['Ship.', 'FPS.', 'Mining.'];
 
     private readonly ItemClassifierService $itemClassifierService;
@@ -126,16 +129,5 @@ final class ItemTypeResolver
         }
 
         return $majorType.'.'.$minorType;
-    }
-
-    private function normalizeString(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
     }
 }

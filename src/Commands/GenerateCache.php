@@ -7,6 +7,7 @@ namespace Octfx\ScDataDumper\Commands;
 use Exception;
 use Octfx\ScDataDumper\Services\CacheService;
 use Octfx\ScDataDumper\Services\DataDumper\Game2ExtractorService;
+use Octfx\ScDataDumper\Services\Resource\SocpakMappingGenerator;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -69,6 +70,10 @@ class GenerateCache extends Command
         $allExist = array_reduce($cacheFiles, static fn ($carry, $item) => $carry && file_exists($item), true);
 
         if ($allExist && ! $input->getOption('overwrite')) {
+            $this->generateSocpakMapping($input, $io);
+
+            ServiceFactory::reset();
+
             return Command::SUCCESS;
         }
 
@@ -97,6 +102,8 @@ class GenerateCache extends Command
             'Path: '.$input->getArgument('path')
         ));
 
+        $this->generateSocpakMapping($input, $io);
+
         ServiceFactory::reset();
 
         return Command::SUCCESS;
@@ -112,5 +119,18 @@ class GenerateCache extends Command
             InputOption::VALUE_NONE,
             'Overwrite existing cache files'
         );
+    }
+
+    private function generateSocpakMapping(InputInterface $input, SymfonyStyle $io): void
+    {
+        $mappingPath = sprintf('%s%ssocpak_mappings.json', $input->getArgument('path'), DIRECTORY_SEPARATOR);
+        if (file_exists($mappingPath)) {
+            return;
+        }
+
+        $io->section('Generating socpak mapping');
+        $mappingGenerator = new SocpakMappingGenerator($input->getArgument('path'));
+        $mappingGenerator->generate();
+        $io->success('Generated socpak mapping');
     }
 }

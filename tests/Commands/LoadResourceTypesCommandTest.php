@@ -75,7 +75,10 @@ final class LoadResourceTypesCommandTest extends ScDataTestCase
         self::assertSame('Refined Ore', $rawOre['refined_version_name']);
         self::assertTrue($rawOre['validate_default_cargo_box']);
         self::assertTrue($rawOre['has_default_cargo_containers']);
-        self::assertSame([1, 4], $rawOre['box_sizes_scu']);
+        self::assertEquals([
+            ['uuid' => 'crate_one', 'name' => 'oneSCU', 'size' => 1],
+            ['uuid' => 'crate_four', 'name' => 'fourSCU', 'size' => 4],
+        ], $rawOre['cargo_containers']);
 
         $refinedOre = $this->findResourceType($resourceTypes, 'RefinedOre');
         self::assertSame('Refined Ore', $refinedOre['name']);
@@ -84,11 +87,112 @@ final class LoadResourceTypesCommandTest extends ScDataTestCase
         self::assertNull($refinedOre['refined_version_name']);
         self::assertFalse($refinedOre['validate_default_cargo_box']);
         self::assertFalse($refinedOre['has_default_cargo_containers']);
-        self::assertSame([], $refinedOre['box_sizes_scu']);
+        self::assertSame([], $refinedOre['cargo_containers']);
 
         $placeholderOre = $this->findResourceType($resourceTypes, 'PlaceholderOre');
         self::assertSame('PlaceholderOre', $placeholderOre['name']);
         self::assertNull($placeholderOre['description']);
+    }
+
+    public function test_resource_type_export_includes_tier(): void
+    {
+        $commonQdUuid = 'aaaaaaaa-aaaa-aaaa-aaaa-111111111111';
+        $rareQdUuid = 'aaaaaaaa-aaaa-aaaa-aaaa-222222222222';
+
+        $this->writeCacheFiles();
+
+        $this->writeQualityDistributionRecord(
+            $commonQdUuid,
+            sprintf(
+                <<<'XML'
+                <CraftingQualityDistributionRecord.Common_QualityDistribution __type="CraftingQualityDistributionRecord" __ref="%1$s" __path="libs/foundry/records/crafting/qualitydistribution/Common_QualityDistribution.xml">
+                  <qualityDistribution>
+                    <CraftingQualityDistributionNormal min="0" max="100" mean="50" stddev="15" />
+                  </qualityDistribution>
+                </CraftingQualityDistributionRecord.Common_QualityDistribution>
+                XML,
+                $commonQdUuid,
+            ),
+        );
+        $this->writeQualityDistributionRecord(
+            $rareQdUuid,
+            sprintf(
+                <<<'XML'
+                <CraftingQualityDistributionRecord.Rare_QualityDistribution __type="CraftingQualityDistributionRecord" __ref="%1$s" __path="libs/foundry/records/crafting/qualitydistribution/Rare_QualityDistribution.xml">
+                  <qualityDistribution>
+                    <CraftingQualityDistributionNormal min="0" max="100" mean="75" stddev="10" />
+                  </qualityDistribution>
+                </CraftingQualityDistributionRecord.Rare_QualityDistribution>
+                XML,
+                $rareQdUuid,
+            ),
+        );
+
+        $this->writeResourceTypeCache([
+            self::RAW_ORE_UUID => sprintf(
+                <<<'XML'
+                <ResourceType.RawOre displayName="@items_commodities_rawore" validateDefaultCargoBox="0" __type="ResourceType" __ref="%1$s" __path="libs/foundry/records/resourcetypedatabase/resourcetypedatabase.xml">
+                  <properties>
+                    <ResourceTypeCraftingData>
+                      <qualityDistribution>
+                        <CraftingQualityDistribution_RecordRef qualityDistributionRecord="%2$s" />
+                      </qualityDistribution>
+                    </ResourceTypeCraftingData>
+                  </properties>
+                </ResourceType.RawOre>
+                XML,
+                self::RAW_ORE_UUID,
+                $commonQdUuid,
+            ),
+            self::REFINED_ORE_UUID => sprintf(
+                <<<'XML'
+                <ResourceType.RefinedOre displayName="@items_commodities_refinedore" validateDefaultCargoBox="0" __type="ResourceType" __ref="%1$s" __path="libs/foundry/records/resourcetypedatabase/resourcetypedatabase.xml">
+                  <properties>
+                    <ResourceTypeCraftingData>
+                      <qualityDistribution>
+                        <CraftingQualityDistribution_RecordRef qualityDistributionRecord="%2$s" />
+                      </qualityDistribution>
+                    </ResourceTypeCraftingData>
+                  </properties>
+                </ResourceType.RefinedOre>
+                XML,
+                self::REFINED_ORE_UUID,
+                $rareQdUuid,
+            ),
+            self::PLACEHOLDER_ORE_UUID => sprintf(
+                <<<'XML'
+                <ResourceType.PlaceholderOre displayName="@LOC_PLACEHOLDER" validateDefaultCargoBox="0" __type="ResourceType" __ref="%1$s" __path="libs/foundry/records/resourcetypedatabase/resourcetypedatabase.xml" />
+                XML,
+                self::PLACEHOLDER_ORE_UUID,
+            ),
+        ]);
+
+        $this->writeFile(
+            'Data/Localization/english/global.ini',
+            <<<'INI'
+            items_commodities_rawore=Raw Ore
+            items_commodities_refinedore=Refined Ore
+            INI,
+        );
+
+        $tester = new CommandTester(new TestLoadResourceTypesCommand);
+        $exitCode = $tester->execute([
+            'scDataPath' => $this->tempDir,
+            'jsonOutPath' => $this->tempDir,
+        ]);
+
+        self::assertSame(0, $exitCode);
+
+        $resourceTypes = $this->readJsonFile('resource-types.json');
+
+        $rawOre = $this->findResourceType($resourceTypes, 'RawOre');
+        self::assertSame('common', $rawOre['tier']);
+
+        $refinedOre = $this->findResourceType($resourceTypes, 'RefinedOre');
+        self::assertSame('rare', $refinedOre['tier']);
+
+        $placeholderOre = $this->findResourceType($resourceTypes, 'PlaceholderOre');
+        self::assertNull($placeholderOre['tier']);
     }
 
     public function test_make_cache_arguments_does_not_forward_export_overwrite(): void
@@ -101,6 +205,25 @@ final class LoadResourceTypesCommandTest extends ScDataTestCase
         ], $command->getDefinition());
 
         self::assertSame(['path' => $this->tempDir], $command->exposeMakeCacheArguments($input));
+    }
+
+    private function writeQualityDistributionRecord(string $uuid, string $xml): void
+    {
+        $normalizedUuid = strtolower($uuid);
+        $path = $this->writeFile(
+            sprintf('Game2/libs/foundry/records/crafting/qualitydistribution/%s.xml', $normalizedUuid),
+            $xml,
+        );
+
+        $cachePath = sprintf('%s%suuidToPathMap-%s.json', $this->tempDir, DIRECTORY_SEPARATOR, PHP_OS_FAMILY);
+        $current = file_exists($cachePath)
+            ? json_decode((string) file_get_contents($cachePath), true, 512, JSON_THROW_ON_ERROR)
+            : [];
+
+        file_put_contents(
+            $cachePath,
+            json_encode(array_replace($current, [$normalizedUuid => $path]), JSON_THROW_ON_ERROR),
+        );
     }
 
     /**

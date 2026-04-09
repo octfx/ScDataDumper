@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Commands;
 
 use JsonException;
+use Octfx\ScDataDumper\Concerns\NormalizesValues;
 use Octfx\ScDataDumper\DocumentTypes\ResourceType;
+use Octfx\ScDataDumper\Services\Resource\QualityTierResolver;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -22,8 +24,10 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     description: 'Load and dump SC resource types',
     hidden: false
 )]
-class LoadResourceTypes extends AbstractDataCommand
+final class LoadResourceTypes extends AbstractDataCommand
 {
+    use NormalizesValues;
+
     /**
      * @throws ExceptionInterface|JsonException
      */
@@ -92,16 +96,28 @@ class LoadResourceTypes extends AbstractDataCommand
      *     refined_version_name: ?string,
      *     validate_default_cargo_box: bool,
      *     has_default_cargo_containers: bool,
-     *     box_sizes_scu: list<float|int>
+     *     cargo_containers: list<array{uuid: string, name: string, size: float|int}>,
+     *     quality_distribution_uuid: ?string,
+     *     quality_location_override_uuid: ?string,
+     *     tier: ?string
      * }
      */
     protected function buildResourceTypeExportEntry(ResourceType $resourceType): array
     {
         $resourceTypeData = $resourceType->toArray();
         $refinedVersionUuid = $this->normalizeString($resourceTypeData['refinedVersion'] ?? null);
-        $boxSizes = $this->readCargoBoxSizes(
+        $cargoContainers = $this->readCargoContainers(
             $resourceTypeData['defaultCargoContainers']['SResourceTypeDefaultCargoContainers'] ?? null
         );
+
+        $tier = null;
+        $qualityDistribution = $resourceType->getQualityDistribution();
+        if ($qualityDistribution !== null) {
+            $resolver = new QualityTierResolver;
+            $category = $resolver->extractCategoryFromPath($qualityDistribution->getPath());
+            $extracted = $resolver->extractTierFromClassName($qualityDistribution->getClassName(), $category);
+            $tier = $extracted !== 'default' ? $extracted : null;
+        }
 
         return [
             'uuid' => $resourceType->getUuid(),
@@ -111,8 +127,11 @@ class LoadResourceTypes extends AbstractDataCommand
             'refined_version_uuid' => $refinedVersionUuid,
             'refined_version_name' => $this->resolveRefinedVersionName($refinedVersionUuid),
             'validate_default_cargo_box' => $this->normalizeBool($resourceTypeData['validateDefaultCargoBox'] ?? null),
-            'has_default_cargo_containers' => $boxSizes !== [],
-            'box_sizes_scu' => $boxSizes,
+            'has_default_cargo_containers' => $cargoContainers !== [],
+            'cargo_containers' => $cargoContainers,
+            'quality_distribution_uuid' => $this->extractQualityDistributionUuid($resourceTypeData),
+            'quality_location_override_uuid' => $this->extractQualityLocationOverrideUuid($resourceTypeData),
+            'tier' => $tier,
         ];
     }
 
@@ -140,9 +159,9 @@ class LoadResourceTypes extends AbstractDataCommand
     }
 
     /**
-     * @return list<float|int>
+     * @return list<array{uuid: string, name: string, size: float|int}>
      */
-    private function readCargoBoxSizes(mixed $containers): array
+    private function readCargoContainers(mixed $containers): array
     {
         if (! is_array($containers)) {
             return [];
@@ -159,15 +178,72 @@ class LoadResourceTypes extends AbstractDataCommand
             'thirtyTwoSCU' => 32,
         ];
 
-        $boxSizes = [];
+        $cargoContainers = [];
 
         foreach ($boxSizeMap as $attribute => $size) {
-            if (array_key_exists($attribute, $containers) && $containers[$attribute] !== null && $containers[$attribute] !== '') {
-                $boxSizes[] = $size;
+            if (array_key_exists($attribute, $containers)) {
+                $uuid = $this->normalizeString($containers[$attribute]);
+                if ($uuid !== null) {
+                    $cargoContainers[] = [
+                        'uuid' => $uuid,
+                        'name' => $attribute,
+                        'size' => $size,
+                    ];
+                }
             }
         }
 
-        return $boxSizes;
+        return $cargoContainers;
+    }
+
+    private function extractQualityDistributionUuid(array $resourceTypeData): ?string
+    {
+        $properties = $resourceTypeData['properties'] ?? null;
+        if (! is_array($properties)) {
+            return null;
+        }
+
+        $craftingData = $properties['ResourceTypeCraftingData'] ?? null;
+        if (! is_array($craftingData)) {
+            return null;
+        }
+
+        $qualityDistribution = $craftingData['qualityDistribution'] ?? null;
+        if (! is_array($qualityDistribution)) {
+            return null;
+        }
+
+        $recordRef = $qualityDistribution['CraftingQualityDistribution_RecordRef'] ?? null;
+        if (! is_array($recordRef)) {
+            return null;
+        }
+
+        return $this->normalizeString($recordRef['qualityDistributionRecord'] ?? null);
+    }
+
+    private function extractQualityLocationOverrideUuid(array $resourceTypeData): ?string
+    {
+        $properties = $resourceTypeData['properties'] ?? null;
+        if (! is_array($properties)) {
+            return null;
+        }
+
+        $craftingData = $properties['ResourceTypeCraftingData'] ?? null;
+        if (! is_array($craftingData)) {
+            return null;
+        }
+
+        $locationOverride = $craftingData['qualityLocationOverride'] ?? null;
+        if (! is_array($locationOverride)) {
+            return null;
+        }
+
+        $recordRef = $locationOverride['CraftingQualityLocationOverride_RecordRef'] ?? null;
+        if (! is_array($recordRef)) {
+            return null;
+        }
+
+        return $this->normalizeString($recordRef['locationOverrideRecord'] ?? null);
     }
 
     private function resolveRefinedVersionName(?string $uuid): ?string
@@ -185,34 +261,6 @@ class LoadResourceTypes extends AbstractDataCommand
         $refinedVersionData = $refinedVersion->toArray();
 
         return $this->resolveLocalizedString($refinedVersionData['displayName'] ?? null) ?? $refinedVersion->getClassName();
-    }
-
-    private function normalizeBool(mixed $value): bool
-    {
-        if (is_bool($value)) {
-            return $value;
-        }
-
-        if (is_int($value) || is_float($value)) {
-            return $value !== 0 && $value !== 0.0;
-        }
-
-        if (is_string($value) && is_numeric($value)) {
-            return (float) $value !== 0.0;
-        }
-
-        return false;
-    }
-
-    private function normalizeString(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $normalizedValue = trim($value);
-
-        return $normalizedValue === '' ? null : $normalizedValue;
     }
 
     private function resolveLocalizedString(mixed $value): ?string

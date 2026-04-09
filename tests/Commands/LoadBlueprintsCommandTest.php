@@ -12,6 +12,9 @@ final class LoadBlueprintsCommandTest extends ScDataTestCase
 {
     public function test_execute_writes_scunpacked_payload_by_default(): void
     {
+        $this->writeCacheFiles();
+        (new \Octfx\ScDataDumper\Services\ServiceFactory($this->tempDir))->initialize();
+
         $command = new TestLoadBlueprintsCommand([
             [
                 'className' => 'BP_CRAFT_TEST_AMMO',
@@ -96,6 +99,9 @@ final class LoadBlueprintsCommandTest extends ScDataTestCase
 
     public function test_execute_accepts_scunpacked_flag_as_a_noop(): void
     {
+        $this->writeCacheFiles();
+        (new \Octfx\ScDataDumper\Services\ServiceFactory($this->tempDir))->initialize();
+
         $records = [
             [
                 'className' => 'BP_CRAFT_TEST_AMMO',

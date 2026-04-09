@@ -8,6 +8,7 @@
         "ext-dom": "*",
         "ext-libxml": "*",
         "ext-xmlreader": "*",
+        "ext-zip": "*",
         "illuminate/collections": "^v12.40.2",
         "illuminate/support": "^12.43"
     },

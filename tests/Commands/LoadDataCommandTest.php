@@ -28,7 +28,7 @@ final class LoadDataCommandTest extends ScDataTestCase
             'load:vehicles' => Command::SUCCESS,
             'load:factions' => Command::SUCCESS,
             'load:starmap' => Command::SUCCESS,
-            'load:mineables' => Command::SUCCESS,
+            'load:resources' => Command::SUCCESS,
             'load:manufacturers' => Command::SUCCESS,
             'load:translations' => Command::SUCCESS,
             'load:tags' => Command::SUCCESS,
@@ -44,7 +44,7 @@ final class LoadDataCommandTest extends ScDataTestCase
 
         self::assertSame(0, $exitCode);
         self::assertSame(
-            ['generate:cache', 'load:items', 'load:blueprints', 'load:resource-types', 'load:vehicles', 'load:factions', 'load:starmap', 'load:mineables', 'load:manufacturers', 'load:translations', 'load:tags'],
+            ['generate:cache', 'load:items', 'load:blueprints', 'load:resource-types', 'load:vehicles', 'load:factions', 'load:starmap', 'load:resources', 'load:manufacturers', 'load:translations', 'load:tags'],
             array_column($log->calls, 'name')
         );
         self::assertTrue($log->calls[1]['options']['overwrite']);
@@ -73,7 +73,7 @@ final class LoadDataCommandTest extends ScDataTestCase
             'load:vehicles' => Command::FAILURE,
             'load:factions' => Command::SUCCESS,
             'load:starmap' => Command::SUCCESS,
-            'load:mineables' => Command::SUCCESS,
+            'load:resources' => Command::SUCCESS,
             'load:manufacturers' => Command::SUCCESS,
             'load:translations' => Command::SUCCESS,
             'load:tags' => Command::SUCCESS,
@@ -103,7 +103,7 @@ final class LoadDataCommandTest extends ScDataTestCase
         $application->addCommand(new RecordingCommand('load:vehicles', $log, $results['load:vehicles'], ['scDataPath', 'jsonOutPath'], ['overwrite', 'scUnpackedFormat']));
         $application->addCommand(new RecordingCommand('load:factions', $log, $results['load:factions'], ['scDataPath', 'jsonOutPath'], ['overwrite', 'scUnpackedFormat']));
         $application->addCommand(new RecordingCommand('load:starmap', $log, $results['load:starmap'], ['scDataPath', 'jsonOutPath'], ['overwrite']));
-        $application->addCommand(new RecordingCommand('load:mineables', $log, $results['load:mineables'], ['scDataPath', 'jsonOutPath'], ['overwrite']));
+        $application->addCommand(new RecordingCommand('load:resources', $log, $results['load:resources'], ['scDataPath', 'jsonOutPath'], ['overwrite']));
         $application->addCommand(new RecordingCommand('load:manufacturers', $log, $results['load:manufacturers'], ['scDataPath', 'jsonOutPath'], []));
         $application->addCommand(new RecordingCommand('load:translations', $log, $results['load:translations'], ['scDataPath', 'jsonOutPath'], []));
         $application->addCommand(new RecordingCommand('load:tags', $log, $results['load:tags'], ['scDataPath', 'jsonOutPath'], ['overwrite']));
