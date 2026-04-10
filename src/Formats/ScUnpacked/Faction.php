@@ -23,8 +23,8 @@ final class Faction extends BaseFormat
 
         return $this->removeNullValuesPreservingEmptyArrays([
             'uuid' => $this->item->getUuid(),
-            'name' => $this->translate($this->item->getName()),
-            'description' => $this->translate($this->item->getDescription()),
+            'name' => ServiceFactory::getLocalizationService()->translateValue($this->item->getName(), true),
+            'description' => ServiceFactory::getLocalizationService()->translateValue($this->item->getDescription(), true),
             'defaultReaction' => $this->item->getDefaultReaction(),
             'factionType' => $this->item->getFactionType(),
             'ableToArrest' => $this->item->getAbleToArrest(),
@@ -43,7 +43,7 @@ final class Faction extends BaseFormat
 
         return $this->removeNullValuesPreservingEmptyArrays([
             'uuid' => $reputation->getUuid(),
-            'displayName' => $this->translate($reputation->getDisplayName()),
+            'displayName' => ServiceFactory::getLocalizationService()->translateValue($reputation->getDisplayName(), true),
             'isNpc' => $reputation->isNpc(),
             'hideInDelphiApp' => $reputation->isHiddenInDelphiApp(),
             'context' => $this->buildContext($reputation->getReputationContext()),
@@ -52,14 +52,14 @@ final class Faction extends BaseFormat
                 $reputation->getHostilityStandingReference(),
                 $reputation->getHostilityScope(),
                 $reputation->getHostilityStanding(),
-                $this->translate($reputation->get('hostilityParams/markerParams@description'))
+                ServiceFactory::getLocalizationService()->translateValue($reputation->get('hostilityParams/markerParams@description'), true)
             ),
             'allied' => $this->buildEdge(
                 $reputation->getAlliedScopeReference(),
                 $reputation->getAlliedStandingReference(),
                 $reputation->getAlliedScope(),
                 $reputation->getAlliedStanding(),
-                $this->translate($reputation->get('alliedParams/markerParams@description'))
+                ServiceFactory::getLocalizationService()->translateValue($reputation->get('alliedParams/markerParams@description'), true)
             ),
             'properties' => $this->buildProperties($reputation),
         ]);
@@ -87,8 +87,8 @@ final class Faction extends BaseFormat
         return $this->removeNullValuesPreservingEmptyArrays([
             'uuid' => $scope->getUuid(),
             'scopeName' => $scope->getScopeName(),
-            'displayName' => $this->translate($scope->getDisplayName()),
-            'description' => $this->translate($scope->getDescription()),
+            'displayName' => ServiceFactory::getLocalizationService()->translateValue($scope->getDisplayName(), true),
+            'description' => ServiceFactory::getLocalizationService()->translateValue($scope->getDescription(), true),
             'reputationCeiling' => $scope->getReputationCeiling(),
             'initialReputation' => $scope->getInitialReputation(),
             'standings' => array_values(array_map(
@@ -106,9 +106,9 @@ final class Faction extends BaseFormat
         return $this->removeNullValuesPreservingEmptyArrays([
             'uuid' => $standing->getUuid(),
             'name' => $standing->getName(),
-            'displayName' => $this->translate($standing->getDisplayName()),
+            'displayName' => ServiceFactory::getLocalizationService()->translateValue($standing->getDisplayName(), true),
             'description' => $this->translateStandingDescription($standing->getDescription()),
-            'perkDescription' => $this->translate($standing->getPerkDescription()),
+            'perkDescription' => ServiceFactory::getLocalizationService()->translateValue($standing->getPerkDescription(), true),
             'minReputation' => $standing->getMinReputation(),
             'driftReputation' => $standing->getDriftReputation(),
             'driftTimeHours' => $standing->getDriftTimeHours(),
@@ -116,26 +116,13 @@ final class Faction extends BaseFormat
         ]);
     }
 
-    private function translateStandingDescription(mixed $value): ?string
-    {
-        if ($value === 'desc') {
-            return null;
-        }
-
-        return $this->translate($value);
-    }
-
     private function buildEdge(
         ?string $scopeUuid,
         ?string $standingUuid,
         ?SReputationScopeParams $scope,
         ?SReputationStandingParams $standing,
-        ?string $markerDescription
+        ?string $markerDescription,
     ): ?array {
-        if ($scopeUuid === null && $standingUuid === null && $scope === null && $standing === null && $markerDescription === null) {
-            return null;
-        }
-
         return $this->removeNullValuesPreservingEmptyArrays([
             'scopeUuid' => $scopeUuid,
             'standingUuid' => $standingUuid,
@@ -196,7 +183,7 @@ final class Faction extends BaseFormat
     {
         $locString = $propertyNode->get('dynamicProperty/SBBDynamicPropertyLocString@value');
         if (is_string($locString) && $locString !== '') {
-            return $this->translate($locString) ?? $locString;
+            return ServiceFactory::getLocalizationService()->translateValue($locString, true) ?? $locString;
         }
 
         $boolValue = $propertyNode->get('dynamicProperty/SBBDynamicPropertyBool@value');
@@ -207,16 +194,12 @@ final class Faction extends BaseFormat
         return null;
     }
 
-    private function translate(mixed $value): ?string
+    private function translateStandingDescription(mixed $value): ?string
     {
-        if (! is_string($value) || $value === '' || $value === '@LOC_PLACEHOLDER' || $value === '@LOC_EMPTY' || $value === '@blank_space') {
+        if ($value === 'desc') {
             return null;
         }
 
-        if (! str_starts_with($value, '@')) {
-            return $value;
-        }
-
-        return ServiceFactory::getLocalizationService()->getTranslation($value);
+        return ServiceFactory::getLocalizationService()->translateValue($value, true);
     }
 }

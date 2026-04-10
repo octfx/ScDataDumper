@@ -24,7 +24,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     description: 'Load and dump SC resource types',
     hidden: false
 )]
-final class LoadResourceTypes extends AbstractDataCommand
+class LoadResourceTypes extends AbstractDataCommand
 {
     use NormalizesValues;
 
@@ -122,8 +122,8 @@ final class LoadResourceTypes extends AbstractDataCommand
         return [
             'uuid' => $resourceType->getUuid(),
             'key' => $resourceType->getClassName(),
-            'name' => $this->resolveLocalizedString($resourceTypeData['displayName'] ?? null) ?? $resourceType->getClassName(),
-            'description' => $this->resolveLocalizedString($resourceTypeData['description'] ?? null),
+            'name' => ServiceFactory::getLocalizationService()->translateValue($resourceTypeData['displayName'] ?? null) ?? $resourceType->getClassName(),
+            'description' => ServiceFactory::getLocalizationService()->translateValue($resourceTypeData['description'] ?? null),
             'refined_version_uuid' => $refinedVersionUuid,
             'refined_version_name' => $this->resolveRefinedVersionName($refinedVersionUuid),
             'validate_default_cargo_box' => $this->normalizeBool($resourceTypeData['validateDefaultCargoBox'] ?? null),
@@ -260,33 +260,6 @@ final class LoadResourceTypes extends AbstractDataCommand
 
         $refinedVersionData = $refinedVersion->toArray();
 
-        return $this->resolveLocalizedString($refinedVersionData['displayName'] ?? null) ?? $refinedVersion->getClassName();
-    }
-
-    private function resolveLocalizedString(mixed $value): ?string
-    {
-        $normalizedValue = $this->normalizeString($value);
-
-        if ($normalizedValue === null) {
-            return null;
-        }
-
-        if (! str_starts_with($normalizedValue, '@')) {
-            return $normalizedValue;
-        }
-
-        try {
-            $translatedValue = $this->normalizeString(
-                ServiceFactory::getLocalizationService()->getTranslation($normalizedValue)
-            );
-        } catch (RuntimeException) {
-            return null;
-        }
-
-        if ($translatedValue === null || $translatedValue === $normalizedValue) {
-            return null;
-        }
-
-        return $translatedValue;
+        return ServiceFactory::getLocalizationService()->translateValue($refinedVersionData['displayName'] ?? null) ?? $refinedVersion->getClassName();
     }
 }

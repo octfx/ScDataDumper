@@ -23,8 +23,7 @@ final class CraftingQualityLocationOverrideRecord extends RootDocument
         $overrides = [];
 
         foreach (
-            $this->getAll('locationOverride/CraftingQualityLocationOverride/locationOverrideList/CraftingQualityLocationOverrideEntry')
-            as $entryNode
+            $this->getAll('locationOverride/CraftingQualityLocationOverride/locationOverrideList/CraftingQualityLocationOverrideEntry') as $entryNode
         ) {
             if (! $entryNode instanceof Element) {
                 continue;
@@ -61,7 +60,7 @@ final class CraftingQualityLocationOverrideRecord extends RootDocument
             $locationReference = $override['locationReference'];
             $locationNameFromRecord = $override['locationName'];
 
-            if (array_any($this->buildLocationCandidates($locationReference, $locationNameFromRecord), fn($candidate) => $candidate === $normalizedNeedle)) {
+            if (array_any($this->buildLocationCandidates($locationReference, $locationNameFromRecord), fn ($candidate) => $candidate === $normalizedNeedle)) {
                 return $override['distribution'];
             }
         }
@@ -74,10 +73,10 @@ final class CraftingQualityLocationOverrideRecord extends RootDocument
      */
     private function buildDistribution(Element $entryNode): ?array
     {
-        $min = $entryNode->get('qualityDistribution/CraftingQualityDistributionNormal' .'@min');
-        $max = $entryNode->get('qualityDistribution/CraftingQualityDistributionNormal' .'@max');
-        $mean = $entryNode->get('qualityDistribution/CraftingQualityDistributionNormal' .'@mean');
-        $stddev = $entryNode->get('qualityDistribution/CraftingQualityDistributionNormal' .'@stddev');
+        $min = $entryNode->get('qualityDistribution/CraftingQualityDistributionNormal'.'@min');
+        $max = $entryNode->get('qualityDistribution/CraftingQualityDistributionNormal'.'@max');
+        $mean = $entryNode->get('qualityDistribution/CraftingQualityDistributionNormal'.'@mean');
+        $stddev = $entryNode->get('qualityDistribution/CraftingQualityDistributionNormal'.'@stddev');
 
         if (! is_numeric($min) || ! is_numeric($max) || ! is_numeric($mean) || ! is_numeric($stddev)) {
             return null;
@@ -100,11 +99,9 @@ final class CraftingQualityLocationOverrideRecord extends RootDocument
         }
 
         $name = $location->getName();
-        if (is_string($name) && $name !== '') {
-            return ServiceFactory::getLocalizationService()->getTranslation($name) ?? $name;
-        }
+        $translated = ServiceFactory::getLocalizationService()->translateValue($name);
 
-        return $location->getClassName();
+        return $translated ?? $location->getClassName();
     }
 
     /**
@@ -128,9 +125,8 @@ final class CraftingQualityLocationOverrideRecord extends RootDocument
             $candidates[] = $this->normalizeLocationName($location->getClassName());
             $candidates[] = $this->normalizeLocationName(preg_replace('/SolarSystem$/', '', $location->getClassName()) ?? '');
 
-            $translatedName = $location->getName();
-            if (is_string($translatedName) && $translatedName !== '') {
-                $translatedName = ServiceFactory::getLocalizationService()->getTranslation($translatedName) ?? $translatedName;
+            $translatedName = ServiceFactory::getLocalizationService()->translateValue($location->getName());
+            if ($translatedName !== null) {
                 $candidates[] = $this->normalizeLocationName($translatedName);
             }
 

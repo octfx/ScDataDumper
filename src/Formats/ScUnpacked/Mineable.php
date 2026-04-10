@@ -27,7 +27,7 @@ final class Mineable extends BaseFormat
         return $this->removeNullValues([
             'GlobalParamsReference' => $mineableParams->getGlobalParamsReference(),
             'CompositionReference' => $mineableParams->getCompositionReference(),
-            'DepositName' => $this->translate($composition->getDepositName()),
+            'DepositName' => ServiceFactory::getLocalizationService()->translateValue($composition->getDepositName()),
             'MinimumDistinctElements' => $composition->getMinimumDistinctElements(),
             'Composition' => array_values(array_filter(
                 array_map(fn (MineableCompositionPart $part): ?array => $this->formatCompositionPart($part), $composition->getParts())
@@ -51,7 +51,7 @@ final class Mineable extends BaseFormat
             'UUID' => $part->getMineableElementReference(),
             'ResourceTypeReference' => $mineableElement?->getResourceTypeReference(),
             'ResourceTypeClassName' => $resourceType?->getClassName(),
-            'ResourceTypeDisplayName' => $this->translate($resourceType?->get('@displayName')),
+            'ResourceTypeDisplayName' => ServiceFactory::getLocalizationService()->translateValue($resourceType?->get('@displayName')),
             'MinPercentage' => $part->getMinPercentage(),
             'MaxPercentage' => $part->getMaxPercentage(),
             'Probability' => $part->getProbability(),
@@ -60,14 +60,5 @@ final class Mineable extends BaseFormat
             'Instability' => $mineableElement?->getInstability(),
             'Resistance' => $mineableElement?->getResistance(),
         ]);
-    }
-
-    private function translate(?string $value): ?string
-    {
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        return ServiceFactory::getLocalizationService()->getTranslation($value);
     }
 }

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
+use Octfx\ScDataDumper\DocumentTypes\Radar\RadarContactTypeEntry;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
+use Octfx\ScDataDumper\DocumentTypes\Starmap\Jurisdiction;
 use Octfx\ScDataDumper\DocumentTypes\Starmap\StarMapAmenityTypeEntry;
 use Octfx\ScDataDumper\DocumentTypes\Starmap\StarMapAsteroidRing;
 use Octfx\ScDataDumper\DocumentTypes\Starmap\StarMapObject as StarMapObjectDocument;
 use Octfx\ScDataDumper\DocumentTypes\Starmap\StarMapObjectType;
-use Octfx\ScDataDumper\DocumentTypes\Starmap\Jurisdiction;
-use Octfx\ScDataDumper\DocumentTypes\Radar\RadarContactTypeEntry;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
@@ -31,8 +31,8 @@ final class StarMapObject extends BaseFormat
 
         return [
             'uuid' => $object->getUuid(),
-            'name' => $this->translate($object->getName()),
-            'description' => $this->translate($object->getDescription()),
+            'name' => ServiceFactory::getLocalizationService()->translateValue($object->getName()),
+            'description' => ServiceFactory::getLocalizationService()->translateValue($object->getDescription()),
             'parentUuid' => $object->getParentReference(),
             'navIcon' => $object->getNavIcon(),
             'respawnLocationType' => $object->getRespawnLocationType(),
@@ -72,10 +72,8 @@ final class StarMapObject extends BaseFormat
             'subPointRadiusMultiplier' => $object->getQuantumTravelSubPointRadiusMultiplier(),
         ];
 
-        foreach ($quantumTravel as $value) {
-            if ($value !== null) {
-                return $quantumTravel;
-            }
+        if (array_any($quantumTravel, fn($value) => $value !== null)) {
+            return $quantumTravel;
         }
 
         return null;
@@ -109,8 +107,8 @@ final class StarMapObject extends BaseFormat
 
         return [
             'uuid' => $type->getUuid(),
-            'name' => $this->translate($type->getName()),
-            'classification' => $this->translate($type->getClassification()),
+            'name' => ServiceFactory::getLocalizationService()->translateValue($type->getName()),
+            'classification' => ServiceFactory::getLocalizationService()->translateValue($type->getClassification()),
             'spawnNavPoints' => $type->spawnNavPoints(),
             'validQuantumTravelDestination' => $type->validQuantumTravelDestination(),
         ];
@@ -127,7 +125,7 @@ final class StarMapObject extends BaseFormat
 
         return [
             'uuid' => $jurisdiction->getUuid(),
-            'name' => $this->translate($jurisdiction->getName()),
+            'name' => ServiceFactory::getLocalizationService()->translateValue($jurisdiction->getName()),
             'baseFine' => $jurisdiction->getBaseFine(),
             'maxStolenGoodsPossessionScu' => $jurisdiction->getMaxStolenGoodsPossessionScu(),
             'isPrison' => $jurisdiction->getIsPrison(),
@@ -150,7 +148,7 @@ final class StarMapObject extends BaseFormat
 
         return [
             'uuid' => $affiliation->getUuid(),
-            'displayName' => $this->translate($displayName ?? $name),
+            'displayName' => ServiceFactory::getLocalizationService()->translateValue($displayName ?? $name),
         ];
     }
 
@@ -165,8 +163,8 @@ final class StarMapObject extends BaseFormat
 
         return [
             'uuid' => $radarContactType->getUuid(),
-            'name' => $this->translate($radarContactType->getName()),
-            'displayName' => $this->translate($radarContactType->getDisplayName()),
+            'name' => ServiceFactory::getLocalizationService()->translateValue($radarContactType->getName()),
+            'displayName' => ServiceFactory::getLocalizationService()->translateValue($radarContactType->getDisplayName()),
             'tagUuid' => $radarContactType->getTagReference(),
             'tagName' => $radarContactType->getTagName(),
             'isObjectOfInterest' => $radarContactType->isObjectOfInterest(),
@@ -198,21 +196,8 @@ final class StarMapObject extends BaseFormat
     {
         return [
             'uuid' => $amenity->getUuid(),
-            'name' => $this->translate($amenity->getName()),
-            'displayName' => $this->translate($amenity->getDisplayName()),
+            'name' => ServiceFactory::getLocalizationService()->translateValue($amenity->getName()),
+            'displayName' => ServiceFactory::getLocalizationService()->translateValue($amenity->getDisplayName()),
         ];
-    }
-
-    private function translate(?string $value): ?string
-    {
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        if (! str_starts_with($value, '@')) {
-            return $value;
-        }
-
-        return ServiceFactory::getLocalizationService()->getTranslation($value);
     }
 }

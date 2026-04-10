@@ -46,7 +46,7 @@ final class WeaponMode extends BaseFormat
         }
 
         $mode['Name'] = $fireAction->get('@name');
-        $mode['LocalisedName'] = ServiceFactory::getLocalizationService()->getTranslation($fireAction->get('@localisedName'));
+        $mode['LocalisedName'] = ServiceFactory::getLocalizationService()->translateValue($fireAction->get('@localisedName'));
 
         switch ($fireAction->nodeName) {
             case 'SWeaponActionFireSingleParams':

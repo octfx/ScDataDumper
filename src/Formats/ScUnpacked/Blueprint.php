@@ -351,16 +351,7 @@ final class Blueprint extends BaseFormat
     {
         $resourceType = $this->resolveResourceType($cost);
         $quantityScu = Item::convertToScu($cost->get('quantity'));
-        $resourceName = $resourceType?->getDisplayName();
-
-        if (is_string($resourceName) && trim($resourceName) !== '') {
-            try {
-                $resourceName = ServiceFactory::getLocalizationService()->getTranslation($resourceName);
-            } catch (RuntimeException) {
-            }
-        } else {
-            $resourceName = null;
-        }
+        $resourceName = ServiceFactory::getLocalizationService()->translateValue($resourceType?->getDisplayName());
 
         if ($quantityScu !== null) {
             // XML quantities are decimal strings, so round after applying multipliers to avoid float artifacts.
@@ -546,13 +537,10 @@ final class Blueprint extends BaseFormat
         }
 
         $displayName = $nameInfo->get('@displayName');
+        $translated = ServiceFactory::getLocalizationService()->translateValue($displayName);
 
-        if (is_string($displayName) && trim($displayName) !== '') {
-            try {
-                return ServiceFactory::getLocalizationService()->getTranslation($displayName);
-            } catch (RuntimeException) {
-                return $displayName;
-            }
+        if ($translated !== null) {
+            return $translated;
         }
 
         $debugName = $nameInfo->get('@debugName');
@@ -570,15 +558,7 @@ final class Blueprint extends BaseFormat
         $name = $attachDef?->get('Localization/English@Name')
             ?? $attachDef?->get('Localization@Name');
 
-        if (! is_string($name) || trim($name) === '') {
-            return null;
-        }
-
-        try {
-            return ServiceFactory::getLocalizationService()->getTranslation($name);
-        } catch (RuntimeException) {
-            return $name;
-        }
+        return ServiceFactory::getLocalizationService()->translateValue($name);
     }
 
     private function extractClassNameFromPath(?string $path): ?string
@@ -669,14 +649,6 @@ final class Blueprint extends BaseFormat
 
         $name = $record->get('blueprint/CraftingBlueprint@blueprintName');
 
-        if (! is_string($name) || trim($name) === '') {
-            return null;
-        }
-
-        try {
-            return ServiceFactory::getLocalizationService()->getTranslation($name);
-        } catch (RuntimeException) {
-            return $name;
-        }
+        return ServiceFactory::getLocalizationService()->translateValue($name);
     }
 }

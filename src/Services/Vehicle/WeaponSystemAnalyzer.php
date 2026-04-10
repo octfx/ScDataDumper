@@ -5,7 +5,6 @@ namespace Octfx\ScDataDumper\Services\Vehicle;
 use Illuminate\Support\Collection;
 use Octfx\ScDataDumper\Formats\ScUnpacked\ItemPort;
 use Octfx\ScDataDumper\Services\ServiceFactory;
-use RuntimeException;
 
 /**
  * Analyze weapon systems and turret configurations
@@ -115,7 +114,7 @@ final class WeaponSystemAnalyzer implements VehicleDataCalculator
         $summary = [
             'PartName' => $part['Name'] ?? null,
             'HardpointName' => $port['PortName'] ?? null,
-            'DisplayName' => $this->translate($part['DisplayName'] ?? $port['DisplayName'] ?? null),
+            'DisplayName' => ServiceFactory::getLocalizationService()->translateValue($part['DisplayName'] ?? $port['DisplayName'] ?? null),
             'Size' => $this->resolvePortSize($port),
             'TurretClassName' => $this->resolveInstalledItemClassName($port),
             'TurretType' => $this->resolveInstalledItemType($port),
@@ -170,7 +169,7 @@ final class WeaponSystemAnalyzer implements VehicleDataCalculator
 
         $mount = [
             'HardpointName' => $port['PortName'] ?? null,
-            'DisplayName' => $this->translate($port['DisplayName'] ?? null),
+            'DisplayName' => ServiceFactory::getLocalizationService()->translateValue($port['DisplayName'] ?? null),
             'Size' => $this->resolvePortSize($port),
             'MinSize' => $this->normalizeSize($port['MinSize'] ?? null),
             'MaxSize' => $this->normalizeSize($port['MaxSize'] ?? null),
@@ -401,23 +400,6 @@ final class WeaponSystemAnalyzer implements VehicleDataCalculator
         $className = $installedItem['stdItem']['ClassName'] ?? $installedItem['ClassName'] ?? null;
 
         return is_string($className) && $className !== '' ? $className : null;
-    }
-
-    private function translate(?string $value): ?string
-    {
-        if ($value === null || trim($value) === '') {
-            return null;
-        }
-
-        if (! str_starts_with($value, '@')) {
-            return $value;
-        }
-
-        try {
-            return ServiceFactory::getLocalizationService()->getTranslation($value);
-        } catch (RuntimeException) {
-            return $value;
-        }
     }
 
     public function canCalculate(VehicleDataContext $context): bool

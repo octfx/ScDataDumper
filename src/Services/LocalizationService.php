@@ -122,5 +122,34 @@ final class LocalizationService extends BaseService
         return trim($value);
     }
 
+    public function translateValue(mixed $value, bool $excludePlaceholder = false, ?string $locale = null): ?string
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        $trimmed = trim($value);
+
+        if ($excludePlaceholder && in_array($trimmed, ['@LOC_EMPTY', '@blank_space', '@LOC_PLACEHOLDER'], true)) {
+            return null;
+        }
+
+        if (! str_starts_with($trimmed, '@')) {
+            return $trimmed;
+        }
+
+        try {
+            $translated = $this->getTranslation($trimmed, $locale ?? 'english');
+        } catch (RuntimeException) {
+            return null;
+        }
+
+        if ($translated === $trimmed || in_array($translated, ['@LOC_EMPTY', '@blank_space'], true)) {
+            return null;
+        }
+
+        return trim($translated);
+    }
+
     public function initialize(): void {}
 }

@@ -231,29 +231,9 @@ abstract class BaseFormat
         return $acronyms[$result] ?? $result;
     }
 
-    protected function translateLocalizationValue(mixed $value): string
+    protected function translateLocalizationValue(mixed $value, bool $excludePlaceholder = false): string
     {
-        if (! is_string($value) || trim($value) === '') {
-            return '';
-        }
-
-        $trimmed = trim($value);
-
-        if (in_array($trimmed, ['@LOC_EMPTY', '@blank_space'], true)) {
-            return '';
-        }
-
-        if (! str_starts_with($trimmed, '@')) {
-            return $trimmed;
-        }
-
-        $translated = ServiceFactory::getLocalizationService()->getTranslation($trimmed);
-
-        if ($translated === $trimmed || in_array($translated, ['@LOC_EMPTY', '@blank_space'], true)) {
-            return '';
-        }
-
-        return trim($translated);
+        return ServiceFactory::getLocalizationService()->translateValue($value, $excludePlaceholder) ?? '';
     }
 
     /**

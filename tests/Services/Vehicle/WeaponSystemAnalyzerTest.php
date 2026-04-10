@@ -13,6 +13,9 @@ final class WeaponSystemAnalyzerTest extends ScDataTestCase
 {
     public function test_analyze_turrets_includes_part_names_and_recursively_resolves_remote_gun_sizes(): void
     {
+        $this->writeCacheFiles();
+        $this->initializeMinimalItemServices();
+
         $analyzer = new WeaponSystemAnalyzer;
 
         $result = $analyzer->analyzeTurrets(collect([[
@@ -103,6 +106,9 @@ final class WeaponSystemAnalyzerTest extends ScDataTestCase
 
     public function test_calculate_weapon_fitting_keeps_utility_turrets_out_of_fixed_fallback(): void
     {
+        $this->writeCacheFiles();
+        $this->initializeMinimalItemServices();
+
         $analyzer = new WeaponSystemAnalyzer;
 
         $result = $analyzer->calculateWeaponFitting($this->makePort(
@@ -144,6 +150,9 @@ final class WeaponSystemAnalyzerTest extends ScDataTestCase
 
     public function test_calculate_weapon_fitting_uses_installed_turret_size_when_host_port_size_is_zero(): void
     {
+        $this->writeCacheFiles();
+        $this->initializeMinimalItemServices();
+
         $analyzer = new WeaponSystemAnalyzer;
 
         $result = $analyzer->calculateWeaponFitting($this->makePort(
@@ -181,6 +190,9 @@ final class WeaponSystemAnalyzerTest extends ScDataTestCase
 
     public function test_calculate_includes_pdc_turrets(): void
     {
+        $this->writeCacheFiles();
+        $this->initializeMinimalItemServices();
+
         $analyzer = new WeaponSystemAnalyzer;
 
         $context = new VehicleDataContext(

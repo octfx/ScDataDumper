@@ -89,8 +89,8 @@ final readonly class ResourceIndexBuilder
     private function extractIdentity(EntityClassDefinition|ResourceType $entity): array
     {
         $name = $entity instanceof EntityClassDefinition
-            ? $this->translateLocalizationValue($entity->getAttachDef()?->get('Localization@Name'))
-            : $this->translateLocalizationValue($entity->getDisplayName());
+            ? $this->localizationService->translateValue($entity->getAttachDef()?->get('Localization@Name'))
+            : $this->localizationService->translateValue($entity->getDisplayName());
 
         return [
             'uuid' => $entity->getUuid(),
@@ -128,7 +128,7 @@ final readonly class ResourceIndexBuilder
     {
         $mineableParams = $item->getMineableParams();
         $composition = $mineableParams?->getComposition();
-        $depositName = $this->translateLocalizationValue($composition?->getDepositName());
+        $depositName = $this->localizationService->translateValue($composition?->getDepositName());
 
         if ($mineableParams === null || $composition === null) {
             return null;
@@ -378,30 +378,5 @@ final readonly class ResourceIndexBuilder
         unset($value);
 
         return $data;
-    }
-
-    private function translateLocalizationValue(mixed $value): string
-    {
-        if (! is_string($value) || trim($value) === '') {
-            return '';
-        }
-
-        $trimmed = trim($value);
-
-        if (in_array($trimmed, ['@LOC_EMPTY', '@blank_space'], true)) {
-            return '';
-        }
-
-        if (! str_starts_with($trimmed, '@')) {
-            return $trimmed;
-        }
-
-        $translated = $this->localizationService->getTranslation($trimmed);
-
-        if ($translated === $trimmed || in_array($translated, ['@LOC_EMPTY', '@blank_space'], true)) {
-            return '';
-        }
-
-        return trim($translated);
     }
 }

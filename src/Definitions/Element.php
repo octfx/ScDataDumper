@@ -135,7 +135,7 @@ class Element
                         $value = str_replace('_Desc_', '_Name_', $value);
                     }
 
-                    $attributes[$name] = ServiceFactory::getLocalizationService()->getTranslation((string) $value);
+                    $attributes[$name] = ServiceFactory::getLocalizationService()->translateValue((string) $value) ?? (string) $value;
                     $attributes['__'.$name] = (string) $value;
                 } else {
                     $attributes[$name] = (string) $value;
