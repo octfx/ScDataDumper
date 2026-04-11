@@ -153,7 +153,7 @@ class LoadBlueprints extends AbstractDataCommand
 
             yield [
                 'className' => $className,
-                'formatted' => (new Blueprint($blueprint))->toArray(),
+                'formatted' => new Blueprint($blueprint)->toArray(),
                 'rawBlueprint' => $blueprint->toArray(),
                 'defaultJson' => $blueprint->toJson(),
             ];

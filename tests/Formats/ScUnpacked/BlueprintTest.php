@@ -23,6 +23,10 @@ final class BlueprintTest extends ScDataTestCase
 
     private const NESTED_SELECT_BLUEPRINT_UUID = 'd6c03c98-2200-4fc2-ab9d-a33d240c56d3';
 
+    private const DISMANTLE_BLUEPRINT_UUID = 'bb000000-0000-0000-0000-000000000001';
+
+    private const DISMANTLE_BLUEPRINT_CLASS = 'GlobalGenericDismantle';
+
     private const AMMO_OUTPUT_UUID = '8177489f-ed83-44ac-afd4-2b32a80fa0a6';
 
     private const WEAPON_OUTPUT_UUID = '1f3400e1-0aa3-48bf-8595-38f4f4218df9';
@@ -591,6 +595,25 @@ final class BlueprintTest extends ScDataTestCase
             XML
         );
 
+        $dismantleBlueprintPath = $this->writeFile(
+            'Data/Libs/Foundry/Records/crafting/blueprints/dismantle/globalgenericdismantle.xml',
+            <<<'XML'
+            <CraftingBlueprintRecord.GlobalGenericDismantle __type="CraftingBlueprintRecord" __ref="bb000000-0000-0000-0000-000000000001" __path="libs/foundry/records/crafting/blueprints/dismantle/globalgenericdismantle.xml">
+              <blueprint>
+                <GenericCraftingBlueprint>
+                  <processSpecificData>
+                    <GenericCraftingProcess_Dismantle efficiency="0.5">
+                      <dismantleTime>
+                        <TimeValue_Partitioned days="0" hours="0" minutes="0" seconds="15" />
+                      </dismantleTime>
+                    </GenericCraftingProcess_Dismantle>
+                  </processSpecificData>
+                </GenericCraftingBlueprint>
+              </blueprint>
+            </CraftingBlueprintRecord.GlobalGenericDismantle>
+            XML
+        );
+
         $this->writeCacheFiles(
             classToPathMap: [
                 'EntityClassDefinition' => [
@@ -606,6 +629,7 @@ final class BlueprintTest extends ScDataTestCase
                     'BP_CRAFT_test_multi_resource_backpack' => $this->blueprintPaths['multi_resource'],
                     'BP_CRAFT_test_multi_tier_weapon' => $this->blueprintPaths['multi_tier'],
                     'BP_CRAFT_test_nested_select' => $this->blueprintPaths['nested_select'],
+                    'GlobalGenericDismantle' => $dismantleBlueprintPath,
                 ],
             ],
             uuidToClassMap: [
@@ -619,6 +643,7 @@ final class BlueprintTest extends ScDataTestCase
                 self::MULTI_RESOURCE_BLUEPRINT_UUID => 'BP_CRAFT_test_multi_resource_backpack',
                 self::MULTI_TIER_BLUEPRINT_UUID => 'BP_CRAFT_test_multi_tier_weapon',
                 self::NESTED_SELECT_BLUEPRINT_UUID => 'BP_CRAFT_test_nested_select',
+                self::DISMANTLE_BLUEPRINT_UUID => self::DISMANTLE_BLUEPRINT_CLASS,
             ],
             classToUuidMap: [
                 'lbco_sniper_energy_01_mag' => self::AMMO_OUTPUT_UUID,
@@ -631,6 +656,7 @@ final class BlueprintTest extends ScDataTestCase
                 'BP_CRAFT_test_multi_resource_backpack' => self::MULTI_RESOURCE_BLUEPRINT_UUID,
                 'BP_CRAFT_test_multi_tier_weapon' => self::MULTI_TIER_BLUEPRINT_UUID,
                 'BP_CRAFT_test_nested_select' => self::NESTED_SELECT_BLUEPRINT_UUID,
+                self::DISMANTLE_BLUEPRINT_CLASS => self::DISMANTLE_BLUEPRINT_UUID,
             ],
             uuidToPathMap: [
                 self::AMMO_OUTPUT_UUID => $ammoOutputPath,
@@ -643,6 +669,7 @@ final class BlueprintTest extends ScDataTestCase
                 self::MULTI_RESOURCE_BLUEPRINT_UUID => $this->blueprintPaths['multi_resource'],
                 self::MULTI_TIER_BLUEPRINT_UUID => $this->blueprintPaths['multi_tier'],
                 self::NESTED_SELECT_BLUEPRINT_UUID => $this->blueprintPaths['nested_select'],
+                self::DISMANTLE_BLUEPRINT_UUID => $dismantleBlueprintPath,
             ],
         );
         $this->writeResourceTypeCache([
@@ -664,46 +691,46 @@ final class BlueprintTest extends ScDataTestCase
         $formatted = (new Blueprint($blueprint))->toArray();
 
         self::assertSame([
-            'uuid' => self::AMMO_BLUEPRINT_UUID,
-            'key' => 'BP_CRAFT_lbco_sniper_energy_01_mag',
-            'kind' => 'creation',
-            'category_uuid' => self::WEAPON_AND_AMMO_CATEGORY_UUID,
-            'output' => [
-                'uuid' => self::AMMO_OUTPUT_UUID,
-                'class' => 'lbco_sniper_energy_01_mag',
-                'type' => 'WeaponAttachment',
-                'subtype' => 'Magazine',
-                'grade' => '1',
-                'name' => 'Atzkav Sniper Rifle Battery (8 cap)',
+            'UUID' => self::AMMO_BLUEPRINT_UUID,
+            'Key' => 'BP_CRAFT_lbco_sniper_energy_01_mag',
+            'Kind' => 'creation',
+            'CategoryUuid' => self::WEAPON_AND_AMMO_CATEGORY_UUID,
+            'Output' => [
+                'UUID' => self::AMMO_OUTPUT_UUID,
+                'Class' => 'lbco_sniper_energy_01_mag',
+                'Type' => 'WeaponAttachment',
+                'Subtype' => 'Magazine',
+                'Grade' => '1',
+                'Name' => 'Atzkav Sniper Rifle Battery (8 cap)',
             ],
-            'availability' => [
-                'default' => false,
-                'reward_pools' => [
+            'Availability' => [
+                'Default' => false,
+                'RewardPools' => [
                     [
-                        'uuid' => self::REWARD_POOL_UUID,
-                        'key' => self::REWARD_POOL_KEY,
+                        'UUID' => self::REWARD_POOL_UUID,
+                        'Key' => self::REWARD_POOL_KEY,
                     ],
                 ],
             ],
-            'tiers' => [
+            'Tiers' => [
                 [
-                    'tier_index' => 0,
-                    'craft_time_seconds' => 10,
-                    'requirements' => [
-                        'kind' => 'root',
-                        'children' => [
+                    'TierIndex' => 0,
+                    'CraftTimeSeconds' => 10,
+                    'Requirements' => [
+                        'Kind' => 'root',
+                        'Children' => [
                             [
-                                'kind' => 'group',
-                                'key' => 'MAGAZINE',
-                                'name' => 'Magazine',
-                                'required_count' => 1,
-                                'children' => [
+                                'Kind' => 'group',
+                                'Key' => 'MAGAZINE',
+                                'Name' => 'Magazine',
+                                'RequiredCount' => 1,
+                                'Children' => [
                                     [
-                                        'kind' => 'resource',
-                                        'uuid' => self::HEPHAESTANITE_UUID,
-                                        'name' => 'Hephaestanite',
-                                        'quantity_scu' => 0.0345,
-                                        'min_quality' => 0,
+                                        'Kind' => 'resource',
+                                        'UUID' => self::HEPHAESTANITE_UUID,
+                                        'Name' => 'Hephaestanite',
+                                        'QuantityScu' => 0.0345,
+                                        'MinQuality' => 0,
                                     ],
                                 ],
                             ],
@@ -711,10 +738,22 @@ final class BlueprintTest extends ScDataTestCase
                     ],
                 ],
             ],
+            'Dismantle' => [
+                'TimeSeconds' => 15,
+                'Efficiency' => 0.5,
+                'Returns' => [
+                    [
+                        'Kind' => 'resource',
+                        'UUID' => self::HEPHAESTANITE_UUID,
+                        'Name' => 'Hephaestanite',
+                        'QuantityScu' => 0.01725,
+                    ],
+                ],
+            ],
         ], $formatted);
 
         self::assertArrayNotHasKey('schema_version', $formatted);
-        self::assertArrayNotHasKey('node_type', $formatted['tiers'][0]['requirements']);
+        self::assertArrayNotHasKey('node_type', $formatted['Tiers'][0]['Requirements']);
     }
 
     public function test_to_array_resolves_relations_when_reference_hydration_is_disabled(): void
@@ -724,10 +763,10 @@ final class BlueprintTest extends ScDataTestCase
 
         $formatted = (new Blueprint($blueprint))->toArray();
 
-        self::assertSame(self::AMMO_OUTPUT_UUID, $formatted['output']['uuid']);
-        self::assertSame('Atzkav Sniper Rifle Battery (8 cap)', $formatted['output']['name']);
-        self::assertSame(self::HEPHAESTANITE_UUID, $formatted['tiers'][0]['requirements']['children'][0]['children'][0]['uuid']);
-        self::assertSame('Hephaestanite', $formatted['tiers'][0]['requirements']['children'][0]['children'][0]['name']);
+        self::assertSame(self::AMMO_OUTPUT_UUID, $formatted['Output']['UUID']);
+        self::assertSame('Atzkav Sniper Rifle Battery (8 cap)', $formatted['Output']['Name']);
+        self::assertSame(self::HEPHAESTANITE_UUID, $formatted['Tiers'][0]['Requirements']['Children'][0]['Children'][0]['UUID']);
+        self::assertSame('Hephaestanite', $formatted['Tiers'][0]['Requirements']['Children'][0]['Children'][0]['Name']);
     }
 
     public function test_to_array_preserves_required_input_count_and_resource_input_modifiers(): void
@@ -735,29 +774,29 @@ final class BlueprintTest extends ScDataTestCase
         $blueprint = $this->loadBlueprint('multi_resource');
 
         $formatted = (new Blueprint($blueprint))->toArray();
-        $slot = $formatted['tiers'][0]['requirements']['children'][0];
-        $hephaestanite = $slot['children'][0];
-        $gold = $slot['children'][1];
+        $slot = $formatted['Tiers'][0]['Requirements']['Children'][0];
+        $hephaestanite = $slot['Children'][0];
+        $gold = $slot['Children'][1];
 
-        self::assertSame('group', $slot['kind']);
-        self::assertSame('ARMOURED CARAPACE', $slot['key']);
-        self::assertSame('Armoured Carapace', $slot['name']);
-        self::assertSame(2, $slot['required_count']);
+        self::assertSame('group', $slot['Kind']);
+        self::assertSame('ARMOURED CARAPACE', $slot['Key']);
+        self::assertSame('Armoured Carapace', $slot['Name']);
+        self::assertSame(2, $slot['RequiredCount']);
 
-        self::assertSame('resource', $hephaestanite['kind']);
-        self::assertSame(self::HEPHAESTANITE_UUID, $hephaestanite['uuid']);
-        self::assertSame('Hephaestanite', $hephaestanite['name']);
-        self::assertSame(0.04, $hephaestanite['quantity_scu']);
-        self::assertSame(0, $hephaestanite['min_quality']);
-        self::assertSame(self::WEAPON_DAMAGE_PROPERTY_UUID, $hephaestanite['modifiers'][0]['property_uuid']);
-        self::assertArrayNotHasKey('stat_modifiers', $hephaestanite);
+        self::assertSame('resource', $hephaestanite['Kind']);
+        self::assertSame(self::HEPHAESTANITE_UUID, $hephaestanite['UUID']);
+        self::assertSame('Hephaestanite', $hephaestanite['Name']);
+        self::assertSame(0.04, $hephaestanite['QuantityScu']);
+        self::assertSame(0, $hephaestanite['MinQuality']);
+        self::assertSame(self::WEAPON_DAMAGE_PROPERTY_UUID, $hephaestanite['Modifiers'][0]['PropertyUuid']);
+        self::assertArrayNotHasKey('StatModifiers', $hephaestanite);
 
-        self::assertSame('resource', $gold['kind']);
-        self::assertSame(self::GOLD_UUID, $gold['uuid']);
-        self::assertSame('Gold', $gold['name']);
-        self::assertSame(0.04, $gold['quantity_scu']);
-        self::assertSame(500, $gold['min_quality']);
-        self::assertSame(self::WEAPON_DAMAGE_PROPERTY_UUID, $gold['modifiers'][0]['property_uuid']);
+        self::assertSame('resource', $gold['Kind']);
+        self::assertSame(self::GOLD_UUID, $gold['UUID']);
+        self::assertSame('Gold', $gold['Name']);
+        self::assertSame(0.04, $gold['QuantityScu']);
+        self::assertSame(500, $gold['MinQuality']);
+        self::assertSame(self::WEAPON_DAMAGE_PROPERTY_UUID, $gold['Modifiers'][0]['PropertyUuid']);
     }
 
     public function test_to_array_preserves_unnamed_top_level_select_requirements(): void
@@ -820,16 +859,16 @@ final class BlueprintTest extends ScDataTestCase
         $document->load($path);
 
         $formatted = (new Blueprint($document))->toArray();
-        $requirements = $formatted['tiers'][0]['requirements'];
-        $group = $requirements['children'][0];
+        $requirements = $formatted['Tiers'][0]['Requirements'];
+        $group = $requirements['Children'][0];
 
-        self::assertCount(1, $requirements['children']);
-        self::assertSame('group', $group['kind']);
-        self::assertArrayNotHasKey('key', $group);
-        self::assertArrayNotHasKey('name', $group);
-        self::assertSame(2, $group['required_count']);
-        self::assertSame(self::WEAPON_DAMAGE_PROPERTY_UUID, $group['modifiers'][0]['property_uuid']);
-        self::assertSame(['item', 'resource'], array_column($group['children'], 'kind'));
+        self::assertCount(1, $requirements['Children']);
+        self::assertSame('group', $group['Kind']);
+        self::assertArrayNotHasKey('Key', $group);
+        self::assertArrayNotHasKey('Name', $group);
+        self::assertSame(2, $group['RequiredCount']);
+        self::assertSame(self::WEAPON_DAMAGE_PROPERTY_UUID, $group['Modifiers'][0]['PropertyUuid']);
+        self::assertSame(['item', 'resource'], array_column($group['Children'], 'Kind'));
     }
 
     public function test_to_array_preserves_anonymous_choose_one_select_groups(): void
@@ -891,15 +930,15 @@ final class BlueprintTest extends ScDataTestCase
         $document->load($path);
 
         $formatted = (new Blueprint($document))->toArray();
-        $requirements = $formatted['tiers'][0]['requirements'];
-        $group = $requirements['children'][0];
+        $requirements = $formatted['Tiers'][0]['Requirements'];
+        $group = $requirements['Children'][0];
 
-        self::assertCount(1, $requirements['children']);
-        self::assertSame('group', $group['kind']);
-        self::assertArrayNotHasKey('key', $group);
-        self::assertArrayNotHasKey('name', $group);
-        self::assertSame(1, $group['required_count']);
-        self::assertSame(['BARREL', 'FRAME'], array_column($group['children'], 'key'));
+        self::assertCount(1, $requirements['Children']);
+        self::assertSame('group', $group['Kind']);
+        self::assertArrayNotHasKey('Key', $group);
+        self::assertArrayNotHasKey('Name', $group);
+        self::assertSame(1, $group['RequiredCount']);
+        self::assertSame(['BARREL', 'FRAME'], array_column($group['Children'], 'Key'));
     }
 
     public function test_to_array_formats_v2_multiple_tiers_without_flattening_them(): void
@@ -908,29 +947,29 @@ final class BlueprintTest extends ScDataTestCase
 
         $formatted = (new Blueprint($blueprint))->toArray();
 
-        self::assertCount(2, $formatted['tiers']);
-        self::assertSame(45, $formatted['tiers'][0]['craft_time_seconds']);
-        self::assertSame(120, $formatted['tiers'][1]['craft_time_seconds']);
+        self::assertCount(2, $formatted['Tiers']);
+        self::assertSame(45, $formatted['Tiers'][0]['CraftTimeSeconds']);
+        self::assertSame(120, $formatted['Tiers'][1]['CraftTimeSeconds']);
 
-        $resourceSlot = $formatted['tiers'][0]['requirements']['children'][0];
-        $resourceLeaf = $resourceSlot['children'][0];
-        self::assertSame('group', $resourceSlot['kind']);
-        self::assertSame('GRIP', $resourceSlot['key']);
-        self::assertSame('Grip', $resourceSlot['name']);
-        self::assertSame('resource', $resourceLeaf['kind']);
-        self::assertSame(self::GOLD_UUID, $resourceLeaf['uuid']);
-        self::assertSame('Gold', $resourceLeaf['name']);
+        $resourceSlot = $formatted['Tiers'][0]['Requirements']['Children'][0];
+        $resourceLeaf = $resourceSlot['Children'][0];
+        self::assertSame('group', $resourceSlot['Kind']);
+        self::assertSame('GRIP', $resourceSlot['Key']);
+        self::assertSame('Grip', $resourceSlot['Name']);
+        self::assertSame('resource', $resourceLeaf['Kind']);
+        self::assertSame(self::GOLD_UUID, $resourceLeaf['UUID']);
+        self::assertSame('Gold', $resourceLeaf['Name']);
 
-        $itemSlot = $formatted['tiers'][1]['requirements']['children'][0];
-        $itemLeaf = $itemSlot['children'][0];
-        self::assertSame('group', $itemSlot['kind']);
-        self::assertSame('GRIP', $itemSlot['key']);
-        self::assertSame('Grip', $itemSlot['name']);
-        self::assertSame('item', $itemLeaf['kind']);
-        self::assertSame(self::ARMOUR_INPUT_UUID, $itemLeaf['uuid']);
-        self::assertSame('Hadanite', $itemLeaf['name']);
-        self::assertSame(3, $itemLeaf['quantity']);
-        self::assertSame(600, $itemLeaf['min_quality']);
+        $itemSlot = $formatted['Tiers'][1]['Requirements']['Children'][0];
+        $itemLeaf = $itemSlot['Children'][0];
+        self::assertSame('group', $itemSlot['Kind']);
+        self::assertSame('GRIP', $itemSlot['Key']);
+        self::assertSame('Grip', $itemSlot['Name']);
+        self::assertSame('item', $itemLeaf['Kind']);
+        self::assertSame(self::ARMOUR_INPUT_UUID, $itemLeaf['UUID']);
+        self::assertSame('Hadanite', $itemLeaf['Name']);
+        self::assertSame(3, $itemLeaf['Quantity']);
+        self::assertSame(600, $itemLeaf['MinQuality']);
     }
 
     public function test_to_array_formats_v2_preserves_nested_selects_and_unknown_nodes(): void
@@ -939,29 +978,29 @@ final class BlueprintTest extends ScDataTestCase
 
         $formatted = (new Blueprint($blueprint))->toArray();
 
-        $frameNode = $formatted['tiers'][0]['requirements']['children'][0];
-        self::assertSame('group', $frameNode['kind']);
-        self::assertSame('FRAME', $frameNode['key']);
-        self::assertSame('Frame', $frameNode['name']);
-        self::assertSame(self::WEAPON_DAMAGE_PROPERTY_UUID, $frameNode['modifiers'][0]['property_uuid']);
+        $frameNode = $formatted['Tiers'][0]['Requirements']['Children'][0];
+        self::assertSame('group', $frameNode['Kind']);
+        self::assertSame('FRAME', $frameNode['Key']);
+        self::assertSame('Frame', $frameNode['Name']);
+        self::assertSame(self::WEAPON_DAMAGE_PROPERTY_UUID, $frameNode['Modifiers'][0]['PropertyUuid']);
 
-        $innerGroup = $frameNode['children'][0];
-        self::assertSame('group', $innerGroup['kind']);
-        self::assertSame('INNER GROUP', $innerGroup['key']);
-        self::assertSame('Inner Group', $innerGroup['name']);
+        $innerGroup = $frameNode['Children'][0];
+        self::assertSame('group', $innerGroup['Kind']);
+        self::assertSame('INNER GROUP', $innerGroup['Key']);
+        self::assertSame('Inner Group', $innerGroup['Name']);
 
-        $resource = $innerGroup['children'][0];
-        self::assertSame('resource', $resource['kind']);
-        self::assertSame(self::HEPHAESTANITE_UUID, $resource['uuid']);
-        self::assertSame('Hephaestanite', $resource['name']);
-        self::assertSame(self::WEAPON_FIRERATE_PROPERTY_UUID, $resource['modifiers'][0]['property_uuid']);
+        $resource = $innerGroup['Children'][0];
+        self::assertSame('resource', $resource['Kind']);
+        self::assertSame(self::HEPHAESTANITE_UUID, $resource['UUID']);
+        self::assertSame('Hephaestanite', $resource['Name']);
+        self::assertSame(self::WEAPON_FIRERATE_PROPERTY_UUID, $resource['Modifiers'][0]['PropertyUuid']);
 
-        $unknown = $innerGroup['children'][1];
-        self::assertSame('unknown', $unknown['kind']);
-        self::assertSame('CraftingCost_Custom', $unknown['xml_node_name']);
-        self::assertSame('custom-node', $unknown['attributes']['customRef']);
-        self::assertSame(2, $unknown['attributes']['count']);
-        self::assertArrayNotHasKey('source_node_name', $unknown);
+        $unknown = $innerGroup['Children'][1];
+        self::assertSame('unknown', $unknown['Kind']);
+        self::assertSame('CraftingCost_Custom', $unknown['XmlNodeName']);
+        self::assertSame('custom-node', $unknown['Attributes']['CustomRef']);
+        self::assertSame(2, $unknown['Attributes']['Count']);
+        self::assertArrayNotHasKey('SourceNodeName', $unknown);
     }
 
     public function test_to_array_preserves_non_trivial_aspects_wrapper_counts(): void
@@ -1034,15 +1073,15 @@ final class BlueprintTest extends ScDataTestCase
         $document->load($path);
 
         $formatted = (new Blueprint($document))->toArray();
-        $groups = $formatted['tiers'][0]['requirements']['children'];
+        $groups = $formatted['Tiers'][0]['Requirements']['Children'];
         $aspects = $groups[0];
 
         self::assertCount(1, $groups);
-        self::assertSame('group', $aspects['kind']);
-        self::assertSame('ASPECTS', $aspects['key']);
-        self::assertSame('Aspects', $aspects['name']);
-        self::assertSame(2, $aspects['required_count']);
-        self::assertSame(['BARREL', 'FRAME', 'SIGHT'], array_column($aspects['children'], 'key'));
+        self::assertSame('group', $aspects['Kind']);
+        self::assertSame('ASPECTS', $aspects['Key']);
+        self::assertSame('Aspects', $aspects['Name']);
+        self::assertSame(2, $aspects['RequiredCount']);
+        self::assertSame(['BARREL', 'FRAME', 'SIGHT'], array_column($aspects['Children'], 'Key'));
     }
 
     public function test_to_array_flattens_synthetic_aspects_wrapper(): void
@@ -1050,13 +1089,94 @@ final class BlueprintTest extends ScDataTestCase
         $blueprint = $this->loadBlueprint('weapon');
 
         $formatted = (new Blueprint($blueprint))->toArray();
-        $groups = $formatted['tiers'][0]['requirements']['children'];
+        $groups = $formatted['Tiers'][0]['Requirements']['Children'];
 
         self::assertCount(2, $groups);
-        self::assertSame(['BARREL', 'FRAME'], array_column($groups, 'key'));
-        self::assertNotContains('ASPECTS', array_column($groups, 'key'));
-        self::assertSame('Barrel', $groups[0]['name']);
-        self::assertSame('Frame', $groups[1]['name']);
+        self::assertSame(['BARREL', 'FRAME'], array_column($groups, 'Key'));
+        self::assertNotContains('ASPECTS', array_column($groups, 'Key'));
+        self::assertSame('Barrel', $groups[0]['Name']);
+        self::assertSame('Frame', $groups[1]['Name']);
+    }
+
+    public function test_dismantle_flattens_groups_into_flat_returns(): void
+    {
+        $blueprint = $this->loadBlueprint('multi_resource');
+
+        $formatted = (new Blueprint($blueprint))->toArray();
+
+        $dismantle = $formatted['Dismantle'];
+        self::assertSame(15, $dismantle['TimeSeconds']);
+        self::assertSame(0.5, $dismantle['Efficiency']);
+
+        $returns = $dismantle['Returns'];
+        self::assertCount(2, $returns);
+
+        self::assertSame('resource', $returns[0]['Kind']);
+        self::assertSame(self::HEPHAESTANITE_UUID, $returns[0]['UUID']);
+        self::assertSame('Hephaestanite', $returns[0]['Name']);
+        self::assertSame(0.02, $returns[0]['QuantityScu']);
+
+        self::assertSame('resource', $returns[1]['Kind']);
+        self::assertSame(self::GOLD_UUID, $returns[1]['UUID']);
+        self::assertSame('Gold', $returns[1]['Name']);
+        self::assertSame(0.02, $returns[1]['QuantityScu']);
+    }
+
+    public function test_dismantle_floors_item_quantities_and_excludes_zero(): void
+    {
+        $blueprint = $this->loadBlueprint('armour');
+
+        $formatted = (new Blueprint($blueprint))->toArray();
+
+        $dismantle = $formatted['Dismantle'];
+        $returns = $dismantle['Returns'];
+
+        $itemReturns = array_filter($returns, static fn (array $r): bool => $r['Kind'] === 'item');
+        self::assertCount(1, $itemReturns);
+
+        $itemReturn = reset($itemReturns);
+        self::assertSame(self::ARMOUR_INPUT_UUID, $itemReturn['UUID']);
+        self::assertSame('Hadanite', $itemReturn['Name']);
+        self::assertSame(1, $itemReturn['Quantity']);
+    }
+
+    public function test_dismantle_aggregates_across_all_tiers(): void
+    {
+        $blueprint = $this->loadBlueprint('multi_tier');
+
+        $formatted = (new Blueprint($blueprint))->toArray();
+
+        $dismantle = $formatted['Dismantle'];
+        $returns = $dismantle['Returns'];
+
+        $kinds = array_column($returns, 'Kind');
+        self::assertContains('resource', $kinds);
+        self::assertContains('item', $kinds);
+
+        $resourceReturn = array_values(array_filter($returns, static fn (array $r): bool => $r['Kind'] === 'resource'))[0];
+        self::assertSame(self::GOLD_UUID, $resourceReturn['UUID']);
+        self::assertSame(0.005, $resourceReturn['QuantityScu']);
+
+        $itemReturn = array_values(array_filter($returns, static fn (array $r): bool => $r['Kind'] === 'item'))[0];
+        self::assertSame(self::ARMOUR_INPUT_UUID, $itemReturn['UUID']);
+        self::assertSame(1, $itemReturn['Quantity']);
+    }
+
+    public function test_dismantle_is_null_when_no_global_dismantle_blueprint(): void
+    {
+        $classToPathMapPath = sprintf('%s%sclassToPathMap-%s.json', $this->tempDir, DIRECTORY_SEPARATOR, PHP_OS_FAMILY);
+        $map = json_decode(file_get_contents($classToPathMapPath), true, 512, JSON_THROW_ON_ERROR);
+        unset($map['CraftingBlueprintRecord']['GlobalGenericDismantle']);
+        file_put_contents($classToPathMapPath, json_encode($map, JSON_THROW_ON_ERROR));
+
+        ServiceFactory::reset();
+        $this->initializeBlueprintFormattingServices();
+
+        $blueprint = $this->loadBlueprint('ammo');
+
+        $formatted = (new Blueprint($blueprint))->toArray();
+
+        self::assertArrayNotHasKey('Dismantle', $formatted);
     }
 
     private function loadBlueprint(string $fixture): CraftingBlueprintRecord

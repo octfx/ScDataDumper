@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingBlueprintRecord;
-use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingGameplayPropertyDef;
+use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingCost;
+use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingGameplayPropertyModifier;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
-use Octfx\ScDataDumper\DocumentTypes\ResourceType;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
@@ -23,17 +22,19 @@ final class Blueprint extends BaseFormat
             return null;
         }
 
-        $blueprint = $this->get();
         $uuid = $this->item?->getUuid();
+
+        $record = $this->item instanceof CraftingBlueprintRecord ? $this->item : null;
 
         return $this->transformArrayKeysToPascalCase($this->removeNullValuesPreservingEmptyArrays([
             'uuid' => $uuid,
             'key' => $this->item?->getClassName(),
             'kind' => 'creation',
-            'category_uuid' => $blueprint->get('@category'),
-            'output' => $this->buildOutput($this->resolveOutputEntity()),
+            'category_uuid' => $record?->getCategoryUuid(),
+            'output' => $this->buildOutput($record?->getOutputEntity()),
             'availability' => $this->buildAvailability($uuid),
-            'tiers' => $this->buildTiers($blueprint->get('tiers')),
+            'tiers' => $this->buildTiers($record),
+            'dismantle' => $this->buildDismantle($record),
         ]));
     }
 
@@ -43,33 +44,14 @@ final class Blueprint extends BaseFormat
             return [];
         }
 
-        $attachDef = $outputEntity->getAttachDef();
-        $grade = $attachDef?->get('@Grade');
-
         return $this->removeNullValuesPreservingEmptyArrays([
             'uuid' => $outputEntity->getUuid(),
-            'class' => $this->extractClassNameFromPath($outputEntity->getPath()),
-            'type' => $attachDef?->get('@Type'),
-            'subtype' => $attachDef?->get('@SubType'),
-            'grade' => $grade !== null ? (string) $grade : null,
-            'name' => $this->readItemName($outputEntity),
+            'class' => EntityClassDefinition::extractClassNameFromPath($outputEntity->getPath()),
+            'type' => $outputEntity->getAttachType(),
+            'subtype' => $outputEntity->getAttachSubType(),
+            'grade' => $outputEntity->getGrade(),
+            'name' => $outputEntity->getDisplayName(),
         ]);
-    }
-
-    private function buildCraftTimeSeconds(?Element $timeValue): int|float|null
-    {
-        if ($timeValue === null) {
-            return null;
-        }
-
-        $days = (float) ($timeValue->get('@days') ?? 0);
-        $hours = (float) ($timeValue->get('@hours') ?? 0);
-        $minutes = (float) ($timeValue->get('@minutes') ?? 0);
-        $seconds = (float) ($timeValue->get('@seconds') ?? 0);
-
-        return $this->normalizeNumber(
-            ($days * 86400) + ($hours * 3600) + ($minutes * 60) + $seconds
-        );
     }
 
     /**
@@ -102,37 +84,19 @@ final class Blueprint extends BaseFormat
     /**
      * @return list<array<string, mixed>>
      */
-    private function collectTierElements(?Element $tiers): array
+    private function buildTiers(?CraftingBlueprintRecord $record): array
     {
-        if ($tiers === null) {
+        if ($record === null) {
             return [];
         }
 
         $results = [];
 
-        foreach ($tiers->children() as $tier) {
-            if ($tier->nodeName === 'CraftingBlueprintTier') {
-                $results[] = $tier;
-            }
-        }
-
-        return $results;
-    }
-
-    /**
-     * @return list<array<string, mixed>>
-     */
-    private function buildTiers(?Element $tiers): array
-    {
-        $results = [];
-
-        foreach ($this->collectTierElements($tiers) as $index => $tier) {
+        foreach ($record->getTierElements() as $index => $tier) {
             $results[] = $this->removeNullValuesPreservingEmptyArrays([
                 'tier_index' => $index,
-                'craft_time_seconds' => $this->buildCraftTimeSeconds(
-                    $tier->get('recipe/CraftingRecipe/costs/CraftingRecipeCosts/craftTime/TimeValue_Partitioned')
-                ),
-                'requirements' => $this->buildRequirements($tier->get('recipe/CraftingRecipe/costs/CraftingRecipeCosts/mandatoryCost')),
+                'craft_time_seconds' => $this->normalizeNumber($tier->getCraftTimeSeconds()),
+                'requirements' => $this->buildRequirements($tier->getMandatoryCost()),
             ]);
         }
 
@@ -140,22 +104,104 @@ final class Blueprint extends BaseFormat
     }
 
     /**
-     * @return array<string, mixed>|null
+     * @return array{time_seconds: int, efficiency: float, returns: list<array<string, mixed>>}|null
      */
-    private function buildRequirements(?Element $mandatoryCost): ?array
+    private function buildDismantle(?CraftingBlueprintRecord $record): ?array
     {
-        if ($mandatoryCost === null) {
+        if ($record === null) {
             return null;
         }
 
-        return $this->buildRootNode($mandatoryCost);
+        try {
+            $dismantleParams = ServiceFactory::getBlueprintService()->getDismantleParams();
+        } catch (RuntimeException) {
+            return null;
+        }
+
+        if ($dismantleParams === null) {
+            return null;
+        }
+
+        $efficiency = $dismantleParams['efficiency'];
+        $returns = [];
+
+        foreach ($record->getAllLeafCosts() as $leaf) {
+            $kind = $leaf->getCostKind();
+
+            if ($kind === 'item') {
+                $entry = $this->buildDismantleItemReturn($leaf, $efficiency);
+
+                if ($entry !== null) {
+                    $returns[] = $entry;
+                }
+            } elseif ($kind === 'resource') {
+                $returns[] = $this->buildDismantleResourceReturn($leaf, $efficiency);
+            }
+        }
+
+        return [
+            'time_seconds' => $dismantleParams['time_seconds'],
+            'efficiency' => $efficiency,
+            'returns' => $returns,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function buildDismantleItemReturn(CraftingCost $cost, float $efficiency): ?array
+    {
+        $inputEntity = $cost->getInputEntity();
+        $rawQuantity = $cost->getQuantity();
+
+        if ($rawQuantity === null) {
+            return null;
+        }
+
+        $quantity = (int) floor((float) $rawQuantity * $efficiency);
+
+        if ($quantity <= 0) {
+            return null;
+        }
+
+        return $this->removeNullValuesPreservingEmptyArrays([
+            'kind' => 'item',
+            'uuid' => $inputEntity?->getUuid() ?? $cost->getEntityClassReference(),
+            'name' => $inputEntity?->getDisplayName(),
+            'quantity' => $quantity,
+        ]);
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function buildRootNode(Element $mandatoryCost): array
+    private function buildDismantleResourceReturn(CraftingCost $cost, float $efficiency): array
     {
+        $resourceType = $cost->getResourceType();
+        $quantityScu = Item::convertToScu($cost->getQuantityElement());
+        $resourceName = ServiceFactory::getLocalizationService()->translateValue($resourceType?->getDisplayName());
+
+        if ($quantityScu !== null) {
+            $quantityScu = round($quantityScu * $cost->getQuantityMultiplier() * $efficiency, 9);
+        }
+
+        return $this->removeNullValuesPreservingEmptyArrays([
+            'kind' => 'resource',
+            'uuid' => $resourceType?->getUuid() ?? $cost->getResourceReference(),
+            'name' => $resourceName,
+            'quantity_scu' => $quantityScu,
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function buildRequirements(?CraftingCost $mandatoryCost): ?array
+    {
+        if ($mandatoryCost === null) {
+            return null;
+        }
+
         return [
             'kind' => 'root',
             'children' => $this->buildCostChildren($mandatoryCost),
@@ -165,32 +211,31 @@ final class Blueprint extends BaseFormat
     /**
      * @return array<string, mixed>|null
      */
-    private function buildCostNode(Element $node): ?array
+    private function buildCostNode(CraftingCost $cost): ?array
     {
-        return match ($node->nodeName) {
-            'CraftingCost_Select' => $this->buildGroupNode($node),
-            'CraftingCost_Item' => $this->buildLeafNode('item', $node, $this->buildItemInput($node)),
-            'CraftingCost_Resource' => $this->buildLeafNode('resource', $node, $this->buildResourceInput($node)),
-            'CraftingCost_Blueprint', 'CraftingCost_BlueprintRef' => $this->buildLeafNode('blueprint_ref', $node, $this->buildBlueprintReferenceInput($node)),
-            default => $this->buildUnknownNode($node),
+        return match ($cost->getCostKind()) {
+            'group' => $this->buildGroupNode($cost),
+            'item' => $this->buildLeafNode('item', $cost, $this->buildItemInput($cost)),
+            'resource' => $this->buildLeafNode('resource', $cost, $this->buildResourceInput($cost)),
+            'blueprint_ref' => $this->buildLeafNode('blueprint_ref', $cost, $this->buildBlueprintReferenceInput($cost)),
+            default => $this->buildUnknownNode($cost),
         };
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function buildGroupNode(Element $node): array
+    private function buildGroupNode(CraftingCost $cost): array
     {
-        $nameInfo = $node->get('nameInfo');
-        $modifiers = $this->buildStatModifiers($node);
+        $modifiers = $this->buildStatModifiers($cost);
 
         return $this->removeNullValuesPreservingEmptyArrays([
             'kind' => 'group',
-            'key' => $nameInfo?->get('@debugName'),
-            'name' => $this->buildResolvedNodeName($nameInfo),
-            'required_count' => $this->normalizeNumber($node->get('@count')),
+            'key' => $cost->getDebugName(),
+            'name' => $cost->getResolvedName(),
+            'required_count' => $cost->getRequiredCount(),
             'modifiers' => $modifiers === [] ? null : $modifiers,
-            'children' => $this->buildCostChildren($node),
+            'children' => $this->buildCostChildren($cost),
         ]);
     }
 
@@ -198,9 +243,9 @@ final class Blueprint extends BaseFormat
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
-    private function buildLeafNode(string $kind, Element $node, array $payload): array
+    private function buildLeafNode(string $kind, CraftingCost $cost, array $payload): array
     {
-        $modifiers = $this->buildStatModifiers($node);
+        $modifiers = $this->buildStatModifiers($cost);
 
         return $this->removeNullValuesPreservingEmptyArrays([
             'kind' => $kind,
@@ -212,14 +257,14 @@ final class Blueprint extends BaseFormat
     /**
      * @return array<string, mixed>
      */
-    private function buildUnknownNode(Element $node): array
+    private function buildUnknownNode(CraftingCost $cost): array
     {
-        $children = $this->buildCostChildren($node);
-        $attributes = $this->buildAttributes($node);
+        $children = $this->buildCostChildren($cost);
+        $attributes = $cost->getAttributes();
 
         return $this->removeNullValuesPreservingEmptyArrays([
             'kind' => 'unknown',
-            'xml_node_name' => $node->nodeName,
+            'xml_node_name' => $cost->getNodeName(),
             'attributes' => $attributes === [] ? null : $attributes,
             'children' => $children === [] ? null : $children,
         ]);
@@ -228,22 +273,12 @@ final class Blueprint extends BaseFormat
     /**
      * @return list<array<string, mixed>>
      */
-    private function buildCostChildren(Element $node): array
+    private function buildCostChildren(CraftingCost $cost): array
     {
-        $container = $node->get('options');
-
-        if (! $container instanceof Element) {
-            $container = $node;
-        }
-
         $children = [];
 
-        foreach ($container->children() as $child) {
-            if (! $this->isCostNode($child)) {
-                continue;
-            }
-
-            if ($this->isSyntheticSelectWrapper($child)) {
+        foreach ($cost->getCostChildren() as $child) {
+            if ($child->isSyntheticSelectWrapper()) {
                 array_push($children, ...$this->buildCostChildren($child));
 
                 continue;
@@ -259,165 +294,50 @@ final class Blueprint extends BaseFormat
         return $children;
     }
 
-    private function isCostNode(Element $node): bool
-    {
-        return str_starts_with($node->nodeName, 'CraftingCost_');
-    }
-
-    private function isSyntheticSelectWrapper(Element $node): bool
-    {
-        if ($node->nodeName !== 'CraftingCost_Select') {
-            return false;
-        }
-
-        $selectChildCount = $this->countSelectChildren($node);
-
-        if ($selectChildCount === 0) {
-            return false;
-        }
-
-        if ($this->buildStatModifiers($node) !== []) {
-            return false;
-        }
-
-        $requiredCount = $this->normalizeNumber($node->get('@count'));
-
-        if (
-            $requiredCount !== null
-            && (float) $requiredCount !== 1.0
-            && (float) $requiredCount !== (float) $selectChildCount
-        ) {
-            return false;
-        }
-
-        $nameInfo = $node->get('nameInfo');
-
-        if (! $nameInfo instanceof Element) {
-            return $requiredCount === null
-                || (float) $requiredCount === (float) $selectChildCount;
-        }
-
-        $slotKey = $nameInfo->get('@debugName')
-            ?? $nameInfo->get('@displayName');
-
-        return is_string($slotKey) && strtoupper($slotKey) === 'ASPECTS';
-    }
-
-    private function countSelectChildren(Element $node): int
-    {
-        $container = $node->get('options');
-
-        if (! $container instanceof Element) {
-            $container = $node;
-        }
-
-        $count = 0;
-
-        foreach ($container->children() as $child) {
-            if (! $this->isCostNode($child)) {
-                continue;
-            }
-
-            if ($child->nodeName !== 'CraftingCost_Select') {
-                return 0;
-            }
-
-            $count++;
-        }
-
-        return $count;
-    }
-
     /**
      * @return array<string, mixed>
      */
-    private function buildItemInput(Element $cost): array
+    private function buildItemInput(CraftingCost $cost): array
     {
-        $inputEntity = $this->resolveInputEntity($cost);
+        $inputEntity = $cost->getInputEntity();
 
         return $this->removeNullValuesPreservingEmptyArrays([
-            'uuid' => $inputEntity?->getUuid()
-                ?? $cost->get('@entityClass'),
-            'name' => $this->readItemName($inputEntity),
-            'quantity' => $this->normalizeNumber($cost->get('@quantity')),
-            'min_quality' => $this->normalizeNumber($cost->get('@minQuality')),
+            'uuid' => $inputEntity?->getUuid() ?? $cost->getEntityClassReference(),
+            'name' => $inputEntity?->getDisplayName(),
+            'quantity' => $cost->getQuantity(),
+            'min_quality' => $cost->getMinQuality(),
         ]);
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function buildResourceInput(Element $cost): array
+    private function buildResourceInput(CraftingCost $cost): array
     {
-        $resourceType = $this->resolveResourceType($cost);
-        $quantityScu = Item::convertToScu($cost->get('quantity'));
+        $resourceType = $cost->getResourceType();
+        $quantityScu = Item::convertToScu($cost->getQuantityElement());
         $resourceName = ServiceFactory::getLocalizationService()->translateValue($resourceType?->getDisplayName());
 
         if ($quantityScu !== null) {
-            // XML quantities are decimal strings, so round after applying multipliers to avoid float artifacts.
-            $quantityScu = round($quantityScu * $this->readResourceQuantityMultiplier($cost), 9);
+            $quantityScu = round($quantityScu * $cost->getQuantityMultiplier(), 9);
         }
 
         return $this->removeNullValuesPreservingEmptyArrays([
-            'uuid' => $resourceType?->getUuid()
-                ?? $cost->get('@resource'),
+            'uuid' => $resourceType?->getUuid() ?? $cost->getResourceReference(),
             'name' => $resourceName,
             'quantity_scu' => $quantityScu,
-            'min_quality' => $this->normalizeNumber($cost->get('@minQuality')),
+            'min_quality' => $cost->getMinQuality(),
         ]);
-    }
-
-    private function readResourceQuantityMultiplier(Element $cost): float
-    {
-        $context = $cost->get('context/CraftingCostContext_QuantityMultiplier');
-
-        if (! $context instanceof Element) {
-            return 1.0;
-        }
-
-        foreach (['quantityMultiplier', 'multiplier', 'value'] as $attribute) {
-            $value = $context->get('@'.$attribute);
-
-            if (is_int($value) || is_float($value) || (is_string($value) && is_numeric($value))) {
-                return (float) $value;
-            }
-        }
-
-        $attributes = $context->getNode()->attributes;
-
-        if ($attributes === null) {
-            return 1.0;
-        }
-
-        foreach ($attributes as $attribute) {
-            if (is_numeric($attribute->nodeValue)) {
-                return (float) $attribute->nodeValue;
-            }
-        }
-
-        return 1.0;
     }
 
     /**
      * @return list<array<string, mixed>>
      */
-    private function buildStatModifiers(Element $node): array
+    private function buildStatModifiers(CraftingCost $cost): array
     {
-        $modifiers = $node->get(
-            'context/CraftingCostContext_ResultGameplayPropertyModifiers/gameplayPropertyModifiers/CraftingGameplayPropertyModifiers_List/gameplayPropertyModifiers'
-        );
-
-        if (! $modifiers instanceof Element) {
-            return [];
-        }
-
         $results = [];
 
-        foreach ($modifiers->children() as $modifier) {
-            if ($modifier->nodeName !== 'CraftingGameplayPropertyModifierCommon') {
-                continue;
-            }
-
+        foreach ($cost->getStatModifierElements() as $modifier) {
             $formatted = $this->buildStatModifier($modifier);
 
             if ($formatted !== null) {
@@ -431,224 +351,39 @@ final class Blueprint extends BaseFormat
     /**
      * @return array<string, mixed>|null
      */
-    private function buildStatModifier(Element $modifier): ?array
+    private function buildStatModifier(CraftingGameplayPropertyModifier $modifier): ?array
     {
-        $property = $this->resolveGameplayProperty($modifier);
-        $valueRange = $modifier->get('valueRanges/CraftingGameplayPropertyModifierValueRange_Linear')
-            ?? $modifier->get('valueRange/CraftingGameplayPropertyModifierValueRange_Linear');
+        $property = $modifier->getResolvedProperty();
 
         $formatted = $this->removeNullValuesPreservingEmptyArrays([
-            'property_uuid' => $property?->getUuid()
-                ?? $modifier->get('@gameplayPropertyRecord'),
-            'property_key' => $this->extractGameplayPropertyKey($property),
+            'property_uuid' => $property?->getUuid() ?? $modifier->getPropertyReference(),
+            'property_key' => $property?->getNormalizedPropertyKey(),
             'quality_range' => $this->removeNullValuesPreservingEmptyArrays([
-                'min' => $this->normalizeNumber(
-                    $valueRange?->get('@startQuality')
-                    ?? $valueRange?->get('@minInputValue')
-                ),
-                'max' => $this->normalizeNumber(
-                    $valueRange?->get('@endQuality')
-                    ?? $valueRange?->get('@maxInputValue')
-                ),
+                'min' => $this->normalizeNumber($modifier->getQualityMin()),
+                'max' => $this->normalizeNumber($modifier->getQualityMax()),
             ]),
             'modifier_range' => $this->removeNullValuesPreservingEmptyArrays([
-                'at_min_quality' => $this->normalizeNumber(
-                    $valueRange?->get('@modifierAtStart')
-                    ?? $valueRange?->get('@minOutputMultiplier')
-                ),
-                'at_max_quality' => $this->normalizeNumber(
-                    $valueRange?->get('@modifierAtEnd')
-                    ?? $valueRange?->get('@maxOutputMultiplier')
-                ),
+                'at_min_quality' => $this->normalizeNumber($modifier->getModifierAtMinQuality()),
+                'at_max_quality' => $this->normalizeNumber($modifier->getModifierAtMaxQuality()),
             ]),
         ]);
 
         return $formatted === [] ? null : $formatted;
     }
 
-    private function resolveOutputEntity(): ?EntityClassDefinition
-    {
-        return $this->item instanceof CraftingBlueprintRecord
-            ? $this->item->getOutputEntity()
-            : null;
-    }
-
-    private function resolveInputEntity(Element $cost): ?EntityClassDefinition
-    {
-        $inputEntity = $cost->get('InputEntity');
-
-        if ($inputEntity instanceof Element) {
-            $entity = EntityClassDefinition::fromNode($inputEntity->getNode());
-
-            if ($entity instanceof EntityClassDefinition) {
-                return $entity;
-            }
-        }
-
-        $reference = $cost->get('@entityClass');
-
-        return is_string($reference) && $reference !== ''
-            ? ServiceFactory::getItemService()->getByReference($reference)
-            : null;
-    }
-
-    private function resolveResourceType(Element $cost): ?ResourceType
-    {
-        $resourceType = $cost->get('ResourceType');
-
-        if ($resourceType instanceof Element) {
-            $resolved = ResourceType::fromNode($resourceType->getNode());
-
-            if ($resolved instanceof ResourceType) {
-                return $resolved;
-            }
-        }
-
-        $reference = $cost->get('@resource');
-
-        return is_string($reference) && $reference !== ''
-            ? ServiceFactory::getFoundryLookupService()->getResourceTypeByReference($reference)
-            : null;
-    }
-
-    private function resolveGameplayProperty(Element $modifier): ?CraftingGameplayPropertyDef
-    {
-        $property = $modifier->get('GameplayProperty');
-
-        if ($property instanceof Element) {
-            $resolved = CraftingGameplayPropertyDef::fromNode($property->getNode());
-
-            if ($resolved instanceof CraftingGameplayPropertyDef) {
-                return $resolved;
-            }
-        }
-
-        $reference = $modifier->get('@gameplayPropertyRecord');
-
-        return is_string($reference) && $reference !== ''
-            ? ServiceFactory::getFoundryLookupService()->getCraftingGameplayPropertyByReference($reference)
-            : null;
-    }
-
-    private function buildResolvedNodeName(?Element $nameInfo): ?string
-    {
-        if ($nameInfo === null) {
-            return null;
-        }
-
-        $displayName = $nameInfo->get('@displayName');
-        $translated = ServiceFactory::getLocalizationService()->translateValue($displayName);
-
-        if ($translated !== null) {
-            return $translated;
-        }
-
-        $debugName = $nameInfo->get('@debugName');
-
-        return is_string($debugName) && trim($debugName) !== '' ? $debugName : null;
-    }
-
-    private function readItemName(?EntityClassDefinition $entity): ?string
-    {
-        if ($entity === null) {
-            return null;
-        }
-
-        $attachDef = $entity->getAttachDef();
-        $name = $attachDef?->get('Localization/English@Name')
-            ?? $attachDef?->get('Localization@Name');
-
-        return ServiceFactory::getLocalizationService()->translateValue($name);
-    }
-
-    private function extractClassNameFromPath(?string $path): ?string
-    {
-        if ($path === null || trim($path) === '') {
-            return null;
-        }
-
-        return pathinfo($path, PATHINFO_FILENAME);
-    }
-
-    private function extractGameplayPropertyKey(?CraftingGameplayPropertyDef $property): ?string
-    {
-        if ($property === null) {
-            return null;
-        }
-
-        $key = $property->getPropertyKey();
-
-        return $key === '' ? null : $key;
-    }
-
     /**
      * @return array<string, mixed>
      */
-    private function buildBlueprintReferenceInput(Element $cost): array
+    private function buildBlueprintReferenceInput(CraftingCost $cost): array
     {
-        $uuid = $cost->get('@blueprintRecord')
-            ?? $cost->get('@blueprint')
-            ?? $cost->get('@entityClass')
-            ?? $cost->get('@record');
+        $uuid = $cost->getBlueprintReference();
 
         return $this->removeNullValuesPreservingEmptyArrays([
             'uuid' => $uuid,
-            'key' => $this->readBlueprintKey($uuid),
-            'name' => $this->readBlueprintName($uuid),
-            'quantity' => $this->normalizeNumber($cost->get('@quantity')),
-            'min_quality' => $this->normalizeNumber($cost->get('@minQuality')),
+            'key' => CraftingBlueprintRecord::readBlueprintKey($uuid),
+            'name' => CraftingBlueprintRecord::readBlueprintName($uuid),
+            'quantity' => $cost->getQuantity(),
+            'min_quality' => $cost->getMinQuality(),
         ]);
-    }
-
-    /**
-     * @return array<string, int|float|string>
-     */
-    private function buildAttributes(Element $node): array
-    {
-        $attributes = [];
-
-        foreach ($node->getNode()->attributes ?? [] as $attribute) {
-            if (in_array($attribute->nodeName, ['__type', '__polymorphicType'], true)) {
-                continue;
-            }
-
-            $attributes[$attribute->nodeName] = $this->normalizeNumber($attribute->nodeValue) ?? $attribute->nodeValue;
-        }
-
-        return $attributes;
-    }
-
-    private function readBlueprintKey(?string $uuid): ?string
-    {
-        if ($uuid === null || $uuid === '') {
-            return null;
-        }
-
-        try {
-            return ServiceFactory::getBlueprintService()->getByReference($uuid)?->getClassName();
-        } catch (RuntimeException) {
-            return null;
-        }
-    }
-
-    private function readBlueprintName(?string $uuid): ?string
-    {
-        if ($uuid === null || $uuid === '') {
-            return null;
-        }
-
-        try {
-            $record = ServiceFactory::getBlueprintService()->getByReference($uuid);
-        } catch (RuntimeException) {
-            return null;
-        }
-
-        if ($record === null) {
-            return null;
-        }
-
-        $name = $record->get('blueprint/CraftingBlueprint@blueprintName');
-
-        return ServiceFactory::getLocalizationService()->translateValue($name);
     }
 }

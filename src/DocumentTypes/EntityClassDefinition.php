@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes;
 
-use Octfx\ScDataDumper\DocumentTypes\Mining\MineableParams;
-use Octfx\ScDataDumper\DocumentTypes\Loadout\LoadoutEntry;
 use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\DocumentTypes\Loadout\LoadoutEntry;
+use Octfx\ScDataDumper\DocumentTypes\Mining\MineableParams;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
 
@@ -249,6 +249,51 @@ class EntityClassDefinition extends RootDocument
         );
 
         return $manufacturer instanceof SCItemManufacturer ? $manufacturer : null;
+    }
+
+    public function getGrade(): ?string
+    {
+        $grade = $this->getAttachDef()?->get('@Grade');
+
+        return $grade !== null ? (string) $grade : null;
+    }
+
+    public function getDisplayName(): ?string
+    {
+        $attachDef = $this->getAttachDef();
+
+        $name = $attachDef?->get('Localization/English@Name')
+            ?? $attachDef?->get('Localization@Name');
+
+        return ServiceFactory::getLocalizationService()->translateValue($name);
+    }
+
+    public static function extractClassNameFromPath(?string $path): ?string
+    {
+        if ($path === null || trim($path) === '') {
+            return null;
+        }
+
+        return pathinfo($path, PATHINFO_FILENAME);
+    }
+
+    public static function resolveFromCraftingCost(Element $cost): ?self
+    {
+        $inputEntity = $cost->get('InputEntity');
+
+        if ($inputEntity instanceof Element) {
+            $entity = self::fromNode($inputEntity->getNode());
+
+            if ($entity instanceof self) {
+                return $entity;
+            }
+        }
+
+        $reference = $cost->get('@entityClass');
+
+        return is_string($reference) && $reference !== ''
+            ? ServiceFactory::getItemService()->getByReference($reference)
+            : null;
     }
 
     /**

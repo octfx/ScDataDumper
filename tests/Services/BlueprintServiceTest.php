@@ -6,6 +6,7 @@ namespace Octfx\ScDataDumper\Tests\Services;
 
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingBlueprintRecord;
 use Octfx\ScDataDumper\Services\BlueprintService;
+use Octfx\ScDataDumper\Services\ServiceFactory;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 
 final class BlueprintServiceTest extends ScDataTestCase
@@ -27,6 +28,10 @@ final class BlueprintServiceTest extends ScDataTestCase
     private const REWARD_POOL_UUID = 'e9947de1-6160-4d62-a319-2f4693140c88';
 
     private const REWARD_POOL_KEY = 'BP_MISSIONREWARD_HeadHunters_MercenaryFPS_EliminateALL_RegionAB';
+
+    private const DISMANTLE_BLUEPRINT_UUID = 'bb000000-0000-0000-0000-000000000001';
+
+    private const DISMANTLE_BLUEPRINT_CLASS = 'GlobalGenericDismantle';
 
     protected function setUp(): void
     {
@@ -106,6 +111,25 @@ final class BlueprintServiceTest extends ScDataTestCase
             XML
         );
 
+        $dismantleBlueprintPath = $this->writeFile(
+            'Data/Libs/Foundry/Records/crafting/blueprints/dismantle/globalgenericdismantle.xml',
+            <<<'XML'
+            <CraftingBlueprintRecord.GlobalGenericDismantle __type="CraftingBlueprintRecord" __ref="bb000000-0000-0000-0000-000000000001" __path="libs/foundry/records/crafting/blueprints/dismantle/globalgenericdismantle.xml">
+              <blueprint>
+                <GenericCraftingBlueprint>
+                  <processSpecificData>
+                    <GenericCraftingProcess_Dismantle efficiency="0.5">
+                      <dismantleTime>
+                        <TimeValue_Partitioned days="0" hours="0" minutes="0" seconds="15" />
+                      </dismantleTime>
+                    </GenericCraftingProcess_Dismantle>
+                  </processSpecificData>
+                </GenericCraftingBlueprint>
+              </blueprint>
+            </CraftingBlueprintRecord.GlobalGenericDismantle>
+            XML
+        );
+
         $this->writeFile(
             'Data/Libs/Foundry/Records/crafting/globalparams/craftingglobalparams.xml',
             <<<'XML'
@@ -140,22 +164,26 @@ final class BlueprintServiceTest extends ScDataTestCase
                 'CraftingBlueprintRecord' => [
                     self::BLUEPRINT_CLASS => $blueprintPath,
                     'IGNORED_BLUEPRINT' => $ignoredBlueprintPath,
+                    self::DISMANTLE_BLUEPRINT_CLASS => $dismantleBlueprintPath,
                 ],
             ],
             uuidToClassMap: [
                 self::OUTPUT_ITEM_UUID => self::OUTPUT_ITEM_CLASS,
                 self::BLUEPRINT_UUID => self::BLUEPRINT_CLASS,
                 self::IGNORED_BLUEPRINT_UUID => 'IGNORED_BLUEPRINT',
+                self::DISMANTLE_BLUEPRINT_UUID => self::DISMANTLE_BLUEPRINT_CLASS,
             ],
             classToUuidMap: [
                 self::OUTPUT_ITEM_CLASS => self::OUTPUT_ITEM_UUID,
                 self::BLUEPRINT_CLASS => self::BLUEPRINT_UUID,
                 'IGNORED_BLUEPRINT' => self::IGNORED_BLUEPRINT_UUID,
+                self::DISMANTLE_BLUEPRINT_CLASS => self::DISMANTLE_BLUEPRINT_UUID,
             ],
             uuidToPathMap: [
                 self::OUTPUT_ITEM_UUID => $outputItemPath,
                 self::BLUEPRINT_UUID => $blueprintPath,
                 self::IGNORED_BLUEPRINT_UUID => $ignoredBlueprintPath,
+                self::DISMANTLE_BLUEPRINT_UUID => $dismantleBlueprintPath,
             ],
         );
         $this->writeResourceTypeCache([
@@ -233,5 +261,30 @@ final class BlueprintServiceTest extends ScDataTestCase
 
         self::assertInstanceOf(CraftingBlueprintRecord::class, $blueprint);
         self::assertSame(self::OUTPUT_ITEM_UUID, $blueprint?->getOutputEntity()?->getUuid());
+    }
+
+    public function test_get_dismantle_params_returns_efficiency_and_time(): void
+    {
+        $service = new BlueprintService($this->tempDir);
+        $service->initialize();
+
+        $params = $service->getDismantleParams();
+
+        self::assertSame(['efficiency' => 0.5, 'time_seconds' => 15], $params);
+    }
+
+    public function test_get_dismantle_params_returns_null_when_no_blueprint(): void
+    {
+        $classToPathMapPath = sprintf('%s%sclassToPathMap-%s.json', $this->tempDir, DIRECTORY_SEPARATOR, PHP_OS_FAMILY);
+        $map = json_decode(file_get_contents($classToPathMapPath), true, 512, JSON_THROW_ON_ERROR);
+        unset($map['CraftingBlueprintRecord']['GlobalGenericDismantle']);
+        file_put_contents($classToPathMapPath, json_encode($map, JSON_THROW_ON_ERROR));
+
+        ServiceFactory::reset();
+
+        $service = new BlueprintService($this->tempDir);
+        $service->initialize();
+
+        self::assertNull($service->getDismantleParams());
     }
 }
