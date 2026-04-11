@@ -43,7 +43,7 @@ final class ResourceLocation extends BaseFormat
         $provider = $this->item;
         $resolved = $this->resolver->resolveHarvestableProvider($provider);
 
-        return $this->buildLocationEntry($provider, $resolved);
+        return $this->transformArrayKeysToPascalCase($this->buildLocationEntry($provider, $resolved));
     }
 
     /**

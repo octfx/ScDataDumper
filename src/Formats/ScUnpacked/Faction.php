@@ -21,7 +21,7 @@ final class Faction extends BaseFormat
             return null;
         }
 
-        return $this->removeNullValuesPreservingEmptyArrays([
+        return $this->transformArrayKeysToPascalCase($this->removeNullValuesPreservingEmptyArrays([
             'uuid' => $this->item->getUuid(),
             'name' => ServiceFactory::getLocalizationService()->translateValue($this->item->getName(), true),
             'description' => ServiceFactory::getLocalizationService()->translateValue($this->item->getDescription(), true),
@@ -32,7 +32,7 @@ final class Faction extends BaseFormat
             'policesCriminality' => $this->item->getPolicesCriminality(),
             'noLegalRights' => $this->item->getNoLegalRight(),
             'reputation' => $this->buildReputation($this->item->getFactionReputation()),
-        ]);
+        ]));
     }
 
     private function buildReputation(?FactionReputation $reputation): ?array

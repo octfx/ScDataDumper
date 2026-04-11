@@ -20,7 +20,8 @@ final class WeaponRegenPool extends BaseFormat
                 'capacitorAssignmentInputOutputRegen',
                 'capacitorAssignmentInputOutputRegenNavMode',
                 'capacitorAssignmentInputOutputAmmoLoad',
-            ]
+            ],
+            pascalCase: true
         );
     }
 }

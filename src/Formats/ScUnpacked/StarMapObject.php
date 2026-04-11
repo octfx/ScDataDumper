@@ -29,7 +29,7 @@ final class StarMapObject extends BaseFormat
         $radarContactType = $object->getRadarContactType();
         $asteroidRing = $object->getAsteroidRing();
 
-        return [
+        return $this->transformArrayKeysToPascalCase([
             'uuid' => $object->getUuid(),
             'name' => ServiceFactory::getLocalizationService()->translateValue($object->getName()),
             'description' => ServiceFactory::getLocalizationService()->translateValue($object->getDescription()),
@@ -56,7 +56,7 @@ final class StarMapObject extends BaseFormat
             'amenities' => array_values(array_filter(
                 array_map(fn (StarMapAmenityTypeEntry $amenity): array => $this->buildAmenity($amenity), $object->getAmenities())
             )),
-        ];
+        ]);
     }
 
     /**
@@ -72,7 +72,7 @@ final class StarMapObject extends BaseFormat
             'subPointRadiusMultiplier' => $object->getQuantumTravelSubPointRadiusMultiplier(),
         ];
 
-        if (array_any($quantumTravel, fn($value) => $value !== null)) {
+        if (array_any($quantumTravel, fn ($value) => $value !== null)) {
             return $quantumTravel;
         }
 

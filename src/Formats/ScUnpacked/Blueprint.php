@@ -26,7 +26,7 @@ final class Blueprint extends BaseFormat
         $blueprint = $this->get();
         $uuid = $this->item?->getUuid();
 
-        return $this->removeNullValuesPreservingEmptyArrays([
+        return $this->transformArrayKeysToPascalCase($this->removeNullValuesPreservingEmptyArrays([
             'uuid' => $uuid,
             'key' => $this->item?->getClassName(),
             'kind' => 'creation',
@@ -34,7 +34,7 @@ final class Blueprint extends BaseFormat
             'output' => $this->buildOutput($this->resolveOutputEntity()),
             'availability' => $this->buildAvailability($uuid),
             'tiers' => $this->buildTiers($blueprint->get('tiers')),
-        ]);
+        ]));
     }
 
     private function buildOutput(?EntityClassDefinition $outputEntity): array
