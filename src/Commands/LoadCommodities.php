@@ -20,11 +20,11 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
-    name: 'load:resource-types',
-    description: 'Load and dump SC resource types',
+    name: 'load:commodities',
+    description: 'Load and dump SC commodities (ResourceType)',
     hidden: false
 )]
-class LoadResourceTypes extends AbstractDataCommand
+class LoadCommodities extends AbstractDataCommand
 {
     use NormalizesValues;
 
@@ -34,16 +34,19 @@ class LoadResourceTypes extends AbstractDataCommand
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        $io->title('[ScDataDumper] Loading resource types');
+        $io->title('[ScDataDumper] Loading commodities');
 
         $outputDir = $input->getArgument('jsonOutPath');
         $this->ensureDirectory((string) $outputDir);
 
-        $indexFilePath = sprintf('%s%sresource-types.json', $outputDir, DIRECTORY_SEPARATOR);
+        $resourcesDir = sprintf('%s%sresources', rtrim((string) $outputDir, DIRECTORY_SEPARATOR), DIRECTORY_SEPARATOR);
+        $this->ensureDirectory($resourcesDir);
+
+        $indexFilePath = sprintf('%s%scommodities.json', $resourcesDir, DIRECTORY_SEPARATOR);
         $overwrite = ($input->getOption('overwrite') ?? false) === true;
 
         if (! $overwrite && file_exists($indexFilePath)) {
-            $io->success(sprintf('Skipped existing resource type index at %s', $indexFilePath));
+            $io->success(sprintf('Skipped existing commodities index at %s', $indexFilePath));
 
             return Command::SUCCESS;
         }
@@ -72,13 +75,13 @@ class LoadResourceTypes extends AbstractDataCommand
         );
 
         if ($bytesWritten === false) {
-            throw new RuntimeException(sprintf('Failed to write resource type index file: %s', $indexFilePath));
+            throw new RuntimeException(sprintf('Failed to write commodities index file: %s', $indexFilePath));
         }
 
         $end = microtime(true);
         $io->progressFinish();
         $duration = $end - $start;
-        $io->success(sprintf('Saved resource type index (%s | %s )',
+        $io->success(sprintf('Saved commodities index (%s | %s )',
             'Took: '.round($duration).' s',
             'Path: '.$indexFilePath
         ));
@@ -149,14 +152,14 @@ class LoadResourceTypes extends AbstractDataCommand
 
     protected function configure(): void
     {
-        $this->setHelp('php cli.php load:resource-types Path/To/ScDataDir Path/To/JsonOutDir [--overwrite]');
+        $this->setHelp('php cli.php load:commodities Path/To/ScDataDir Path/To/JsonOutDir [--overwrite]');
         $this->addArgument('scDataPath', InputArgument::REQUIRED, 'Path to unpacked Star Citizen data directory');
         $this->addArgument('jsonOutPath', InputArgument::REQUIRED, 'Output directory for exported JSON files');
         $this->addOption(
             'overwrite',
             null,
             InputOption::VALUE_NONE,
-            'Overwrite existing resource type index file'
+            'Overwrite existing commodities index file'
         );
     }
 

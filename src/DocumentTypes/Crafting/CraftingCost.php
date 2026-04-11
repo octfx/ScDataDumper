@@ -255,7 +255,7 @@ final class CraftingCost extends RootDocument
     {
         $kind = $this->getCostKind();
 
-        if (in_array($kind, ['item', 'resource', 'blueprint_ref'], true)) {
+        if (in_array($kind, ['item', 'material', 'blueprint_ref'], true)) {
             return [$this];
         }
 

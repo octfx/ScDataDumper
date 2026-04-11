@@ -86,7 +86,7 @@ class LoadData extends Command
             ['name' => 'generate:cache', 'label' => 'Generating cache', 'options' => []],
             ['name' => 'load:items', 'label' => 'Loading items', 'options' => ['overwrite', 'scUnpackedFormat']],
             ['name' => 'load:blueprints', 'label' => 'Loading blueprints', 'options' => ['overwrite', 'scUnpackedFormat']],
-            ['name' => 'load:resource-types', 'label' => 'Loading resource types', 'options' => ['overwrite']],
+            ['name' => 'load:commodities', 'label' => 'Loading commodities', 'options' => ['overwrite']],
             ['name' => 'load:vehicles', 'label' => 'Loading vehicles', 'options' => ['overwrite', 'scUnpackedFormat']],
             ['name' => 'load:factions', 'label' => 'Loading factions', 'options' => ['overwrite', 'scUnpackedFormat']],
             ['name' => 'load:starmap', 'label' => 'Loading starmap', 'options' => ['overwrite']],

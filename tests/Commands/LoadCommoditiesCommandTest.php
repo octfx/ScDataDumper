@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Tests\Commands;
 
-use Octfx\ScDataDumper\Commands\LoadResourceTypes;
+use Octfx\ScDataDumper\Commands\LoadCommodities;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -12,7 +12,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Tester\CommandTester;
 
-final class LoadResourceTypesCommandTest extends ScDataTestCase
+final class LoadCommoditiesCommandTest extends ScDataTestCase
 {
     private const RAW_ORE_UUID = '11111111-1111-1111-1111-111111111111';
 
@@ -20,7 +20,7 @@ final class LoadResourceTypesCommandTest extends ScDataTestCase
 
     private const PLACEHOLDER_ORE_UUID = '33333333-3333-3333-3333-333333333333';
 
-    public function test_execute_writes_localized_resource_type_index(): void
+    public function test_execute_writes_localized_commodities_index(): void
     {
         $this->writeCacheFiles();
         $this->writeResourceTypeCache([
@@ -58,7 +58,7 @@ final class LoadResourceTypesCommandTest extends ScDataTestCase
             INI
         );
 
-        $tester = new CommandTester(new TestLoadResourceTypesCommand);
+        $tester = new CommandTester(new TestLoadCommoditiesCommand);
         $exitCode = $tester->execute([
             'scDataPath' => $this->tempDir,
             'jsonOutPath' => $this->tempDir,
@@ -66,32 +66,32 @@ final class LoadResourceTypesCommandTest extends ScDataTestCase
 
         self::assertSame(0, $exitCode);
 
-        $resourceTypes = $this->readJsonFile('resource-types.json');
+        $resourceTypes = $this->readJsonFile('resources/commodities.json');
 
         $rawOre = $this->findResourceType($resourceTypes, 'RawOre');
-        self::assertSame('Raw Ore', $rawOre['name']);
-        self::assertSame('Freshly mined ore', $rawOre['description']);
-        self::assertSame(self::REFINED_ORE_UUID, $rawOre['refined_version_uuid']);
-        self::assertSame('Refined Ore', $rawOre['refined_version_name']);
-        self::assertTrue($rawOre['validate_default_cargo_box']);
-        self::assertTrue($rawOre['has_default_cargo_containers']);
+        self::assertSame('Raw Ore', $rawOre['Name']);
+        self::assertSame('Freshly mined ore', $rawOre['Description']);
+        self::assertSame(self::REFINED_ORE_UUID, $rawOre['RefinedVersionUUID']);
+        self::assertSame('Refined Ore', $rawOre['RefinedVersionName']);
+        self::assertTrue($rawOre['ValidateDefaultCargoBox']);
+        self::assertTrue($rawOre['HasDefaultCargoContainers']);
         self::assertEquals([
-            ['uuid' => 'crate_one', 'name' => 'oneSCU', 'size' => 1],
-            ['uuid' => 'crate_four', 'name' => 'fourSCU', 'size' => 4],
-        ], $rawOre['cargo_containers']);
+            ['UUID' => 'crate_one', 'Name' => 'oneSCU', 'Size' => 1],
+            ['UUID' => 'crate_four', 'Name' => 'fourSCU', 'Size' => 4],
+        ], $rawOre['CargoContainers']);
 
         $refinedOre = $this->findResourceType($resourceTypes, 'RefinedOre');
-        self::assertSame('Refined Ore', $refinedOre['name']);
-        self::assertNull($refinedOre['description']);
-        self::assertNull($refinedOre['refined_version_uuid']);
-        self::assertNull($refinedOre['refined_version_name']);
-        self::assertFalse($refinedOre['validate_default_cargo_box']);
-        self::assertFalse($refinedOre['has_default_cargo_containers']);
-        self::assertSame([], $refinedOre['cargo_containers']);
+        self::assertSame('Refined Ore', $refinedOre['Name']);
+        self::assertNull($refinedOre['Description']);
+        self::assertNull($refinedOre['RefinedVersionUUID']);
+        self::assertNull($refinedOre['RefinedVersionName']);
+        self::assertFalse($refinedOre['ValidateDefaultCargoBox']);
+        self::assertFalse($refinedOre['HasDefaultCargoContainers']);
+        self::assertSame([], $refinedOre['CargoContainers']);
 
         $placeholderOre = $this->findResourceType($resourceTypes, 'PlaceholderOre');
-        self::assertSame('PlaceholderOre', $placeholderOre['name']);
-        self::assertNull($placeholderOre['description']);
+        self::assertSame('PlaceholderOre', $placeholderOre['Name']);
+        self::assertNull($placeholderOre['Description']);
     }
 
     public function test_resource_type_export_includes_tier(): void
@@ -175,7 +175,7 @@ final class LoadResourceTypesCommandTest extends ScDataTestCase
             INI,
         );
 
-        $tester = new CommandTester(new TestLoadResourceTypesCommand);
+        $tester = new CommandTester(new TestLoadCommoditiesCommand);
         $exitCode = $tester->execute([
             'scDataPath' => $this->tempDir,
             'jsonOutPath' => $this->tempDir,
@@ -183,21 +183,21 @@ final class LoadResourceTypesCommandTest extends ScDataTestCase
 
         self::assertSame(0, $exitCode);
 
-        $resourceTypes = $this->readJsonFile('resource-types.json');
+        $resourceTypes = $this->readJsonFile('resources/commodities.json');
 
         $rawOre = $this->findResourceType($resourceTypes, 'RawOre');
-        self::assertSame('common', $rawOre['tier']);
+        self::assertSame('common', $rawOre['Tier']);
 
         $refinedOre = $this->findResourceType($resourceTypes, 'RefinedOre');
-        self::assertSame('rare', $refinedOre['tier']);
+        self::assertSame('rare', $refinedOre['Tier']);
 
         $placeholderOre = $this->findResourceType($resourceTypes, 'PlaceholderOre');
-        self::assertNull($placeholderOre['tier']);
+        self::assertNull($placeholderOre['Tier']);
     }
 
     public function test_make_cache_arguments_does_not_forward_export_overwrite(): void
     {
-        $command = new InspectableLoadResourceTypesCommand;
+        $command = new InspectableLoadCommoditiesCommand;
         $input = new ArrayInput([
             'scDataPath' => $this->tempDir,
             'jsonOutPath' => $this->tempDir,
@@ -244,7 +244,7 @@ final class LoadResourceTypesCommandTest extends ScDataTestCase
     private function findResourceType(array $resourceTypes, string $key): array
     {
         foreach ($resourceTypes as $resourceType) {
-            if (($resourceType['key'] ?? null) === $key) {
+            if (($resourceType['Key'] ?? null) === $key) {
                 return $resourceType;
             }
         }
@@ -253,7 +253,7 @@ final class LoadResourceTypesCommandTest extends ScDataTestCase
     }
 }
 
-final class TestLoadResourceTypesCommand extends LoadResourceTypes
+final class TestLoadCommoditiesCommand extends LoadCommodities
 {
     protected function prepareServices(InputInterface $input, OutputInterface $output): void
     {
@@ -261,7 +261,7 @@ final class TestLoadResourceTypesCommand extends LoadResourceTypes
     }
 }
 
-final class InspectableLoadResourceTypesCommand extends LoadResourceTypes
+final class InspectableLoadCommoditiesCommand extends LoadCommodities
 {
     /**
      * @return array{path: string}

@@ -134,7 +134,7 @@ final class Blueprint extends BaseFormat
                 if ($entry !== null) {
                     $returns[] = $entry;
                 }
-            } elseif ($kind === 'resource') {
+            } elseif ($kind === 'material') {
                 $returns[] = $this->buildDismantleResourceReturn($leaf, $efficiency);
             }
         }
@@ -186,7 +186,7 @@ final class Blueprint extends BaseFormat
         }
 
         return $this->removeNullValuesPreservingEmptyArrays([
-            'kind' => 'resource',
+            'kind' => 'material',
             'uuid' => $resourceType?->getUuid() ?? $cost->getResourceReference(),
             'name' => $resourceName,
             'quantity_scu' => $quantityScu,
@@ -216,7 +216,7 @@ final class Blueprint extends BaseFormat
         return match ($cost->getCostKind()) {
             'group' => $this->buildGroupNode($cost),
             'item' => $this->buildLeafNode('item', $cost, $this->buildItemInput($cost)),
-            'resource' => $this->buildLeafNode('resource', $cost, $this->buildResourceInput($cost)),
+            'resource' => $this->buildLeafNode('material', $cost, $this->buildResourceInput($cost)),
             'blueprint_ref' => $this->buildLeafNode('blueprint_ref', $cost, $this->buildBlueprintReferenceInput($cost)),
             default => $this->buildUnknownNode($cost),
         };

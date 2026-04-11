@@ -39,7 +39,7 @@ final class LoadBlueprintsCommandTest extends ScDataTestCase
                                                 'required_count' => 2,
                                                 'children' => [
                                                     [
-                                                        'kind' => 'resource',
+                                                        'kind' => 'material',
                                                         'uuid' => 'resource-uuid',
                                                         'modifiers' => [
                                                             [
