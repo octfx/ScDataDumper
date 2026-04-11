@@ -122,13 +122,13 @@ final class LoadStarmapCommandTest extends ScDataTestCase
         $export = $this->readJsonFile('starmap.json');
 
         self::assertCount(1, $export);
-        self::assertSame('Test Object', $export[0]['name']);
-        self::assertSame('UEE', $export[0]['jurisdiction']['name']);
-        self::assertSame('UEE Navy', $export[0]['affiliation']['displayName']);
-        self::assertSame('Radar Display', $export[0]['radarContactType']['displayName']);
-        self::assertSame('tag-radar', $export[0]['radarContactType']['tagUuid']);
-        self::assertSame('Refuel Display', $export[0]['amenities'][0]['displayName']);
-        self::assertSame('tag-location', $export[0]['locationHierarchyTag']['name']);
+        self::assertSame('Test Object', $export[0]['Name']);
+        self::assertSame('UEE', $export[0]['Jurisdiction']['Name']);
+        self::assertSame('UEE Navy', $export[0]['Affiliation']['DisplayName']);
+        self::assertSame('Radar Display', $export[0]['RadarContactType']['DisplayName']);
+        self::assertSame('tag-radar', $export[0]['RadarContactType']['TagUUID']);
+        self::assertSame('Refuel Display', $export[0]['Amenities'][0]['DisplayName']);
+        self::assertSame('tag-location', $export[0]['LocationHierarchyTag']['Name']);
     }
 
     /**

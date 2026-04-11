@@ -31,9 +31,9 @@ final class LoadManufacturersTest extends TestCase
             '__ref' => 'cfc0122d-5275-415a-a656-3dcb3346feb5',
         ]);
 
-        self::assertSame('ACAS', $result['code']);
-        self::assertSame('Ace Astrogation', $result['name']);
-        self::assertSame('cfc0122d-5275-415a-a656-3dcb3346feb5', $result['reference']);
+        self::assertSame('ACAS', $result['Code']);
+        self::assertSame('Ace Astrogation', $result['Name']);
+        self::assertSame('cfc0122d-5275-415a-a656-3dcb3346feb5', $result['Reference']);
         self::assertSame('Precision star charts and pilot tools.', $result['Description']);
     }
 
@@ -43,9 +43,9 @@ final class LoadManufacturersTest extends TestCase
         $result = $this->invokeBuildManufacturerExportEntry($manufacturerArray);
 
         self::assertArrayNotHasKey('Description', $result);
-        self::assertArrayHasKey('code', $result);
-        self::assertArrayHasKey('name', $result);
-        self::assertArrayHasKey('reference', $result);
+        self::assertArrayHasKey('Code', $result);
+        self::assertArrayHasKey('Name', $result);
+        self::assertArrayHasKey('Reference', $result);
     }
 
     public function test_raw_localization_token_like_description_is_not_exported(): void

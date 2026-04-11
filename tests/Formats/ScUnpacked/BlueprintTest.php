@@ -694,7 +694,7 @@ final class BlueprintTest extends ScDataTestCase
             'UUID' => self::AMMO_BLUEPRINT_UUID,
             'Key' => 'BP_CRAFT_lbco_sniper_energy_01_mag',
             'Kind' => 'creation',
-            'CategoryUuid' => self::WEAPON_AND_AMMO_CATEGORY_UUID,
+            'CategoryUUID' => self::WEAPON_AND_AMMO_CATEGORY_UUID,
             'Output' => [
                 'UUID' => self::AMMO_OUTPUT_UUID,
                 'Class' => 'lbco_sniper_energy_01_mag',

@@ -158,12 +158,12 @@ final class LoadFactionsCommandTest extends ScDataTestCase
 
         $export = $this->readJsonFile('factions/testfaction.json');
 
-        self::assertSame('Test Faction', $export['name']);
-        self::assertSame('Test Reputation', $export['reputation']['displayName']);
-        self::assertSame('Hostility Scope', $export['reputation']['context']['primaryScope']['displayName']);
-        self::assertSame('Hostile Display', $export['reputation']['hostility']['standing']['displayName']);
-        self::assertSame('Allied Display', $export['reputation']['allied']['standing']['displayName']);
-        self::assertSame('Hello Citizen', $export['reputation']['properties']['greeting']);
+        self::assertSame('Test Faction', $export['Name']);
+        self::assertSame('Test Reputation', $export['Reputation']['DisplayName']);
+        self::assertSame('Hostility Scope', $export['Reputation']['Context']['PrimaryScope']['DisplayName']);
+        self::assertSame('Hostile Display', $export['Reputation']['Hostility']['Standing']['DisplayName']);
+        self::assertSame('Allied Display', $export['Reputation']['Allied']['Standing']['DisplayName']);
+        self::assertSame('Hello Citizen', $export['Reputation']['Properties']['Greeting']);
     }
 
     /**

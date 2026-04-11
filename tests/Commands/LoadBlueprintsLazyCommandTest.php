@@ -162,16 +162,16 @@ final class LoadBlueprintsLazyCommandTest extends ScDataTestCase
 
         $index = $this->readJsonFile('blueprints.json');
         self::assertCount(1, $index);
-        self::assertSame('8177489f-ed83-44ac-afd4-2b32a80fa0a6', $index[0]['output']['uuid']);
-        self::assertSame('Hephaestanite', $index[0]['tiers'][0]['requirements']['children'][0]['children'][1]['name']);
+        self::assertSame('8177489f-ed83-44ac-afd4-2b32a80fa0a6', $index[0]['Output']['UUID']);
+        self::assertSame('Hephaestanite', $index[0]['Tiers'][0]['Requirements']['Children'][0]['Children'][1]['Name']);
         self::assertSame(
             'cfc129ce-488a-46f2-92f7-9272cd0cfdfb',
-            $index[0]['tiers'][0]['requirements']['children'][0]['modifiers'][0]['property_uuid']
+            $index[0]['Tiers'][0]['Requirements']['Children'][0]['Modifiers'][0]['UUID']
         );
 
         $blueprintFile = $this->readJsonFile('blueprints/bp_craft_phase_two.json');
-        self::assertSame('output_ammo', $blueprintFile['Blueprint']['output']['class']);
-        self::assertSame('Input Material', $blueprintFile['Blueprint']['tiers'][0]['requirements']['children'][0]['children'][0]['name']);
+        self::assertSame('output_ammo', $blueprintFile['Blueprint']['Output']['Class']);
+        self::assertSame('Input Material', $blueprintFile['Blueprint']['Tiers'][0]['Requirements']['Children'][0]['Children'][0]['Name']);
     }
 
     /**

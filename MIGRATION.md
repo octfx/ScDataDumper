@@ -1,4 +1,55 @@
-# Migration Guide: PascalCase Standardization
+# Migration Guide
+
+## Breaking Changes (since `7c780b38`)
+
+The following breaking changes were introduced after commit `7c780b38`. Each is annotated with the commit that introduced it.
+
+---
+
+### 1. PascalCase JSON Output (`7ac202f`, `280f569`)
+
+All JSON output keys are now **PascalCase**. This affects every output type: Blueprint, Faction, ResourceLocation, StarMapObject, WeaponRegenPool, Manufacturers, Resources, Commodities, DriveCharacteristics, and all nested XML-sourced keys.
+
+**How to migrate:** Update any code that reads JSON keys to use the new PascalCase names. See the [detailed PascalCase reference](#what-changed) below for a complete mapping of old → new keys and search/replace patterns.
+
+---
+
+### 2. Blueprint Modifier Keys Renamed (`7ac202f`)
+
+In Blueprint stat modifier output, two keys were renamed:
+
+| Old Key          | New Key  |
+|------------------|----------|
+| `PropertyUuid`   | `UUID`   | 
+| `PropertyKey`    | `Key`    |
+
+**How to migrate:**
+
+```
+.PropertyUuid   -> .UUID
+.PropertyKey    -> .Key
+['PropertyUuid'] -> ['UUID']
+['PropertyKey']  -> ['Key']
+```
+
+---
+
+### 3. Resource Types → Commodities (`555e998`)
+
+The resource types command and output file were renamed:
+
+| What          | Old                    | New                          |
+|---------------|------------------------|------------------------------|
+| Output file   | `resource-types.json`  | `resources/commodities.json` |
+| CLI command   | `load:resource-types`  | `load:commodities`           |
+| PHP class     | `LoadResourceTypes`    | `LoadCommodities`            |
+
+**How to migrate:**
+- Update any scripts that reference `resource-types.json` to read `resources/commodities.json` instead.
+- Update CLI invocations from `load:resource-types` to `load:commodities`.
+- Update any class references from `LoadResourceTypes` to `LoadCommodities`.
+
+## PascalCase Standardization (Detail Reference)
 
 All JSON output keys have been standardized to PascalCase. This is a **breaking change** that requires updates to any code consuming the ScDataDumper JSON output.
 

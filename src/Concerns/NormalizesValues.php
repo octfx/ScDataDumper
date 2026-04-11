@@ -75,7 +75,7 @@ trait NormalizesValues
         $result = self::$pascalCaseAcronyms[$result] ?? $result;
 
         if (str_ends_with($result, 'Uuid')) {
-            $result = rtrim($result, 'Uuid').'UUID';
+            $result = substr($result, 0, -4).'UUID';
         }
 
         return $result;
