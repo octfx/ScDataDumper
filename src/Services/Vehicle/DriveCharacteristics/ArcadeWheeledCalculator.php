@@ -2,6 +2,7 @@
 
 namespace Octfx\ScDataDumper\Services\Vehicle\DriveCharacteristics;
 
+use Octfx\ScDataDumper\Concerns\NormalizesValues;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 
@@ -10,6 +11,8 @@ use Octfx\ScDataDumper\DocumentTypes\Vehicle;
  */
 final class ArcadeWheeledCalculator implements DriveCalculatorStrategy
 {
+    use NormalizesValues;
+
     public function supports(?Vehicle $vehicle): bool
     {
         return $vehicle?->get('MovementParams/ArcadeWheeled') !== null;
@@ -61,25 +64,6 @@ final class ArcadeWheeledCalculator implements DriveCalculatorStrategy
         return $result;
     }
 
-    /**
-     * Convert kebab-case or camelCase attribute names to PascalCase
-     */
-    private function toPascalCase(string $name): string
-    {
-        // Handle attributes starting with @
-        $name = ltrim($name, '@');
-
-        // Convert kebab-case to PascalCase
-        $name = str_replace(['-', '_'], ' ', $name);
-        $name = ucwords($name);
-        $name = str_replace(' ', '', $name);
-
-        return $name;
-    }
-
-    /**
-     * Convert string value to appropriate type
-     */
     private function convertValue(string $value): mixed
     {
         // Check for float

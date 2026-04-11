@@ -372,7 +372,7 @@ final class ResourceLocation extends BaseFormat
             'uuid' => $uuid,
             'key' => $clustering?->getClassName(),
             'probability_of_clustering' => $this->normalizePercentage($clustering?->getProbabilityOfClustering()),
-            'summary' => $this->buildClusteringSummaryMetadata($params),
+            ...$this->buildClusteringSummaryMetadata($params),
             'params' => $this->normalizeClusteringParams($params),
         ];
     }

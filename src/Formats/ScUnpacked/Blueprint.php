@@ -356,8 +356,8 @@ final class Blueprint extends BaseFormat
         $property = $modifier->getResolvedProperty();
 
         $formatted = $this->removeNullValuesPreservingEmptyArrays([
-            'property_uuid' => $property?->getUuid() ?? $modifier->getPropertyReference(),
-            'property_key' => $property?->getNormalizedPropertyKey(),
+            'uuid' => $property?->getUuid() ?? $modifier->getPropertyReference(),
+            'key' => $property?->getNormalizedPropertyKey(),
             'quality_range' => $this->removeNullValuesPreservingEmptyArrays([
                 'min' => $this->normalizeNumber($modifier->getQualityMin()),
                 'max' => $this->normalizeNumber($modifier->getQualityMax()),

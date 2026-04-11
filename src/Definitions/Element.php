@@ -7,6 +7,7 @@ use DOMException;
 use DOMNode;
 use DOMXPath;
 use Generator;
+use Octfx\ScDataDumper\Concerns\NormalizesValues;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\Helper\XmlAccess;
 use Octfx\ScDataDumper\Services\ServiceFactory;
@@ -15,6 +16,7 @@ use WeakMap;
 
 class Element
 {
+    use NormalizesValues;
     use XmlAccess;
 
     /**
@@ -206,21 +208,5 @@ class Element
     protected function isInitialized(): bool
     {
         return self::$initialized?->offsetExists($this->node) ?? false;
-    }
-
-    protected function toPascalCase(string $value): string
-    {
-        if (ctype_upper($value[0]) && ! str_contains($value, '_') && ! str_contains($value, '-')) {
-            $acronyms = ['Uuid' => 'UUID', 'Scu' => 'SCU', 'Ifcs' => 'IFCS', 'Emp' => 'EMP'];
-
-            return $acronyms[$value] ?? $value;
-        }
-
-        $value = str_replace(['_', '-'], ' ', $value);
-        $result = str_replace(' ', '', ucwords($value));
-
-        $acronyms = ['Uuid' => 'UUID', 'Scu' => 'SCU', 'Ifcs' => 'IFCS', 'Emp' => 'EMP'];
-
-        return $acronyms[$result] ?? $result;
     }
 }

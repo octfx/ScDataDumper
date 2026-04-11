@@ -3,6 +3,7 @@
 namespace Octfx\ScDataDumper\Services\Vehicle\CargoGridStrategies;
 
 use Illuminate\Support\Arr;
+use Octfx\ScDataDumper\Concerns\NormalizesValues;
 use Octfx\ScDataDumper\Helper\VehicleWrapper;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use Octfx\ScDataDumper\ValueObjects\CargoGridResult;
@@ -19,6 +20,8 @@ use Throwable;
  */
 final class ConventionBasedCargoStrategy implements CargoGridStrategyInterface
 {
+    use NormalizesValues;
+
     public function resolve(VehicleWrapper $vehicle, CargoGridResult $result): void
     {
         if (! $result->shouldContinueSearching()) {
@@ -158,13 +161,5 @@ final class ConventionBasedCargoStrategy implements CargoGridStrategyInterface
         $walker($entries);
 
         return array_values(array_unique($suffixes));
-    }
-
-    /**
-     * Convert string to PascalCase
-     */
-    private function toPascalCase(string $string): string
-    {
-        return str_replace('_', '', ucwords($string, '_'));
     }
 }

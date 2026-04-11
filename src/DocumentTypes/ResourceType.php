@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes;
 
+use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityDistributionRecord;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityLocationOverrideRecord;
 use Octfx\ScDataDumper\Services\ServiceFactory;
@@ -63,5 +64,24 @@ final class ResourceType extends RootDocument
         );
 
         return $resolved instanceof CraftingQualityLocationOverrideRecord ? $resolved : null;
+    }
+
+    public static function resolveFromCraftingCost(Element $cost): ?self
+    {
+        $resourceType = $cost->get('ResourceType');
+
+        if ($resourceType instanceof Element) {
+            $resolved = self::fromNode($resourceType->getNode());
+
+            if ($resolved instanceof self) {
+                return $resolved;
+            }
+        }
+
+        $reference = $cost->get('@resource');
+
+        return is_string($reference) && $reference !== ''
+            ? ServiceFactory::getFoundryLookupService()->getResourceTypeByReference($reference)
+            : null;
     }
 }

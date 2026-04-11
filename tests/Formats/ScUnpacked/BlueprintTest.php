@@ -788,7 +788,7 @@ final class BlueprintTest extends ScDataTestCase
         self::assertSame('Hephaestanite', $hephaestanite['Name']);
         self::assertSame(0.04, $hephaestanite['QuantityScu']);
         self::assertSame(0, $hephaestanite['MinQuality']);
-        self::assertSame(self::WEAPON_DAMAGE_PROPERTY_UUID, $hephaestanite['Modifiers'][0]['PropertyUuid']);
+        self::assertSame(self::WEAPON_DAMAGE_PROPERTY_UUID, $hephaestanite['Modifiers'][0]['UUID']);
         self::assertArrayNotHasKey('StatModifiers', $hephaestanite);
 
         self::assertSame('resource', $gold['Kind']);
@@ -796,7 +796,7 @@ final class BlueprintTest extends ScDataTestCase
         self::assertSame('Gold', $gold['Name']);
         self::assertSame(0.04, $gold['QuantityScu']);
         self::assertSame(500, $gold['MinQuality']);
-        self::assertSame(self::WEAPON_DAMAGE_PROPERTY_UUID, $gold['Modifiers'][0]['PropertyUuid']);
+        self::assertSame(self::WEAPON_DAMAGE_PROPERTY_UUID, $gold['Modifiers'][0]['UUID']);
     }
 
     public function test_to_array_preserves_unnamed_top_level_select_requirements(): void
@@ -867,7 +867,7 @@ final class BlueprintTest extends ScDataTestCase
         self::assertArrayNotHasKey('Key', $group);
         self::assertArrayNotHasKey('Name', $group);
         self::assertSame(2, $group['RequiredCount']);
-        self::assertSame(self::WEAPON_DAMAGE_PROPERTY_UUID, $group['Modifiers'][0]['PropertyUuid']);
+        self::assertSame(self::WEAPON_DAMAGE_PROPERTY_UUID, $group['Modifiers'][0]['UUID']);
         self::assertSame(['item', 'resource'], array_column($group['Children'], 'Kind'));
     }
 
@@ -982,7 +982,7 @@ final class BlueprintTest extends ScDataTestCase
         self::assertSame('group', $frameNode['Kind']);
         self::assertSame('FRAME', $frameNode['Key']);
         self::assertSame('Frame', $frameNode['Name']);
-        self::assertSame(self::WEAPON_DAMAGE_PROPERTY_UUID, $frameNode['Modifiers'][0]['PropertyUuid']);
+        self::assertSame(self::WEAPON_DAMAGE_PROPERTY_UUID, $frameNode['Modifiers'][0]['UUID']);
 
         $innerGroup = $frameNode['Children'][0];
         self::assertSame('group', $innerGroup['Kind']);
@@ -993,7 +993,7 @@ final class BlueprintTest extends ScDataTestCase
         self::assertSame('resource', $resource['Kind']);
         self::assertSame(self::HEPHAESTANITE_UUID, $resource['UUID']);
         self::assertSame('Hephaestanite', $resource['Name']);
-        self::assertSame(self::WEAPON_FIRERATE_PROPERTY_UUID, $resource['Modifiers'][0]['PropertyUuid']);
+        self::assertSame(self::WEAPON_FIRERATE_PROPERTY_UUID, $resource['Modifiers'][0]['UUID']);
 
         $unknown = $innerGroup['Children'][1];
         self::assertSame('unknown', $unknown['Kind']);

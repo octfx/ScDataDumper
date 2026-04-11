@@ -205,63 +205,9 @@ abstract class BaseFormat
         return json_encode($this->toArray(), JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     }
 
-    /**
-     * Converts snake_case or camelCase strings to PascalCase
-     *
-     * @param  string  $value  The string to convert (e.g., 'drive_speed' or 'driveSpeed')
-     * @return string PascalCase string (e.g., 'DriveSpeed')
-     */
-    protected function toPascalCase(string $value): string
-    {
-        if ($value === '') {
-            return '';
-        }
-
-        if (ctype_upper($value[0]) && ! str_contains($value, '_') && ! str_contains($value, '-')) {
-            $acronyms = ['Uuid' => 'UUID', 'Scu' => 'SCU', 'Ifcs' => 'IFCS', 'Emp' => 'EMP', 'StdItem' => 'stdItem'];
-
-            return $acronyms[$value] ?? $value;
-        }
-
-        $value = str_replace(['_', '-'], ' ', $value);
-        $result = str_replace(' ', '', ucwords($value));
-
-        $acronyms = ['Uuid' => 'UUID', 'Scu' => 'SCU', 'Ifcs' => 'IFCS', 'Emp' => 'EMP', 'StdItem' => 'stdItem'];
-
-        return $acronyms[$result] ?? $result;
-    }
-
     protected function translateLocalizationValue(mixed $value, bool $excludePlaceholder = false): string
     {
         return ServiceFactory::getLocalizationService()->translateValue($value, $excludePlaceholder) ?? '';
-    }
-
-    /**
-     * Recursively transforms all array keys to PascalCase
-     *
-     * @param  array|BaseFormat|null  $data  The array with mixed case keys
-     * @return array Array with all keys in PascalCase
-     */
-    protected function transformArrayKeysToPascalCase(array|null|BaseFormat $data): array
-    {
-        if ($data === null) {
-            return [];
-        }
-
-        if ($data instanceof self) {
-            return $data->toArray() ?? [];
-        }
-
-        $result = [];
-
-        foreach ($data as $key => $value) {
-            $pascalKey = is_string($key) ? $this->toPascalCase($key) : $key;
-            $result[$pascalKey] = is_array($value)
-                ? $this->transformArrayKeysToPascalCase($value)
-                : $value;
-        }
-
-        return $result;
     }
 
     /**

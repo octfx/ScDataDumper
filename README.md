@@ -5,6 +5,7 @@ Unpack game data using [unp4k](https://github.com/dolkensp/unp4k):
 ```shell
 ./unp4k.exe 'C:\Program Files\Roberts Space Industries\StarCitizen\LIVE\Data.p4k' *.xml
 ./unp4k.exe 'C:\Program Files\Roberts Space Industries\StarCitizen\LIVE\Data.p4k' *.ini
+./unp4k.exe 'C:\Program Files\Roberts Space Industries\StarCitizen\LIVE\Data.p4k' *.socpak
 ./unforge.exe .
 ```
 

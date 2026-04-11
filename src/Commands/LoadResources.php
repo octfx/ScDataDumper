@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Commands;
 
 use JsonException;
+use Octfx\ScDataDumper\Concerns\NormalizesValues;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestableElement;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestablePreset;
@@ -30,6 +31,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 final class LoadResources extends AbstractDataCommand
 {
+    use  NormalizesValues;
+
     private const array MERGEABLE_FIELDS = [
         'key',
         'name',
@@ -162,14 +165,14 @@ final class LoadResources extends AbstractDataCommand
         $io->progressFinish();
 
         $resources = array_values(array_map(
-            fn (array $resource): array => $this->removeNullValues($resource),
+            fn (array $resource): array => $this->transformArrayKeysToPascalCase($this->removeNullValues($resource)),
             $resources
         ));
 
         usort(
             $resources,
-            static fn (array $left, array $right): int => [$left['name'] ?? '', $left['key'] ?? '', $left['uuid'] ?? '']
-                <=> [$right['name'] ?? '', $right['key'] ?? '', $right['uuid'] ?? '']
+            static fn (array $left, array $right): int => [$left['Name'] ?? '', $left['Key'] ?? '', $left['UUID'] ?? '']
+                <=> [$right['Name'] ?? '', $right['Key'] ?? '', $right['UUID'] ?? '']
         );
 
         return $resources;
@@ -244,13 +247,13 @@ final class LoadResources extends AbstractDataCommand
         usort($exports, static fn (array $left, array $right): int => [
             $left['locations'][0]['system'] ?? null,
             $left['locations'][0]['name'] ?? null,
-            $left['provider']['name'],
-            $left['provider']['uuid'],
+            $left['provider']['name'] ?? null,
+            $left['provider']['uuid'] ?? null,
         ] <=> [
             $right['locations'][0]['system'] ?? null,
             $right['locations'][0]['name'] ?? null,
-            $right['provider']['name'],
-            $right['provider']['uuid'],
+            $right['provider']['name'] ?? null,
+            $right['provider']['uuid'] ?? null,
         ]);
 
         return $exports;

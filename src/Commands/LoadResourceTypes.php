@@ -62,8 +62,8 @@ class LoadResourceTypes extends AbstractDataCommand
 
         usort(
             $resourceTypes,
-            static fn (array $left, array $right): int => [$left['name'], $left['key'], $left['uuid']]
-                <=> [$right['name'], $right['key'], $right['uuid']]
+            static fn (array $left, array $right): int => [$left['Name'], $left['Key'], $left['UUID']]
+                <=> [$right['Name'], $right['Key'], $right['UUID']]
         );
 
         $bytesWritten = file_put_contents(
@@ -119,7 +119,7 @@ class LoadResourceTypes extends AbstractDataCommand
             $tier = $extracted !== 'default' ? $extracted : null;
         }
 
-        return [
+        $data = [
             'uuid' => $resourceType->getUuid(),
             'key' => $resourceType->getClassName(),
             'name' => ServiceFactory::getLocalizationService()->translateValue($resourceTypeData['displayName'] ?? null) ?? $resourceType->getClassName(),
@@ -133,6 +133,8 @@ class LoadResourceTypes extends AbstractDataCommand
             'quality_location_override_uuid' => $this->extractQualityLocationOverrideUuid($resourceTypeData),
             'tier' => $tier,
         ];
+
+        return $this->transformArrayKeysToPascalCase($data);
     }
 
     /**

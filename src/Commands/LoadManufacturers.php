@@ -6,6 +6,7 @@ namespace Octfx\ScDataDumper\Commands;
 
 use Illuminate\Support\Arr;
 use JsonException;
+use Octfx\ScDataDumper\Concerns\NormalizesValues;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -22,6 +23,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class LoadManufacturers extends AbstractDataCommand
 {
+    use NormalizesValues;
+
     /**
      * @throws JsonException|\Symfony\Component\Console\Exception\ExceptionInterface
      */
@@ -95,7 +98,7 @@ class LoadManufacturers extends AbstractDataCommand
             }
         }
 
-        return $entry;
+        return $this->transformArrayKeysToPascalCase($entry);
     }
 
     protected function configure(): void

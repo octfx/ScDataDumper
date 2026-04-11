@@ -2,6 +2,7 @@
 
 namespace Octfx\ScDataDumper\Services\Vehicle\DriveCharacteristics;
 
+use Octfx\ScDataDumper\Concerns\NormalizesValues;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 
@@ -10,6 +11,8 @@ use Octfx\ScDataDumper\DocumentTypes\Vehicle;
  */
 final class TrackWheeledCalculator implements DriveCalculatorStrategy
 {
+    use NormalizesValues;
+
     public function supports(?Vehicle $vehicle): bool
     {
         return $vehicle?->get('MovementParams/TrackWheeled') !== null;
@@ -56,20 +59,6 @@ final class TrackWheeledCalculator implements DriveCalculatorStrategy
         }
 
         return $result;
-    }
-
-    /**
-     * Convert kebab-case or camelCase attribute names to PascalCase
-     */
-    private function toPascalCase(string $name): string
-    {
-        $name = ltrim($name, '@');
-
-        $name = str_replace(['-', '_'], ' ', $name);
-        $name = ucwords($name);
-        $name = str_replace(' ', '', $name);
-
-        return $name;
     }
 
     /**
