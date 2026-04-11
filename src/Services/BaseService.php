@@ -200,7 +200,7 @@ abstract class BaseService
     /**
      * @template T of RootDocument
      *
-     * @param  class-string<T> $class
+     * @param  class-string<T>  $class
      * @return T
      */
     protected function loadDocument(string $filePath, string $class, bool $checkValidity = true): RootDocument
@@ -223,7 +223,7 @@ abstract class BaseService
     /**
      * @template T of RootDocument
      *
-     * @param  class-string<T> $class
+     * @param  class-string<T>  $class
      * @return Generator<int, T, mixed, void>
      */
     protected function iterateDocumentType(string $mapKey, string $class): Generator

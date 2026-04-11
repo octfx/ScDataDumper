@@ -155,6 +155,51 @@ abstract class ScDataTestCase extends TestCase
     }
 
     /**
+     * @param  array<string, string>  $elements  Map of UUID => XML content
+     *
+     * @throws JsonException
+     */
+    protected function writeMineableElementCache(array $elements): void
+    {
+        $pathMap = [];
+        $uuidToPathMap = $this->readCacheFileOrEmpty('uuidToPathMap');
+        $uuidToClassMap = $this->readCacheFileOrEmpty('uuidToClassMap');
+        $classToUuidMap = $this->readCacheFileOrEmpty('classToUuidMap');
+
+        foreach ($elements as $uuid => $xml) {
+            $normalizedUuid = strtolower($uuid);
+            $path = $this->writeFile(
+                sprintf('Game2/libs/foundry/records/mining/mineableelements/%s.xml', $normalizedUuid),
+                $xml
+            );
+            $className = $this->extractDocumentClassName($xml) ?? $normalizedUuid;
+
+            $pathMap[$className] = $path;
+            $uuidToPathMap[$normalizedUuid] = $path;
+            $uuidToClassMap[$normalizedUuid] = $className;
+            $classToUuidMap[$className] = $normalizedUuid;
+        }
+
+        $classToPathMapPath = sprintf(
+            '%s%sclassToPathMap-%s.json',
+            $this->tempDir,
+            DIRECTORY_SEPARATOR,
+            PHP_OS_FAMILY
+        );
+
+        $classToPathMap = file_exists($classToPathMapPath)
+            ? json_decode(file_get_contents($classToPathMapPath), true, 512, JSON_THROW_ON_ERROR)
+            : [];
+
+        $classToPathMap['MineableElement'] = array_replace($classToPathMap['MineableElement'] ?? [], $pathMap);
+
+        $this->writeCacheFile('classToPathMap', $classToPathMap);
+        $this->writeCacheFile('uuidToPathMap', $uuidToPathMap);
+        $this->writeCacheFile('uuidToClassMap', $uuidToClassMap);
+        $this->writeCacheFile('classToUuidMap', $classToUuidMap);
+    }
+
+    /**
      * @param  array<string, string>  $properties
      *
      * @throws JsonException

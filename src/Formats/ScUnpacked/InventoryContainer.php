@@ -3,6 +3,7 @@
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\Formats\BaseFormat;
+
 final class InventoryContainer extends BaseFormat
 {
     protected ?string $elementKey = 'Components/SCItemInventoryContainerComponentParams@containerParams';

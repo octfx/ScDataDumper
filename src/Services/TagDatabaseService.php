@@ -82,6 +82,7 @@ final class TagDatabaseService extends BaseService
      * Build cache by parsing extracted Tag XML files referenced in classToPathMap.
      *
      * @return array<string, array{name: string, legacyGUID: string}>
+     *
      * @throws JsonException
      */
     private function loadTagDatabase(): array

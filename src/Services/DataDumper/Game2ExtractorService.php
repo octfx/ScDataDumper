@@ -28,7 +28,7 @@ final readonly class Game2ExtractorService
             'ConsumableSubtype.',
             'RadarContactTypeEntry.',
             'ResourceType.',
-            'StarMapAmenityTypeEntry.'
+            'StarMapAmenityTypeEntry.',
         ];
 
         $this->gameDataPath = sprintf(

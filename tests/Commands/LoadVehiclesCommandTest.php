@@ -73,9 +73,7 @@ final class TestLoadVehiclesCommand extends LoadVehicles
         $this->setName('load:vehicles');
     }
 
-    protected function prepareServices(\Symfony\Component\Console\Input\InputInterface $input, \Symfony\Component\Console\Output\OutputInterface $output): void
-    {
-    }
+    protected function prepareServices(\Symfony\Component\Console\Input\InputInterface $input, \Symfony\Component\Console\Output\OutputInterface $output): void {}
 
     protected function getVehicleExportCount(): int
     {

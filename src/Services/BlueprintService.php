@@ -42,6 +42,7 @@ final class BlueprintService extends BaseService
 
     /**
      * LRU document cache keyed by file path.     *
+     *
      * @var array<string, CraftingBlueprintRecord>
      */
     protected static array $documentCache = [];

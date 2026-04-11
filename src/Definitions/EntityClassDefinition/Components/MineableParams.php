@@ -34,5 +34,4 @@ final class MineableParams extends Element
             record: $svc->getMineableCompositionByReference($this->get('@composition'))
         );
     }
-
 }

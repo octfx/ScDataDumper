@@ -338,7 +338,7 @@ final class ShipIntegrationTest extends TestCase
             throw new RuntimeException(sprintf('Failed to create directory: %s', $directory));
         }
 
-        $xml = <<<XML
+        $xml = <<<'XML'
             <SCItemManufacturer.FALLBACK Code="FALL" __type="SCItemManufacturer" __ref="11111111-1111-1111-1111-111111111111" __path="libs/foundry/records/scitemmanufacturer/fallback.xml">
                 <Localization Name="@manufacturer_name" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY" __type="SCItemLocalization">
                     <displayFeatures __type="SCExtendedLocalizationLevelParams" />
@@ -364,7 +364,7 @@ final class ShipIntegrationTest extends TestCase
             throw new RuntimeException(sprintf('Failed to create directory: %s', $directory));
         }
 
-        $xml = <<<XML
+        $xml = <<<'XML'
             <SCItemManufacturer.BANU Code="BANU" __type="SCItemManufacturer" __ref="22222222-2222-2222-2222-222222222222" __path="libs/foundry/records/scitemmanufacturer/banu.xml">
                 <Localization Name="@manufacturer_name_banu" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY" __type="SCItemLocalization">
                     <displayFeatures __type="SCExtendedLocalizationLevelParams" />
@@ -426,7 +426,7 @@ final class ShipIntegrationTest extends TestCase
             throw new RuntimeException(sprintf('Failed to create directory: %s', $directory));
         }
 
-        $xml = <<<XML
+        $xml = <<<'XML'
             <?xml version="1.0" encoding="UTF-8"?>
             <VehicleDefinition.ACTOR_SHIP __type="EntityClassDefinition" __ref="actor-ship-uuid" __path="libs/foundry/records/entityclassdefinition/actor_ship.xml">
                 <Components>
@@ -457,7 +457,7 @@ final class ShipIntegrationTest extends TestCase
             throw new RuntimeException(sprintf('Failed to create directory: %s', $directory));
         }
 
-        $xml = <<<XML
+        $xml = <<<'XML'
             <?xml version="1.0" encoding="UTF-8"?>
             <Vehicle.TEST_SHIP_IMPL>
                 <Parts>
@@ -482,8 +482,7 @@ final class ShipIntegrationTest extends TestCase
         string $className = 'TEST_CARGO_GRID',
         string $reference = 'cargo-grid-container-uuid',
         array $dimensions = ['x' => 3.75, 'y' => 2.5, 'z' => 3.75]
-    ): string
-    {
+    ): string {
         $path = $this->tempDir.DIRECTORY_SEPARATOR.'records'.DIRECTORY_SEPARATOR.'inventorycontainers'.DIRECTORY_SEPARATOR.$fileName;
         $directory = dirname($path);
         if (! is_dir($directory) && ! mkdir($directory, 0777, true) && ! is_dir($directory)) {
@@ -651,6 +650,7 @@ final class ShipIntegrationTest extends TestCase
 
     /**
      * @param  array<string, array{uuid: string, path: string}>  $inventoryContainers
+     *
      * @throws JsonException
      */
     private function writeCacheFilesWithInventoryContainers(string $manufacturerPath, array $inventoryContainers = [], array $extraManufacturers = []): void

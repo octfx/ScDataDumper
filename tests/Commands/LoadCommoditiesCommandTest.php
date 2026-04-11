@@ -20,9 +20,20 @@ final class LoadCommoditiesCommandTest extends ScDataTestCase
 
     private const PLACEHOLDER_ORE_UUID = '33333333-3333-3333-3333-333333333333';
 
+    private const MINEABLE_ELEMENT_UUID = '44444444-4444-4444-4444-444444444444';
+
     public function test_execute_writes_localized_commodities_index(): void
     {
         $this->writeCacheFiles();
+        $this->writeMineableElementCache([
+            self::MINEABLE_ELEMENT_UUID => sprintf(
+                <<<'XML'
+                <MineableElement.RawOreElement resourceType="%s" elementInstability="50" elementResistance="-0.7" __type="MineableElement" __ref="%s" __path="libs/foundry/records/mining/mineableelements/raw_ore_element.xml" />
+                XML,
+                self::RAW_ORE_UUID,
+                self::MINEABLE_ELEMENT_UUID,
+            ),
+        ]);
         $this->writeResourceTypeCache([
             self::RAW_ORE_UUID => sprintf(
                 <<<'XML'
@@ -30,6 +41,13 @@ final class LoadCommoditiesCommandTest extends ScDataTestCase
                   <defaultCargoContainers>
                     <SResourceTypeDefaultCargoContainers oneSCU="crate_one" fourSCU="crate_four" />
                   </defaultCargoContainers>
+                  <densityType>
+                    <ResourceTypeDensity>
+                      <densityUnit>
+                        <GramsPerCubicCentimeter gramsPerCubicCentimeter="2.5" />
+                      </densityUnit>
+                    </ResourceTypeDensity>
+                  </densityType>
                 </ResourceType.RawOre>
                 XML,
                 self::REFINED_ORE_UUID,
@@ -79,6 +97,9 @@ final class LoadCommoditiesCommandTest extends ScDataTestCase
             ['UUID' => 'crate_one', 'Name' => 'oneSCU', 'Size' => 1],
             ['UUID' => 'crate_four', 'Name' => 'fourSCU', 'Size' => 4],
         ], $rawOre['CargoContainers']);
+        self::assertSame(2.5, $rawOre['DensityGPerCc']);
+        self::assertEquals(50.0, $rawOre['Instability']);
+        self::assertEquals(-0.7, $rawOre['Resistance']);
 
         $refinedOre = $this->findResourceType($resourceTypes, 'RefinedOre');
         self::assertSame('Refined Ore', $refinedOre['Name']);
@@ -88,10 +109,16 @@ final class LoadCommoditiesCommandTest extends ScDataTestCase
         self::assertFalse($refinedOre['ValidateDefaultCargoBox']);
         self::assertFalse($refinedOre['HasDefaultCargoContainers']);
         self::assertSame([], $refinedOre['CargoContainers']);
+        self::assertNull($refinedOre['DensityGPerCc']);
+        self::assertNull($refinedOre['Instability']);
+        self::assertNull($refinedOre['Resistance']);
 
         $placeholderOre = $this->findResourceType($resourceTypes, 'PlaceholderOre');
         self::assertSame('PlaceholderOre', $placeholderOre['Name']);
         self::assertNull($placeholderOre['Description']);
+        self::assertNull($placeholderOre['DensityGPerCc']);
+        self::assertNull($placeholderOre['Instability']);
+        self::assertNull($placeholderOre['Resistance']);
     }
 
     public function test_resource_type_export_includes_tier(): void

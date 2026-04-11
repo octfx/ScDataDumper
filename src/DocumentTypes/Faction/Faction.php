@@ -7,7 +7,8 @@ namespace Octfx\ScDataDumper\DocumentTypes\Faction;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
-final class Faction extends RootDocument {
+final class Faction extends RootDocument
+{
     public function getName(): string
     {
         return $this->getString('@name');

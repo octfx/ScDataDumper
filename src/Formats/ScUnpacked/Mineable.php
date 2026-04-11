@@ -57,8 +57,6 @@ final class Mineable extends BaseFormat
             'Probability' => $part->getProbability(),
             'QualityScale' => $part->getQualityScale(),
             'CurveExponent' => $part->getCurveExponent(),
-            'Instability' => $mineableElement?->getInstability(),
-            'Resistance' => $mineableElement?->getResistance(),
         ]);
     }
 }

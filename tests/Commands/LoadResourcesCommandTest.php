@@ -58,6 +58,18 @@ final class LoadResourcesCommandTest extends ScDataTestCase
 
     private const PLANT_PROVIDER_UUID = '30000000-0000-0000-0000-000000000013';
 
+    private const CAVE_BASE_ENTITY_UUID = '30000000-0000-0000-0000-000000000020';
+
+    private const CAVE_PRESET_UUID = '30000000-0000-0000-0000-000000000021';
+
+    private const CAVE_FRUIT_ENTITY_UUID = '30000000-0000-0000-0000-000000000022';
+
+    private const CAVE_FRUIT_PRESET_UUID = '30000000-0000-0000-0000-000000000023';
+
+    private const CAVE_RESOURCE_UUID = '20000000-0000-0000-0000-000000000024';
+
+    private const CAVE_CONFIG_UUID = '30000000-0000-0000-0000-000000000025';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -152,6 +164,51 @@ final class LoadResourcesCommandTest extends ScDataTestCase
                 '<HarvestableProviderPreset.HPP_Stanton_Plants __type="HarvestableProviderPreset" __ref="%1$s" __path="libs/foundry/records/harvestable/providerpresets/system/stanton/hpp_stanton_plants.xml"><harvestableGroups><HarvestableElementGroup groupName="Plants" groupProbability="0.5"><harvestables><HarvestableElement harvestable="%2$s" relativeProbability="1" /></harvestables></HarvestableElementGroup></harvestableGroups></HarvestableProviderPreset.HPP_Stanton_Plants>',
                 self::PLANT_PROVIDER_UUID,
                 self::PLANT_PRESET_UUID,
+            )
+        );
+
+        $caveBaseEntityPath = $this->writeFile(
+            'Game2/libs/foundry/records/entities/harvestable/sample_cave_base.xml',
+            sprintf(
+                '<EntityClassDefinition.SampleCaveBase __type="EntityClassDefinition" __ref="%1$s" __path="libs/foundry/records/entities/harvestable/sample_cave_base.xml"><Components><SAttachableComponentParams><AttachDef Type="Misc" SubType="Harvestable" Size="1" Grade="1"><Localization Name="@sample_cave_base" /></AttachDef></SAttachableComponentParams><SSCSignatureSystemParams><radarProperties><SSCRadarContactProperites><baseSignatureParams><SSCSignatureSystemBaseSignatureParams><signatures><Signature value="0" /><Signature value="0" /><Signature value="0" /><Signature value="0" /><Signature value="2000" /></signatures></SSCSignatureSystemBaseSignatureParams></baseSignatureParams></SSCRadarContactProperites></radarProperties></SSCSignatureSystemParams></Components></EntityClassDefinition.SampleCaveBase>',
+                self::CAVE_BASE_ENTITY_UUID,
+            )
+        );
+
+        $caveFruitEntityPath = $this->writeFile(
+            'Game2/libs/foundry/records/entities/harvestable/sample_cave_fruit.xml',
+            sprintf(
+                '<EntityClassDefinition.SampleCaveFruit __type="EntityClassDefinition" __ref="%1$s" __path="libs/foundry/records/entities/harvestable/sample_cave_fruit.xml"><Components><SAttachableComponentParams><AttachDef Type="Misc" SubType="Harvestable" Size="1" Grade="1"><Localization Name="@sample_cave_fruit" /></AttachDef></SAttachableComponentParams><ResourceContainer immutable="0" defaultCompositionFillFactor="1.0"><capacity><SMicroCargoUnit microSCU="500" /></capacity><defaultComposition><ResourceContainerDefaultCompositionEntry entry="%2$s" weight="1" /></defaultComposition></ResourceContainer></Components></EntityClassDefinition.SampleCaveFruit>',
+                self::CAVE_FRUIT_ENTITY_UUID,
+                self::CAVE_RESOURCE_UUID,
+            )
+        );
+
+        $caveFruitPresetPath = $this->writeFile(
+            'Game2/libs/foundry/records/harvestable/harvestablepresets/sample_cave_fruit_preset.xml',
+            sprintf(
+                '<HarvestablePreset.SampleCaveFruitPreset entityClass="%1$s" respawnInSlotTime="3600" __type="HarvestablePreset" __ref="%2$s" __path="libs/foundry/records/harvestable/harvestablepresets/sample_cave_fruit_preset.xml" />',
+                self::CAVE_FRUIT_ENTITY_UUID,
+                self::CAVE_FRUIT_PRESET_UUID,
+            )
+        );
+
+        $cavePresetPath = $this->writeFile(
+            'Game2/libs/foundry/records/harvestable/harvestablepresets/sample_cave_plant_preset.xml',
+            sprintf(
+                '<HarvestablePreset.SampleCavePlantPreset entityClass="%1$s" respawnInSlotTime="7200" __type="HarvestablePreset" __ref="%2$s" __path="libs/foundry/records/harvestable/harvestablepresets/sample_cave_plant_preset.xml"><subConfigBase><SubHarvestableConfigManual><subConfigManual><subHarvestables><SubHarvestableSlot harvestable="%3$s" relativeProbability="1" harvestableRespawnTimeMultiplier="1" minCount="1" maxCount="2" /></subHarvestables></subConfigManual></SubHarvestableConfigManual></subConfigBase><harvestBehaviour><despawnTimer despawnTimeSeconds="600" additionalWaitForNearbyPlayersSeconds="300" /></harvestBehaviour></HarvestablePreset.SampleCavePlantPreset>',
+                self::CAVE_BASE_ENTITY_UUID,
+                self::CAVE_PRESET_UUID,
+                self::CAVE_FRUIT_PRESET_UUID,
+            )
+        );
+
+        $caveConfigPath = $this->writeFile(
+            'Game2/libs/foundry/records/harvestable/slotpresets/sample_cave_config.xml',
+            sprintf(
+                '<SubHarvestableMultiConfigRecord.SampleCaveConfig __type="SubHarvestableMultiConfigRecord" __ref="%1$s" __path="libs/foundry/records/harvestable/slotpresets/sample_cave_config.xml"><multiConfig><taggedConfigs><TaggedSubHarvestableConfig name="CaveFlora"><tagList><HarvestableTagListTagEditor><tags><Reference value="00000000-0000-0000-0000-000000000099" /></tags></HarvestableTagListTagEditor></tagList><subConfig><SubHarvestableConfigSingleManual><subConfigManual initialSlotsProbability="0.8" configRespawnTimeMultiplier="1"><subHarvestables><SubHarvestableSlot harvestable="%2$s" relativeProbability="1" harvestableRespawnTimeMultiplier="1" /></subHarvestables></subConfigManual></SubHarvestableConfigSingleManual></subConfig></TaggedSubHarvestableConfig></taggedConfigs></multiConfig></SubHarvestableMultiConfigRecord.SampleCaveConfig>',
+                self::CAVE_CONFIG_UUID,
+                self::CAVE_PRESET_UUID,
             )
         );
 
@@ -266,6 +323,8 @@ final class LoadResourcesCommandTest extends ScDataTestCase
                     'SampleSalvageEntity' => $salvageEntityPath,
                     'SamplePlantBase' => $plantBaseEntityPath,
                     'SamplePlantFruit' => $plantFruitEntityPath,
+                    'SampleCaveBase' => $caveBaseEntityPath,
+                    'SampleCaveFruit' => $caveFruitEntityPath,
                 ],
                 'HarvestableProviderPreset' => [
                     'HPP_SpaceDerelict_General' => $salvageProviderPath,
@@ -278,12 +337,17 @@ final class LoadResourcesCommandTest extends ScDataTestCase
                     'SampleSalvage890' => $salvageHarvestablePath,
                     'SamplePlantPreset' => $plantPresetPath,
                     'SamplePlantFruitPreset' => $plantFruitPresetPath,
+                    'SampleCaveFruitPreset' => $caveFruitPresetPath,
+                    'SampleCavePlantPreset' => $cavePresetPath,
                 ],
                 'HarvestableSetup' => [
                     'V3HarvestableSetup_Salvageable_2H' => $salvageSetupPath,
                 ],
                 'HarvestableClusterPreset' => [
                     'SalvageClusterLarge' => $salvageClusterPath,
+                ],
+                'SubHarvestableMultiConfigRecord' => [
+                    'SampleCaveConfig' => $caveConfigPath,
                 ],
                 'StarMapObject' => [
                     'Stanton1' => $starmapPath,
@@ -312,6 +376,12 @@ final class LoadResourcesCommandTest extends ScDataTestCase
                 strtolower(self::PLANT_FRUIT_PRESET_UUID) => 'SamplePlantFruitPreset',
                 strtolower(self::PLANT_PROVIDER_UUID) => 'HPP_Stanton_Plants',
                 strtolower(self::PLANT_RESOURCE_UUID) => 'PlantResource',
+                strtolower(self::CAVE_BASE_ENTITY_UUID) => 'SampleCaveBase',
+                strtolower(self::CAVE_FRUIT_ENTITY_UUID) => 'SampleCaveFruit',
+                strtolower(self::CAVE_PRESET_UUID) => 'SampleCavePlantPreset',
+                strtolower(self::CAVE_FRUIT_PRESET_UUID) => 'SampleCaveFruitPreset',
+                strtolower(self::CAVE_CONFIG_UUID) => 'SampleCaveConfig',
+                strtolower(self::CAVE_RESOURCE_UUID) => 'CaveResource',
             ],
             classToUuidMap: [
                 'SampleAsteroidMineable' => strtolower(self::ASTEROID_MINEABLE_UUID),
@@ -336,6 +406,12 @@ final class LoadResourcesCommandTest extends ScDataTestCase
                 'SamplePlantFruitPreset' => strtolower(self::PLANT_FRUIT_PRESET_UUID),
                 'HPP_Stanton_Plants' => strtolower(self::PLANT_PROVIDER_UUID),
                 'PlantResource' => strtolower(self::PLANT_RESOURCE_UUID),
+                'SampleCaveBase' => strtolower(self::CAVE_BASE_ENTITY_UUID),
+                'SampleCaveFruit' => strtolower(self::CAVE_FRUIT_ENTITY_UUID),
+                'SampleCavePlantPreset' => strtolower(self::CAVE_PRESET_UUID),
+                'SampleCaveFruitPreset' => strtolower(self::CAVE_FRUIT_PRESET_UUID),
+                'SampleCaveConfig' => strtolower(self::CAVE_CONFIG_UUID),
+                'CaveResource' => strtolower(self::CAVE_RESOURCE_UUID),
             ],
             uuidToPathMap: [
                 strtolower(self::ASTEROID_MINEABLE_UUID) => $asteroidMineablePath,
@@ -359,6 +435,11 @@ final class LoadResourcesCommandTest extends ScDataTestCase
                 strtolower(self::PLANT_PRESET_UUID) => $plantPresetPath,
                 strtolower(self::PLANT_FRUIT_PRESET_UUID) => $plantFruitPresetPath,
                 strtolower(self::PLANT_PROVIDER_UUID) => $plantProviderPath,
+                strtolower(self::CAVE_BASE_ENTITY_UUID) => $caveBaseEntityPath,
+                strtolower(self::CAVE_FRUIT_ENTITY_UUID) => $caveFruitEntityPath,
+                strtolower(self::CAVE_PRESET_UUID) => $cavePresetPath,
+                strtolower(self::CAVE_FRUIT_PRESET_UUID) => $caveFruitPresetPath,
+                strtolower(self::CAVE_CONFIG_UUID) => $caveConfigPath,
             ],
             entityMetadataMap: [
                 'SampleAsteroidMineable' => [
@@ -403,6 +484,18 @@ final class LoadResourcesCommandTest extends ScDataTestCase
                     'type' => 'Misc',
                     'sub_type' => 'Harvestable',
                 ],
+                'SampleCaveBase' => [
+                    'uuid' => strtolower(self::CAVE_BASE_ENTITY_UUID),
+                    'path' => $caveBaseEntityPath,
+                    'type' => 'Misc',
+                    'sub_type' => 'Harvestable',
+                ],
+                'SampleCaveFruit' => [
+                    'uuid' => strtolower(self::CAVE_FRUIT_ENTITY_UUID),
+                    'path' => $caveFruitEntityPath,
+                    'type' => 'Misc',
+                    'sub_type' => 'Harvestable',
+                ],
             ],
         );
 
@@ -415,6 +508,10 @@ final class LoadResourcesCommandTest extends ScDataTestCase
                 '<ResourceType.PlantResource displayName="@resource_plant" __type="ResourceType" __ref="%1$s" __path="libs/foundry/records/resourcetypedatabase/plant_resource.xml"><densityType><ResourceTypeDensity><densityUnit><GramsPerCubicCentimeter gramsPerCubicCentimeter="0.5" /></densityUnit></ResourceTypeDensity></densityType></ResourceType.PlantResource>',
                 self::PLANT_RESOURCE_UUID,
             ),
+            self::CAVE_RESOURCE_UUID => sprintf(
+                '<ResourceType.CaveResource displayName="@resource_cave" __type="ResourceType" __ref="%1$s" __path="libs/foundry/records/resourcetypedatabase/cave_resource.xml"><densityType><ResourceTypeDensity><densityUnit><GramsPerCubicCentimeter gramsPerCubicCentimeter="0.8" /></densityUnit></ResourceTypeDensity></densityType></ResourceType.CaveResource>',
+                self::CAVE_RESOURCE_UUID,
+            ),
         ]);
 
         $this->writeExtractedTagFiles([
@@ -423,7 +520,7 @@ final class LoadResourcesCommandTest extends ScDataTestCase
 
         $this->writeFile(
             'Data/Localization/english/global.ini',
-            "resource_carinite=Carinite\nsample_deposit=Sample Deposit\nsample_entity_two=Sample Entity Two\nresource_plant=Plant Resource\nsample_plant_base=Sample Plant Base\nsample_plant_fruit=Sample Plant Fruit\n"
+            "resource_carinite=Carinite\nsample_deposit=Sample Deposit\nsample_entity_two=Sample Entity Two\nresource_plant=Plant Resource\nsample_plant_base=Sample Plant Base\nsample_plant_fruit=Sample Plant Fruit\nresource_cave=Cave Resource\nsample_cave_base=Sample Cave Base\nsample_cave_fruit=Sample Cave Fruit\n"
         );
     }
 
@@ -442,151 +539,179 @@ final class LoadResourcesCommandTest extends ScDataTestCase
         self::assertNotFalse($resourcesContents);
         $resources = json_decode($resourcesContents, true, 512, JSON_THROW_ON_ERROR);
 
-        self::assertCount(6, $resources);
+        self::assertCount(7, $resources);
         $resourcesByUuid = [];
         foreach ($resources as $resource) {
-            $resourcesByUuid[$resource['uuid']] = $resource;
+            $resourcesByUuid[$resource['UUID']] = $resource;
         }
 
-        self::assertSame('mineable', $resourcesByUuid[self::ENTITY_ONE_UUID]['kind']);
-        self::assertSame('Carinite', $resourcesByUuid[self::ENTITY_ONE_UUID]['composition']['parts'][0]['key']);
-        self::assertSame('Carinite', $resourcesByUuid[self::ENTITY_ONE_UUID]['composition']['parts'][0]['name']);
+        self::assertSame('mineable', $resourcesByUuid[self::ENTITY_ONE_UUID]['Kind']);
+        self::assertSame('Carinite', $resourcesByUuid[self::ENTITY_ONE_UUID]['Composition']['Parts'][0]['Key']);
+        self::assertSame('Carinite', $resourcesByUuid[self::ENTITY_ONE_UUID]['Composition']['Parts'][0]['Name']);
 
-        self::assertSame('mineable', $resourcesByUuid[self::ENTITY_TWO_UUID]['kind']);
-        self::assertSame('mineable', $resourcesByUuid[self::ASTEROID_MINEABLE_UUID]['kind']);
+        self::assertSame('mineable', $resourcesByUuid[self::ENTITY_TWO_UUID]['Kind']);
+        self::assertSame('mineable', $resourcesByUuid[self::ASTEROID_MINEABLE_UUID]['Kind']);
 
-        self::assertSame('harvestable', $resourcesByUuid[self::ENTITY_THREE_UUID]['kind']);
-        self::assertArrayNotHasKey('global_params', $resourcesByUuid[self::ENTITY_THREE_UUID]);
-        self::assertSame(self::HARVESTABLE_ONLY_UUID, $resourcesByUuid[self::ENTITY_THREE_UUID]['harvestable_uuid']);
-        self::assertSame('SampleHarvestableOnly', $resourcesByUuid[self::ENTITY_THREE_UUID]['harvestable_key']);
-        self::assertCount(1, $resourcesByUuid[self::ENTITY_THREE_UUID]['parts']);
-        $part = $resourcesByUuid[self::ENTITY_THREE_UUID]['parts'][0];
-        self::assertSame(self::ENTITY_THREE_UUID, $part['uuid']);
-        self::assertSame('SampleEntityThree', $part['key']);
-        self::assertCount(2, $part['resource_types']);
-        self::assertSame(self::RESOURCE_UUID, $part['resource_types'][0]['resource_type_uuid']);
-        self::assertSame('Carinite', $part['resource_types'][0]['name']);
-        self::assertSame(3, $part['resource_types'][0]['weight']);
-        self::assertSame(self::ENTITY_ONE_UUID, $part['resource_types'][1]['resource_type_uuid']);
-        self::assertSame('SampleEntityOne', $part['resource_types'][1]['name']);
-        self::assertSame(1, $part['resource_types'][1]['weight']);
-        self::assertTrue($part['immutable']);
-        self::assertSame(0.75, $part['fill_fraction']);
-        self::assertSame('µSCU', $part['capacity']['unit_name']);
-        self::assertSame(250, $part['capacity']['value']);
-        self::assertArrayNotHasKey('resource_container', $resourcesByUuid[self::ENTITY_THREE_UUID]);
+        self::assertSame('harvestable', $resourcesByUuid[self::ENTITY_THREE_UUID]['Kind']);
+        self::assertArrayNotHasKey('GlobalParams', $resourcesByUuid[self::ENTITY_THREE_UUID]);
+        self::assertSame(self::HARVESTABLE_ONLY_UUID, $resourcesByUuid[self::ENTITY_THREE_UUID]['HarvestableUUID']);
+        self::assertSame('SampleHarvestableOnly', $resourcesByUuid[self::ENTITY_THREE_UUID]['HarvestableKey']);
+        self::assertCount(1, $resourcesByUuid[self::ENTITY_THREE_UUID]['Parts']);
+        $part = $resourcesByUuid[self::ENTITY_THREE_UUID]['Parts'][0];
+        self::assertSame(self::ENTITY_THREE_UUID, $part['UUID']);
+        self::assertSame('SampleEntityThree', $part['Key']);
+        self::assertCount(2, $part['ResourceTypes']);
+        self::assertSame(self::RESOURCE_UUID, $part['ResourceTypes'][0]['ResourceTypeUUID']);
+        self::assertSame('Carinite', $part['ResourceTypes'][0]['Name']);
+        self::assertSame(3, $part['ResourceTypes'][0]['Weight']);
+        self::assertSame(self::ENTITY_ONE_UUID, $part['ResourceTypes'][1]['ResourceTypeUUID']);
+        self::assertSame('SampleEntityOne', $part['ResourceTypes'][1]['Name']);
+        self::assertSame(1, $part['ResourceTypes'][1]['Weight']);
+        self::assertTrue($part['Immutable']);
+        self::assertSame(0.75, $part['FillFraction']);
+        self::assertSame('µSCU', $part['Capacity']['UnitName']);
+        self::assertSame(250, $part['Capacity']['Value']);
+        self::assertArrayNotHasKey('ResourceContainer', $resourcesByUuid[self::ENTITY_THREE_UUID]);
 
-        self::assertSame('salvageable', $resourcesByUuid[self::SALVAGE_ENTITY_UUID]['kind']);
+        self::assertSame('salvageable', $resourcesByUuid[self::SALVAGE_ENTITY_UUID]['Kind']);
 
-        self::assertArrayNotHasKey('tier', $resourcesByUuid[self::ENTITY_ONE_UUID]);
-        self::assertArrayNotHasKey('tier', $resourcesByUuid[self::SALVAGE_ENTITY_UUID]);
-        self::assertArrayNotHasKey('tier', $resourcesByUuid[self::ENTITY_THREE_UUID]);
+        self::assertArrayNotHasKey('Tier', $resourcesByUuid[self::ENTITY_ONE_UUID]);
+        self::assertArrayNotHasKey('Tier', $resourcesByUuid[self::SALVAGE_ENTITY_UUID]);
+        self::assertArrayNotHasKey('Tier', $resourcesByUuid[self::ENTITY_THREE_UUID]);
 
         $plant = $resourcesByUuid[self::PLANT_BASE_ENTITY_UUID];
-        self::assertSame('harvestable', $plant['kind']);
-        self::assertSame('SamplePlantBase', $plant['key']);
-        self::assertSame('Sample Plant Base', $plant['name']);
-        self::assertSame(self::PLANT_PRESET_UUID, $plant['harvestable_uuid']);
-        self::assertSame('SamplePlantPreset', $plant['harvestable_key']);
-        self::assertSame(3600, $plant['respawn_in_slot_time']);
-        self::assertSame(600, $plant['despawn_time_seconds']);
-        self::assertSame(300, $plant['additional_wait_for_nearby_players_seconds']);
-        self::assertCount(1, $plant['parts']);
-        $plantPart = $plant['parts'][0];
-        self::assertSame(self::PLANT_FRUIT_ENTITY_UUID, $plantPart['uuid']);
-        self::assertSame('SamplePlantFruit', $plantPart['key']);
-        self::assertSame('Sample Plant Fruit', $plantPart['name']);
-        self::assertCount(1, $plantPart['resource_types']);
-        self::assertSame(self::PLANT_RESOURCE_UUID, $plantPart['resource_types'][0]['resource_type_uuid']);
-        self::assertSame('PlantResource', $plantPart['resource_types'][0]['key']);
-        self::assertSame('Plant Resource', $plantPart['resource_types'][0]['name']);
-        self::assertSame(1, $plantPart['resource_types'][0]['weight']);
-        self::assertFalse($plantPart['immutable']);
-        self::assertSame(1, $plantPart['fill_fraction']);
-        self::assertSame('µSCU', $plantPart['capacity']['unit_name']);
-        self::assertSame(600, $plantPart['capacity']['value']);
-        self::assertSame(1, $plantPart['relative_probability']);
-        self::assertSame(2, $plantPart['respawn_time_multiplier']);
-        self::assertSame(1, $plantPart['min_count']);
-        self::assertSame(3, $plantPart['max_count']);
+        self::assertSame('harvestable', $plant['Kind']);
+        self::assertSame('SamplePlantBase', $plant['Key']);
+        self::assertSame('Sample Plant Base', $plant['Name']);
+        self::assertSame(self::PLANT_PRESET_UUID, $plant['HarvestableUUID']);
+        self::assertSame('SamplePlantPreset', $plant['HarvestableKey']);
+        self::assertSame(3600, $plant['RespawnInSlotTime']);
+        self::assertSame(600, $plant['DespawnTimeSeconds']);
+        self::assertSame(300, $plant['AdditionalWaitForNearbyPlayersSeconds']);
+        self::assertCount(1, $plant['Parts']);
+        $plantPart = $plant['Parts'][0];
+        self::assertSame(self::PLANT_FRUIT_ENTITY_UUID, $plantPart['UUID']);
+        self::assertSame('SamplePlantFruit', $plantPart['Key']);
+        self::assertSame('Sample Plant Fruit', $plantPart['Name']);
+        self::assertCount(1, $plantPart['ResourceTypes']);
+        self::assertSame(self::PLANT_RESOURCE_UUID, $plantPart['ResourceTypes'][0]['ResourceTypeUUID']);
+        self::assertSame('PlantResource', $plantPart['ResourceTypes'][0]['Key']);
+        self::assertSame('Plant Resource', $plantPart['ResourceTypes'][0]['Name']);
+        self::assertSame(1, $plantPart['ResourceTypes'][0]['Weight']);
+        self::assertFalse($plantPart['Immutable']);
+        self::assertSame(1, $plantPart['FillFraction']);
+        self::assertSame('µSCU', $plantPart['Capacity']['UnitName']);
+        self::assertSame(600, $plantPart['Capacity']['Value']);
+        self::assertSame(1, $plantPart['RelativeProbability']);
+        self::assertSame(2, $plantPart['RespawnTimeMultiplier']);
+        self::assertSame(1, $plantPart['MinCount']);
+        self::assertSame(3, $plantPart['MaxCount']);
+
+        $cave = $resourcesByUuid[self::CAVE_BASE_ENTITY_UUID];
+        self::assertSame('cave_harvestable', $cave['Kind']);
+        self::assertSame('SampleCaveBase', $cave['Key']);
+        self::assertSame('Sample Cave Base', $cave['Name']);
+        self::assertSame(2000, $cave['Signature']);
+        self::assertSame(self::CAVE_PRESET_UUID, $cave['HarvestableUUID']);
+        self::assertSame('SampleCavePlantPreset', $cave['HarvestableKey']);
+        self::assertSame(7200, $cave['RespawnInSlotTime']);
+        self::assertSame(600, $cave['DespawnTimeSeconds']);
+        self::assertSame(300, $cave['AdditionalWaitForNearbyPlayersSeconds']);
+        self::assertCount(1, $cave['Parts']);
+        $cavePart = $cave['Parts'][0];
+        self::assertSame(self::CAVE_FRUIT_ENTITY_UUID, $cavePart['UUID']);
+        self::assertSame('SampleCaveFruit', $cavePart['Key']);
+        self::assertSame('Sample Cave Fruit', $cavePart['Name']);
+        self::assertCount(1, $cavePart['ResourceTypes']);
+        self::assertSame(self::CAVE_RESOURCE_UUID, $cavePart['ResourceTypes'][0]['ResourceTypeUUID']);
+        self::assertSame('CaveResource', $cavePart['ResourceTypes'][0]['Key']);
+        self::assertSame('Cave Resource', $cavePart['ResourceTypes'][0]['Name']);
+        self::assertSame(1, $cavePart['ResourceTypes'][0]['Weight']);
+        self::assertFalse($cavePart['Immutable']);
+        self::assertSame(1, $cavePart['FillFraction']);
+        self::assertSame('µSCU', $cavePart['Capacity']['UnitName']);
+        self::assertSame(500, $cavePart['Capacity']['Value']);
+        self::assertSame(1, $cavePart['RelativeProbability']);
+        self::assertSame(1, $cavePart['RespawnTimeMultiplier']);
+        self::assertSame(1, $cavePart['MinCount']);
+        self::assertSame(2, $cavePart['MaxCount']);
 
         $locationsContents = file_get_contents($this->tempDir.'/resources/locations.json');
         self::assertNotFalse($locationsContents);
         $locations = json_decode($locationsContents, true, 512, JSON_THROW_ON_ERROR);
         $locationsByProvider = [];
         foreach ($locations as $location) {
-            $locationsByProvider[$location['provider']['name']] = $location;
+            $locationsByProvider[$location['Provider']['Name']] = $location;
         }
 
         self::assertCount(3, $locations);
 
-        self::assertSame('hpp_spacederelict_general', $locationsByProvider['HPP_SpaceDerelict_General']['provider']['presetFile']);
-        self::assertSame('Space Derelict', $locationsByProvider['HPP_SpaceDerelict_General']['locations'][0]['name']);
-        self::assertSame('special', $locationsByProvider['HPP_SpaceDerelict_General']['locations'][0]['type']);
-        self::assertSame([], $locationsByProvider['HPP_SpaceDerelict_General']['areas']);
-        self::assertCount(1, $locationsByProvider['HPP_SpaceDerelict_General']['groups']);
-        self::assertSame('Salvage_FreshDerelicts', $locationsByProvider['HPP_SpaceDerelict_General']['groups'][0]['groupName']);
-        self::assertCount(1, $locationsByProvider['HPP_SpaceDerelict_General']['groups'][0]['deposits']);
-        $salvageDeposit = $locationsByProvider['HPP_SpaceDerelict_General']['groups'][0]['deposits'][0];
-        self::assertSame(self::SALVAGE_ENTITY_UUID, $salvageDeposit['resource_uuid']);
-        self::assertSame(1, $salvageDeposit['relativeProbability']);
-        self::assertSame(self::SALVAGE_SETUP_UUID, $salvageDeposit['harvestableSetup']['uuid']);
-        self::assertSame(7200, $salvageDeposit['harvestableSetup']['respawn_in_slot_time']);
-        self::assertEquals(100.0, $salvageDeposit['harvestableSetup']['movement_harvest_distance']);
-        self::assertSame(0.25, $salvageDeposit['harvestableSetup']['required_damage_ratio']);
-        self::assertTrue($salvageDeposit['harvestableSetup']['all_interactions_clear_spawn_point']);
-        self::assertSame(self::SALVAGE_PRESET_UUID, $salvageDeposit['harvestableSetup']['sub_harvestable_slots'][0]['harvestable']);
-        self::assertSame(self::SALVAGE_PRESET_UUID, $salvageDeposit['harvestableSetup']['sub_harvestable_slots'][0]['Harvestable']['__ref']);
-        self::assertSame(1, $salvageDeposit['harvestableSetup']['sub_harvestable_slots'][0]['minCount']);
-        self::assertSame(2, $salvageDeposit['harvestableSetup']['sub_harvestable_slots'][0]['maxCount']);
-        self::assertArrayNotHasKey('quality_overrides', $salvageDeposit);
-        self::assertArrayNotHasKey('resource_qualities', $salvageDeposit);
-        self::assertSame(self::SALVAGE_CLUSTER_UUID, $salvageDeposit['clustering']['uuid']);
-        self::assertSame('SalvageClusterLarge', $salvageDeposit['clustering']['key']);
-        self::assertSame(1, $salvageDeposit['clustering']['probability_of_clustering']);
-        self::assertSame(5, $salvageDeposit['clustering']['summary']['min_size']);
-        self::assertSame(10, $salvageDeposit['clustering']['summary']['max_size']);
-        self::assertSame(5, $salvageDeposit['clustering']['summary']['min_proximity']);
-        self::assertSame(10, $salvageDeposit['clustering']['summary']['max_proximity']);
-        self::assertArrayNotHasKey('probability_percent', $salvageDeposit['clustering']['summary']);
-        self::assertSame(5, $salvageDeposit['clustering']['params'][0]['minSize']);
-        self::assertSame(1, $salvageDeposit['clustering']['params'][0]['relativeProbability']);
+        self::assertSame('hpp_spacederelict_general', $locationsByProvider['HPP_SpaceDerelict_General']['Provider']['PresetFile']);
+        self::assertSame('Space Derelict', $locationsByProvider['HPP_SpaceDerelict_General']['Locations'][0]['Name']);
+        self::assertSame('special', $locationsByProvider['HPP_SpaceDerelict_General']['Locations'][0]['Type']);
+        self::assertSame([], $locationsByProvider['HPP_SpaceDerelict_General']['Areas']);
+        self::assertCount(1, $locationsByProvider['HPP_SpaceDerelict_General']['Groups']);
+        self::assertSame('Salvage_FreshDerelicts', $locationsByProvider['HPP_SpaceDerelict_General']['Groups'][0]['GroupName']);
+        self::assertCount(1, $locationsByProvider['HPP_SpaceDerelict_General']['Groups'][0]['Deposits']);
+        $salvageDeposit = $locationsByProvider['HPP_SpaceDerelict_General']['Groups'][0]['Deposits'][0];
+        self::assertSame(self::SALVAGE_ENTITY_UUID, $salvageDeposit['ResourceUUID']);
+        self::assertSame(1, $salvageDeposit['RelativeProbability']);
+        self::assertSame(self::SALVAGE_SETUP_UUID, $salvageDeposit['HarvestableSetup']['UUID']);
+        self::assertSame(7200, $salvageDeposit['HarvestableSetup']['RespawnInSlotTime']);
+        self::assertEquals(100.0, $salvageDeposit['HarvestableSetup']['MovementHarvestDistance']);
+        self::assertSame(0.25, $salvageDeposit['HarvestableSetup']['RequiredDamageRatio']);
+        self::assertTrue($salvageDeposit['HarvestableSetup']['AllInteractionsClearSpawnPoint']);
+        self::assertSame(self::SALVAGE_PRESET_UUID, $salvageDeposit['HarvestableSetup']['SubHarvestableSlots'][0]['Harvestable']['Ref']);
+        self::assertSame(1, $salvageDeposit['HarvestableSetup']['SubHarvestableSlots'][0]['MinCount']);
+        self::assertSame(2, $salvageDeposit['HarvestableSetup']['SubHarvestableSlots'][0]['MaxCount']);
+        self::assertArrayNotHasKey('QualityOverrides', $salvageDeposit);
+        self::assertArrayNotHasKey('ResourceQualities', $salvageDeposit);
+        self::assertSame(self::SALVAGE_CLUSTER_UUID, $salvageDeposit['Clustering']['UUID']);
+        self::assertSame('SalvageClusterLarge', $salvageDeposit['Clustering']['Key']);
+        self::assertSame(1, $salvageDeposit['Clustering']['ProbabilityOfClustering']);
+        self::assertSame(5, $salvageDeposit['Clustering']['MinSize']);
+        self::assertSame(10, $salvageDeposit['Clustering']['MaxSize']);
+        self::assertSame(5, $salvageDeposit['Clustering']['MinProximity']);
+        self::assertSame(10, $salvageDeposit['Clustering']['MaxProximity']);
+        self::assertArrayNotHasKey('ProbabilityPercent', $salvageDeposit['Clustering']);
+        self::assertSame(5, $salvageDeposit['Clustering']['Params'][0]['MinSize']);
+        self::assertSame(1, $salvageDeposit['Clustering']['Params'][0]['RelativeProbability']);
 
-        self::assertSame(self::PROVIDER_UUID, $locationsByProvider['HPP_Stanton1']['provider']['uuid']);
-        self::assertSame('Stanton', $locationsByProvider['HPP_Stanton1']['locations'][0]['system']);
-        self::assertSame('Stanton1', $locationsByProvider['HPP_Stanton1']['locations'][0]['name']);
-        self::assertSame('unknown', $locationsByProvider['HPP_Stanton1']['locations'][0]['type']);
-        self::assertSame(self::STARMAP_UUID, $locationsByProvider['HPP_Stanton1']['locations'][0]['object']);
-        self::assertSame(self::STANTON1_TAG_UUID, $locationsByProvider['HPP_Stanton1']['locations'][0]['tag']);
-        self::assertSame('tag', $locationsByProvider['HPP_Stanton1']['locations'][0]['matchStrategy']);
-        self::assertCount(2, $locationsByProvider['HPP_Stanton1']['areas']);
-        self::assertSame('Deserts', $locationsByProvider['HPP_Stanton1']['areas'][0]['name']);
-        self::assertSame(1, $locationsByProvider['HPP_Stanton1']['areas'][0]['globalModifier']);
-        self::assertSame('Savanna', $locationsByProvider['HPP_Stanton1']['areas'][1]['name']);
-        self::assertSame(2.5, $locationsByProvider['HPP_Stanton1']['areas'][1]['globalModifier']);
-        self::assertCount(1, $locationsByProvider['HPP_Stanton1']['groups']);
-        self::assertCount(3, $locationsByProvider['HPP_Stanton1']['groups'][0]['deposits']);
+        self::assertSame(self::PROVIDER_UUID, $locationsByProvider['HPP_Stanton1']['Provider']['UUID']);
+        self::assertSame('Stanton', $locationsByProvider['HPP_Stanton1']['Locations'][0]['System']);
+        self::assertSame('Stanton1', $locationsByProvider['HPP_Stanton1']['Locations'][0]['Name']);
+        self::assertSame('unknown', $locationsByProvider['HPP_Stanton1']['Locations'][0]['Type']);
+        self::assertSame(self::STARMAP_UUID, $locationsByProvider['HPP_Stanton1']['Locations'][0]['Object']);
+        self::assertSame(self::STANTON1_TAG_UUID, $locationsByProvider['HPP_Stanton1']['Locations'][0]['Tag']);
+        self::assertSame('tag', $locationsByProvider['HPP_Stanton1']['Locations'][0]['MatchStrategy']);
+        self::assertCount(2, $locationsByProvider['HPP_Stanton1']['Areas']);
+        self::assertSame('Deserts', $locationsByProvider['HPP_Stanton1']['Areas'][0]['Name']);
+        self::assertSame(1, $locationsByProvider['HPP_Stanton1']['Areas'][0]['GlobalModifier']);
+        self::assertSame('Savanna', $locationsByProvider['HPP_Stanton1']['Areas'][1]['Name']);
+        self::assertSame(2.5, $locationsByProvider['HPP_Stanton1']['Areas'][1]['GlobalModifier']);
+        self::assertCount(1, $locationsByProvider['HPP_Stanton1']['Groups']);
+        self::assertCount(3, $locationsByProvider['HPP_Stanton1']['Groups'][0]['Deposits']);
 
-        $deposit0 = $locationsByProvider['HPP_Stanton1']['groups'][0]['deposits'][0];
-        self::assertSame(self::ENTITY_ONE_UUID, $deposit0['resource_uuid']);
-        self::assertEquals(0.5, $deposit0['relativeProbability']);
-        self::assertArrayNotHasKey('harvestableSetup', $deposit0);
-        self::assertArrayNotHasKey('quality_overrides', $deposit0);
-        self::assertArrayNotHasKey('resource_qualities', $deposit0);
+        $deposit0 = $locationsByProvider['HPP_Stanton1']['Groups'][0]['Deposits'][0];
+        self::assertSame(self::ENTITY_ONE_UUID, $deposit0['ResourceUUID']);
+        self::assertEquals(0.5, $deposit0['RelativeProbability']);
+        self::assertArrayNotHasKey('HarvestableSetup', $deposit0);
+        self::assertArrayNotHasKey('QualityOverrides', $deposit0);
+        self::assertArrayNotHasKey('ResourceQualities', $deposit0);
 
-        $deposit1 = $locationsByProvider['HPP_Stanton1']['groups'][0]['deposits'][1];
-        self::assertSame(self::ENTITY_TWO_UUID, $deposit1['resource_uuid']);
-        self::assertEquals(1 / 6, $deposit1['relativeProbability']);
-        self::assertArrayNotHasKey('harvestableSetup', $deposit1);
-        self::assertArrayNotHasKey('quality_overrides', $deposit1);
-        self::assertArrayNotHasKey('resource_qualities', $deposit1);
+        $deposit1 = $locationsByProvider['HPP_Stanton1']['Groups'][0]['Deposits'][1];
+        self::assertSame(self::ENTITY_TWO_UUID, $deposit1['ResourceUUID']);
+        self::assertEquals(1 / 6, $deposit1['RelativeProbability']);
+        self::assertArrayNotHasKey('HarvestableSetup', $deposit1);
+        self::assertArrayNotHasKey('QualityOverrides', $deposit1);
+        self::assertArrayNotHasKey('ResourceQualities', $deposit1);
 
-        $deposit2 = $locationsByProvider['HPP_Stanton1']['groups'][0]['deposits'][2];
-        self::assertSame(self::ENTITY_THREE_UUID, $deposit2['resource_uuid']);
-        self::assertEquals(1 / 3, $deposit2['relativeProbability']);
-        self::assertArrayNotHasKey('harvestableSetup', $deposit2);
-        self::assertArrayNotHasKey('quality_overrides', $deposit2);
-        self::assertArrayNotHasKey('resource_qualities', $deposit2);
+        $deposit2 = $locationsByProvider['HPP_Stanton1']['Groups'][0]['Deposits'][2];
+        self::assertSame(self::ENTITY_THREE_UUID, $deposit2['ResourceUUID']);
+        self::assertEquals(1 / 3, $deposit2['RelativeProbability']);
+        self::assertArrayNotHasKey('HarvestableSetup', $deposit2);
+        self::assertArrayNotHasKey('QualityOverrides', $deposit2);
+        self::assertArrayNotHasKey('ResourceQualities', $deposit2);
 
         self::assertFileDoesNotExist($this->tempDir.'/resources/quality-distributions.json');
         self::assertFileDoesNotExist($this->tempDir.'/resources/quality-location-overrides.json');

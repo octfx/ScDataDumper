@@ -46,7 +46,7 @@ final class StandardisedPartBuilder
         $result = [];
 
         foreach ($parts as $part) {
-            if ((int)$part->get('@skipPart') === 1 ) {
+            if ((int) $part->get('@skipPart') === 1) {
                 continue;
             }
 

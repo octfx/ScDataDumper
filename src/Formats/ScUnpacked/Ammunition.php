@@ -6,6 +6,7 @@ namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Formats\BaseFormat;
+
 final class Ammunition extends BaseFormat
 {
     public function toArray(): ?array

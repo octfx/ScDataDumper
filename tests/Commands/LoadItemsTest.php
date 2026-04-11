@@ -71,7 +71,7 @@ final class LoadItemsTest extends TestCase
     }
 
     /**
-     * @param array<int, string> $excludedTypes
+     * @param  array<int, string>  $excludedTypes
      */
     private function invokeIsTypeExcluded(string $type, array $excludedTypes): bool
     {
@@ -84,7 +84,7 @@ final class LoadItemsTest extends TestCase
     }
 
     /**
-     * @param array<int, string> $values
+     * @param  array<int, string>  $values
      */
     private function countOccurrences(string $needle, array $values): int
     {

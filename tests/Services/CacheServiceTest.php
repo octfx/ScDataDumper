@@ -51,7 +51,7 @@ final class CacheServiceTest extends TestCase
         $uuid = 'uuid-hyphen-class-1';
         $entityPath = $this->writeXmlFile(
             'records/entity/hyphenated-item.xml',
-            <<<XML
+            <<<'XML'
                 <EntityClassDefinition.COMP_BEHR_S01_CSR-RP __type="EntityClassDefinition" __ref="uuid-hyphen-class-1" __path="libs/foundry/records/entityclassdefinition/comp_behr_s01_csr-rp.xml">
                     <Components>
                         <SAttachableComponentParams>
@@ -94,7 +94,7 @@ final class CacheServiceTest extends TestCase
         $declaredPath = 'libs/foundry/records/entityclassdefinition/comp_behr_s01_csr-rp.xml';
         $entityPath = $this->writeXmlFile(
             'records/entity/hyphenated-lookup.xml',
-            <<<XML
+            <<<'XML'
                 <EntityClassDefinition.COMP_BEHR_S01_CSR-RP __type="EntityClassDefinition" __ref="uuid-hyphen-class-lookup" __path="libs/foundry/records/entityclassdefinition/comp_behr_s01_csr-rp.xml">
                     <Components>
                         <SAttachableComponentParams>
@@ -130,7 +130,7 @@ final class CacheServiceTest extends TestCase
         $fallbackUuid = 'uuid-no-dot-fallback';
         $withPathFile = $this->writeXmlFile(
             'records/no-dot/with-path.xml',
-            <<<XML
+            <<<'XML'
                 <InventoryContainer __type="InventoryContainer" __ref="uuid-no-dot-with-path" __path="libs/foundry/records/inventorycontainer/alpha-grid-item.xml">
                     <Components/>
                 </InventoryContainer>
@@ -138,7 +138,7 @@ final class CacheServiceTest extends TestCase
         );
         $fallbackFile = $this->writeXmlFile(
             'records/no-dot/fallback-item.xml',
-            <<<XML
+            <<<'XML'
                 <InventoryContainer __type="InventoryContainer" __ref="uuid-no-dot-fallback">
                     <Components/>
                 </InventoryContainer>
@@ -173,7 +173,7 @@ final class CacheServiceTest extends TestCase
         $secondUuid = 'uuid-collision-second';
         $firstPath = $this->writeXmlFile(
             'records/collision/first.xml',
-            <<<XML
+            <<<'XML'
                 <InventoryContainer __type="InventoryContainer" __ref="uuid-collision-first" __path="libs/foundry/records/inventorycontainer/collision-grid.xml">
                     <Components/>
                 </InventoryContainer>
@@ -181,7 +181,7 @@ final class CacheServiceTest extends TestCase
         );
         $secondPath = $this->writeXmlFile(
             'records/collision/second.xml',
-            <<<XML
+            <<<'XML'
                 <InventoryContainer __type="InventoryContainer" __ref="uuid-collision-second" __path="libs/foundry/records/inventorycontainer/collision-grid.xml">
                     <Components/>
                 </InventoryContainer>
@@ -219,7 +219,7 @@ final class CacheServiceTest extends TestCase
         $entityUuid = 'uuid-entity-metadata-1';
         $entityPath = $this->writeXmlFile(
             'records/entity/mineable.xml',
-            <<<XML
+            <<<'XML'
                 <EntityClassDefinition.COMP_MISC_MINER __type="EntityClassDefinition" __ref="uuid-entity-metadata-1" __path="libs/foundry/records/entityclassdefinition/comp_misc_miner.xml">
                     <Components>
                         <SAttachableComponentParams>
@@ -232,7 +232,7 @@ final class CacheServiceTest extends TestCase
 
         $this->writeXmlFile(
             'records/resource/resource.xml',
-            <<<XML
+            <<<'XML'
                 <ResourceType.Carinite __type="ResourceType" __ref="uuid-resource-metadata-1" __path="libs/foundry/records/resourcetypedatabase/carinite.xml" />
                 XML
         );
@@ -281,6 +281,7 @@ final class CacheServiceTest extends TestCase
 
     /**
      * @return array<mixed>
+     *
      * @throws JsonException
      */
     private function readCacheFile(string $cacheName): array

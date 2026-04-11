@@ -2,8 +2,8 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
-use Octfx\ScDataDumper\DocumentTypes\Loadout\LoadoutEntry;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
+use Octfx\ScDataDumper\DocumentTypes\Loadout\LoadoutEntry;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 
 final class Loadout extends BaseFormat

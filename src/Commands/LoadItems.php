@@ -232,7 +232,7 @@ class LoadItems extends AbstractDataCommand
     }
 
     /**
-     * @param array<int, mixed> $tokens
+     * @param  array<int, mixed>  $tokens
      * @return array<int, string>
      */
     private function normalizeTypeTokens(array $tokens): array

@@ -47,5 +47,4 @@ final class ResourceType extends Element
             $lookup->getCraftingQualityLocationOverrideByReference($qualityLocationOverrideReference)
         );
     }
-
 }

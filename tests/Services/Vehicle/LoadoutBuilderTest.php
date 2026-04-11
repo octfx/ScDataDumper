@@ -71,7 +71,7 @@ final class LoadoutBuilderTest extends ScDataTestCase
         $this->initializeMinimalItemServices();
 
         $builder = new LoadoutBuilder(ServiceFactory::getItemService(), new ItemClassifierService);
-        $result = $builder->build($this->loadXmlDocument(<<<XML
+        $result = $builder->build($this->loadXmlDocument(<<<'XML'
             <SItemPortLoadoutManualParams>
                 <entries>
                     <SItemPortLoadoutEntryParams itemPortName="seat_mount" entityClassName="SEAT_PARENT">
@@ -130,7 +130,7 @@ final class LoadoutBuilderTest extends ScDataTestCase
         $this->initializeMinimalItemServices();
 
         $builder = new LoadoutBuilder(ServiceFactory::getItemService(), new ItemClassifierService);
-        $result = $builder->build($this->loadXmlDocument(<<<XML
+        $result = $builder->build($this->loadXmlDocument(<<<'XML'
             <SItemPortLoadoutManualParams>
                 <entries>
                     <SItemPortLoadoutEntryParams itemPortName="seat_mount" entityClassName="LOOP_ITEM">
@@ -234,7 +234,7 @@ final class LoadoutBuilderTest extends ScDataTestCase
         $this->initializeLoadoutFileService();
 
         $builder = new LoadoutBuilder(ServiceFactory::getItemService(), new ItemClassifierService);
-        $result = $builder->build($this->loadXmlDocument(<<<XML
+        $result = $builder->build($this->loadXmlDocument(<<<'XML'
             <SItemPortLoadoutManualParams>
                 <entries>
                     <SItemPortLoadoutEntryParams itemPortName="seat_mount" entityClassName="SEAT_XML" />
@@ -327,7 +327,7 @@ final class LoadoutBuilderTest extends ScDataTestCase
         $this->initializeLoadoutFileService();
 
         $builder = new LoadoutBuilder(ServiceFactory::getItemService(), new ItemClassifierService);
-        $result = $builder->build($this->loadXmlDocument(<<<XML
+        $result = $builder->build($this->loadXmlDocument(<<<'XML'
             <SItemPortLoadoutManualParams>
                 <entries>
                     <SItemPortLoadoutEntryParams itemPortName="seat_mount" entityClassName="SEAT_XML_BARE" />
@@ -399,33 +399,33 @@ final class LoadoutBuilderTest extends ScDataTestCase
         return $this->writeFile(
             'records/entity/'.strtolower($className).'.xml',
             sprintf(
-                <<<XML
-                <EntityClassDefinition.%1\$s __type="EntityClassDefinition" __ref="%2\$s" __path="libs/foundry/records/entityclassdefinition/%3\$s.xml">
+                <<<'XML'
+                <EntityClassDefinition.%1$s __type="EntityClassDefinition" __ref="%2$s" __path="libs/foundry/records/entityclassdefinition/%3$s.xml">
                     <Components>
                         <SAttachableComponentParams>
-                            <AttachDef Type="%4\$s" SubType="%5\$s" Size="1" Grade="A" Manufacturer="00000000-0000-0000-0000-000000000000">
+                            <AttachDef Type="%4$s" SubType="%5$s" Size="1" Grade="A" Manufacturer="00000000-0000-0000-0000-000000000000">
                                 <Localization>
-                                    <English Name="%6\$s" Description="" />
+                                    <English Name="%6$s" Description="" />
                                 </Localization>
                             </AttachDef>
                         </SAttachableComponentParams>
                         <SEntityPhysicsControllerParams>
                             <PhysType>
-                                <SEntityRigidPhysicsControllerParams Mass="%7\$s" />
+                                <SEntityRigidPhysicsControllerParams Mass="%7$s" />
                             </PhysType>
                         </SEntityPhysicsControllerParams>
                         <SItemPortContainerComponentParams>
-                            <Ports>%8\$s</Ports>
+                            <Ports>%8$s</Ports>
                         </SItemPortContainerComponentParams>
                         <SEntityComponentDefaultLoadoutParams>
                             <loadout>
                                 <SItemPortLoadoutManualParams>
-                                    <entries>%9\$s</entries>
+                                    <entries>%9$s</entries>
                                 </SItemPortLoadoutManualParams>
                             </loadout>
                         </SEntityComponentDefaultLoadoutParams>
                     </Components>
-                </EntityClassDefinition.%1\$s>
+                </EntityClassDefinition.%1$s>
                 XML,
                 $className,
                 $uuid,

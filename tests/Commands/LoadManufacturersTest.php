@@ -100,4 +100,3 @@ final class LoadManufacturersTest extends TestCase
         return $result;
     }
 }
-

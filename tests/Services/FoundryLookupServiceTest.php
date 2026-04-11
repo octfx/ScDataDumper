@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Tests\Services;
 
+use Octfx\ScDataDumper\DocumentTypes\ConsumableSubtype;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityDistributionRecord;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityLocationOverrideRecord;
-use Octfx\ScDataDumper\DocumentTypes\ConsumableSubtype;
 use Octfx\ScDataDumper\DocumentTypes\FoundryRecord;
 use Octfx\ScDataDumper\DocumentTypes\ResourceType;
 use Octfx\ScDataDumper\Services\FoundryLookupService;

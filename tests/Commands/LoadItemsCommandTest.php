@@ -235,9 +235,7 @@ final class TestLoadItemsCommand extends LoadItems
         $this->setName('load:items');
     }
 
-    protected function prepareServices(\Symfony\Component\Console\Input\InputInterface $input, \Symfony\Component\Console\Output\OutputInterface $output): void
-    {
-    }
+    protected function prepareServices(\Symfony\Component\Console\Input\InputInterface $input, \Symfony\Component\Console\Output\OutputInterface $output): void {}
 
     protected function getItemExportCount(): int
     {
