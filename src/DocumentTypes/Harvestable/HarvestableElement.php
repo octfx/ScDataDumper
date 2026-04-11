@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes\Harvestable;
 
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\Services\ServiceFactory;

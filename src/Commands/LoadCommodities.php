@@ -6,7 +6,9 @@ namespace Octfx\ScDataDumper\Commands;
 
 use JsonException;
 use Octfx\ScDataDumper\Concerns\NormalizesValues;
+use Octfx\ScDataDumper\DocumentTypes\Mining\MineableElement;
 use Octfx\ScDataDumper\DocumentTypes\ResourceType;
+use Octfx\ScDataDumper\Services\FoundryLookupService;
 use Octfx\ScDataDumper\Services\Resource\QualityTierResolver;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
@@ -57,9 +59,11 @@ class LoadCommodities extends AbstractDataCommand
         $io->progressStart($service->countDocumentType('ResourceType'));
         $start = microtime(true);
 
+        $mineableElementIndex = $this->buildMineableElementIndex($service);
+
         $resourceTypes = [];
         foreach ($service->getDocumentType('ResourceType', ResourceType::class) as $resourceType) {
-            $resourceTypes[] = $this->buildResourceTypeExportEntry($resourceType);
+            $resourceTypes[] = $this->buildResourceTypeExportEntry($resourceType, $mineableElementIndex);
             $io->progressAdvance();
         }
 
@@ -90,6 +94,7 @@ class LoadCommodities extends AbstractDataCommand
     }
 
     /**
+     * @param  array<string, array{instability: ?float, resistance: ?float}>  $mineableElementIndex
      * @return array{
      *     uuid: string,
      *     key: string,
@@ -102,10 +107,13 @@ class LoadCommodities extends AbstractDataCommand
      *     cargo_containers: list<array{uuid: string, name: string, size: float|int}>,
      *     quality_distribution_uuid: ?string,
      *     quality_location_override_uuid: ?string,
-     *     tier: ?string
+     *     tier: ?string,
+     *     density_g_per_cc: ?float,
+     *     instability: ?float,
+     *     resistance: ?float
      * }
      */
-    protected function buildResourceTypeExportEntry(ResourceType $resourceType): array
+    protected function buildResourceTypeExportEntry(ResourceType $resourceType, array $mineableElementIndex = []): array
     {
         $resourceTypeData = $resourceType->toArray();
         $refinedVersionUuid = $this->normalizeString($resourceTypeData['refinedVersion'] ?? null);
@@ -122,8 +130,11 @@ class LoadCommodities extends AbstractDataCommand
             $tier = $extracted !== 'default' ? $extracted : null;
         }
 
+        $uuid = $resourceType->getUuid();
+        $mineableProps = $mineableElementIndex[$uuid] ?? null;
+
         $data = [
-            'uuid' => $resourceType->getUuid(),
+            'uuid' => $uuid,
             'key' => $resourceType->getClassName(),
             'name' => ServiceFactory::getLocalizationService()->translateValue($resourceTypeData['displayName'] ?? null) ?? $resourceType->getClassName(),
             'description' => ServiceFactory::getLocalizationService()->translateValue($resourceTypeData['description'] ?? null),
@@ -135,6 +146,9 @@ class LoadCommodities extends AbstractDataCommand
             'quality_distribution_uuid' => $this->extractQualityDistributionUuid($resourceTypeData),
             'quality_location_override_uuid' => $this->extractQualityLocationOverrideUuid($resourceTypeData),
             'tier' => $tier,
+            'density_g_per_cc' => $resourceType->getDensityGramsPerCubicCentimeter(),
+            'instability' => $mineableProps['instability'] ?? null,
+            'resistance' => $mineableProps['resistance'] ?? null,
         ];
 
         return $this->transformArrayKeysToPascalCase($data);
@@ -266,5 +280,28 @@ class LoadCommodities extends AbstractDataCommand
         $refinedVersionData = $refinedVersion->toArray();
 
         return ServiceFactory::getLocalizationService()->translateValue($refinedVersionData['displayName'] ?? null) ?? $refinedVersion->getClassName();
+    }
+
+    /**
+     * @return array<string, array{instability: ?float, resistance: ?float}>
+     */
+    private function buildMineableElementIndex(FoundryLookupService $service): array
+    {
+        $index = [];
+
+        foreach ($service->getDocumentType('MineableElement', MineableElement::class) as $element) {
+            $resourceTypeRef = $element->getResourceTypeReference();
+
+            if ($resourceTypeRef === null) {
+                continue;
+            }
+
+            $index[$resourceTypeRef] = [
+                'instability' => $element->getInstability(),
+                'resistance' => $element->getResistance(),
+            ];
+        }
+
+        return $index;
     }
 }

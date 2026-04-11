@@ -18,6 +18,7 @@ use Octfx\ScDataDumper\DocumentTypes\FoundryRecord;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestableClusterPreset;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestablePreset;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestableSetup;
+use Octfx\ScDataDumper\DocumentTypes\Harvestable\SubHarvestableMultiConfigRecord;
 use Octfx\ScDataDumper\DocumentTypes\MeleeCombatConfig;
 use Octfx\ScDataDumper\DocumentTypes\Mining\MineableComposition;
 use Octfx\ScDataDumper\DocumentTypes\Mining\MineableElement;
@@ -135,7 +136,7 @@ final class FoundryLookupService extends BaseService
     /**
      * @template T of RootDocument
      *
-     * @param  class-string<T> $class
+     * @param  class-string<T>  $class
      * @return Generator<int, T, mixed, void>
      */
     public function getDocumentType(string $mapKey, string $class): Generator
@@ -182,6 +183,11 @@ final class FoundryLookupService extends BaseService
     public function getHarvestableClusterPresetByReference(?string $uuid): ?HarvestableClusterPreset
     {
         return $this->getByReference($uuid, ['/records/harvestable/clusteringpresets/'], HarvestableClusterPreset::class);
+    }
+
+    public function getSubHarvestableMultiConfigRecordByReference(?string $uuid): ?SubHarvestableMultiConfigRecord
+    {
+        return $this->getByReference($uuid, ['/records/harvestable/slotpresets/'], SubHarvestableMultiConfigRecord::class);
     }
 
     public function getHarvestableSetupByReference(?string $uuid): ?HarvestableSetup
@@ -268,9 +274,8 @@ final class FoundryLookupService extends BaseService
     /**
      * @template T of RootDocument
      *
-     * @param  ?string $uuid
-     * @param  ?array<int, string> $pathNeedles
-     * @param  class-string<T> $class
+     * @param  ?array<int, string>  $pathNeedles
+     * @param  class-string<T>  $class
      * @return T|null
      */
     private function getByReference(?string $uuid, ?array $pathNeedles = null, string $class = FoundryRecord::class): ?RootDocument
@@ -291,7 +296,7 @@ final class FoundryLookupService extends BaseService
     /**
      * @template T of RootDocument
      *
-     * @param  class-string<T> $class
+     * @param  class-string<T>  $class
      * @return T
      */
     private function load(string $filePath, string $class = FoundryRecord::class): RootDocument

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Services\Resource;
 
-use Octfx\ScDataDumper\Concerns\NormalizesValues;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestablePreset;
 use Octfx\ScDataDumper\DocumentTypes\Mining\MineableCompositionPart;
@@ -46,9 +45,16 @@ final readonly class ResourceIndexBuilder
         $entry = $this->extractIdentity($item);
         $entry['kind'] = $providerKind;
         $entry['signature'] = $item->getRsSignature();
-        if ($providerKind === 'harvestable' && is_array($providerPreset)) {
+        if (($providerKind === 'harvestable' || $providerKind === 'cave_harvestable') && is_array($providerPreset)) {
             $entry = array_merge($providerPreset, $entry);
             $entry['parts'] = $this->buildHarvestableParts($item, $presetParts);
+        }
+
+        if ($providerKind === 'cave_harvestable' && ! isset($entry['parts'])) {
+            $part = $this->toPart($item);
+            if ($part !== null) {
+                $entry['parts'] = [$part];
+            }
         }
 
         return $this->removeNullValues($entry);
@@ -96,7 +102,7 @@ final readonly class ResourceIndexBuilder
         return [
             'uuid' => $entity->getUuid(),
             'key' => $entity->getClassName(),
-            'name' => !empty($name) ? $name : $entity->getClassName(),
+            'name' => ! empty($name) ? $name : $entity->getClassName(),
         ];
     }
 
@@ -324,8 +330,6 @@ final readonly class ResourceIndexBuilder
             'probability' => $this->normalizePercentage($part->getProbability()),
             'quality_scale' => $part->getQualityScale(),
             'curve_exponent' => $part->getCurveExponent(),
-            'instability' => $mineableElement?->getInstability(),
-            'resistance' => $mineableElement?->getResistance(),
         ];
     }
 
@@ -343,19 +347,13 @@ final readonly class ResourceIndexBuilder
     /**
      * @return array<string, mixed>|null
      */
-    private function toResourceTypeIdentity(?ResourceType $resourceType, bool $includeDensity = true): ?array
+    private function toResourceTypeIdentity(?ResourceType $resourceType): ?array
     {
         if ($resourceType === null) {
             return null;
         }
 
-        $summary = $this->extractIdentity($resourceType);
-
-        if ($includeDensity) {
-            $summary['density_g_per_cc'] = $resourceType->getDensityGramsPerCubicCentimeter();
-        }
-
-        return $summary;
+        return $this->extractIdentity($resourceType);
     }
 
     private function removeNullValues(array $data): array

@@ -83,6 +83,138 @@ final class SocpakMappingGenerator
             $this->scDataPath.DIRECTORY_SEPARATOR.'socpak_mappings.json',
             json_encode($mappings, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
         );
+
+        $this->generateCaveMappings($baseDir, $uuidToClassMap);
+    }
+
+    /**
+     * @param  array<string, string>  $uuidToClassMap
+     *
+     * @throws JsonException
+     */
+    private function generateCaveMappings(string $baseDir, array $uuidToClassMap): void
+    {
+        $caveMappings = [];
+
+        $systemDirs = glob($baseDir.DIRECTORY_SEPARATOR.'*', GLOB_ONLYDIR);
+        if ($systemDirs === false) {
+            return;
+        }
+
+        foreach ($systemDirs as $systemDir) {
+            $systemName = basename($systemDir);
+            $systemKey = ucfirst($systemName);
+
+            $socpaks = glob($systemDir.DIRECTORY_SEPARATOR.'*.socpak');
+            if ($socpaks === false) {
+                continue;
+            }
+
+            foreach ($socpaks as $socpakPath) {
+                $xml = $this->extractXmlFromSocpakCached($socpakPath);
+                if ($xml === null) {
+                    continue;
+                }
+
+                $dom = new DOMDocument;
+                $dom->loadXML($xml);
+                $xpath = new DOMXPath($dom);
+                $nodes = $xpath->query('//ChildObjectContainers/Child');
+                if ($nodes === false) {
+                    continue;
+                }
+
+                $className = $this->resolveSocpakClassName($socpakPath, $uuidToClassMap);
+                if ($className === null) {
+                    continue;
+                }
+
+                foreach ($nodes as $node) {
+                    if (! ($node instanceof DOMElement)) {
+                        continue;
+                    }
+
+                    $name = $node->getAttribute('name');
+                    $caveInfo = $this->parseCaveReference($name);
+                    if ($caveInfo === null) {
+                        continue;
+                    }
+
+                    $caveMappings[$systemKey][$caveInfo['type']][$caveInfo['occupancy']][$className] = true;
+                }
+            }
+        }
+
+        foreach ($caveMappings as &$systemData) {
+            foreach ($systemData as &$typeData) {
+                foreach ($typeData as &$occupancyData) {
+                    $occupancyData = array_keys($occupancyData);
+                    sort($occupancyData);
+                }
+            }
+        }
+        unset($systemData, $typeData, $occupancyData);
+
+        file_put_contents(
+            $this->scDataPath.DIRECTORY_SEPARATOR.'cave_mappings.json',
+            json_encode($caveMappings, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+        );
+    }
+
+    /**
+     * @return array{type: string, occupancy: string}|null
+     */
+    private function parseCaveReference(string $name): ?array
+    {
+        if (! preg_match('#/cave/(rock|sand|acidic)\d+/system/\w+_(occu|unoc)_\d+#i', $name, $matches)) {
+            return null;
+        }
+
+        $type = strtolower($matches[1]);
+        $occupancy = $matches[2] === 'occu' ? 'occupied' : 'unoccupied';
+
+        return ['type' => $type, 'occupancy' => $occupancy];
+    }
+
+    /**
+     * @param  array<string, string>  $uuidToClassMap
+     */
+    private function resolveSocpakClassName(string $socpakPath, array $uuidToClassMap): ?string
+    {
+        $filename = pathinfo($socpakPath, PATHINFO_FILENAME);
+
+        $xml = $this->extractXmlFromSocpakCached($socpakPath);
+        if ($xml === null) {
+            return null;
+        }
+
+        $dom = new DOMDocument;
+        $dom->loadXML($xml);
+        $xpath = new DOMXPath($dom);
+
+        $nodes = $xpath->query('//ChildObjectContainers/Child');
+        if ($nodes !== false) {
+            foreach ($nodes as $node) {
+                if (! ($node instanceof DOMElement)) {
+                    continue;
+                }
+
+                $starMapRecord = $node->getAttribute('starMapRecord');
+                if ($starMapRecord !== '') {
+                    $resolved = $uuidToClassMap[strtolower($starMapRecord)] ?? null;
+                    if ($resolved !== null && ! $this->isPrivateMiningPoint($resolved)) {
+                        return $resolved;
+                    }
+                }
+            }
+        }
+
+        $match = [];
+        if (preg_match('/^([a-z]+\d+[a-z]?)/i', $filename, $match)) {
+            return ucfirst($match[1]);
+        }
+
+        return null;
     }
 
     /**

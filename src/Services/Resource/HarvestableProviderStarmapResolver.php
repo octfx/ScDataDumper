@@ -138,6 +138,14 @@ final class HarvestableProviderStarmapResolver
         ];
     }
 
+    /**
+     * @return array{className: string, starmapObjectUuid: string, starmapLocationHierarchyTagUuid: ?string, starmapLocationHierarchyTagName: ?string, type: ?string, name: ?string}|null
+     */
+    public function resolveByClassName(string $className): ?array
+    {
+        return $this->lookup($this->normalizeKey($className), $this->byClassName);
+    }
+
     private function buildIndex(): void
     {
         $lookup = ServiceFactory::getFoundryLookupService();

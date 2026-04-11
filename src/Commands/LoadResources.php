@@ -10,7 +10,10 @@ use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestableElement;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestablePreset;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestableProviderPreset;
+use Octfx\ScDataDumper\DocumentTypes\Harvestable\SubHarvestableMultiConfigRecord;
+use Octfx\ScDataDumper\DocumentTypes\Harvestable\TaggedSubHarvestableConfig;
 use Octfx\ScDataDumper\Formats\ScUnpacked\ResourceLocation as ResourceLocationFormat;
+use Octfx\ScDataDumper\Services\Resource\CaveHarvestableResolver;
 use Octfx\ScDataDumper\Services\Resource\HarvestableProviderStarmapResolver;
 use Octfx\ScDataDumper\Services\Resource\QualityRangeResolver;
 use Octfx\ScDataDumper\Services\Resource\ResourceIndexBuilder;
@@ -31,7 +34,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 final class LoadResources extends AbstractDataCommand
 {
-    use  NormalizesValues;
+    use NormalizesValues;
 
     private const array MERGEABLE_FIELDS = [
         'key',
@@ -83,6 +86,11 @@ final class LoadResources extends AbstractDataCommand
             return [$resources, $locations];
         });
 
+        $resources = array_values(array_map(
+            fn (array $resource): array => $this->transformArrayKeysToPascalCase($this->removeNullValues($resource)),
+            $resources
+        ));
+
         $encodedResources = json_encode($resources, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
         $encodedLocations = json_encode($locations, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
 
@@ -131,7 +139,8 @@ final class LoadResources extends AbstractDataCommand
 
         $io->section('Building resource index');
         $providerCount = ServiceFactory::getFoundryLookupService()->countDocumentType('HarvestableProviderPreset');
-        $io->progressStart(ServiceFactory::getItemService()->count() + $providerCount);
+        $caveConfigCount = ServiceFactory::getFoundryLookupService()->countDocumentType('SubHarvestableMultiConfigRecord');
+        $io->progressStart(ServiceFactory::getItemService()->count() + $providerCount + $caveConfigCount);
 
         [$providerEntries, $providerTargets, $providerPresets] = $this->collectProviderData($entryBuilder);
 
@@ -162,17 +171,16 @@ final class LoadResources extends AbstractDataCommand
             $io->progressAdvance();
         }
 
+        $this->collectCaveResources($entryBuilder, $resources, $io);
+
         $io->progressFinish();
 
-        $resources = array_values(array_map(
-            fn (array $resource): array => $this->transformArrayKeysToPascalCase($this->removeNullValues($resource)),
-            $resources
-        ));
+        $resources = array_values($resources);
 
         usort(
             $resources,
-            static fn (array $left, array $right): int => [$left['Name'] ?? '', $left['Key'] ?? '', $left['UUID'] ?? '']
-                <=> [$right['Name'] ?? '', $right['Key'] ?? '', $right['UUID'] ?? '']
+            static fn (array $left, array $right): int => [$left['name'] ?? '', $left['key'] ?? '', $left['uuid'] ?? '']
+                <=> [$right['name'] ?? '', $right['key'] ?? '', $right['uuid'] ?? '']
         );
 
         return $resources;
@@ -243,6 +251,8 @@ final class LoadResources extends AbstractDataCommand
         }
 
         $io->progressFinish();
+
+        $this->buildCaveLocationExports($resourceIndex, $exports, $resolver, $io);
 
         usort($exports, static fn (array $left, array $right): int => [
             $left['locations'][0]['system'] ?? null,
@@ -382,6 +392,230 @@ final class LoadResources extends AbstractDataCommand
         $existing['kind'] ??= $candidate['kind'] ?? null;
 
         $index[$candidate['uuid']] = $existing;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $resources
+     */
+    private function collectCaveResources(ResourceIndexBuilder $entryBuilder, array &$resources, SymfonyStyle $io): void
+    {
+        $lookup = ServiceFactory::getFoundryLookupService();
+
+        foreach ($lookup->getDocumentType('SubHarvestableMultiConfigRecord', SubHarvestableMultiConfigRecord::class) as $config) {
+            $this->processCaveConfigRecord($config, $entryBuilder, $resources);
+            $io->progressAdvance();
+        }
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $resources
+     */
+    private function processCaveConfigRecord(SubHarvestableMultiConfigRecord $config, ResourceIndexBuilder $entryBuilder, array &$resources): void
+    {
+        foreach ($config->getTaggedConfigs() as $taggedConfig) {
+            foreach ($taggedConfig->getSubHarvestableSlots() as $slot) {
+                $this->processCaveSlot($slot, $entryBuilder, $resources);
+            }
+        }
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $resources
+     */
+    private function processCaveSlot(\Octfx\ScDataDumper\DocumentTypes\Harvestable\SubHarvestableSlot $slot, ResourceIndexBuilder $entryBuilder, array &$resources): void
+    {
+        $entityClass = $this->resolveCaveSlotEntityClass($slot);
+        if ($entityClass === null) {
+            return;
+        }
+
+        $existing = $resources[$entityClass->getUuid()] ?? null;
+        if (is_array($existing)) {
+            return;
+        }
+
+        $harvestablePreset = $slot->getHarvestable();
+        $preset = $this->resolvePresetFromHarvestable($harvestablePreset, $entryBuilder);
+
+        $entry = $entryBuilder->buildEntry(
+            $entityClass,
+            'cave_harvestable',
+            $preset['preset'] ?? null,
+            $preset['parts'] ?? null,
+        );
+
+        if ($entry !== null) {
+            $this->mergeResourceEntry($resources, $entry);
+        }
+    }
+
+    private function resolveCaveSlotEntityClass(\Octfx\ScDataDumper\DocumentTypes\Harvestable\SubHarvestableSlot $slot): ?EntityClassDefinition
+    {
+        $entityClassRef = $slot->getHarvestableEntityClassReference();
+        if ($entityClassRef !== null) {
+            $resolved = ServiceFactory::getItemService()->getByReference($entityClassRef);
+            if ($resolved instanceof EntityClassDefinition) {
+                return $resolved;
+            }
+        }
+
+        $harvestablePreset = $slot->getHarvestable();
+        $entityClassRef = $harvestablePreset?->getEntityClassReference();
+        if ($entityClassRef !== null) {
+            $resolved = ServiceFactory::getItemService()->getByReference($entityClassRef);
+            if ($resolved instanceof EntityClassDefinition) {
+                return $resolved;
+            }
+        }
+
+        return $harvestablePreset?->getEntityClass();
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $resourceIndex
+     * @param  list<array<string, mixed>>  $exports
+     */
+    private function buildCaveLocationExports(array $resourceIndex, array &$exports, HarvestableProviderStarmapResolver $resolver, SymfonyStyle $io): void
+    {
+        $lookup = ServiceFactory::getFoundryLookupService();
+        $caveResolver = new CaveHarvestableResolver;
+
+        $io->section('Building cave locations');
+        $caveConfigCount = $lookup->countDocumentType('SubHarvestableMultiConfigRecord');
+        $io->progressStart($caveConfigCount);
+
+        foreach ($lookup->getDocumentType('SubHarvestableMultiConfigRecord', SubHarvestableMultiConfigRecord::class) as $config) {
+            $export = $this->buildCaveLocationEntry($config, $caveResolver, $resolver, $resourceIndex);
+
+            if ($export !== null) {
+                $exports[] = $export;
+            }
+
+            $io->progressAdvance();
+        }
+
+        $io->progressFinish();
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $resourceIndex
+     * @return array<string, mixed>|null
+     */
+    private function buildCaveLocationEntry(
+        SubHarvestableMultiConfigRecord $config,
+        CaveHarvestableResolver $caveResolver,
+        HarvestableProviderStarmapResolver $starmapResolver,
+        array $resourceIndex
+    ): ?array {
+        $resolved = $caveResolver->resolveCaveLocations($config);
+
+        if ($resolved['locations'] === []) {
+            return null;
+        }
+
+        $starmapLocations = array_map(function (array $loc) use ($starmapResolver): array {
+            $match = $starmapResolver->resolveByClassName($loc['className']);
+
+            return [
+                'key' => $loc['className'],
+                'object' => $match['starmapObjectUuid'] ?? null,
+                'location' => $match['starmapLocationHierarchyTagName'] ?? null,
+                'tag' => $match['starmapLocationHierarchyTagUuid'] ?? null,
+                'matchStrategy' => $match !== null ? 'cave_starmap' : 'cave',
+                'system' => $loc['system'],
+                'name' => $match['name'] ?? $loc['className'],
+                'type' => 'cave',
+            ];
+        }, $resolved['locations']);
+
+        $groups = [];
+        foreach ($config->getTaggedConfigs() as $taggedConfig) {
+            $groups[] = $this->buildCaveGroupEntry($taggedConfig, $resourceIndex);
+        }
+
+        return $this->transformArrayKeysToPascalCase($this->removeNullValues([
+            'provider' => [
+                'uuid' => $config->getUuid(),
+                'name' => $config->getClassName(),
+                'preset_file' => pathinfo($config->getPath(), PATHINFO_FILENAME),
+                'type' => 'cave',
+            ],
+            'locations' => $starmapLocations,
+            'areas' => [],
+            'groups' => $groups,
+            'cave_config' => $this->removeNullValues([
+                'cave_type' => $resolved['caveType'],
+                'occupancy' => $resolved['occupancy'],
+                'system' => $resolved['system'],
+            ]),
+        ]));
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $resourceIndex
+     * @return array<string, mixed>
+     */
+    private function buildCaveGroupEntry(TaggedSubHarvestableConfig $taggedConfig, array $resourceIndex): array
+    {
+        $deposits = [];
+        $slots = $taggedConfig->getSubHarvestableSlots();
+        $totalRelativeProbability = 0.0;
+        $hasRelativeProbability = false;
+
+        foreach ($slots as $slot) {
+            $relativeProbability = $slot->getRelativeProbability();
+            if ($relativeProbability === null) {
+                continue;
+            }
+            $totalRelativeProbability += $relativeProbability;
+            $hasRelativeProbability = true;
+        }
+
+        foreach ($slots as $slot) {
+            $relativeProbability = $slot->getRelativeProbability();
+            $entityClassUuid = $this->resolveCaveSlotEntityClassUuid($slot);
+            $resource = $entityClassUuid !== null ? ($resourceIndex[$entityClassUuid] ?? null) : null;
+
+            if ($entityClassUuid === null) {
+                continue;
+            }
+
+            $normalizedProbability = $hasRelativeProbability && is_numeric($relativeProbability) && $totalRelativeProbability > 0.0
+                ? $relativeProbability / $totalRelativeProbability
+                : null;
+
+            $deposits[] = $this->removeNullValues([
+                'resource_uuid' => $entityClassUuid,
+                'relative_probability' => $normalizedProbability,
+                'resource_qualities' => null,
+                'clustering' => null,
+                'harvestable_setup' => null,
+            ]);
+        }
+
+        return $this->removeNullValues([
+            'group_name' => $taggedConfig->getName(),
+            'group_probability' => $taggedConfig->getInitialSlotsProbability(),
+            'deposits' => $deposits,
+        ]);
+    }
+
+    private function resolveCaveSlotEntityClassUuid(\Octfx\ScDataDumper\DocumentTypes\Harvestable\SubHarvestableSlot $slot): ?string
+    {
+        $entityClassRef = $slot->getHarvestableEntityClassReference();
+        if ($entityClassRef !== null) {
+            return $entityClassRef;
+        }
+
+        $harvestablePreset = $slot->getHarvestable();
+        if ($harvestablePreset !== null) {
+            $presetEntityRef = $harvestablePreset->getEntityClassReference();
+            if ($presetEntityRef !== null) {
+                return $presetEntityRef;
+            }
+        }
+
+        return null;
     }
 
     private function resolveCanonicalKind(

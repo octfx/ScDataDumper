@@ -124,7 +124,7 @@ class GenerateCache extends Command
     private function generateSocpakMapping(InputInterface $input, SymfonyStyle $io): void
     {
         $mappingPath = sprintf('%s%ssocpak_mappings.json', $input->getArgument('path'), DIRECTORY_SEPARATOR);
-        if (file_exists($mappingPath)) {
+        if (file_exists($mappingPath) && ! $input->getOption('overwrite')) {
             return;
         }
 

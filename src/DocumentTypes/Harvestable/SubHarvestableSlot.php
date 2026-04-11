@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes\Harvestable;
 
+use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
@@ -12,6 +13,11 @@ final class SubHarvestableSlot extends RootDocument
     public function getHarvestableReference(): ?string
     {
         return $this->getString('@harvestable');
+    }
+
+    public function getHarvestableEntityClassReference(): ?string
+    {
+        return $this->getString('@harvestableEntityClass');
     }
 
     public function getHarvestable(): ?HarvestablePreset
@@ -25,6 +31,18 @@ final class SubHarvestableSlot extends RootDocument
         );
 
         return $resolved instanceof HarvestablePreset ? $resolved : null;
+    }
+
+    public function getHarvestableEntityClass(): ?EntityClassDefinition
+    {
+        $ref = $this->getHarvestableEntityClassReference();
+        if ($ref === null) {
+            return null;
+        }
+
+        $resolved = ServiceFactory::getItemService()->getByReference($ref);
+
+        return $resolved instanceof EntityClassDefinition ? $resolved : null;
     }
 
     public function getMinCount(): ?int
