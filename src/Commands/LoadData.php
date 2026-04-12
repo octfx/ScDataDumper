@@ -90,6 +90,7 @@ class LoadData extends Command
             ['name' => 'load:vehicles', 'label' => 'Loading vehicles', 'options' => ['overwrite', 'scUnpackedFormat']],
             ['name' => 'load:factions', 'label' => 'Loading factions', 'options' => ['overwrite', 'scUnpackedFormat']],
             ['name' => 'load:starmap', 'label' => 'Loading starmap', 'options' => ['overwrite']],
+            ['name' => 'load:commodity-trade-locations', 'label' => 'Loading commodity trade locations', 'options' => ['overwrite']],
             ['name' => 'load:resources', 'label' => 'Loading resources', 'options' => ['overwrite']],
             ['name' => 'load:manufacturers', 'label' => 'Loading manufacturers', 'options' => []],
             ['name' => 'load:translations', 'label' => 'Loading translations', 'options' => []],

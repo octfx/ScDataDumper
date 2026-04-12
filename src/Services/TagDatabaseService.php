@@ -10,9 +10,14 @@ use XMLReader;
 final class TagDatabaseService extends BaseService
 {
     /**
-     * @var array<string, array{name: string, legacyGUID: string}>
+     * @var array<string, array{name: string, legacyGUID: string, children: list<string>}>
      */
     private array $tagByUuid = [];
+
+    /**
+     * @var array<string, string>|null Lazy-built child UUID → parent UUID map
+     */
+    private ?array $parentMap = null;
 
     public function initialize(): void
     {
@@ -79,9 +84,61 @@ final class TagDatabaseService extends BaseService
     }
 
     /**
+     * @return list<string> All ancestor UUIDs (including self), from leaf toward root.
+     */
+    public function getAncestorUuids(string $uuid): array
+    {
+        $this->ensureParentMap();
+
+        $ancestors = [];
+        $current = strtolower($uuid);
+
+        while ($current !== '') {
+            $ancestors[] = $current;
+            $current = $this->parentMap[$current] ?? '';
+        }
+
+        return $ancestors;
+    }
+
+    /**
+     * @return list<string> All descendant UUIDs (including self).
+     */
+    public function getAllDescendantUuids(string $uuid): array
+    {
+        $key = strtolower($uuid);
+        $descendants = [$key];
+
+        $children = $this->tagByUuid[$key]['children'] ?? [];
+        foreach ($children as $childUuid) {
+            $descendants = array_merge($descendants, $this->getAllDescendantUuids($childUuid));
+        }
+
+        return $descendants;
+    }
+
+    /**
+     * Expand a list of tag UUIDs to include all ancestor UUIDs.
+     *
+     * @param  list<string>  $uuids
+     * @return list<string>
+     */
+    public function expandTagsWithAncestors(array $uuids): array
+    {
+        $expanded = [];
+        foreach ($uuids as $uuid) {
+            foreach ($this->getAncestorUuids($uuid) as $ancestor) {
+                $expanded[$ancestor] = true;
+            }
+        }
+
+        return array_keys($expanded);
+    }
+
+    /**
      * Build cache by parsing extracted Tag XML files referenced in classToPathMap.
      *
-     * @return array<string, array{name: string, legacyGUID: string}>
+     * @return array<string, array{name: string, legacyGUID: string, children: list<string>}>
      *
      * @throws JsonException
      */
@@ -114,6 +171,7 @@ final class TagDatabaseService extends BaseService
             $tags[strtolower($tag['uuid'])] = [
                 'name' => $tag['name'],
                 'legacyGUID' => $tag['legacyGUID'],
+                'children' => $tag['children'],
             ];
         }
 
@@ -155,6 +213,18 @@ final class TagDatabaseService extends BaseService
             512,
             JSON_THROW_ON_ERROR
         );
+
+        $needsRebuild = false;
+        foreach ($this->tagByUuid as $tag) {
+            if (! array_key_exists('children', $tag)) {
+                $needsRebuild = true;
+                break;
+            }
+        }
+
+        if ($needsRebuild) {
+            $this->buildCache();
+        }
     }
 
     private function makeCachePath(): string
@@ -168,7 +238,7 @@ final class TagDatabaseService extends BaseService
     }
 
     /**
-     * @return array{uuid: string, name: string, legacyGUID: string}|null
+     * @return array{uuid: string, name: string, legacyGUID: string, children: list<string>}|null
      */
     private function readTagFile(string $path): ?array
     {
@@ -190,10 +260,18 @@ final class TagDatabaseService extends BaseService
                     return null;
                 }
 
+                $children = [];
+                $innerXml = $reader->readInnerXml();
+                if ($innerXml !== '' && str_contains($innerXml, 'children')) {
+                    preg_match_all('/value="([^"]+)"/', $innerXml, $matches);
+                    $children = array_map('strtolower', $matches[1] ?? []);
+                }
+
                 return [
                     'uuid' => $uuid,
                     'name' => $name,
                     'legacyGUID' => $reader->getAttribute('legacyGUID') ?? '',
+                    'children' => $children,
                 ];
             }
         } finally {
@@ -201,5 +279,19 @@ final class TagDatabaseService extends BaseService
         }
 
         return null;
+    }
+
+    private function ensureParentMap(): void
+    {
+        if ($this->parentMap !== null) {
+            return;
+        }
+
+        $this->parentMap = [];
+        foreach ($this->tagByUuid as $uuid => $tag) {
+            foreach ($tag['children'] ?? [] as $childUuid) {
+                $this->parentMap[$childUuid] = $uuid;
+            }
+        }
     }
 }

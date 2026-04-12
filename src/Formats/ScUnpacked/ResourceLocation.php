@@ -87,9 +87,15 @@ final class ResourceLocation extends BaseFormat
             ],
             'locations' => $starmapLocations,
             'areas' => array_values(array_map(
-                static fn (array $area): array => [
+                fn (array $area): array => [
                     'name' => $area['name'] ?? null,
                     'globalModifier' => $area['globalModifier'] ?? null,
+                    'modifiers' => array_values(array_filter(
+                        array_map(
+                            fn (array $mod): ?array => $this->buildAreaModifierEntry($provider, $mod),
+                            $area['modifiers'] ?? []
+                        )
+                    )),
                 ],
                 $provider->getAreas()
             )),
@@ -98,6 +104,43 @@ final class ResourceLocation extends BaseFormat
                 $provider->getHarvestableGroups()
             )),
         ];
+    }
+
+    /**
+     * @param  array{harvestableModifier: int, elementIndex: ?int, geometries: list<string>}  $mod
+     * @return array<string, mixed>|null
+     */
+    private function buildAreaModifierEntry(HarvestableProviderPreset $provider, array $mod): ?array
+    {
+        $modifierValue = $mod['harvestableModifier'] ?? 0;
+        $elementIndex = $mod['elementIndex'] ?? null;
+
+        if ($modifierValue === 0 || $elementIndex === null) {
+            return null;
+        }
+
+        $info = $provider->getElementInfoByGlobalIndex($elementIndex);
+
+        if ($info === null) {
+            return null;
+        }
+
+        $entityClassUuid = $this->resolveEntityClassUuid($info['element']);
+
+        if ($entityClassUuid === null) {
+            return null;
+        }
+
+        $areaResource = $this->resourceIndex[$entityClassUuid] ?? null;
+        $areaResourceTypeUuids = $this->extractResourceTypeUuids($areaResource);
+
+        return $this->removeNullValues([
+            'modifier' => $mod['harvestableModifier'] ?? 0,
+            'resource_uuid' => $entityClassUuid,
+            'resource_type_uuids' => $areaResourceTypeUuids !== [] ? $areaResourceTypeUuids : null,
+            'group_name' => $info['groupName'],
+            'geometries' => $mod['geometries'] !== [] ? $mod['geometries'] : null,
+        ]);
     }
 
     /**
@@ -161,6 +204,7 @@ final class ResourceLocation extends BaseFormat
         $clustering = $this->resolveHarvestableClustering($element);
         $setup = $this->resolveHarvestableSetup($element);
         $entityClass = $this->resolveEntityClass($element, $entityClassUuid);
+        $resourceTypeUuids = $this->extractResourceTypeUuids($resource);
 
         if ($entityClassUuid === null) {
             return null;
@@ -180,6 +224,7 @@ final class ResourceLocation extends BaseFormat
 
         return $this->removeNullValues([
             'resource_uuid' => $entityClassUuid,
+            'resource_type_uuids' => $resourceTypeUuids !== [] ? $resourceTypeUuids : null,
             'relativeProbability' => $relativeProbability,
             'resource_qualities' => $qualityOverrides === [] ? null : $qualityOverrides,
             'clustering' => $this->buildClusteringSummary($clustering, $element->getClusteringReference()),
@@ -243,6 +288,26 @@ final class ResourceLocation extends BaseFormat
         }
 
         return $overrides;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function extractResourceTypeUuids(?array $resource): array
+    {
+        if (! is_array($resource)) {
+            return [];
+        }
+
+        $uuids = [];
+
+        foreach ($resource['composition']['parts'] ?? [] as $part) {
+            if (is_string($part['resource_type_uuid'] ?? null)) {
+                $uuids[] = $part['resource_type_uuid'];
+            }
+        }
+
+        return array_values(array_unique($uuids));
     }
 
     private function resolveEntityClassUuid(HarvestableElement $element): ?string

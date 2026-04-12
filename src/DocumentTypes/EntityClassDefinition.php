@@ -69,6 +69,14 @@ class EntityClassDefinition extends RootDocument
         return array_filter(array_map(static fn ($tag) => trim($tag), explode(' ', $tags)));
     }
 
+    /**
+     * @return list<string> Tag UUIDs from the top-level <tags> element.
+     */
+    public function getEntityTagReferences(): array
+    {
+        return $this->queryAttributeValues('tags/Reference', 'value');
+    }
+
     public function getRequiredTagList(): array
     {
         $tags = $this->get('Components/SAttachableComponentParams/AttachDef@RequiredTags', '') ?? '';

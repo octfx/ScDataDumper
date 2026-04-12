@@ -50,8 +50,36 @@ final class HarvestableProviderPresetTest extends ScDataTestCase
                 </HarvestableElementGroup>
               </harvestableGroups>
               <areas>
-                <Area name="Deserts" globalModifier="1" />
-                <Area name="Savanna" globalModifier="2.5" />
+                <HarvestableAreaPreset debugGroupName="Deserts" globalModifier="1">
+                  <areaType>
+                    <HarvestableAreaTypeObjectPreset>
+                      <objectPresetPaths>
+                        <String value="libs/objectpresets/test_desert.opr" />
+                      </objectPresetPaths>
+                    </HarvestableAreaTypeObjectPreset>
+                  </areaType>
+                  <modifiers>
+                    <HarvestableElementModifier harvestableModifier="0">
+                      <harvestableElement value="HarvestableElement[0000]" />
+                    </HarvestableElementModifier>
+                    <HarvestableElementModifier harvestableModifier="2">
+                      <harvestableElement value="HarvestableElement[0001]" />
+                    </HarvestableElementModifier>
+                  </modifiers>
+                </HarvestableAreaPreset>
+                <HarvestableAreaPreset debugGroupName="Savanna" globalModifier="2.5">
+                  <modifiers>
+                    <HarvestableElementModifier harvestableModifier="1">
+                      <harvestableElement value="HarvestableElement[0000]" />
+                      <geometries>
+                        <HarvestableGeometry tag="00000000-0000-0000-0000-000000000006" />
+                      </geometries>
+                    </HarvestableElementModifier>
+                    <HarvestableElementModifier harvestableModifier="0">
+                      <harvestableElement value="HarvestableElement[0002]" />
+                    </HarvestableElementModifier>
+                  </modifiers>
+                </HarvestableAreaPreset>
               </areas>
             </HarvestableProviderPreset.Sample>
             XML
@@ -241,5 +269,44 @@ final class HarvestableProviderPresetTest extends ScDataTestCase
         self::assertSame(1.0, $areas[0]['globalModifier']);
         self::assertSame('Savanna', $areas[1]['name']);
         self::assertSame(2.5, $areas[1]['globalModifier']);
+
+        self::assertCount(2, $areas[0]['modifiers']);
+        self::assertSame(0, $areas[0]['modifiers'][0]['harvestableModifier']);
+        self::assertSame(0, $areas[0]['modifiers'][0]['elementIndex']);
+        self::assertSame([], $areas[0]['modifiers'][0]['geometries']);
+        self::assertSame(2, $areas[0]['modifiers'][1]['harvestableModifier']);
+        self::assertSame(1, $areas[0]['modifiers'][1]['elementIndex']);
+        self::assertSame([], $areas[0]['modifiers'][1]['geometries']);
+
+        self::assertCount(2, $areas[1]['modifiers']);
+        self::assertSame(1, $areas[1]['modifiers'][0]['harvestableModifier']);
+        self::assertSame(0, $areas[1]['modifiers'][0]['elementIndex']);
+        self::assertSame([self::TAG_UUID], $areas[1]['modifiers'][0]['geometries']);
+        self::assertSame(0, $areas[1]['modifiers'][1]['harvestableModifier']);
+        self::assertSame(2, $areas[1]['modifiers'][1]['elementIndex']);
+        self::assertSame([], $areas[1]['modifiers'][1]['geometries']);
+    }
+
+    public function test_get_element_info_by_global_index_resolves_to_correct_element_and_group(): void
+    {
+        $document = new HarvestableProviderPreset;
+        $document->load($this->tempDir.'/Game2/libs/foundry/records/harvestable/providerpresets/system/test/sample.xml');
+
+        $info0 = $document->getElementInfoByGlobalIndex(0);
+        self::assertNotNull($info0);
+        self::assertSame('Mineables', $info0['groupName']);
+        self::assertSame(self::HARVESTABLE_UUID, $info0['element']->getHarvestableReference());
+
+        $info1 = $document->getElementInfoByGlobalIndex(1);
+        self::assertNotNull($info1);
+        self::assertSame('Mineables', $info1['groupName']);
+        self::assertSame(self::ENTITY_UUID, $info1['element']->getHarvestableEntityClassReference());
+
+        $info2 = $document->getElementInfoByGlobalIndex(2);
+        self::assertNotNull($info2);
+        self::assertSame('Salvage', $info2['groupName']);
+        self::assertSame(self::ENTITY_UUID, $info2['element']->getHarvestableEntityClassReference());
+
+        self::assertNull($document->getElementInfoByGlobalIndex(99));
     }
 }

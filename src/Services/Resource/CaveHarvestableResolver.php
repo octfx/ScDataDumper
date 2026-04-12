@@ -15,6 +15,7 @@ final class CaveHarvestableResolver
 
     /**
      * @return array{locations: list<array{className: string, system: string, caveType: string, occupancy: string}>, caveType: string|null, occupancy: string|null, system: string|null}
+     *
      * @throws JsonException
      */
     public function resolveCaveLocations(SubHarvestableMultiConfigRecord $config): array

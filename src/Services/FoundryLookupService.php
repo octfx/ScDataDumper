@@ -24,6 +24,7 @@ use Octfx\ScDataDumper\DocumentTypes\Mining\MineableComposition;
 use Octfx\ScDataDumper\DocumentTypes\Mining\MineableElement;
 use Octfx\ScDataDumper\DocumentTypes\Mining\MiningGlobalParams;
 use Octfx\ScDataDumper\DocumentTypes\MiningLaserGlobalParams;
+use Octfx\ScDataDumper\DocumentTypes\MissionLocationTemplate;
 use Octfx\ScDataDumper\DocumentTypes\Radar\RadarContactTypeEntry;
 use Octfx\ScDataDumper\DocumentTypes\RadarSystemSharedParams;
 use Octfx\ScDataDumper\DocumentTypes\Reputation\SReputationContextUI;
@@ -223,9 +224,9 @@ final class FoundryLookupService extends BaseService
     /**
      * Mission location templates used by the mission system for place selection (pickup/dropoff etc).
      */
-    public function getMissionLocationTemplateByReference(?string $uuid): ?FoundryRecord
+    public function getMissionLocationTemplateByReference(?string $uuid): ?MissionLocationTemplate
     {
-        return $this->getByReference($uuid, ['/records/missiondata/pu_locations/']);
+        return $this->getByReference($uuid, ['/records/missiondata/pu_locations/'], MissionLocationTemplate::class);
     }
 
     /**
