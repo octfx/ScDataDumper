@@ -29,9 +29,14 @@ final class StarMapObject extends BaseFormat
         $radarContactType = $object->getRadarContactType();
         $asteroidRing = $object->getAsteroidRing();
 
+        $name = ServiceFactory::getLocalizationService()->translateValue($object->getName());
+        if (empty($name)) {
+            $name = $object->getName();
+        }
+
         return $this->transformArrayKeysToPascalCase([
             'uuid' => $object->getUuid(),
-            'name' => ServiceFactory::getLocalizationService()->translateValue($object->getName()),
+            'name' => $name,
             'description' => ServiceFactory::getLocalizationService()->translateValue($object->getDescription()),
             'parentUuid' => $object->getParentReference(),
             'navIcon' => $object->getNavIcon(),
