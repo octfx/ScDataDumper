@@ -28,6 +28,7 @@ final class LoadDataCommandTest extends ScDataTestCase
             'load:vehicles' => Command::SUCCESS,
             'load:factions' => Command::SUCCESS,
             'load:starmap' => Command::SUCCESS,
+            'load:commodity-trade-locations' => Command::SUCCESS,
             'load:resources' => Command::SUCCESS,
             'load:manufacturers' => Command::SUCCESS,
             'load:translations' => Command::SUCCESS,
@@ -44,7 +45,7 @@ final class LoadDataCommandTest extends ScDataTestCase
 
         self::assertSame(0, $exitCode);
         self::assertSame(
-            ['generate:cache', 'load:items', 'load:blueprints', 'load:commodities', 'load:vehicles', 'load:factions', 'load:starmap', 'load:resources', 'load:manufacturers', 'load:translations', 'load:tags'],
+            ['generate:cache', 'load:items', 'load:blueprints', 'load:commodities', 'load:vehicles', 'load:factions', 'load:starmap', 'load:commodity-trade-locations', 'load:resources', 'load:manufacturers', 'load:translations', 'load:tags'],
             array_column($log->calls, 'name')
         );
         self::assertTrue($log->calls[1]['options']['overwrite']);
@@ -58,7 +59,8 @@ final class LoadDataCommandTest extends ScDataTestCase
         self::assertTrue($log->calls[5]['options']['scUnpackedFormat']);
         self::assertTrue($log->calls[6]['options']['overwrite']);
         self::assertTrue($log->calls[7]['options']['overwrite']);
-        self::assertTrue($log->calls[10]['options']['overwrite']);
+        self::assertTrue($log->calls[8]['options']['overwrite']);
+        self::assertTrue($log->calls[11]['options']['overwrite']);
     }
 
     public function test_execute_stops_on_first_failing_subcommand(): void
@@ -73,6 +75,7 @@ final class LoadDataCommandTest extends ScDataTestCase
             'load:vehicles' => Command::FAILURE,
             'load:factions' => Command::SUCCESS,
             'load:starmap' => Command::SUCCESS,
+            'load:commodity-trade-locations' => Command::SUCCESS,
             'load:resources' => Command::SUCCESS,
             'load:manufacturers' => Command::SUCCESS,
             'load:translations' => Command::SUCCESS,
@@ -103,6 +106,7 @@ final class LoadDataCommandTest extends ScDataTestCase
         $application->addCommand(new RecordingCommand('load:vehicles', $log, $results['load:vehicles'], ['scDataPath', 'jsonOutPath'], ['overwrite', 'scUnpackedFormat']));
         $application->addCommand(new RecordingCommand('load:factions', $log, $results['load:factions'], ['scDataPath', 'jsonOutPath'], ['overwrite', 'scUnpackedFormat']));
         $application->addCommand(new RecordingCommand('load:starmap', $log, $results['load:starmap'], ['scDataPath', 'jsonOutPath'], ['overwrite']));
+        $application->addCommand(new RecordingCommand('load:commodity-trade-locations', $log, $results['load:commodity-trade-locations'], ['scDataPath', 'jsonOutPath'], ['overwrite']));
         $application->addCommand(new RecordingCommand('load:resources', $log, $results['load:resources'], ['scDataPath', 'jsonOutPath'], ['overwrite']));
         $application->addCommand(new RecordingCommand('load:manufacturers', $log, $results['load:manufacturers'], ['scDataPath', 'jsonOutPath'], []));
         $application->addCommand(new RecordingCommand('load:translations', $log, $results['load:translations'], ['scDataPath', 'jsonOutPath'], []));

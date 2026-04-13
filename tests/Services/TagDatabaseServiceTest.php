@@ -22,6 +22,7 @@ final class TagDatabaseServiceTest extends ScDataTestCase
                 strtolower(self::ARMOURY_UUID) => [
                     'name' => 'ArmouryItem',
                     'legacyGUID' => '4294967295',
+                    'children' => [],
                 ],
             ], JSON_THROW_ON_ERROR)
         );
@@ -34,6 +35,7 @@ final class TagDatabaseServiceTest extends ScDataTestCase
             strtolower(self::ARMOURY_UUID) => [
                 'name' => 'ArmouryItem',
                 'legacyGUID' => '4294967295',
+                'children' => [],
             ],
         ], $service->getTagMap());
     }
@@ -55,10 +57,12 @@ final class TagDatabaseServiceTest extends ScDataTestCase
             strtolower(self::ARMOURY_UUID) => [
                 'name' => 'ArmouryItem',
                 'legacyGUID' => '4294967295',
+                'children' => [],
             ],
             strtolower(self::CARGO_UUID) => [
                 'name' => 'Cargo',
                 'legacyGUID' => '7',
+                'children' => [],
             ],
         ], $service->getTagMap());
         self::assertSame([
@@ -92,6 +96,7 @@ final class TagDatabaseServiceTest extends ScDataTestCase
             strtolower(self::ARMOURY_UUID) => [
                 'name' => 'ValidTag',
                 'legacyGUID' => '21',
+                'children' => [],
             ],
         ], $service->getTagMap());
     }

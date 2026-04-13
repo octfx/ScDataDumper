@@ -19,10 +19,12 @@ final class LoadTagsCommandTest extends ScDataTestCase
                 'uuid-one' => [
                     'name' => 'ArmouryItem',
                     'legacyGUID' => '4294967295',
+                    'children' => [],
                 ],
                 'uuid-two' => [
                     'name' => 'Cargo',
                     'legacyGUID' => '7',
+                    'children' => [],
                 ],
             ], JSON_THROW_ON_ERROR)
         );
