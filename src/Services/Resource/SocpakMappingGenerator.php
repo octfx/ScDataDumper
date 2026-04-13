@@ -26,6 +26,11 @@ final class SocpakMappingGenerator
         'nyx/keegerbelt/keeger_gascloud_gen.socpak' => 'KeegerBelt',
     ];
 
+    private const array PARENT_OVERRIDES = [
+        'GlaciemRing' => 'NyxStar',
+        'KeegerBelt' => 'NyxStar',
+    ];
+
     private const string NULL_UUID = '00000000-0000-0000-0000-000000000000';
 
     private const string OBJECTCONTAINERS_PATTERN = '#^Data/objectcontainers/#i';
@@ -61,6 +66,7 @@ final class SocpakMappingGenerator
         }
 
         $mappings = [];
+        $parentMappings = [];
         $pinnedUuids = [];
         $uuidToClassMap = $this->loadUuidToClassMap();
         $this->loadHppUuidSet();
@@ -71,9 +77,12 @@ final class SocpakMappingGenerator
 
         $this->seedFromLagrangePoints($baseDir, $queue, $processed, $pinnedSocpaks);
         $this->seedFromManualMapping($baseDir, $queue, $processed, $pinnedSocpaks);
-        $this->seedFromSystemSocpaks($baseDir, $uuidToClassMap, $queue, $processed, $pinnedSocpaks);
+        $this->seedFromSystemSocpaks($baseDir, $uuidToClassMap, $queue, $processed, $pinnedSocpaks, $parentMappings);
 
-        $this->walkQueue($queue, $processed, $uuidToClassMap, $mappings, $pinnedUuids);
+        $this->walkQueue($queue, $processed, $uuidToClassMap, $mappings, $pinnedUuids, $parentMappings);
+
+        $parentMappings = array_merge($parentMappings, self::PARENT_OVERRIDES);
+        $parentMappings = array_filter($parentMappings, fn (string $parent, string $child) => $parent !== $child, ARRAY_FILTER_USE_BOTH);
 
         foreach ($mappings as $uuid => $classNames) {
             $mappings[$uuid] = array_values(array_unique($classNames));
@@ -82,6 +91,11 @@ final class SocpakMappingGenerator
         file_put_contents(
             $this->scDataPath.DIRECTORY_SEPARATOR.'socpak_mappings.json',
             json_encode($mappings, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+        );
+
+        file_put_contents(
+            $this->scDataPath.DIRECTORY_SEPARATOR.'socpak_parent_mappings.json',
+            json_encode($parentMappings, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
         );
 
         $this->generateCaveMappings($baseDir, $uuidToClassMap);
@@ -221,8 +235,9 @@ final class SocpakMappingGenerator
      * @param  array<string, string>  $uuidToClassMap
      * @param  list<array{socpakPath: string, className: string, pinned: bool}>  $queue
      * @param  array<string, true>  $processed
+     * @param  array<string, string>  $parentMappings
      */
-    private function seedFromSystemSocpaks(string $baseDir, array $uuidToClassMap, array &$queue, array &$processed, array &$pinnedSocpaks): void
+    private function seedFromSystemSocpaks(string $baseDir, array $uuidToClassMap, array &$queue, array &$processed, array &$pinnedSocpaks, array &$parentMappings): void
     {
         $systemDirs = glob($baseDir.DIRECTORY_SEPARATOR.'*', GLOB_ONLYDIR);
         if ($systemDirs === false) {
@@ -244,7 +259,7 @@ final class SocpakMappingGenerator
             $dom = new DOMDocument;
             $dom->loadXML($xml);
 
-            $this->walkSystemXmlNode($dom->documentElement, null, false, $systemDir, $uuidToClassMap, $queue, $processed, $pinnedSocpaks);
+            $this->walkSystemXmlNode($dom->documentElement, null, false, $systemDir, $uuidToClassMap, $queue, $processed, $pinnedSocpaks, $parentMappings);
         }
     }
 
@@ -252,8 +267,9 @@ final class SocpakMappingGenerator
      * @param  array<string, string>  $uuidToClassMap
      * @param  list<array{socpakPath: string, className: string, pinned: bool}>  $queue
      * @param  array<string, true>  $processed
+     * @param  array<string, string>  $parentMappings
      */
-    private function walkSystemXmlNode(DOMElement $node, ?string $parentClassName, bool $pinned, string $systemDir, array $uuidToClassMap, array &$queue, array &$processed, array &$pinnedSocpaks): void
+    private function walkSystemXmlNode(DOMElement $node, ?string $parentClassName, bool $pinned, string $systemDir, array $uuidToClassMap, array &$queue, array &$processed, array &$pinnedSocpaks, array &$parentMappings): void
     {
         foreach ($node->childNodes as $childNode) {
             if (! ($childNode instanceof DOMElement) || $childNode->nodeName !== 'ChildObjectContainers') {
@@ -272,6 +288,10 @@ final class SocpakMappingGenerator
 
                 $childClassName = $this->resolveChildClassName($child, $parentClassName, $pinned, $uuidToClassMap);
 
+                if ($childClassName !== null && $parentClassName !== null) {
+                    $parentMappings[$childClassName] = $parentClassName;
+                }
+
                 $socpakPath = $this->resolveSocpakPath($name, $systemDir);
                 if ($socpakPath === null) {
                     continue;
@@ -284,7 +304,7 @@ final class SocpakMappingGenerator
                     }
                 }
 
-                $this->walkSystemXmlNode($child, $childClassName, $pinned, $systemDir, $uuidToClassMap, $queue, $processed, $pinnedSocpaks);
+                $this->walkSystemXmlNode($child, $childClassName, $pinned, $systemDir, $uuidToClassMap, $queue, $processed, $pinnedSocpaks, $parentMappings);
             }
         }
     }
@@ -359,8 +379,9 @@ final class SocpakMappingGenerator
      * @param  array<string, string>  $uuidToClassMap
      * @param  array<string, list<string>>  $mappings
      * @param  array<string, true>  $pinnedUuids
+     * @param  array<string, string>  $parentMappings
      */
-    private function walkQueue(array &$queue, array &$processed, array $uuidToClassMap, array &$mappings, array &$pinnedUuids): void
+    private function walkQueue(array &$queue, array &$processed, array $uuidToClassMap, array &$mappings, array &$pinnedUuids, array &$parentMappings): void
     {
         $i = 0;
         while (isset($queue[$i])) {
@@ -383,7 +404,7 @@ final class SocpakMappingGenerator
                 }
             }
 
-            $this->enqueueChildren($socpakPath, $className, $pinned, $uuidToClassMap, $queue, $processed);
+            $this->enqueueChildren($socpakPath, $className, $pinned, $uuidToClassMap, $queue, $processed, $parentMappings);
         }
     }
 
@@ -391,8 +412,9 @@ final class SocpakMappingGenerator
      * @param  array<string, string>  $uuidToClassMap
      * @param  list<array{socpakPath: string, className: string, pinned: bool}>  $queue
      * @param  array<string, true>  $processed
+     * @param  array<string, string>  $parentMappings
      */
-    private function enqueueChildren(string $socpakPath, ?string $parentClassName, bool $pinned, array $uuidToClassMap, array &$queue, array &$processed): void
+    private function enqueueChildren(string $socpakPath, ?string $parentClassName, bool $pinned, array $uuidToClassMap, array &$queue, array &$processed, array &$parentMappings): void
     {
         $xml = $this->extractXmlFromSocpakCached($socpakPath);
         if ($xml === null) {
@@ -417,6 +439,10 @@ final class SocpakMappingGenerator
             }
 
             $childClassName = $this->resolveChildClassName($node, $parentClassName, $pinned, $uuidToClassMap);
+
+            if ($childClassName !== null && $parentClassName !== null) {
+                $parentMappings[$childClassName] = $parentClassName;
+            }
 
             $childPath = $this->resolveSocpakPath($name, $systemDir);
             if ($childPath === null) {

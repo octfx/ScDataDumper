@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
+use Illuminate\Support\Str;
 use Octfx\ScDataDumper\DocumentTypes\Radar\RadarContactTypeEntry;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\DocumentTypes\Starmap\Jurisdiction;
@@ -31,14 +32,19 @@ final class StarMapObject extends BaseFormat
 
         $name = ServiceFactory::getLocalizationService()->translateValue($object->getName());
         if (empty($name)) {
-            $name = $object->getName();
+            $name = Str::headline($object->getClassName());
+        }
+
+        $parentUuid = $object->getParentReference();
+        if ($parentUuid === null) {
+            $parentUuid = ServiceFactory::getStarmapParentResolver()->resolveParentUuid($object->getClassName());
         }
 
         return $this->transformArrayKeysToPascalCase([
             'uuid' => $object->getUuid(),
             'name' => $name,
             'description' => ServiceFactory::getLocalizationService()->translateValue($object->getDescription()),
-            'parentUuid' => $object->getParentReference(),
+            'parentUuid' => $parentUuid,
             'navIcon' => $object->getNavIcon(),
             'respawnLocationType' => $object->getRespawnLocationType(),
             'isScannable' => $object->getIsScannable(),

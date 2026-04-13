@@ -129,6 +129,11 @@ final class ServiceFactory
         return self::getService('ResourceService');
     }
 
+    public static function getStarmapParentResolver(): StarmapParentResolver
+    {
+        return self::getService('StarmapParentResolver');
+    }
+
     public static function getLoadoutFileService(): LoadoutFileService
     {
         return self::getService('LoadoutFileService');
@@ -167,6 +172,7 @@ final class ServiceFactory
             'VehicleService' => new VehicleService(self::$activeScDataPath),
             'FoundryLookupService' => new FoundryLookupService(self::$activeScDataPath),
             'ResourceService' => new ResourceService(self::$activeJsonOutPath, self::$activeScDataPath),
+            'StarmapParentResolver' => new StarmapParentResolver(self::$activeScDataPath),
             'LoadoutFileService' => new LoadoutFileService(self::$activeScDataPath),
             default => throw new RuntimeException('Unknown service: '.$serviceName),
         };
