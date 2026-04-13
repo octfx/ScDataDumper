@@ -276,8 +276,13 @@ final class ResourceLocation extends BaseFormat
                 continue;
             }
 
+            $minPercentage = is_numeric($part['min_percentage'] ?? null) ? (float) $part['min_percentage'] : null;
+            $maxPercentage = is_numeric($part['max_percentage'] ?? null) ? (float) $part['max_percentage'] : null;
+
             $overrides[] = [
                 'resource_key' => $resourceKey,
+                'min_percentage' => $minPercentage,
+                'max_percentage' => $maxPercentage,
                 'quality_range' => [
                     'min' => $qualityRange['effective_min'],
                     'max' => $qualityRange['effective_max'],
