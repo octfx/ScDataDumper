@@ -206,7 +206,7 @@ final class LoadResourcesCommandTest extends ScDataTestCase
         $caveConfigPath = $this->writeFile(
             'Game2/libs/foundry/records/harvestable/slotpresets/sample_cave_config.xml',
             sprintf(
-                '<SubHarvestableMultiConfigRecord.SampleCaveConfig __type="SubHarvestableMultiConfigRecord" __ref="%1$s" __path="libs/foundry/records/harvestable/slotpresets/sample_cave_config.xml"><multiConfig><taggedConfigs><TaggedSubHarvestableConfig name="CaveFlora"><tagList><HarvestableTagListTagEditor><tags><Reference value="00000000-0000-0000-0000-000000000099" /></tags></HarvestableTagListTagEditor></tagList><subConfig><SubHarvestableConfigSingleManual><subConfigManual initialSlotsProbability="0.8" configRespawnTimeMultiplier="1"><subHarvestables><SubHarvestableSlot harvestable="%2$s" relativeProbability="1" harvestableRespawnTimeMultiplier="1" /></subHarvestables></subConfigManual></SubHarvestableConfigSingleManual></subConfig></TaggedSubHarvestableConfig></taggedConfigs></multiConfig></SubHarvestableMultiConfigRecord.SampleCaveConfig>',
+                '<SubHarvestableMultiConfigRecord.Loot_Caves_Occupied_Rock_Stanton __type="SubHarvestableMultiConfigRecord" __ref="%1$s" __path="libs/foundry/records/harvestable/slotpresets/sample_cave_config.xml"><multiConfig><taggedConfigs><TaggedSubHarvestableConfig name="CaveFlora"><tagList><HarvestableTagListTagEditor><tags><Reference value="00000000-0000-0000-0000-000000000099" /></tags></HarvestableTagListTagEditor></tagList><subConfig><SubHarvestableConfigSingleManual><subConfigManual initialSlotsProbability="0.8" configRespawnTimeMultiplier="1"><subHarvestables><SubHarvestableSlot harvestable="%2$s" relativeProbability="1" harvestableRespawnTimeMultiplier="1" /></subHarvestables></subConfigManual></SubHarvestableConfigSingleManual></subConfig></TaggedSubHarvestableConfig></taggedConfigs></multiConfig></SubHarvestableMultiConfigRecord.Loot_Caves_Occupied_Rock_Stanton>',
                 self::CAVE_CONFIG_UUID,
                 self::CAVE_PRESET_UUID,
             )
@@ -520,7 +520,12 @@ final class LoadResourcesCommandTest extends ScDataTestCase
 
         $this->writeFile(
             'Data/Localization/english/global.ini',
-            "resource_carinite=Carinite\nsample_deposit=Sample Deposit\nsample_entity_two=Sample Entity Two\nresource_plant=Plant Resource\nsample_plant_base=Sample Plant Base\nsample_plant_fruit=Sample Plant Fruit\nresource_cave=Cave Resource\nsample_cave_base=Sample Cave Base\nsample_cave_fruit=Sample Cave Fruit\n"
+            "resource_carinite=Carinite\nsample_deposit=Sample Deposit\nsample_entity_two=Sample Entity Two\nresource_plant=Plant Resource\nsample_plant_base=Sample Plant Base\nsample_plant_fruit=Sample Plant Fruit\nresource_cave=Cave resource\nsample_cave_base=Sample Cave Base\nsample_cave_fruit=Sample Cave Fruit\n"
+        );
+
+        $this->writeFile(
+            'cave_mappings.json',
+            json_encode(['Stanton' => ['rock' => ['occupied' => ['TestCave_ClassName']]]], JSON_THROW_ON_ERROR)
         );
     }
 
@@ -625,7 +630,7 @@ final class LoadResourcesCommandTest extends ScDataTestCase
         self::assertCount(1, $cavePart['ResourceTypes']);
         self::assertSame(self::CAVE_RESOURCE_UUID, $cavePart['ResourceTypes'][0]['ResourceTypeUUID']);
         self::assertSame('CaveResource', $cavePart['ResourceTypes'][0]['Key']);
-        self::assertSame('Cave Resource', $cavePart['ResourceTypes'][0]['Name']);
+        self::assertSame('Cave resource', $cavePart['ResourceTypes'][0]['Name']);
         self::assertSame(1, $cavePart['ResourceTypes'][0]['Weight']);
         self::assertFalse($cavePart['Immutable']);
         self::assertSame(1, $cavePart['FillFraction']);
@@ -644,7 +649,7 @@ final class LoadResourcesCommandTest extends ScDataTestCase
             $locationsByProvider[$location['Provider']['Name']] = $location;
         }
 
-        self::assertCount(3, $locations);
+        self::assertCount(4, $locations);
 
         self::assertSame('hpp_spacederelict_general', $locationsByProvider['HPP_SpaceDerelict_General']['Provider']['PresetFile']);
         self::assertSame('Space Derelict', $locationsByProvider['HPP_SpaceDerelict_General']['Locations'][0]['Name']);
@@ -712,6 +717,52 @@ final class LoadResourcesCommandTest extends ScDataTestCase
         self::assertArrayNotHasKey('HarvestableSetup', $deposit2);
         self::assertArrayNotHasKey('QualityOverrides', $deposit2);
         self::assertArrayNotHasKey('ResourceQualities', $deposit2);
+
+        $caveLocation = $locationsByProvider['Loot_Caves_Occupied_Rock_Stanton'] ?? null;
+        self::assertNotNull($caveLocation);
+        self::assertSame('cave', $caveLocation['Provider']['Type']);
+        self::assertSame(self::CAVE_CONFIG_UUID, $caveLocation['Provider']['UUID']);
+        self::assertSame('rock', $caveLocation['CaveConfig']['CaveType']);
+        self::assertSame('occupied', $caveLocation['CaveConfig']['Occupancy']);
+        self::assertSame('Stanton', $caveLocation['CaveConfig']['System']);
+        self::assertCount(1, $caveLocation['Groups']);
+        self::assertSame('CaveFlora', $caveLocation['Groups'][0]['GroupName']);
+        self::assertSame(0.8, $caveLocation['Groups'][0]['GroupProbability']);
+        self::assertCount(1, $caveLocation['Groups'][0]['Deposits']);
+
+        $caveDeposit = $caveLocation['Groups'][0]['Deposits'][0];
+        self::assertSame(self::CAVE_BASE_ENTITY_UUID, $caveDeposit['ResourceUUID']);
+        self::assertEquals(1.0, $caveDeposit['RelativeProbability']);
+        self::assertArrayNotHasKey('ResourceQualities', $caveDeposit);
+
+        self::assertArrayHasKey('Items', $caveDeposit);
+        self::assertCount(1, $caveDeposit['Items']);
+        $caveItem = $caveDeposit['Items'][0];
+        self::assertSame(self::CAVE_FRUIT_ENTITY_UUID, $caveItem['UUID']);
+        self::assertSame('SampleCaveFruit', $caveItem['Key']);
+        self::assertSame('Sample Cave Fruit', $caveItem['Name']);
+        self::assertCount(1, $caveItem['ResourceTypes']);
+        self::assertSame(self::CAVE_RESOURCE_UUID, $caveItem['ResourceTypes'][0]['ResourceTypeUUID']);
+        self::assertSame('CaveResource', $caveItem['ResourceTypes'][0]['Key']);
+        self::assertSame('Cave resource', $caveItem['ResourceTypes'][0]['Name']);
+        self::assertSame(1, $caveItem['ResourceTypes'][0]['Weight']);
+        self::assertFalse($caveItem['Immutable']);
+        self::assertSame(1, $caveItem['FillFraction']);
+        self::assertSame('µSCU', $caveItem['Capacity']['UnitName']);
+        self::assertSame(500, $caveItem['Capacity']['Value']);
+        self::assertSame(1, $caveItem['RelativeProbability']);
+        self::assertSame(1, $caveItem['RespawnTimeMultiplier']);
+        self::assertSame(1, $caveItem['MinCount']);
+        self::assertSame(2, $caveItem['MaxCount']);
+
+        self::assertArrayHasKey('HarvestableSetup', $caveDeposit);
+        self::assertSame(self::CAVE_PRESET_UUID, $caveDeposit['HarvestableSetup']['UUID']);
+        self::assertSame('SampleCavePlantPreset', $caveDeposit['HarvestableSetup']['Key']);
+        self::assertSame(7200, $caveDeposit['HarvestableSetup']['RespawnInSlotTime']);
+        self::assertSame(600, $caveDeposit['HarvestableSetup']['DespawnTimeSeconds']);
+        self::assertSame(300, $caveDeposit['HarvestableSetup']['AdditionalWaitForNearbyPlayersSeconds']);
+        self::assertEquals(1, $caveDeposit['HarvestableSetup']['RelativeProbability']);
+        self::assertEquals(1, $caveDeposit['HarvestableSetup']['RespawnTimeMultiplier']);
 
         self::assertFileDoesNotExist($this->tempDir.'/resources/quality-distributions.json');
         self::assertFileDoesNotExist($this->tempDir.'/resources/quality-location-overrides.json');

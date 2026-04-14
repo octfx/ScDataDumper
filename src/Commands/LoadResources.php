@@ -11,6 +11,7 @@ use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestableElement;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestablePreset;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestableProviderPreset;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\SubHarvestableMultiConfigRecord;
+use Octfx\ScDataDumper\DocumentTypes\Harvestable\SubHarvestableSlot;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\TaggedSubHarvestableConfig;
 use Octfx\ScDataDumper\Formats\ScUnpacked\ResourceLocation as ResourceLocationFormat;
 use Octfx\ScDataDumper\Services\Resource\CaveHarvestableResolver;
@@ -252,7 +253,7 @@ final class LoadResources extends AbstractDataCommand
 
         $io->progressFinish();
 
-        $this->buildCaveLocationExports($resourceIndex, $exports, $resolver, $io);
+        $this->buildCaveLocationExports($resourceIndex, $exports, $resolver, $qualityResolver, $io);
 
         usort($exports, static fn (array $left, array $right): int => [
             $left['locations'][0]['system'] ?? null,
@@ -422,7 +423,7 @@ final class LoadResources extends AbstractDataCommand
     /**
      * @param  list<array<string, mixed>>  $resources
      */
-    private function processCaveSlot(\Octfx\ScDataDumper\DocumentTypes\Harvestable\SubHarvestableSlot $slot, ResourceIndexBuilder $entryBuilder, array &$resources): void
+    private function processCaveSlot(SubHarvestableSlot $slot, ResourceIndexBuilder $entryBuilder, array &$resources): void
     {
         $entityClass = $this->resolveCaveSlotEntityClass($slot);
         if ($entityClass === null) {
@@ -449,7 +450,7 @@ final class LoadResources extends AbstractDataCommand
         }
     }
 
-    private function resolveCaveSlotEntityClass(\Octfx\ScDataDumper\DocumentTypes\Harvestable\SubHarvestableSlot $slot): ?EntityClassDefinition
+    private function resolveCaveSlotEntityClass(SubHarvestableSlot $slot): ?EntityClassDefinition
     {
         $entityClassRef = $slot->getHarvestableEntityClassReference();
         if ($entityClassRef !== null) {
@@ -475,7 +476,7 @@ final class LoadResources extends AbstractDataCommand
      * @param  array<string, array<string, mixed>>  $resourceIndex
      * @param  list<array<string, mixed>>  $exports
      */
-    private function buildCaveLocationExports(array $resourceIndex, array &$exports, HarvestableProviderStarmapResolver $resolver, SymfonyStyle $io): void
+    private function buildCaveLocationExports(array $resourceIndex, array &$exports, HarvestableProviderStarmapResolver $resolver, QualityRangeResolver $qualityResolver, SymfonyStyle $io): void
     {
         $lookup = ServiceFactory::getFoundryLookupService();
         $caveResolver = new CaveHarvestableResolver;
@@ -485,7 +486,7 @@ final class LoadResources extends AbstractDataCommand
         $io->progressStart($caveConfigCount);
 
         foreach ($lookup->getDocumentType('SubHarvestableMultiConfigRecord', SubHarvestableMultiConfigRecord::class) as $config) {
-            $export = $this->buildCaveLocationEntry($config, $caveResolver, $resolver, $resourceIndex);
+            $export = $this->buildCaveLocationEntry($config, $caveResolver, $resolver, $qualityResolver, $resourceIndex);
 
             if ($export !== null) {
                 $exports[] = $export;
@@ -505,6 +506,7 @@ final class LoadResources extends AbstractDataCommand
         SubHarvestableMultiConfigRecord $config,
         CaveHarvestableResolver $caveResolver,
         HarvestableProviderStarmapResolver $starmapResolver,
+        QualityRangeResolver $qualityResolver,
         array $resourceIndex
     ): ?array {
         $resolved = $caveResolver->resolveCaveLocations($config);
@@ -528,9 +530,10 @@ final class LoadResources extends AbstractDataCommand
             ];
         }, $resolved['locations']);
 
+        $systemName = $resolved['system'];
         $groups = [];
         foreach ($config->getTaggedConfigs() as $taggedConfig) {
-            $groups[] = $this->buildCaveGroupEntry($taggedConfig, $resourceIndex);
+            $groups[] = $this->buildCaveGroupEntry($taggedConfig, $resourceIndex, $qualityResolver, $systemName);
         }
 
         return $this->transformArrayKeysToPascalCase($this->removeNullValues([
@@ -555,7 +558,7 @@ final class LoadResources extends AbstractDataCommand
      * @param  array<string, array<string, mixed>>  $resourceIndex
      * @return array<string, mixed>
      */
-    private function buildCaveGroupEntry(TaggedSubHarvestableConfig $taggedConfig, array $resourceIndex): array
+    private function buildCaveGroupEntry(TaggedSubHarvestableConfig $taggedConfig, array $resourceIndex, QualityRangeResolver $qualityResolver, ?string $systemName = null): array
     {
         $deposits = [];
         $slots = $taggedConfig->getSubHarvestableSlots();
@@ -584,12 +587,16 @@ final class LoadResources extends AbstractDataCommand
                 ? $relativeProbability / $totalRelativeProbability
                 : null;
 
+            $qualityOverrides = $this->buildCaveQualityOverrides($resource, $qualityResolver, $systemName);
+            $items = $this->buildCaveItems($resource);
+            $harvestableSetup = $this->buildCaveHarvestableSetup($slot);
+
             $deposits[] = $this->removeNullValues([
                 'resource_uuid' => $entityClassUuid,
                 'relative_probability' => $normalizedProbability,
-                'resource_qualities' => null,
-                'clustering' => null,
-                'harvestable_setup' => null,
+                'resource_qualities' => $qualityOverrides === [] ? null : $qualityOverrides,
+                'items' => $items,
+                'harvestable_setup' => $harvestableSetup,
             ]);
         }
 
@@ -600,7 +607,7 @@ final class LoadResources extends AbstractDataCommand
         ]);
     }
 
-    private function resolveCaveSlotEntityClassUuid(\Octfx\ScDataDumper\DocumentTypes\Harvestable\SubHarvestableSlot $slot): ?string
+    private function resolveCaveSlotEntityClassUuid(SubHarvestableSlot $slot): ?string
     {
         $entityClassRef = $slot->getHarvestableEntityClassReference();
         if ($entityClassRef !== null) {
@@ -616,6 +623,125 @@ final class LoadResources extends AbstractDataCommand
         }
 
         return null;
+    }
+
+    private function buildCaveQualityOverrides(?array $resource, QualityRangeResolver $qualityResolver, ?string $systemName): array
+    {
+        if (! is_array($resource)) {
+            return [];
+        }
+
+        $kind = $resource['kind'] ?? null;
+        $overrides = [];
+
+        if ($kind === 'mineable') {
+            foreach (($resource['composition']['parts'] ?? []) as $part) {
+                if (! is_array($part)) {
+                    continue;
+                }
+
+                $resourceTypeUuid = is_string($part['resource_type_uuid'] ?? null) ? $part['resource_type_uuid'] : null;
+                $resourceKey = is_string($part['key'] ?? null) ? $part['key'] : null;
+                $qualityScale = is_numeric($part['quality_scale'] ?? null) ? (float) $part['quality_scale'] : null;
+
+                if ($resourceKey === null) {
+                    continue;
+                }
+
+                $qualityRange = $qualityResolver->resolveForResourceTypeReference($resourceTypeUuid, $qualityScale, null, $systemName);
+
+                if ($qualityRange === null) {
+                    continue;
+                }
+
+                $overrides[] = [
+                    'resource_key' => $resourceKey,
+                    'min_percentage' => is_numeric($part['min_percentage'] ?? null) ? (float) $part['min_percentage'] : null,
+                    'max_percentage' => is_numeric($part['max_percentage'] ?? null) ? (float) $part['max_percentage'] : null,
+                    'quality_range' => [
+                        'min' => $qualityRange['effective_min'],
+                        'max' => $qualityRange['effective_max'],
+                        'mean' => $qualityRange['effective_mean'],
+                        'stddev' => $qualityRange['effective_stddev'],
+                    ],
+                ];
+            }
+        } elseif ($kind === 'harvestable' || $kind === 'cave_harvestable') {
+            foreach (($resource['parts'] ?? []) as $part) {
+                if (! is_array($part)) {
+                    continue;
+                }
+
+                $partKey = is_string($part['key'] ?? null) ? $part['key'] : null;
+
+                foreach (($part['resource_types'] ?? []) as $rt) {
+                    if (! is_array($rt)) {
+                        continue;
+                    }
+
+                    $rtUuid = is_string($rt['resource_type_uuid'] ?? null) ? $rt['resource_type_uuid'] : null;
+                    $rtKey = is_string($rt['key'] ?? null) ? $rt['key'] : null;
+
+                    $qualityRange = $qualityResolver->resolveForResourceTypeReference($rtUuid, null, null, $systemName);
+
+                    if ($qualityRange === null) {
+                        continue;
+                    }
+
+                    $overrides[] = [
+                        'resource_key' => $rtKey ?? $partKey,
+                        'quality_range' => [
+                            'min' => $qualityRange['effective_min'],
+                            'max' => $qualityRange['effective_max'],
+                            'mean' => $qualityRange['effective_mean'],
+                            'stddev' => $qualityRange['effective_stddev'],
+                        ],
+                    ];
+                }
+            }
+        }
+
+        return $overrides;
+    }
+
+    private function buildCaveItems(?array $resource): ?array
+    {
+        if (! is_array($resource)) {
+            return null;
+        }
+
+        $kind = $resource['kind'] ?? null;
+
+        if ($kind === 'mineable') {
+            return $resource['composition']['parts'] ?? null;
+        }
+
+        if ($kind === 'harvestable' || $kind === 'cave_harvestable') {
+            return $resource['parts'] ?? null;
+        }
+
+        return null;
+    }
+
+    private function buildCaveHarvestableSetup(SubHarvestableSlot $slot): ?array
+    {
+        $harvestablePreset = $slot->getHarvestable();
+
+        if ($harvestablePreset === null) {
+            return null;
+        }
+
+        return $this->removeNullValues([
+            'uuid' => $harvestablePreset->getUuid(),
+            'key' => $harvestablePreset->getClassName(),
+            'respawn_in_slot_time' => $harvestablePreset->getRespawnInSlotTime(),
+            'despawn_time_seconds' => $harvestablePreset->getDespawnTimeSeconds(),
+            'additional_wait_for_nearby_players_seconds' => $harvestablePreset->getAdditionalWaitForNearbyPlayersSeconds(),
+            'relative_probability' => $slot->getRelativeProbability(),
+            'respawn_time_multiplier' => $slot->getHarvestableRespawnTimeMultiplier(),
+            'min_count' => $slot->getMinCount(),
+            'max_count' => $slot->getMaxCount(),
+        ]);
     }
 
     private function resolveCanonicalKind(
