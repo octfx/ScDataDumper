@@ -19,6 +19,12 @@ use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestableClusterPreset;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestablePreset;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestableSetup;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\SubHarvestableMultiConfigRecord;
+use Octfx\ScDataDumper\DocumentTypes\Loot\LootArchetypeV3Record;
+use Octfx\ScDataDumper\DocumentTypes\Loot\LootGenerationGlobalParams;
+use Octfx\ScDataDumper\DocumentTypes\Loot\LootTableV3Record;
+use Octfx\ScDataDumper\DocumentTypes\Loot\PoolFilterRecord;
+use Octfx\ScDataDumper\DocumentTypes\Loot\SecondaryChoicesMultiLayerRecord;
+use Octfx\ScDataDumper\DocumentTypes\Loot\SecondaryChoicesSingleLayerRecord;
 use Octfx\ScDataDumper\DocumentTypes\MeleeCombatConfig;
 use Octfx\ScDataDumper\DocumentTypes\Mining\MineableComposition;
 use Octfx\ScDataDumper\DocumentTypes\Mining\MineableElement;
@@ -55,6 +61,36 @@ final class FoundryLookupService extends BaseService
     }
 
     public function initialize(): void {}
+
+    public function getLootTableV3ByReference(?string $uuid): ?LootTableV3Record
+    {
+        return $this->getByReference($uuid, ['/records/lootgeneration/loottables/'], LootTableV3Record::class);
+    }
+
+    public function getLootArchetypeV3ByReference(?string $uuid): ?LootArchetypeV3Record
+    {
+        return $this->getByReference($uuid, ['/records/lootgeneration/lootarchetypes/'], LootArchetypeV3Record::class);
+    }
+
+    public function getPoolFilterByReference(?string $uuid): ?PoolFilterRecord
+    {
+        return $this->getByReference($uuid, ['/records/lootgeneration/filters/'], PoolFilterRecord::class);
+    }
+
+    public function getSecondaryChoicesSingleLayerByReference(?string $uuid): ?SecondaryChoicesSingleLayerRecord
+    {
+        return $this->getByReference($uuid, ['/records/lootgeneration/secondarychoices/'], SecondaryChoicesSingleLayerRecord::class);
+    }
+
+    public function getSecondaryChoicesMultiLayerByReference(?string $uuid): ?SecondaryChoicesMultiLayerRecord
+    {
+        return $this->getByReference($uuid, ['/records/lootgeneration/secondarychoices/'], SecondaryChoicesMultiLayerRecord::class);
+    }
+
+    public function getLootGenerationGlobalParamsByReference(?string $uuid): ?LootGenerationGlobalParams
+    {
+        return $this->getByReference($uuid, ['/records/lootgeneration/'], LootGenerationGlobalParams::class);
+    }
 
     public function getRadarSystemParamsByReference(?string $uuid): ?RadarSystemSharedParams
     {
