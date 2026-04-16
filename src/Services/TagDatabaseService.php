@@ -48,6 +48,18 @@ final class TagDatabaseService extends BaseService
     }
 
     /**
+     * @param  list<string>  $uuids
+     * @return list<array{uuid: string, name: ?string}>
+     */
+    public function resolveUuidsToNameObjects(array $uuids): array
+    {
+        return array_map(fn (string $uuid): array => [
+            'uuid' => $uuid,
+            'name' => $this->getTagName($uuid),
+        ], $uuids);
+    }
+
+    /**
      * @param  array<int, string>  $uuids
      * @return array<int, string>
      */
@@ -115,6 +127,22 @@ final class TagDatabaseService extends BaseService
         }
 
         return $descendants;
+    }
+
+    /**
+     * @param  list<string>  $uuids
+     * @return list<string>
+     */
+    public function expandTagsWithDescendants(array $uuids): array
+    {
+        $expanded = [];
+        foreach ($uuids as $uuid) {
+            foreach ($this->getAllDescendantUuids($uuid) as $descendant) {
+                $expanded[$descendant] = true;
+            }
+        }
+
+        return array_keys($expanded);
     }
 
     /**

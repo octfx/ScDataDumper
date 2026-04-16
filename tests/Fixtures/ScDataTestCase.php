@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Tests\Fixtures;
 
 use JsonException;
-use Octfx\ScDataDumper\Services\BaseService;
 use Octfx\ScDataDumper\Services\InventoryContainerService;
 use Octfx\ScDataDumper\Services\ItemClassifierService;
 use Octfx\ScDataDumper\Services\ItemService;
@@ -13,7 +12,6 @@ use Octfx\ScDataDumper\Services\LocalizationService;
 use Octfx\ScDataDumper\Services\ManufacturerService;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use Octfx\ScDataDumper\Services\TagDatabaseService;
-use Octfx\ScDataDumper\Services\VehicleService;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -398,22 +396,7 @@ abstract class ScDataTestCase extends TestCase
 
     private function resetServiceState(): void
     {
-        $baseService = new ReflectionClass(BaseService::class);
-        foreach (['uuidToPathMap', 'uuidToClassMap', 'classToUuidMap', 'classToPathMap', 'entityMetadataMap'] as $propertyName) {
-            $baseService->getProperty($propertyName)->setValue(null, []);
-        }
-        $baseService->getProperty('entityMetadataMapLoaded')->setValue(null, false);
-
-        $itemService = new ReflectionClass(ItemService::class);
-        $itemService->getProperty('documentCache')->setValue(null, []);
-
-        $vehicleService = new ReflectionClass(VehicleService::class);
-        $vehicleService->getProperty('documentCache')->setValue(null, []);
-
-        $factory = new ReflectionClass(ServiceFactory::class);
-        $factory->getProperty('initialized')->setValue(null, false);
-        $factory->getProperty('activeScDataPath')->setValue(null, null);
-        $factory->getProperty('services')->setValue(null, []);
+        ServiceFactory::reset();
     }
 
     private function removeDirectory(string $directory): void

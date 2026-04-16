@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Commands;
 
+use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -84,17 +85,18 @@ class LoadData extends Command
     {
         return [
             ['name' => 'generate:cache', 'label' => 'Generating cache', 'options' => []],
-            ['name' => 'load:items', 'label' => 'Loading items', 'options' => ['overwrite', 'scUnpackedFormat']],
-            ['name' => 'load:blueprints', 'label' => 'Loading blueprints', 'options' => ['overwrite', 'scUnpackedFormat']],
-            ['name' => 'load:commodities', 'label' => 'Loading commodities', 'options' => ['overwrite']],
-            ['name' => 'load:vehicles', 'label' => 'Loading vehicles', 'options' => ['overwrite', 'scUnpackedFormat']],
-            ['name' => 'load:factions', 'label' => 'Loading factions', 'options' => ['overwrite', 'scUnpackedFormat']],
-            ['name' => 'load:starmap', 'label' => 'Loading starmap', 'options' => ['overwrite']],
-            ['name' => 'load:commodity-trade-locations', 'label' => 'Loading commodity trade locations', 'options' => ['overwrite']],
-            ['name' => 'load:resources', 'label' => 'Loading resources', 'options' => ['overwrite']],
-            ['name' => 'load:manufacturers', 'label' => 'Loading manufacturers', 'options' => []],
             ['name' => 'load:translations', 'label' => 'Loading translations', 'options' => []],
             ['name' => 'load:tags', 'label' => 'Loading tags', 'options' => ['overwrite']],
+            ['name' => 'load:factions', 'label' => 'Loading factions', 'options' => ['overwrite', 'scUnpackedFormat']],
+            ['name' => 'load:starmap', 'label' => 'Loading starmap', 'options' => ['overwrite']],
+            ['name' => 'load:commodities', 'label' => 'Loading commodities', 'options' => ['overwrite']],
+            ['name' => 'load:resources', 'label' => 'Loading resources', 'options' => ['overwrite']],
+            ['name' => 'load:commodity-trade-locations', 'label' => 'Loading commodity trade locations', 'options' => ['overwrite']],
+            ['name' => 'load:manufacturers', 'label' => 'Loading manufacturers', 'options' => []],
+            ['name' => 'load:items', 'label' => 'Loading items', 'options' => ['overwrite', 'scUnpackedFormat']],
+            ['name' => 'load:blueprints', 'label' => 'Loading blueprints', 'options' => ['overwrite', 'scUnpackedFormat']],
+            ['name' => 'load:vehicles', 'label' => 'Loading vehicles', 'options' => ['overwrite', 'scUnpackedFormat']],
+            ['name' => 'load:contracts', 'label' => 'Loading contracts', 'options' => ['overwrite']],
         ];
     }
 
@@ -135,7 +137,7 @@ class LoadData extends Command
      * @param  array<string, bool|string>  $arguments
      */
     private function runSubcommand(
-        \Symfony\Component\Console\Application $application,
+        Application $application,
         OutputInterface $output,
         string $name,
         array $arguments,

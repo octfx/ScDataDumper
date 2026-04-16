@@ -6,7 +6,9 @@ namespace Octfx\ScDataDumper\Services;
 
 use Generator;
 use Octfx\ScDataDumper\DocumentTypes\AmmoParams;
+use Octfx\ScDataDumper\DocumentTypes\BlueprintPoolRecord;
 use Octfx\ScDataDumper\DocumentTypes\ConsumableSubtype;
+use Octfx\ScDataDumper\DocumentTypes\Contract\ContractGeneratorRecord;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingGameplayPropertyDef;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityDistributionRecord;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityLocationOverrideRecord;
@@ -30,6 +32,8 @@ use Octfx\ScDataDumper\DocumentTypes\Mining\MineableComposition;
 use Octfx\ScDataDumper\DocumentTypes\Mining\MineableElement;
 use Octfx\ScDataDumper\DocumentTypes\Mining\MiningGlobalParams;
 use Octfx\ScDataDumper\DocumentTypes\MiningLaserGlobalParams;
+use Octfx\ScDataDumper\DocumentTypes\Mission\MissionBrokerEntry;
+use Octfx\ScDataDumper\DocumentTypes\Mission\MissionLocality;
 use Octfx\ScDataDumper\DocumentTypes\MissionLocationTemplate;
 use Octfx\ScDataDumper\DocumentTypes\Radar\RadarContactTypeEntry;
 use Octfx\ScDataDumper\DocumentTypes\RadarSystemSharedParams;
@@ -51,6 +55,9 @@ final class FoundryLookupService extends BaseService
     private array $cache;
 
     private array $hits;
+
+    /** @var array<string, Faction>|null Maps FactionReputation UUID to parent Faction */
+    private ?array $factionRepUuidToFactionMap = null;
 
     public function __construct(string $scDataDir)
     {
@@ -242,9 +249,9 @@ final class FoundryLookupService extends BaseService
         return $this->getByReference($uuid, ['/records/mining/mineableelements/'], MineableElement::class);
     }
 
-    public function getMissionLocalityByReference(?string $uuid): ?FoundryRecord
+    public function getMissionLocalityByReference(?string $uuid): ?MissionLocality
     {
-        return $this->getByReference($uuid, ['/records/missiondata/pu_missionlocality/']);
+        return $this->getByReference($uuid, ['/records/missiondata/pu_missionlocality/'], MissionLocality::class);
     }
 
     public function getMissionOrganizationByReference(?string $uuid): ?FoundryRecord
@@ -255,6 +262,25 @@ final class FoundryLookupService extends BaseService
     public function getFactionReputationByReference(?string $uuid): ?FactionReputation
     {
         return $this->getByReference($uuid, ['/records/factions/factionreputation/'], FactionReputation::class);
+    }
+
+    public function getFactionByFactionReputationUuid(?string $uuid): ?Faction
+    {
+        if ($uuid === null) {
+            return null;
+        }
+
+        if ($this->factionRepUuidToFactionMap === null) {
+            $this->factionRepUuidToFactionMap = [];
+            foreach ($this->getDocumentType('Faction', Faction::class) as $faction) {
+                $ref = $faction->getFactionReputationReference();
+                if ($ref !== null) {
+                    $this->factionRepUuidToFactionMap[$ref] = $faction;
+                }
+            }
+        }
+
+        return $this->factionRepUuidToFactionMap[$uuid] ?? null;
     }
 
     /**
@@ -308,6 +334,41 @@ final class FoundryLookupService extends BaseService
         return $this->getByReference($uuid, ['/records/reputation/rewards/missionrewards_reputation/']);
     }
 
+    public function getContractTemplateByReference(?string $uuid): ?FoundryRecord
+    {
+        return $this->getByReference($uuid, ['/records/contracts/contracttemplates/']);
+    }
+
+    public function getContractDifficultyProfileByReference(?string $uuid): ?FoundryRecord
+    {
+        return $this->getByReference($uuid, ['/records/contracts/contractdifficultyprofiles/']);
+    }
+
+    public function getItemAwardWeightingsByReference(?string $uuid): ?FoundryRecord
+    {
+        return $this->getByReference($uuid, ['/records/contracts/contractrewards/']);
+    }
+
+    public function getContractGeneratorByReference(?string $uuid): ?ContractGeneratorRecord
+    {
+        return $this->getByReference($uuid, ['/records/contracts/contractgenerator/'], ContractGeneratorRecord::class);
+    }
+
+    public function getBlueprintPoolByReference(?string $uuid): ?BlueprintPoolRecord
+    {
+        return $this->getByReference($uuid, ['blueprintrewards/blueprintmissionpools/'], BlueprintPoolRecord::class);
+    }
+
+    public function getHaulingEntityClassesByReference(?string $uuid): ?FoundryRecord
+    {
+        return $this->getByReference($uuid, ['haulingentityclass/']);
+    }
+
+    public function getMissionBrokerEntryByReference(?string $uuid): ?MissionBrokerEntry
+    {
+        return $this->getByReference($uuid, ['missionbroker/'], MissionBrokerEntry::class);
+    }
+
     /**
      * @template T of RootDocument
      *
@@ -348,7 +409,7 @@ final class FoundryLookupService extends BaseService
         $this->hits[$cacheKey] ??= 0;
         $this->hits[$cacheKey]++;
 
-        $document = $this->loadDocument($filePath, $class);
+        $document = $this->loadDocument($filePath, $class, checkValidity: $class !== FoundryRecord::class);
 
         if ($this->hits[$cacheKey] > 1) {
             $this->cache[$class][$cacheKey] = $document;
@@ -364,5 +425,15 @@ final class FoundryLookupService extends BaseService
             $this->referenceHydrationEnabled ? 1 : 0,
             $filePath
         );
+    }
+
+    public function resolveMissionItemEntityClass(?string $missionItemUuid): ?string
+    {
+        $path = $this->resolvePathByReference($missionItemUuid);
+        if ($path === null) {
+            return null;
+        }
+
+        return $this->load($path)->getStringValue('@entityClass');
     }
 }

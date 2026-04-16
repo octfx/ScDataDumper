@@ -8,6 +8,12 @@ use RuntimeException;
 
 final class ServiceFactory
 {
+    private const SC_DATA_PATH_INDEPENDENT = [
+        'ItemClassifierService',
+        'ContractLocationResolver',
+        'MissionLocationStarmapResolver',
+    ];
+
     private static bool $initialized = false;
 
     private static ?string $activeScDataPath = null;
@@ -69,8 +75,10 @@ final class ServiceFactory
 
         BaseService::resetSharedState();
         BlueprintService::resetDocumentCache();
+        ContractGeneratorService::resetDocumentCache();
         ItemService::resetDocumentCache();
         VehicleService::resetDocumentCache();
+        LoadoutFileService::resetDocumentCache();
         ItemClassifierService::resetCache();
     }
 
@@ -119,6 +127,11 @@ final class ServiceFactory
         return self::getService('VehicleService');
     }
 
+    public static function getContractGeneratorService(): ContractGeneratorService
+    {
+        return self::getService('ContractGeneratorService');
+    }
+
     public static function getFoundryLookupService(): FoundryLookupService
     {
         return self::getService('FoundryLookupService');
@@ -139,6 +152,16 @@ final class ServiceFactory
         return self::getService('LoadoutFileService');
     }
 
+    public static function getContractLocationResolver(): ContractLocationResolver
+    {
+        return self::getService('ContractLocationResolver');
+    }
+
+    public static function getMissionLocationStarmapResolver(): MissionLocationStarmapResolver
+    {
+        return self::getService('MissionLocationStarmapResolver');
+    }
+
     private static function getService(string $serviceName): mixed
     {
         if (! self::$initialized) {
@@ -156,7 +179,7 @@ final class ServiceFactory
             return;
         }
 
-        if ($serviceName !== 'ItemClassifierService' && self::$activeScDataPath === null) {
+        if (! in_array($serviceName, self::SC_DATA_PATH_INDEPENDENT, true) && self::$activeScDataPath === null) {
             throw new RuntimeException('Service factory path is not initialized');
         }
 
@@ -165,6 +188,7 @@ final class ServiceFactory
             'ManufacturerService' => new ManufacturerService(self::$activeScDataPath),
             'ItemService' => new ItemService(self::$activeScDataPath),
             'BlueprintService' => new BlueprintService(self::$activeScDataPath),
+            'ContractGeneratorService' => new ContractGeneratorService(self::$activeScDataPath),
             'LocalizationService' => new LocalizationService(self::$activeScDataPath),
             'ItemClassifierService' => new ItemClassifierService,
             'TagDatabaseService' => new TagDatabaseService(self::$activeScDataPath),
@@ -174,6 +198,8 @@ final class ServiceFactory
             'ResourceService' => new ResourceService(self::$activeJsonOutPath, self::$activeScDataPath),
             'StarmapParentResolver' => new StarmapParentResolver(self::$activeScDataPath),
             'LoadoutFileService' => new LoadoutFileService(self::$activeScDataPath),
+            'ContractLocationResolver' => new ContractLocationResolver,
+            'MissionLocationStarmapResolver' => new MissionLocationStarmapResolver,
             default => throw new RuntimeException('Unknown service: '.$serviceName),
         };
 

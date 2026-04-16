@@ -48,6 +48,11 @@ final class MissionLocationTemplate extends RootDocument
         return $this->queryAttributeValues('locationData/generalTags/tags/Reference', 'value');
     }
 
+    public function getMissionLimitTags(): array
+    {
+        return $this->queryAttributeValues('locationData/missionLimits/LocationMissionLimit', 'tag');
+    }
+
     public function isDisabled(): bool
     {
         return $this->getBool('locationData@disabled');

@@ -7,7 +7,6 @@ namespace Octfx\ScDataDumper\Services\Resource;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\DocumentTypes\MissionLocationTemplate;
 use Octfx\ScDataDumper\DocumentTypes\ResourceType;
-use Octfx\ScDataDumper\DocumentTypes\Starmap\StarMapObject;
 use Octfx\ScDataDumper\Services\FoundryLookupService;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
@@ -34,16 +33,6 @@ final class CommodityTradeLocationResolver
     private array $tradeLocations = [];
 
     /**
-     * @var array<string, string> starmap className → starmap UUID
-     */
-    private array $starmapByClassName = [];
-
-    /**
-     * @var array<string, string> normalized translated SMO name → starmap UUID
-     */
-    private array $starmapByNormalizedName = [];
-
-    /**
      * @var array<string, string> trade location UUID → resolved starmap UUID
      */
     private array $resolvedStarmapUuids = [];
@@ -52,7 +41,6 @@ final class CommodityTradeLocationResolver
     {
         $this->buildCommodityTagIndex();
         $this->buildTradeLocationIndex();
-        $this->buildStarmapIndex();
         $this->resolveStarmapLinks();
     }
 
@@ -211,96 +199,22 @@ final class CommodityTradeLocationResolver
         }
     }
 
-    private function buildStarmapIndex(): void
-    {
-        $lookup = ServiceFactory::getFoundryLookupService();
-        $localization = ServiceFactory::getLocalizationService();
-
-        foreach ($lookup->getDocumentType('StarMapObject', StarMapObject::class) as $object) {
-            $className = strtolower($object->getClassName());
-            if (! isset($this->starmapByClassName[$className])) {
-                $this->starmapByClassName[$className] = $object->getUuid();
-            }
-
-            $smoName = $object->getName();
-            if ($smoName !== null) {
-                $translated = $localization->translateValue($smoName);
-                if ($translated !== null) {
-                    $normalizedName = $this->normalizeKey($translated);
-                    if ($normalizedName !== '' && ! isset($this->starmapByNormalizedName[$normalizedName])) {
-                        $this->starmapByNormalizedName[$normalizedName] = $object->getUuid();
-                    }
-                }
-            }
-        }
-    }
-
     private function resolveStarmapLinks(): void
     {
-        $mltUuidByFacilityTag = [];
+        $resolver = ServiceFactory::getMissionLocationStarmapResolver();
+        $resolver->resolveAll(array_map(static fn (array $loc): array => [
+            'uuid' => $loc['uuid'],
+            'className' => $loc['className'],
+            'displayName' => $loc['displayName'],
+            'generalTags' => $loc['generalTags'],
+        ], $this->tradeLocations));
 
         foreach ($this->tradeLocations as $location) {
-            $mltUuid = $location['uuid'];
-
-            $starmapUuid = $this->resolveByDisplayName($location);
+            $starmapUuid = $resolver->getStarmapUuid($location['uuid']);
             if ($starmapUuid !== null) {
-                $this->resolvedStarmapUuids[$mltUuid] = $starmapUuid;
-            }
-
-            foreach ($location['generalTags'] as $generalTag) {
-                $mltUuidByFacilityTag[strtolower($generalTag)][] = $mltUuid;
+                $this->resolvedStarmapUuids[$location['uuid']] = $starmapUuid;
             }
         }
-
-        foreach ($mltUuidByFacilityTag as $mltUuids) {
-            $anyResolved = null;
-            foreach ($mltUuids as $mltUuid) {
-                if (isset($this->resolvedStarmapUuids[$mltUuid])) {
-                    $anyResolved = $this->resolvedStarmapUuids[$mltUuid];
-                    break;
-                }
-            }
-
-            if ($anyResolved !== null) {
-                foreach ($mltUuids as $mltUuid) {
-                    if (! isset($this->resolvedStarmapUuids[$mltUuid])) {
-                        $this->resolvedStarmapUuids[$mltUuid] = $anyResolved;
-                    }
-                }
-            }
-        }
-
-        foreach ($this->tradeLocations as $location) {
-            $mltUuid = $location['uuid'];
-            if (isset($this->resolvedStarmapUuids[$mltUuid])) {
-                continue;
-            }
-
-            $className = strtolower($location['className']);
-            $stripped = $className;
-            if (str_starts_with($stripped, 'outpost_')) {
-                $stripped = substr($stripped, 8);
-            }
-
-            if (isset($this->starmapByClassName[$stripped])) {
-                $this->resolvedStarmapUuids[$mltUuid] = $this->starmapByClassName[$stripped];
-            }
-        }
-    }
-
-    private function resolveByDisplayName(array $location): ?string
-    {
-        $displayName = $location['displayName'];
-        if ($displayName === null) {
-            return null;
-        }
-
-        $normalized = $this->normalizeKey($displayName);
-        if ($normalized === '') {
-            return null;
-        }
-
-        return $this->starmapByNormalizedName[$normalized] ?? null;
     }
 
     private function normalizeResourceTypeKey(string $className): string
@@ -314,10 +228,5 @@ final class CommodityTradeLocationResolver
         }
 
         return $key;
-    }
-
-    private function normalizeKey(string $value): string
-    {
-        return strtolower(preg_replace('/[^a-z0-9]/i', '', $value));
     }
 }

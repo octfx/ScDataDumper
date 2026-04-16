@@ -9,43 +9,18 @@ use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 use Octfx\ScDataDumper\DocumentTypes\VehicleDefinition;
 use Octfx\ScDataDumper\Formats\ScUnpacked\Ship;
 use Octfx\ScDataDumper\Helper\VehicleWrapper;
-use Octfx\ScDataDumper\Services\BaseService;
 use Octfx\ScDataDumper\Services\InventoryContainerService;
 use Octfx\ScDataDumper\Services\ItemService;
 use Octfx\ScDataDumper\Services\LocalizationService;
 use Octfx\ScDataDumper\Services\ManufacturerService;
 use Octfx\ScDataDumper\Services\ServiceFactory;
-use PHPUnit\Framework\TestCase;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
+use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 use ReflectionClass;
 use RuntimeException;
 
-final class ShipIntegrationTest extends TestCase
+final class ShipIntegrationTest extends ScDataTestCase
 {
     private const MANUFACTURER_UUID = '11111111-1111-1111-1111-111111111111';
-
-    private string $tempDir;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        $this->tempDir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'sc-data-dumper-ship-integration-'.str_replace('.', '', uniqid('', true));
-        if (! mkdir($this->tempDir, 0777, true) && ! is_dir($this->tempDir)) {
-            throw new RuntimeException(sprintf('Failed to create test directory: %s', $this->tempDir));
-        }
-
-        $this->resetServiceState();
-    }
-
-    protected function tearDown(): void
-    {
-        $this->resetServiceState();
-        $this->removeDirectory($this->tempDir);
-
-        parent::tearDown();
-    }
 
     /**
      * @throws JsonException
@@ -53,7 +28,7 @@ final class ShipIntegrationTest extends TestCase
     public function test_to_array_uses_manufacturer_fallback_and_exports_nested_loadout_shape(): void
     {
         $manufacturerPath = $this->writeManufacturerFile();
-        $this->writeCacheFiles($manufacturerPath);
+        $this->writeShipTestCacheFiles($manufacturerPath);
         $this->configureServiceFactory();
 
         $entity = new VehicleDefinition;
@@ -103,7 +78,7 @@ final class ShipIntegrationTest extends TestCase
     public function test_to_array_strips_trailing_newline_from_localized_vehicle_name(): void
     {
         $manufacturerPath = $this->writeManufacturerFile();
-        $this->writeCacheFiles($manufacturerPath);
+        $this->writeShipTestCacheFiles($manufacturerPath);
         $this->configureServiceFactory();
 
         $entity = new VehicleDefinition;
@@ -125,7 +100,7 @@ final class ShipIntegrationTest extends TestCase
     {
         $manufacturerPath = $this->writeManufacturerFile();
         $this->writeBanuManufacturerFile();
-        $this->writeCacheFiles($manufacturerPath, extraManufacturers: [
+        $this->writeShipTestCacheFiles($manufacturerPath, extraManufacturers: [
             '22222222-2222-2222-2222-222222222222' => [
                 'class' => 'BANU',
                 'path' => $this->tempDir.DIRECTORY_SEPARATOR.'records'.DIRECTORY_SEPARATOR.'scitemmanufacturer'.DIRECTORY_SEPARATOR.'banu.xml',
@@ -163,7 +138,7 @@ final class ShipIntegrationTest extends TestCase
     {
         $manufacturerPath = $this->writeManufacturerFile();
         $containerPath = $this->writeInventoryContainerFile();
-        $this->writeCacheFiles($manufacturerPath, $containerPath);
+        $this->writeShipTestCacheFiles($manufacturerPath, $containerPath);
         $this->configureServiceFactory();
 
         $entity = new VehicleDefinition;
@@ -636,7 +611,7 @@ final class ShipIntegrationTest extends TestCase
     /**
      * @throws JsonException
      */
-    private function writeCacheFiles(string $manufacturerPath, ?string $inventoryContainerPath = null, array $extraManufacturers = []): void
+    private function writeShipTestCacheFiles(string $manufacturerPath, ?string $inventoryContainerPath = null, array $extraManufacturers = []): void
     {
         $inventoryContainers = $inventoryContainerPath !== null ? [
             'TEST_CARGO_GRID' => [
@@ -705,44 +680,5 @@ final class ShipIntegrationTest extends TestCase
     {
         $path = sprintf('%s%s%s-%s.json', $this->tempDir, DIRECTORY_SEPARATOR, $name, PHP_OS_FAMILY);
         file_put_contents($path, json_encode($payload, JSON_THROW_ON_ERROR));
-    }
-
-    private function resetServiceState(): void
-    {
-        $baseService = new ReflectionClass(BaseService::class);
-        foreach (['uuidToPathMap', 'uuidToClassMap', 'classToUuidMap'] as $propertyName) {
-            $property = $baseService->getProperty($propertyName);
-            $property->setValue(null, []);
-        }
-
-        $itemService = new ReflectionClass(ItemService::class);
-        $documentCache = $itemService->getProperty('documentCache');
-        $documentCache->setValue(null, []);
-
-        $factory = new ReflectionClass(ServiceFactory::class);
-        $factory->getProperty('initialized')->setValue(null, false);
-        $factory->getProperty('services')->setValue(null, []);
-    }
-
-    private function removeDirectory(string $directory): void
-    {
-        if (! is_dir($directory)) {
-            return;
-        }
-
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($directory, RecursiveDirectoryIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::CHILD_FIRST
-        );
-
-        foreach ($iterator as $item) {
-            if ($item->isDir()) {
-                rmdir($item->getPathname());
-            } else {
-                unlink($item->getPathname());
-            }
-        }
-
-        rmdir($directory);
     }
 }
