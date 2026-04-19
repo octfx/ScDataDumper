@@ -159,6 +159,10 @@ final class Contract extends BaseFormat
                     'resolved_locations' => $resolvedLocations,
                 ];
 
+                if ($pool['purpose'] === 'location') {
+                    $pool['purpose'] = 'Location';
+                }
+
                 if ($value instanceof LocationsValue) {
                     $pool['min_locations'] = $value->getMinLocationsToFind();
                     $pool['max_locations'] = $value->getMaxLocationsToFind();
@@ -218,7 +222,7 @@ final class Contract extends BaseFormat
         $standing = $lookup->getReputationStandingByReference($ref);
 
         return $standing !== null ? [
-            'name' => $standing->getDisplayName() ?? $standing->getName(),
+            'name' => $this->translateLocalizationValue($standing->getDisplayName() ?? $standing->getName()),
             'min_reputation' => $standing->getMinReputation(),
         ] : null;
     }
@@ -317,30 +321,13 @@ final class Contract extends BaseFormat
                     'faction_uuid' => $factionUuid,
                     'scope' => $scopeName,
                     'scope_uuid' => $prereq['scope'],
-                    'min_standing' => $this->resolveStandingTranslated($lookup, $prereq['minStanding']),
-                    'max_standing' => $this->resolveStandingTranslated($lookup, $prereq['maxStanding']),
+                    'min_standing' => $this->resolveStanding($lookup, $prereq['minStanding']),
+                    'max_standing' => $this->resolveStanding($lookup, $prereq['maxStanding']),
                 ];
             }
         }
 
         return [$crimeStat, $reputationPrereq];
-    }
-
-    private function resolveStandingTranslated(FoundryLookupService $lookup, ?string $ref): ?array
-    {
-        if ($ref === null) {
-            return null;
-        }
-
-        $standing = $lookup->getReputationStandingByReference($ref);
-        if ($standing === null) {
-            return null;
-        }
-
-        return [
-            'name' => $this->translateLocalizationValue($standing->getDisplayName() ?? $standing->getName()),
-            'min_reputation' => $standing->getMinReputation(),
-        ];
     }
 
     private function buildLocalityPrerequisites(FoundryLookupService $lookup): array
@@ -389,22 +376,22 @@ final class Contract extends BaseFormat
     private function buildProperties(): array
     {
         return [
-            'shareable' => $this->entry->isShareable() || $this->handler->isShareable(),
-            'illegal' => $this->entry->isIllegal(),
-            'once_only' => $this->entry->isOnceOnly() || $this->handler->isOnceOnly() || $this->entry->excludesOwnCompletionTag(),
-            'max_players_per_instance' => $this->handler->getMaxPlayersPerInstance(),
-            'reaccept_after_abandoning' => $this->handler->canReacceptAfterAbandoning(),
-            'reaccept_after_failing' => $this->handler->canReacceptAfterFailing(),
+            'shareable' => $this->entry->isShareable() ?? $this->handler->isShareable() ?? false,
+            'illegal' => $this->entry->isIllegal() ?? $this->handler->isIllegal() ?? false,
+            'once_only' => ($this->entry->isOnceOnly() ?? $this->handler->isOnceOnly() ?? false) || $this->entry->excludesOwnCompletionTag(),
+            'max_players_per_instance' => $this->entry->getMaxPlayersPerInstance() ?? $this->handler->getMaxPlayersPerInstance(),
+            'reaccept_after_abandoning' => $this->entry->canReacceptAfterAbandoning() ?? $this->handler->canReacceptAfterAbandoning() ?? false,
+            'reaccept_after_failing' => $this->entry->canReacceptAfterFailing() ?? $this->handler->canReacceptAfterFailing() ?? false,
             'cooldown' => [
-                'abandoned_seconds' => $this->handler->getAbandonedCooldownTime(),
-                'abandoned_variation_seconds' => $this->handler->getAbandonedCooldownTimeVariation(),
-                'personal_seconds' => $this->handler->getPersonalCooldownTime(),
-                'personal_variation_seconds' => $this->handler->getPersonalCooldownTimeVariation(),
+                'abandoned_seconds' => $this->entry->getAbandonedCooldownTime() ?? $this->handler->getAbandonedCooldownTime(),
+                'abandoned_variation_seconds' => $this->entry->getAbandonedCooldownTimeVariation() ?? $this->handler->getAbandonedCooldownTimeVariation(),
+                'personal_seconds' => $this->entry->getPersonalCooldownTime() ?? $this->handler->getPersonalCooldownTime(),
+                'personal_variation_seconds' => $this->entry->getPersonalCooldownTimeVariation() ?? $this->handler->getPersonalCooldownTimeVariation(),
             ],
             'available_in_prison' => $this->handler->isAvailableInPrison(),
-            'fail_if_became_criminal' => $this->entry->failIfBecameCriminal(),
+            'fail_if_became_criminal' => $this->entry->failIfBecameCriminal() ?? $this->handler->failIfBecameCriminal() ?? false,
             'escaped_convicts' => $this->handler->hasEscapedConvicts() ?: null,
-            'hidden_in_mobiglas' => $this->handler->isHideInMobiGlas() ?: null,
+            'hidden_in_mobiglas' => $this->entry->isHideInMobiGlas() ?? $this->handler->isHideInMobiGlas() ?? false ?: null,
             'notify_on_available' => $this->handler->notifyOnAvailable() ?: null,
         ];
     }
@@ -590,25 +577,86 @@ final class Contract extends BaseFormat
 
     private function buildHaulingOrders(): array
     {
-        $fileProperties = $this->record->getAllPropertyOverrides();
-        $baseOffset = $this->record->computePropertyBaseOffset();
+        $handlerProperties = $this->getAllOverrides();
+        $baseOffset = $this->computeHandlerPropertyBaseOffset($handlerProperties);
 
         $orders = [];
 
-        foreach ($this->getAllOverrides() as $override) {
+        foreach ($handlerProperties as $override) {
             $value = $override->getValue();
             if (! ($value instanceof HaulingOrdersValue)) {
                 continue;
             }
 
             foreach ($value->toArray() as $order) {
-                foreach ($this->resolveMissionItemRef($order, $fileProperties, $baseOffset) as $resolved) {
+                foreach ($this->resolveMissionItemRef($order, $handlerProperties, $baseOffset) as $resolved) {
                     $orders[] = $resolved;
                 }
             }
         }
 
         return $orders;
+    }
+
+    /**
+     * @param  list<MissionPropertyOverride>  $handlerProperties
+     */
+    private function computeHandlerPropertyBaseOffset(array $handlerProperties): ?int
+    {
+        $refs = [];
+        foreach ($handlerProperties as $override) {
+            $value = $override->getValue();
+            if ($value instanceof HaulingOrdersValue) {
+                foreach ($value->getOrders() as $order) {
+                    if ($order['missionItem'] !== null) {
+                        $refs[] = $order['missionItem'];
+                    }
+                }
+            }
+        }
+
+        if ($refs === []) {
+            return null;
+        }
+
+        $propCount = count($handlerProperties);
+
+        $hexValues = array_map(static function (string $ref): int {
+            preg_match('/MissionProperty\[([0-9A-Fa-f]+)\]/', $ref, $m);
+
+            return hexdec($m[1]);
+        }, $refs);
+
+        $minHex = min($hexValues);
+        $missionItemIndices = [];
+        foreach ($handlerProperties as $i => $prop) {
+            if ($prop->getValueTypeName() === 'MissionPropertyValue_MissionItem') {
+                $missionItemIndices[] = $i;
+            }
+        }
+
+        foreach ($missionItemIndices as $candidateIndex) {
+            $baseOffset = $minHex - $candidateIndex;
+
+            $valid = true;
+            foreach ($hexValues as $hex) {
+                $localIndex = $hex - $baseOffset;
+                if ($localIndex < 0 || $localIndex >= $propCount) {
+                    $valid = false;
+                    break;
+                }
+                if ($handlerProperties[$localIndex]->getValueTypeName() !== 'MissionPropertyValue_MissionItem') {
+                    $valid = false;
+                    break;
+                }
+            }
+
+            if ($valid) {
+                return $baseOffset;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -910,6 +958,25 @@ final class Contract extends BaseFormat
         $scopeUuid = $this->handler->getReputationScopeReference();
 
         if ($factionRepUuid === null && $scopeUuid === null) {
+            $results = $this->entry->getResults();
+            if ($results !== null) {
+                $legacy = $results->getLegacyReputationRewards();
+                if ($legacy !== []) {
+                    $factionRepUuid = $legacy[0]['factionReputation'];
+                    $scopeUuid = $legacy[0]['reputationScope'];
+                }
+
+                if ($factionRepUuid === null && $scopeUuid === null) {
+                    $calcRep = $results->getCalculatedReputation();
+                    if ($calcRep !== null) {
+                        $factionRepUuid = $calcRep['factionReputation'] ?? null;
+                        $scopeUuid = $calcRep['reputationScope'] ?? null;
+                    }
+                }
+            }
+        }
+
+        if ($factionRepUuid === null && $scopeUuid === null) {
             return null;
         }
 
@@ -919,11 +986,20 @@ final class Contract extends BaseFormat
         $factionData = null;
         if ($factionRepUuid !== null) {
             $faction = $lookup->getFactionByFactionReputationUuid($factionRepUuid);
+            $name = $faction !== null
+                ? $localization->translateValue($faction->getName(), true)
+                : null;
+
+            if ($name === null) {
+                $factionRep = $lookup->getFactionReputationByReference($factionRepUuid);
+                $name = $factionRep !== null
+                    ? $localization->translateValue($factionRep->getDisplayName(), true)
+                    : null;
+            }
+
             $factionData = [
                 'uuid' => $faction !== null ? $faction->getUuid() : $factionRepUuid,
-                'name' => $faction !== null
-                    ? $localization->translateValue($faction->getName(), true)
-                    : null,
+                'name' => $name,
             ];
         }
 
@@ -1121,10 +1197,14 @@ final class Contract extends BaseFormat
                 'Address' => $purposeToNames['Location'] ?? $purposeToNames['Destination'] ?? null,
                 default => null,
             };
+
             if ($resolved !== null) {
                 $tokenMap[$token] = $resolved;
             }
         }
+
+        $tokenMap = collect($tokenMap)
+            ->mapWithKeys(fn ($value, $key) => [$key => collect($value)->unique()->values()])->toArray();
 
         return $tokenMap !== [] ? $tokenMap : null;
     }

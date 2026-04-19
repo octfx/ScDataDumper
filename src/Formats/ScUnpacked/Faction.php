@@ -23,7 +23,8 @@ final class Faction extends BaseFormat
 
         return $this->transformArrayKeysToPascalCase($this->removeNullValuesPreservingEmptyArrays([
             'uuid' => $this->item->getUuid(),
-            'name' => ServiceFactory::getLocalizationService()->translateValue($this->item->getName(), true),
+            'name' => ServiceFactory::getLocalizationService()->translateValue($this->item->getName(), true)
+                ?? ServiceFactory::getLocalizationService()->translateValue($this->item->getFactionReputation()?->getDisplayName(), true),
             'description' => ServiceFactory::getLocalizationService()->translateValue($this->item->getDescription(), true),
             'defaultReaction' => $this->item->getDefaultReaction(),
             'factionType' => $this->item->getFactionType(),

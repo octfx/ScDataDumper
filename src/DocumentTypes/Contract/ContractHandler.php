@@ -38,9 +38,10 @@ class ContractHandler extends RootDocument
         return $this->getBool('@escapedConvicts');
     }
 
-    public function isOnceOnly(): bool
+    public function isOnceOnly(): ?bool
     {
-        return $this->getBool('defaultAvailability@onceOnly');
+        return $this->getNullableBool('contractParams/boolParamOverrides/ContractBoolParam[@param="OnceOnly"]@value')
+            ?? $this->getNullableBool('defaultAvailability@onceOnly');
     }
 
     public function getMaxPlayersPerInstance(): ?int
@@ -53,9 +54,10 @@ class ContractHandler extends RootDocument
         return $this->getBool('defaultAvailability@availableInPrison');
     }
 
-    public function canReacceptAfterAbandoning(): bool
+    public function canReacceptAfterAbandoning(): ?bool
     {
-        return $this->getBool('defaultAvailability@canReacceptAfterAbandoning');
+        return $this->getNullableBool('contractParams/boolParamOverrides/ContractBoolParam[@param="CanReacceptAfterAbandoning"]@value')
+            ?? $this->getNullableBool('defaultAvailability@canReacceptAfterAbandoning');
     }
 
     public function getAbandonedCooldownTime(): ?float
@@ -68,9 +70,10 @@ class ContractHandler extends RootDocument
         return $this->getFloat('defaultAvailability@abandonedCooldownTimeVariation');
     }
 
-    public function canReacceptAfterFailing(): bool
+    public function canReacceptAfterFailing(): ?bool
     {
-        return $this->getBool('defaultAvailability@canReacceptAfterFailing');
+        return $this->getNullableBool('contractParams/boolParamOverrides/ContractBoolParam[@param="CanReacceptAfterFailing"]@value')
+            ?? $this->getNullableBool('defaultAvailability@canReacceptAfterFailing');
     }
 
     public function hasPersonalCooldown(): bool
@@ -88,9 +91,16 @@ class ContractHandler extends RootDocument
         return $this->getFloat('defaultAvailability@personalCooldownTimeVariation');
     }
 
-    public function isHideInMobiGlas(): bool
+    public function isHideInMobiGlas(): ?bool
     {
-        return $this->getBool('defaultAvailability@hideInMobiGlas');
+        return $this->getNullableBool('contractParams/boolParamOverrides/ContractBoolParam[@param="HideInMobiGlas"]@value')
+            ?? $this->getNullableBool('defaultAvailability@hideInMobiGlas');
+    }
+
+    public function failIfBecameCriminal(): ?bool
+    {
+        return $this->getNullableBool('contractParams/boolParamOverrides/ContractBoolParam[@param="FailIfBecameCriminal"]@value')
+            ?? $this->getNullableBool('defaultAvailability@failIfBecameCriminal');
     }
 
     public function notifyOnAvailable(): bool
@@ -132,9 +142,14 @@ class ContractHandler extends RootDocument
         return $this->getString('contractParams/stringParamOverrides/ContractStringParam[@param="Contractor"]@value');
     }
 
-    public function isShareable(): bool
+    public function isShareable(): ?bool
     {
-        return $this->getBool('contractParams/boolParamOverrides/ContractBoolParam[@param="CanBeShared"]@value');
+        return $this->getNullableBool('contractParams/boolParamOverrides/ContractBoolParam[@param="CanBeShared"]@value');
+    }
+
+    public function isIllegal(): ?bool
+    {
+        return $this->getNullableBool('contractParams/boolParamOverrides/ContractBoolParam[@param="Illegal"]@value');
     }
 
     public function getMissionTypeOverride(): ?string

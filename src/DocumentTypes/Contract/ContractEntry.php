@@ -64,39 +64,29 @@ class ContractEntry extends RootDocument
         return $this->getString('paramOverrides/stringParamOverrides/ContractStringParam[@param="Contractor"]@value');
     }
 
-    public function isIllegal(): bool
+    public function isIllegal(): ?bool
     {
-        $node = $this->get('paramOverrides/boolParamOverrides/ContractBoolParam[@param="Illegal"]@value');
-        if ($node === null) {
-            return false;
-        }
-
-        return (int) $node === 1;
+        return $this->getNullableBool('paramOverrides/boolParamOverrides/ContractBoolParam[@param="Illegal"]@value');
     }
 
-    public function isOnceOnly(): bool
+    public function isOnceOnly(): ?bool
     {
-        $node = $this->get('paramOverrides/boolParamOverrides/ContractBoolParam[@param="OnceOnly"]@value');
-        if ($node === null) {
-            return false;
-        }
-
-        return (int) $node === 1;
+        return $this->getNullableBool('paramOverrides/boolParamOverrides/ContractBoolParam[@param="OnceOnly"]@value');
     }
 
-    public function isShareable(): bool
+    public function isShareable(): ?bool
     {
-        return $this->getBool('paramOverrides/boolParamOverrides/ContractBoolParam[@param="CanBeShared"]@value');
+        return $this->getNullableBool('paramOverrides/boolParamOverrides/ContractBoolParam[@param="CanBeShared"]@value');
     }
 
-    public function failIfBecameCriminal(): bool
+    public function failIfBecameCriminal(): ?bool
     {
-        $node = $this->get('paramOverrides/boolParamOverrides/ContractBoolParam[@param="FailIfBecameCriminal"]@value');
-        if ($node === null) {
-            return false;
-        }
+        return $this->getNullableBool('paramOverrides/boolParamOverrides/ContractBoolParam[@param="FailIfBecameCriminal"]@value');
+    }
 
-        return (int) $node === 1;
+    public function isHideInMobiGlas(): ?bool
+    {
+        return $this->getNullableBool('paramOverrides/boolParamOverrides/ContractBoolParam[@param="HideInMobiGlas"]@value');
     }
 
     public function getMissionTypeOverride(): ?string
@@ -244,5 +234,40 @@ class ContractEntry extends RootDocument
         $doc = ContractResultBlock::fromNode($node->getNode(), $this->isReferenceHydrationEnabled());
 
         return $doc instanceof ContractResultBlock ? $doc : null;
+    }
+
+    public function getMaxPlayersPerInstance(): ?int
+    {
+        return $this->getInt('paramOverrides/intParamOverrides/ContractIntParam[@param="MaxPlayersPerInstance"]@value');
+    }
+
+    public function getAbandonedCooldownTime(): ?float
+    {
+        return $this->getFloat('paramOverrides/intParamOverrides/ContractIntParam[@param="AbandonedCooldownTime"]@value');
+    }
+
+    public function getAbandonedCooldownTimeVariation(): ?float
+    {
+        return $this->getFloat('paramOverrides/intParamOverrides/ContractIntParam[@param="AbandonedCooldownTimeVariation"]@value');
+    }
+
+    public function getPersonalCooldownTime(): ?float
+    {
+        return $this->getFloat('paramOverrides/intParamOverrides/ContractIntParam[@param="PersonalCooldownTime"]@value');
+    }
+
+    public function getPersonalCooldownTimeVariation(): ?float
+    {
+        return $this->getFloat('paramOverrides/intParamOverrides/ContractIntParam[@param="PersonalCooldownTimeVariation"]@value');
+    }
+
+    public function canReacceptAfterAbandoning(): ?bool
+    {
+        return $this->getNullableBool('paramOverrides/boolParamOverrides/ContractBoolParam[@param="CanReacceptAfterAbandoning"]@value');
+    }
+
+    public function canReacceptAfterFailing(): ?bool
+    {
+        return $this->getNullableBool('paramOverrides/boolParamOverrides/ContractBoolParam[@param="CanReacceptAfterFailing"]@value');
     }
 }
