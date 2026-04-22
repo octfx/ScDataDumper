@@ -10,7 +10,7 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
  */
 final class PowerPlant extends BaseFormat
 {
-    protected ?string $elementKey = 'Components/EntityComponentPowerConnection';
+    protected ?string $elementKey = 'Components/ItemResourceComponentParams';
 
     public function toArray(): ?array
     {
@@ -18,11 +18,12 @@ final class PowerPlant extends BaseFormat
             return null;
         }
 
-        $powerPlant = $this->get();
+        $generation = $this->get('states/ItemResourceState/deltas/ItemResourceDeltaGeneration/generation/resourceAmountPerSecond/SPowerSegmentResourceUnit@units');
 
         return [
-            'Output' => $powerPlant->get('@PowerDraw'),
-            'Generation' => $this->get('Components/ItemResourceComponentParams/states/ItemResourceState/deltas/ItemResourceDeltaGeneration/generation/resourceAmountPerSecond/SPowerSegmentResourceUnit@units'),
+            /** @deprecated 4.7.0 PowerDraw no longer available from game data, use Generation instead */
+            'Output' => $generation,
+            'Generation' => $generation,
         ];
     }
 

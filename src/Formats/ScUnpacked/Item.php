@@ -2,6 +2,7 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
+use Illuminate\Support\Arr;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\DocumentTypes\SCItemManufacturer;
@@ -153,8 +154,9 @@ final class Item extends BaseFormat
 
         $this->processArray($data);
 
-        if ($data['type'] === 'PowerPlant' && ! empty($data['stdItem']['Emission']) && ! empty($data['stdItem']['PowerPlant'])) {
-            $data['stdItem']['Emission']['Em']['PerSegment'] = round($data['stdItem']['Emission']['Em']['Maximum'] / $data['stdItem']['PowerPlant']['Generation']);
+        $generation = Arr::get($data, 'stdItem.ResourceNetwork.Generation.Power');
+        if ($data['type'] === 'PowerPlant' && ! empty($data['stdItem']['Emission']) && $generation > 0) {
+            $data['stdItem']['Emission']['Em']['PerSegment'] = round($data['stdItem']['Emission']['Em']['Maximum'] / $generation);
         }
 
         if ($data['type'] === 'QuantumDrive' && ! empty($data['stdItem']['ResourceNetwork'])) {
