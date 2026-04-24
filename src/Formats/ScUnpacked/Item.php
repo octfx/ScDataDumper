@@ -49,6 +49,19 @@ final class Item extends BaseFormat
 
         $entityTagNames = ServiceFactory::getTagDatabaseService();
 
+        $rarity = null;
+        $rarityOrder = ['Legendary', 'Epic', 'Rare', 'Uncommon', 'Common'];
+        $resolvedTagNames = array_map(
+            static fn($uuid) => $entityTagNames->getTagName($uuid),
+            $entityTags,
+        );
+        foreach ($rarityOrder as $rarityTag) {
+            if (in_array($rarityTag, $resolvedTagNames, true)) {
+                $rarity = $rarityTag;
+                break;
+            }
+        }
+
         $data = [
             'className' => $this->item->getClassName(),
             'reference' => $this->item->getUuid(),
@@ -92,6 +105,7 @@ final class Item extends BaseFormat
                 ] : $defaultManufacturer,
                 'Tags' => $this->item->getTagList(),
                 'RequiredTags' => $this->item->getRequiredTagList(),
+                'Rarity' => $rarity,
                 'Ports' => $this->buildPortsList(),
 
                 'Ammunition' => new Ammunition($this->item),
