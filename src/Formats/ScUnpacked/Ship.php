@@ -18,12 +18,12 @@ use Octfx\ScDataDumper\Services\Vehicle\EmissionAggregator;
 use Octfx\ScDataDumper\Services\Vehicle\FlightCharacteristicsCalculator;
 use Octfx\ScDataDumper\Services\Vehicle\HealthAggregator;
 use Octfx\ScDataDumper\Services\Vehicle\InventoryContainerResolver;
-use Octfx\ScDataDumper\Services\Vehicle\ItemTypeResolver;
 use Octfx\ScDataDumper\Services\Vehicle\PortFinder;
 use Octfx\ScDataDumper\Services\Vehicle\PortSummaryBuilder;
 use Octfx\ScDataDumper\Services\Vehicle\PropulsionSystemAggregator;
 use Octfx\ScDataDumper\Services\Vehicle\QuantumTravelCalculator;
 use Octfx\ScDataDumper\Services\Vehicle\ResourceAggregator;
+use Octfx\ScDataDumper\Services\Vehicle\SeatingAnalyzer;
 use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartBuilder;
 use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartWalker;
 use Octfx\ScDataDumper\Services\Vehicle\VehicleDataContext;
@@ -44,14 +44,11 @@ final class Ship extends BaseFormat
 
     private readonly ?Vehicle $vehicle;
 
-    private readonly ItemTypeResolver $itemTypeResolver;
-
     public function __construct(private readonly VehicleWrapper $vehicleWrapper)
     {
         parent::__construct($this->vehicleWrapper->entity);
 
         $this->vehicle = $this->vehicleWrapper->vehicle;
-        $this->itemTypeResolver = new ItemTypeResolver;
 
         $this->cargoGridResolver = new CargoGridResolver;
         $this->inventoryContainerResolver = new InventoryContainerResolver;
@@ -227,6 +224,7 @@ final class Ship extends BaseFormat
             new FlightCharacteristicsCalculator,
             new HealthAggregator($walker),
             new WeaponSystemAnalyzer,
+            new SeatingAnalyzer,
             new DriveCharacteristicsVehicleCalculator(
                 new DriveCharacteristicsCalculator,
                 $this->vehicleWrapper
@@ -252,11 +250,9 @@ final class Ship extends BaseFormat
         $data['WeaponCrew'] = $weaponCrew ?: null;
         $data['OperationsCrew'] = $operationsCrew ?: null;
 
-        // Seats and beds from installed items
-        ['seat_count' => $seatCount, 'bed_count' => $bedCount] = $this->countSeatsAndBeds($standardisedParts);
-
-        $data['Seats'] = $seatCount ?: null;
-        $data['Beds'] = $bedCount ?: null;
+        if (! empty($calculatedData['Seating'])) {
+            $data['Seating'] = $calculatedData['Seating'];
+        }
 
         $summary = [
             // 'Thrusters' => $this->buildThrusterSummary($portSummary),
@@ -430,58 +426,6 @@ final class Ship extends BaseFormat
                 }
             }
         }
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $standardisedParts
-     * @return array{seat_count: int, bed_count: int}
-     */
-    private function countSeatsAndBeds(array $standardisedParts): array
-    {
-        $seatCount = 0;
-        $bedCount = 0;
-        $walker = new StandardisedPartWalker;
-
-        foreach ($walker->walkItems($standardisedParts) as $entry) {
-            $item = $entry['Item'];
-
-            if (! is_array($item)) {
-                continue;
-            }
-
-            $type = $this->extractMajorTypeToken($this->itemTypeResolver->resolveSemanticType($item));
-            $name = strtolower($item['stdItem']['Name'] ?? $item['name'] ?? '');
-            $className = strtolower($item['stdItem']['ClassName'] ?? $item['className'] ?? '');
-
-            if ($type === 'seat') {
-                $seatCount++;
-            }
-
-            if (
-                $type === 'bed' ||
-                str_contains($name, 'bed') ||
-                str_contains($className, 'bed')
-            ) {
-                $bedCount++;
-            }
-        }
-
-        return [
-            'seat_count' => $seatCount,
-            'bed_count' => $bedCount,
-        ];
-    }
-
-    private function extractMajorTypeToken(?string $semanticType): ?string
-    {
-        if ($semanticType === null || $semanticType === '') {
-            return null;
-        }
-
-        [$majorType] = explode('.', $semanticType, 2);
-        $majorType = strtolower(trim($majorType));
-
-        return $majorType === '' ? null : $majorType;
     }
 
     /**
