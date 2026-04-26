@@ -66,7 +66,11 @@ class EntityClassDefinition extends RootDocument
     {
         $tags = $this->get('Components/SAttachableComponentParams/AttachDef@Tags', '') ?? '';
 
-        return array_filter(array_map(static fn ($tag) => trim($tag), explode(' ', $tags)));
+        return collect(explode(' ', $tags))
+            ->map(static fn ($tag) => trim($tag))
+            ->filter()
+            ->values()
+            ->all();
     }
 
     /**
@@ -81,7 +85,11 @@ class EntityClassDefinition extends RootDocument
     {
         $tags = $this->get('Components/SAttachableComponentParams/AttachDef@RequiredTags', '') ?? '';
 
-        return array_filter(array_map(static fn ($tag) => trim($tag), explode(' ', $tags)));
+        return collect(explode(' ', $tags))
+            ->map(static fn ($tag) => trim($tag))
+            ->filter()
+            ->values()
+            ->all();
     }
 
     public function getMineableParams(): ?MineableParams
