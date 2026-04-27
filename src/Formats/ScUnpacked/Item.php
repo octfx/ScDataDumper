@@ -52,7 +52,7 @@ final class Item extends BaseFormat
         $rarity = null;
         $rarityOrder = ['Legendary', 'Epic', 'Rare', 'Uncommon', 'Common'];
         $resolvedTagNames = array_map(
-            static fn($uuid) => $entityTagNames->getTagName($uuid),
+            static fn ($uuid) => $entityTagNames->getTagName($uuid),
             $entityTags,
         );
         foreach ($rarityOrder as $rarityTag) {

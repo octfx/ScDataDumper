@@ -2,16 +2,25 @@
 
 namespace Octfx\ScDataDumper\Services\Vehicle;
 
+use Octfx\ScDataDumper\DocumentTypes\VehicleDefinition;
+use Octfx\ScDataDumper\Services\ItemService;
+
 final class SeatingAnalyzer implements VehicleDataCalculator
 {
-    private const TAG_SYNONYMS = [
+    private const array MED_BED_TIER_MAP = [
+        'Hospital' => 'T1',
+        'Clinic' => 'T2',
+        'Ambulance' => 'T3',
+    ];
+
+    private const array TAG_SYNONYMS = [
         'Helm' => 'Helmsman',
         'Driver' => 'Helmsman',
         'CoHelm' => 'CoHelmsman',
         'GenericBridgeCrew' => 'Bridge',
     ];
 
-    private const TAG_PRIORITY = [
+    private const array TAG_PRIORITY = [
         'Helmsman',
         'CoHelmsman',
         'Captain',
@@ -33,8 +42,14 @@ final class SeatingAnalyzer implements VehicleDataCalculator
 
     private readonly ItemTypeResolver $itemTypeResolver;
 
-    public function __construct(?ItemTypeResolver $itemTypeResolver = null)
-    {
+    /** @var array<string, string|null> */
+    private array $medicalTierCache = [];
+
+    public function __construct(
+        ?ItemTypeResolver $itemTypeResolver = null,
+        private readonly ?SocpakBedExtractor $bedExtractor = null,
+        private readonly ?ItemService $itemService = null,
+    ) {
         $this->itemTypeResolver = $itemTypeResolver ?? new ItemTypeResolver;
     }
 
@@ -50,7 +65,7 @@ final class SeatingAnalyzer implements VehicleDataCalculator
         $seats = [];
         $escapePods = 0;
         $jumpSeats = 0;
-        $turretGunners = 0;
+        $loadoutBeds = [];
 
         foreach ($walker->walkItems($context->standardisedParts) as $entry) {
             $item = $entry['Item'];
@@ -68,8 +83,8 @@ final class SeatingAnalyzer implements VehicleDataCalculator
                 continue;
             }
 
-            if ($type === 'turretbase' && ! empty($item['stdItem']['Seat'])) {
-                $turretGunners++;
+            if ($type === 'bed' || $this->isBedByClassName($item)) {
+                $loadoutBeds[] = $this->buildBedEntry($item, (string) ($entry['portName'] ?? ''));
 
                 continue;
             }
@@ -87,11 +102,16 @@ final class SeatingAnalyzer implements VehicleDataCalculator
             $seats[] = $this->buildSeatEntry($item, $portName);
         }
 
-        $summary = $this->buildSeatingSummary($seats, $escapePods, $jumpSeats, $turretGunners);
+        $beds = $this->resolveBeds($loadoutBeds, $context->entity);
+        $summary = $this->buildSeatingSummary($seats, $escapePods, $jumpSeats, $beds);
 
         $result = [];
         if ($seats !== []) {
             $result['Seats'] = $seats;
+        }
+
+        if ($beds !== []) {
+            $result['Beds'] = $beds;
         }
 
         if ($summary !== []) {
@@ -154,8 +174,9 @@ final class SeatingAnalyzer implements VehicleDataCalculator
 
     /**
      * @param  array<int, array{Role: string}>  $seats
+     * @param  array<int, array{IsMedical: bool}>  $beds
      */
-    private function buildSeatingSummary(array $seats, int $escapePods, int $jumpSeats, int $turretGunners): array
+    private function buildSeatingSummary(array $seats, int $escapePods, int $jumpSeats, array $beds): array
     {
         $ejectionCount = 0;
         $roleCounts = [];
@@ -197,16 +218,30 @@ final class SeatingAnalyzer implements VehicleDataCalculator
             $summary['EscapePods'] = $escapePods;
         }
 
-        if ($turretGunners > 0) {
-            $summary['TurretGunner'] = $turretGunners;
-        }
-
         if ($jumpSeats > 0) {
             $summary['JumpSeats'] = $jumpSeats;
         }
 
         if ($ejectionCount > 0) {
             $summary['EjectionSeats'] = $ejectionCount;
+        }
+
+        $bedCount = count($beds);
+        if ($bedCount > 0) {
+            $summary['Beds'] = $bedCount;
+        }
+
+        $medicalTiers = [];
+        foreach ($beds as $bed) {
+            if (! ($bed['IsMedical'] ?? false)) {
+                continue;
+            }
+            $tier = $bed['MedicalTier'] ?? 'Unknown';
+            $medicalTiers[$tier] = ($medicalTiers[$tier] ?? 0) + 1;
+        }
+        if ($medicalTiers !== []) {
+            ksort($medicalTiers);
+            $summary['MedicalBeds'] = $medicalTiers;
         }
 
         return $summary;
@@ -229,5 +264,140 @@ final class SeatingAnalyzer implements VehicleDataCalculator
         $majorType = strtolower(trim($majorType));
 
         return $majorType === '' ? null : $majorType;
+    }
+
+    private function isBedByClassName(array $item): bool
+    {
+        $className = $item['className'] ?? $item['stdItem']['ClassName'] ?? '';
+
+        return str_starts_with($className, 'Bed_') || stripos($className, 'bed_') === 0;
+    }
+
+    private function buildBedEntry(array $item, string $portName): array
+    {
+        $className = $item['stdItem']['ClassName'] ?? $item['className'] ?? '';
+        $tier = $this->getMedicalTier($className);
+
+        return [
+            'HardpointName' => $portName,
+            'ClassName' => $className,
+            'BedType' => $this->classifyBedType($className),
+            'IsMedical' => $tier !== null,
+            'MedicalTier' => $tier,
+        ];
+    }
+
+    private function buildBedEntryFromSocpak(array $socpakBed): array
+    {
+        $className = $socpakBed['ClassName'];
+        $tier = $this->getMedicalTier($className);
+
+        return [
+            'HardpointName' => $socpakBed['Section'],
+            'ClassName' => $className,
+            'BedType' => $this->classifyBedType($className),
+            'IsMedical' => $tier !== null,
+            'MedicalTier' => $tier,
+        ];
+    }
+
+    /**
+     * @return list<array{ClassName: string, InstanceName: string, Section: string, Layer: string|null}>
+     */
+    private function extractSocpakBeds(?VehicleDefinition $entity): array
+    {
+        if ($this->bedExtractor === null || $entity === null) {
+            return [];
+        }
+
+        return $this->bedExtractor->extractBeds($entity);
+    }
+
+    private function resolveBeds(array $loadoutBeds, ?VehicleDefinition $entity): array
+    {
+        $socpakBeds = $this->extractSocpakBeds($entity);
+
+        if ($socpakBeds !== []) {
+            return array_map(fn (array $b) => $this->buildBedEntryFromSocpak($b), $socpakBeds);
+        }
+
+        return $loadoutBeds;
+    }
+
+    private function classifyBedType(string $className): string
+    {
+        $lower = strtolower($className);
+
+        if (str_contains($lower, 'medical')) {
+            return 'Medical';
+        }
+
+        if (str_contains($lower, 'bunk')) {
+            return 'Bunk';
+        }
+
+        if (str_contains($lower, 'double')) {
+            return 'Double';
+        }
+
+        if (str_contains($lower, 'capsule')) {
+            return 'Capsule';
+        }
+
+        if (str_contains($lower, 'frameless')) {
+            return 'Frameless';
+        }
+
+        return 'Single';
+    }
+
+    private function getMedicalTier(string $className): ?string
+    {
+        if (isset($this->medicalTierCache[$className])) {
+            return $this->medicalTierCache[$className];
+        }
+
+        $tier = $this->resolveMedicalTierFromEntity($className)
+            ?? $this->resolveMedicalTierFromClassName($className);
+
+        $this->medicalTierCache[$className] = $tier;
+
+        return $tier;
+    }
+
+    private function resolveMedicalTierFromEntity(string $className): ?string
+    {
+        if ($this->itemService === null) {
+            return null;
+        }
+
+        $entity = $this->itemService->getByClassName($className);
+
+        if ($entity === null) {
+            return null;
+        }
+
+        $tier = $entity->get('Components/MedBedComponentParams/@medBedTier');
+
+        if ($tier !== null && $tier !== '') {
+            return self::MED_BED_TIER_MAP[(string) $tier] ?? (string) $tier;
+        }
+
+        return null;
+    }
+
+    private function resolveMedicalTierFromClassName(string $className): ?string
+    {
+        $lower = strtolower($className);
+
+        if (preg_match('/_t([123])_/i', $lower, $m)) {
+            return 'T'.$m[1];
+        }
+
+        if (preg_match('/_tier_*([123])$/i', $lower, $m)) {
+            return 'T'.$m[1];
+        }
+
+        return null;
     }
 }

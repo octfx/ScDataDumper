@@ -24,6 +24,7 @@ use Octfx\ScDataDumper\Services\Vehicle\PropulsionSystemAggregator;
 use Octfx\ScDataDumper\Services\Vehicle\QuantumTravelCalculator;
 use Octfx\ScDataDumper\Services\Vehicle\ResourceAggregator;
 use Octfx\ScDataDumper\Services\Vehicle\SeatingAnalyzer;
+use Octfx\ScDataDumper\Services\Vehicle\SocpakBedExtractor;
 use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartBuilder;
 use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartWalker;
 use Octfx\ScDataDumper\Services\Vehicle\VehicleDataContext;
@@ -209,11 +210,12 @@ final class Ship extends BaseFormat
             portSummary: $portSummary,
             ifcsLoadoutEntry: Arr::get($portSummary, 'flightControllers.0.Port.InstalledItem.stdItem'),
             mass: $data['Mass'],
-            loadoutMass: 0.0, // calculated by ResourceAggregator
+            loadoutMass: 0.0,
             isVehicle: $isVehicle,
             isGravlev: $isGravlev,
             isSpaceship: ! ($isVehicle || $isGravlev),
             intermediateResults: [],
+            entity: $this->vehicleWrapper->entity,
         );
 
         $calculators = [
@@ -224,7 +226,10 @@ final class Ship extends BaseFormat
             new FlightCharacteristicsCalculator,
             new HealthAggregator($walker),
             new WeaponSystemAnalyzer,
-            new SeatingAnalyzer,
+            new SeatingAnalyzer(
+                bedExtractor: new SocpakBedExtractor(ServiceFactory::getActiveScDataPath()),
+                itemService: ServiceFactory::getItemService(),
+            ),
             new DriveCharacteristicsVehicleCalculator(
                 new DriveCharacteristicsCalculator,
                 $this->vehicleWrapper

@@ -2,6 +2,8 @@
 
 namespace Octfx\ScDataDumper\Services\Vehicle;
 
+use Octfx\ScDataDumper\DocumentTypes\VehicleDefinition;
+
 /**
  * Context object containing all input data for vehicle calculators
  *
@@ -20,6 +22,7 @@ final readonly class VehicleDataContext
      * @param  bool  $isGravlev  True if this is a gravlev vehicle
      * @param  bool  $isSpaceship  True if this is a spaceship
      * @param  array  $intermediateResults  Results from previously executed calculators
+     * @param  VehicleDefinition|null  $entity  Vehicle entity class definition for socpak bed extraction
      */
     public function __construct(
         public array $standardisedParts,
@@ -31,6 +34,7 @@ final readonly class VehicleDataContext
         public bool $isGravlev,
         public bool $isSpaceship,
         public array $intermediateResults = [],
+        public ?VehicleDefinition $entity = null,
     ) {}
 
     /**
@@ -51,6 +55,7 @@ final readonly class VehicleDataContext
             isGravlev: $this->isGravlev,
             isSpaceship: $this->isSpaceship,
             intermediateResults: $intermediateResults,
+            entity: $this->entity,
         );
     }
 }

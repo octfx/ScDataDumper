@@ -195,13 +195,11 @@ final class ShipLoadoutExportRegressionTest extends TestCase
                             'PortName' => 'hardpoint_turret_top',
                             'InstalledItem' => [
                                 'stdItem' => [
-                                    'Type' => 'TurretBase.MannedTurret',
-                                    'ClassName' => 'TURRET_MANNED_TOP',
-                                    'Seat' => [
-                                        'SeatType' => 'DUAL_STICK',
-                                    ],
+                                    'Type' => 'Seat.UNDEFINED',
+                                    'ClassName' => 'TURRET_SEAT',
                                 ],
                                 'entity_tag_map' => [
+                                    ['name' => 'Seat'],
                                     ['name' => 'Turret'],
                                 ],
                             ],
@@ -213,10 +211,137 @@ final class ShipLoadoutExportRegressionTest extends TestCase
 
         $result = $this->invokeSeatingAnalyzer($standardisedParts);
 
-        self::assertCount(3, $result['Seats']);
-        self::assertSame(1, $result['Summary']['TurretGunner']);
+        self::assertCount(4, $result['Seats']);
+        self::assertSame(1, $result['Summary']['Stations']['Turret']);
         self::assertSame(2, $result['Summary']['Stations']['Bridge']);
         self::assertSame(1, $result['Summary']['Stations']['Engineering']);
+    }
+
+    public function test_build_seating_info_discovers_loadout_beds(): void
+    {
+        $standardisedParts = [
+            [
+                'Name' => 'RootPart',
+                'Port' => [
+                    'PortName' => 'hardpoint_seat_pilot',
+                    'InstalledItem' => [
+                        'stdItem' => [
+                            'Type' => 'Seat.UNDEFINED',
+                            'ClassName' => 'SEAT_PILOT',
+                            'Ports' => [[
+                                'PortName' => 'BedPort',
+                                'InstalledItem' => [
+                                    'type' => 'Bed',
+                                    'stdItem' => [
+                                        'Type' => 'Bed.Captain',
+                                        'ClassName' => 'Bed_Single_RSI_Phoenix',
+                                    ],
+                                ],
+                            ]],
+                        ],
+                        'entity_tag_map' => [
+                            ['name' => 'Seat'],
+                            ['name' => 'Helmsman'],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $result = $this->invokeSeatingAnalyzer($standardisedParts);
+
+        self::assertCount(1, $result['Seats']);
+        self::assertCount(1, $result['Beds']);
+
+        $bed = $result['Beds'][0];
+        self::assertSame('BedPort', $bed['HardpointName']);
+        self::assertSame('Bed_Single_RSI_Phoenix', $bed['ClassName']);
+        self::assertSame('Single', $bed['BedType']);
+        self::assertFalse($bed['IsMedical']);
+
+        self::assertSame(1, $result['Summary']['Helmsman']);
+        self::assertSame(1, $result['Summary']['Beds']);
+        self::assertArrayNotHasKey('MedicalBeds', $result['Summary']);
+    }
+
+    public function test_build_seating_info_classifies_medical_beds(): void
+    {
+        $standardisedParts = [
+            [
+                'Name' => 'RootPart',
+                'Port' => [
+                    'PortName' => 'hardpoint_bed_medical',
+                    'InstalledItem' => [
+                        'type' => 'Bed',
+                        'stdItem' => [
+                            'Type' => 'Usable.UNDEFINED',
+                            'ClassName' => 'Bed_Single_Medical_Carrack',
+                        ],
+                    ],
+                ],
+            ],
+            [
+                'Name' => 'BedPart2',
+                'Port' => [
+                    'PortName' => 'hardpoint_bed_bunk',
+                    'InstalledItem' => [
+                        'type' => 'Bed',
+                        'stdItem' => [
+                            'Type' => 'Usable.UNDEFINED',
+                            'ClassName' => 'Bed_Bunk_ANVL_Carrack',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $result = $this->invokeSeatingAnalyzer($standardisedParts);
+
+        self::assertArrayNotHasKey('Seats', $result);
+        self::assertCount(2, $result['Beds']);
+
+        $medBed = $result['Beds'][0];
+        self::assertSame('Bed_Single_Medical_Carrack', $medBed['ClassName']);
+        self::assertSame('Medical', $medBed['BedType']);
+        self::assertFalse($medBed['IsMedical']);
+        self::assertNull($medBed['MedicalTier']);
+
+        $bunkBed = $result['Beds'][1];
+        self::assertSame('Bed_Bunk_ANVL_Carrack', $bunkBed['ClassName']);
+        self::assertSame('Bunk', $bunkBed['BedType']);
+        self::assertFalse($bunkBed['IsMedical']);
+
+        self::assertSame(2, $result['Summary']['Beds']);
+        self::assertArrayNotHasKey('MedicalBeds', $result['Summary']);
+    }
+
+    public function test_build_seating_info_detects_medical_tier_from_classname_pattern(): void
+    {
+        $standardisedParts = [
+            [
+                'Name' => 'RootPart',
+                'Port' => [
+                    'PortName' => 'hardpoint_bed_medical',
+                    'InstalledItem' => [
+                        'type' => 'Bed',
+                        'stdItem' => [
+                            'Type' => 'Usable.UNDEFINED',
+                            'ClassName' => 'Bed_Single_Medical_Ship_Canister_T2_Template',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $result = $this->invokeSeatingAnalyzer($standardisedParts);
+
+        $medBed = $result['Beds'][0];
+        self::assertSame('Bed_Single_Medical_Ship_Canister_T2_Template', $medBed['ClassName']);
+        self::assertSame('Medical', $medBed['BedType']);
+        self::assertTrue($medBed['IsMedical']);
+        self::assertSame('T2', $medBed['MedicalTier']);
+
+        self::assertSame(['T2' => 1], $result['Summary']['MedicalBeds']);
     }
 
     private function newShipForInternalInvocation(): Ship
