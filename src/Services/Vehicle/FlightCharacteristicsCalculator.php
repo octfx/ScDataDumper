@@ -16,9 +16,6 @@ use Illuminate\Support\Arr;
  */
 final class FlightCharacteristicsCalculator implements VehicleDataCalculator
 {
-    /** Gravitational constant for G-force calculations */
-    private const float G = 9.80665;
-
     /**
      * Calculate complete flight characteristics from IFCS data
      *
@@ -60,10 +57,6 @@ final class FlightCharacteristicsCalculator implements VehicleDataCalculator
         $accelerationRaw = $this->calculateDirectionalAccelerations($thrustCapacity, $mass);
         $linearMultipliers = $this->extractLinearMultipliers($afterburner);
         $accelerationBoosted = $this->applyMultipliers($accelerationRaw, $linearMultipliers);
-
-        $accelerationRawG = $this->convertToG($accelerationRaw);
-        $accelerationBoostedG = $this->convertToG($accelerationBoosted);
-
         $flightCharacteristics = [
             'Ifcs' => $ifcs,
             //            'AfterburnerMode' => $afterburnerMode,
@@ -77,8 +70,6 @@ final class FlightCharacteristicsCalculator implements VehicleDataCalculator
             'Acceleration' => [
                 'Raw' => $accelerationRaw,
                 'Boosted' => $accelerationBoosted,
-                'RawG' => $accelerationRawG,
-                'BoostedG' => $accelerationBoostedG,
                 'BoostMultipliers' => $linearMultipliers,
             ],
         ];
@@ -104,9 +95,7 @@ final class FlightCharacteristicsCalculator implements VehicleDataCalculator
         $angular = Arr::get($flightCharacteristics, 'AngularRates', []);
         $angularBoosted = Arr::get($flightCharacteristics, 'AngularRatesBoosted', []);
         $accelRaw = Arr::get($flightCharacteristics, 'Acceleration.Raw', []);
-        $accelRawG = Arr::get($flightCharacteristics, 'Acceleration.RawG', []);
         $accelBoosted = Arr::get($flightCharacteristics, 'Acceleration.Boosted', []);
-        $accelBoostedG = Arr::get($flightCharacteristics, 'Acceleration.BoostedG', []);
 
         return [
             'pitch' => $round3($angular['Pitch'] ?? null),
@@ -116,32 +105,14 @@ final class FlightCharacteristicsCalculator implements VehicleDataCalculator
             'yaw_boosted' => $round3($angularBoosted['Yaw'] ?? null),
             'roll_boosted' => $round3($angularBoosted['Roll'] ?? null),
             'acceleration' => [
-                'forward' => $round3($accelRaw['Forward'] ?? null),
-                'backward' => $round3($accelRaw['Backward'] ?? null),
-                'up' => $round3($accelRaw['Up'] ?? null),
-                'down' => $round3($accelRaw['Down'] ?? null),
-                'strafe' => $round3($accelRaw['Strafe'] ?? null),
+                'main' => $round3($accelRaw['Main'] ?? null),
+                'retro' => $round3($accelRaw['Retro'] ?? null),
                 'vtol' => $round3($accelRaw['Vtol'] ?? null),
-                'forward_boosted' => $round3($accelBoosted['Forward'] ?? null),
-                'backward_boosted' => $round3($accelBoosted['Backward'] ?? null),
-                'up_boosted' => $round3($accelBoosted['Up'] ?? null),
-                'down_boosted' => $round3($accelBoosted['Down'] ?? null),
-                'strafe_boosted' => $round3($accelBoosted['Strafe'] ?? null),
+                'maneuver' => $round3($accelRaw['Maneuver'] ?? null),
+                'main_boosted' => $round3($accelBoosted['Main'] ?? null),
+                'retro_boosted' => $round3($accelBoosted['Retro'] ?? null),
                 'vtol_boosted' => $round3($accelBoosted['Vtol'] ?? null),
-            ],
-            'acceleration_g' => [
-                'forward_g' => $round3($accelRawG['Forward'] ?? null),
-                'backward_g' => $round3($accelRawG['Backward'] ?? null),
-                'up_g' => $round3($accelRawG['Up'] ?? null),
-                'down_g' => $round3($accelRawG['Down'] ?? null),
-                'strafe_g' => $round3($accelRawG['Strafe'] ?? null),
-                'vtol_g' => $round3($accelRawG['Vtol'] ?? null),
-                'forward_boosted_g' => $round3($accelBoostedG['Forward'] ?? null),
-                'backward_boosted_g' => $round3($accelBoostedG['Backward'] ?? null),
-                'up_boosted_g' => $round3($accelBoostedG['Up'] ?? null),
-                'down_boosted_g' => $round3($accelBoostedG['Down'] ?? null),
-                'strafe_boosted_g' => $round3($accelBoostedG['Strafe'] ?? null),
-                'vtol_boosted_g' => $round3($accelBoostedG['Vtol'] ?? null),
+                'maneuver_boosted' => $round3($accelBoosted['Maneuver'] ?? null),
             ],
         ];
     }
@@ -157,32 +128,21 @@ final class FlightCharacteristicsCalculator implements VehicleDataCalculator
     {
         if ($mass <= 0) {
             return [
-                'Forward' => 0,
-                'Backward' => 0,
-                'Up' => 0,
-                'Down' => 0,
-                'Strafe' => 0,
+                'Main' => 0,
+                'Retro' => 0,
                 'Vtol' => 0,
+                'Maneuver' => 0,
             ];
         }
 
         return [
-            'Forward' => round(($thrustCapacity['Main'] ?? 0) / $mass, 2),
-            'Backward' => round(($thrustCapacity['Retro'] ?? 0) / $mass, 2),
-            'Up' => round(($thrustCapacity['Up'] ?? 0) / $mass + ($thrustCapacity['Vtol'] ?? 0) / $mass, 2),
-            'Down' => round(($thrustCapacity['Down'] ?? 0) / $mass, 2),
-            'Strafe' => round(($thrustCapacity['Strafe'] ?? 0) / $mass, 2),
+            'Main' => round(($thrustCapacity['Main'] ?? 0) / $mass, 2),
+            'Retro' => round(($thrustCapacity['Retro'] ?? 0) / $mass, 2),
             'Vtol' => round(($thrustCapacity['Vtol'] ?? 0) / $mass, 2),
+            'Maneuver' => round(($thrustCapacity['Maneuvering'] ?? 0) / $mass, 2),
         ];
     }
 
-    /**
-     * Convert acceleration array to G-forces
-     */
-    private function convertToG(array $accelerations): array
-    {
-        return array_map(static fn ($value) => $value !== null ? round($value / self::G, 2) : null, $accelerations);
-    }
 
     /**
      * Calculate timing values (zero-to-speed transitions)
@@ -198,10 +158,10 @@ final class FlightCharacteristicsCalculator implements VehicleDataCalculator
         $maxSpeed = $speeds['Max'] ?? 0;
         $boostForward = $speeds['BoostForward'] ?? null;
         $boostBackward = $speeds['BoostBackward'] ?? null;
-        $forwardAccel = $accelerationRaw['Forward'] ?? 0;
-        $backwardAccel = $accelerationRaw['Backward'] ?? 0;
-        $forwardAccelBoosted = $accelerationBoosted['Forward'] ?? 0;
-        $backwardAccelBoosted = $accelerationBoosted['Backward'] ?? 0;
+        $forwardAccel = $accelerationRaw['Main'] ?? 0;
+        $backwardAccel = $accelerationRaw['Retro'] ?? 0;
+        $forwardAccelBoosted = $accelerationBoosted['Main'] ?? 0;
+        $backwardAccelBoosted = $accelerationBoosted['Retro'] ?? 0;
 
         return [
             'ZeroToScm' => $forwardAccel > 0 ? round($scmSpeed / $forwardAccel, 2) : null,
@@ -267,12 +227,10 @@ final class FlightCharacteristicsCalculator implements VehicleDataCalculator
         $strafe = max($strafePos, $strafeNeg);
 
         return [
-            'Forward' => $forward,
-            'Backward' => $backward,
-            'Up' => $up,
-            'Down' => $down,
-            'Strafe' => $strafe,
+            'Main' => $forward,
+            'Retro' => $backward,
             'Vtol' => $up,
+            'Maneuver' => max($up, $down, $strafe),
         ];
     }
 

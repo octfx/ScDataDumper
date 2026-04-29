@@ -67,9 +67,6 @@ final class PropulsionSystemAggregator implements VehicleDataCalculator
             'Retro' => $portSummary['retroThrusters']->sum(fn ($x) => Arr::get($x, 'Port.InstalledItem.stdItem.Thruster.ThrustCapacity', 0)),
             'Vtol' => $portSummary['vtolThrusters']->sum(fn ($x) => Arr::get($x, 'Port.InstalledItem.stdItem.Thruster.ThrustCapacity', 0)),
             'Maneuvering' => $portSummary['maneuveringThrusters']->sum(fn ($x) => Arr::get($x, 'Port.InstalledItem.stdItem.Thruster.ThrustCapacity', 0)),
-            'Up' => $portSummary['upThrusters']->sum(fn ($x) => Arr::get($x, 'Port.InstalledItem.stdItem.Thruster.ThrustCapacity', 0)),
-            'Down' => $portSummary['downThrusters']->sum(fn ($x) => Arr::get($x, 'Port.InstalledItem.stdItem.Thruster.ThrustCapacity', 0)),
-            'Strafe' => $portSummary['strafeThrusters']->sum(fn ($x) => Arr::get($x, 'Port.InstalledItem.stdItem.Thruster.ThrustCapacity', 0)),
         ];
     }
 
@@ -87,13 +84,69 @@ final class PropulsionSystemAggregator implements VehicleDataCalculator
 
     public function calculate(VehicleDataContext $context): array
     {
+        $propulsion = $this->aggregate($context->portSummary);
+
+        $thrusters = $this->buildThrustersSummary(
+            $context->portSummary,
+            $propulsion['ThrustCapacity'],
+            $context->mass
+        );
+
+        if ($thrusters !== []) {
+            $propulsion['Thrusters'] = $thrusters;
+        }
+
         return [
-            'Propulsion' => $this->aggregate($context->portSummary),
+            'Propulsion' => $propulsion,
         ];
     }
 
     public function getPriority(): int
     {
         return 20;
+    }
+    private const G = 9.80665;
+
+
+    /**
+     * Build thruster summary with count, capacity (MN), and G-force
+     *
+     * @param  array<string, Collection>  $portSummary
+     * @param  array<string, float>  $thrustCapacity  Thrust capacity in Newtons per direction
+     * @param  float  $mass  Ship mass in kg
+     * @return array<int, array{Type: string, Count: int, Capacity: float, G?: float}>
+     */
+    private function buildThrustersSummary(array $portSummary, array $thrustCapacity, float $mass): array
+    {
+        $groups = [
+            ['Type' => 'Main', 'ThrustKey' => 'Main', 'PortKey' => 'mainThrusters', 'ComputeG' => true],
+            ['Type' => 'Maneuver', 'ThrustKey' => 'Maneuvering', 'PortKey' => 'maneuveringThrusters', 'ComputeG' => true],
+            ['Type' => 'Retro', 'ThrustKey' => 'Retro', 'PortKey' => 'retroThrusters', 'ComputeG' => true],
+            ['Type' => 'Vtol', 'ThrustKey' => 'Vtol', 'PortKey' => 'vtolThrusters', 'ComputeG' => true],
+        ];
+
+        $thrusters = [];
+        foreach ($groups as $group) {
+            $count = ($portSummary[$group['PortKey']] ?? collect())->count();
+            if ($count === 0) {
+                continue;
+            }
+
+            $capacity = (float) ($thrustCapacity[$group['ThrustKey']] ?? 0);
+
+            $entry = [
+                'Type' => $group['Type'],
+                'Count' => $count,
+                'Capacity' => round($capacity / 1_000_000, 2),
+            ];
+
+            if ($group['ComputeG'] && $mass > 0) {
+                $entry['G'] = round($capacity / $mass / self::G, 2);
+            }
+
+            $thrusters[] = $entry;
+        }
+
+        return $thrusters;
     }
 }
