@@ -70,6 +70,8 @@ final class Radar extends BaseFormat
             ];
         }
 
+        $aimAssist = $this->item?->get('Components/SCItemRadarComponentParams/aimAssist');
+
         return [
             'Cooldown' => $this->toFloatOrNull($radar?->get('pingProperties@cooldownTime')),
 
@@ -79,6 +81,11 @@ final class Radar extends BaseFormat
 
             'GroundVehicleSensitivityAddition' => $this->toFloatOrNull($gvSensitivityAddition),
             'SignatureDetection' => $rawSignatureDetection,
+            'AimAssist' => $aimAssist !== null ? [
+                'DistanceMinAssignment' => $this->toFloatOrNull($aimAssist->get('@distanceMinAssignment')),
+                'DistanceMaxAssignment' => $this->toFloatOrNull($aimAssist->get('@distanceMaxAssignment')),
+                'OutsideRangeBufferDistance' => $this->toFloatOrNull($aimAssist->get('@outsideRangeBufferDistance')),
+            ] : null,
         ];
     }
 
