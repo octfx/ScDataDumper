@@ -91,13 +91,7 @@ final class ItemTypeResolver
             return false;
         }
 
-        foreach (self::CLASSIFIER_PREFIXES as $prefix) {
-            if (str_starts_with($value, $prefix)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any(self::CLASSIFIER_PREFIXES, fn($prefix) => str_starts_with($value, $prefix));
     }
 
     private function extractItem(?array $payload): ?array

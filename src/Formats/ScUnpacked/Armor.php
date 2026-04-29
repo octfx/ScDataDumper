@@ -52,6 +52,14 @@ final class Armor extends BaseFormat
                 'Biochemical' => $armor->get('armorPenetrationResistance/penetrationAbsorptionForType@DamageBiochemical'),
                 'Stun' => $armor->get('armorPenetrationResistance/penetrationAbsorptionForType@DamageStun'),
             ],
+            'Deflection' => [
+                'Physical' => $armor->get('armorDeflection/deflectionValue@DamagePhysical'),
+                'Energy' => $armor->get('armorDeflection/deflectionValue@DamageEnergy'),
+                'Distortion' => $armor->get('armorDeflection/deflectionValue@DamageDistortion'),
+                'Thermal' => $armor->get('armorDeflection/deflectionValue@DamageThermal'),
+                'Biochemical' => $armor->get('armorDeflection/deflectionValue@DamageBiochemical'),
+                'Stun' => $armor->get('armorDeflection/deflectionValue@DamageStun'),
+            ],
         ];
     }
 

@@ -52,9 +52,9 @@ final class ShipIntegrationTest extends ScDataTestCase
         self::assertSame(100.0, $result['Mass']);
         self::assertSame(35.0, $result['MassLoadout']);
         self::assertSame(135.0, $result['MassTotal']);
-        self::assertSame(1, $result['Seating']['Summary']['Unknown']);
-        self::assertSame(1, $result['Seating']['Summary']['Beds']);
-        self::assertArrayNotHasKey('MedicalBeds', $result['Seating']['Summary']);
+        self::assertSame(1, $result['Seating']['CrewStations']);
+        self::assertSame(1, $result['Seating']['TotalBeds']);
+        self::assertArrayNotHasKey('MedicalBeds', $result['Seating']);
 
         self::assertArrayHasKey('Loadout', $result);
         self::assertCount(1, $result['Loadout']);

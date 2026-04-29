@@ -89,6 +89,12 @@ final class SeatingAnalyzer implements VehicleDataCalculator
                 continue;
             }
 
+            if ($type === 'turretbase') {
+                $seats[] = $this->buildSeatEntry($item, $portName);
+
+                continue;
+            }
+
             if ($type !== 'seat') {
                 continue;
             }
@@ -103,19 +109,56 @@ final class SeatingAnalyzer implements VehicleDataCalculator
         }
 
         $beds = $this->resolveBeds($loadoutBeds, $context->entity);
-        $summary = $this->buildSeatingSummary($seats, $escapePods, $jumpSeats, $beds);
 
         $result = [];
+
+        $crewStations = count($seats);
+        if ($crewStations > 0) {
+            $result['CrewStations'] = $crewStations;
+        }
+
+        $ejectionCount = count(array_filter($seats, static fn (array $s) => ! empty($s['HasEjection'])));
+        if ($ejectionCount > 0) {
+            $result['EjectionSeats'] = $ejectionCount;
+        }
+
+        $bedCount = count($beds);
+        if ($bedCount > 0) {
+            $result['TotalBeds'] = $bedCount;
+        }
+
+        $medicalTiers = [];
+        foreach ($beds as $bed) {
+            if (! ($bed['IsMedical'] ?? false)) {
+                continue;
+            }
+            $tier = $bed['MedicalTier'] ?? 'Unknown';
+            $medicalTiers[$tier] = ($medicalTiers[$tier] ?? 0) + 1;
+        }
+
+        if ($medicalTiers !== []) {
+            ksort($medicalTiers);
+            $result['MedicalBeds'] = array_map(
+                static fn (string $tier, int $count) => ['tier' => $tier, 'count' => $count],
+                array_keys($medicalTiers),
+                array_values($medicalTiers),
+            );
+        }
+
+        if ($escapePods > 0) {
+            $result['EscapePods'] = $escapePods;
+        }
+
+        if ($jumpSeats > 0) {
+            $result['JumpSeats'] = $jumpSeats;
+        }
+
         if ($seats !== []) {
             $result['Seats'] = $seats;
         }
 
         if ($beds !== []) {
             $result['Beds'] = $beds;
-        }
-
-        if ($summary !== []) {
-            $result['Summary'] = $summary;
         }
 
         return ['Seating' => $result];
@@ -170,81 +213,6 @@ final class SeatingAnalyzer implements VehicleDataCalculator
         }
 
         return null;
-    }
-
-    /**
-     * @param  array<int, array{Role: string}>  $seats
-     * @param  array<int, array{IsMedical: bool}>  $beds
-     */
-    private function buildSeatingSummary(array $seats, int $escapePods, int $jumpSeats, array $beds): array
-    {
-        $ejectionCount = 0;
-        $roleCounts = [];
-
-        foreach ($seats as $seat) {
-            $role = $seat['Role'];
-            $roleCounts[$role] = ($roleCounts[$role] ?? 0) + 1;
-            if (! empty($seat['HasEjection'])) {
-                $ejectionCount++;
-            }
-        }
-
-        $summary = [];
-
-        if (isset($roleCounts['Helmsman'])) {
-            $summary['Helmsman'] = $roleCounts['Helmsman'];
-        }
-
-        if (isset($roleCounts['CoHelmsman'])) {
-            $summary['CoHelmsman'] = $roleCounts['CoHelmsman'];
-        }
-
-        $stations = array_filter(
-            $roleCounts,
-            static fn (string $role) => ! in_array($role, ['Helmsman', 'CoHelmsman', 'Unknown'], true),
-            ARRAY_FILTER_USE_KEY
-        );
-
-        if ($stations !== []) {
-            ksort($stations);
-            $summary['Stations'] = $stations;
-        }
-
-        if (isset($roleCounts['Unknown'])) {
-            $summary['Unknown'] = $roleCounts['Unknown'];
-        }
-
-        if ($escapePods > 0) {
-            $summary['EscapePods'] = $escapePods;
-        }
-
-        if ($jumpSeats > 0) {
-            $summary['JumpSeats'] = $jumpSeats;
-        }
-
-        if ($ejectionCount > 0) {
-            $summary['EjectionSeats'] = $ejectionCount;
-        }
-
-        $bedCount = count($beds);
-        if ($bedCount > 0) {
-            $summary['Beds'] = $bedCount;
-        }
-
-        $medicalTiers = [];
-        foreach ($beds as $bed) {
-            if (! ($bed['IsMedical'] ?? false)) {
-                continue;
-            }
-            $tier = $bed['MedicalTier'] ?? 'Unknown';
-            $medicalTiers[$tier] = ($medicalTiers[$tier] ?? 0) + 1;
-        }
-        if ($medicalTiers !== []) {
-            ksort($medicalTiers);
-            $summary['MedicalBeds'] = $medicalTiers;
-        }
-
-        return $summary;
     }
 
     private function isJumpSeat(array $item): bool

@@ -257,6 +257,7 @@ final class Ship extends BaseFormat
 
         if (! empty($calculatedData['Seating'])) {
             $data['Seating'] = $calculatedData['Seating'];
+            $data['Seats'] = Arr::get($calculatedData['Seating'], 'CrewStations');
         }
 
         $summary = [

@@ -81,8 +81,7 @@ final class ShipLoadoutExportRegressionTest extends TestCase
         self::assertSame('HOTAS_C_L', $seat['SeatType']);
         self::assertArrayNotHasKey('HasEjection', $seat);
 
-        self::assertSame(1, $result['Summary']['Helmsman']);
-        self::assertArrayNotHasKey('Unknown', $result['Summary']);
+        self::assertSame(1, $result['CrewStations']);
     }
 
     public function test_build_seating_info_counts_escape_pods_and_ejection_seats(): void
@@ -133,9 +132,9 @@ final class ShipLoadoutExportRegressionTest extends TestCase
         self::assertSame('Helmsman', $seat['Role']);
         self::assertTrue($seat['HasEjection']);
 
-        self::assertSame(1, $result['Summary']['Helmsman']);
-        self::assertSame(1, $result['Summary']['EscapePods']);
-        self::assertSame(1, $result['Summary']['EjectionSeats']);
+        self::assertSame(1, $result['CrewStations']);
+        self::assertSame(1, $result['EscapePods']);
+        self::assertSame(1, $result['EjectionSeats']);
     }
 
     public function test_build_seating_info_groups_stations(): void
@@ -212,9 +211,7 @@ final class ShipLoadoutExportRegressionTest extends TestCase
         $result = $this->invokeSeatingAnalyzer($standardisedParts);
 
         self::assertCount(4, $result['Seats']);
-        self::assertSame(1, $result['Summary']['Stations']['Turret']);
-        self::assertSame(2, $result['Summary']['Stations']['Bridge']);
-        self::assertSame(1, $result['Summary']['Stations']['Engineering']);
+        self::assertSame(4, $result['CrewStations']);
     }
 
     public function test_build_seating_info_discovers_loadout_beds(): void
@@ -259,9 +256,9 @@ final class ShipLoadoutExportRegressionTest extends TestCase
         self::assertSame('Single', $bed['BedType']);
         self::assertFalse($bed['IsMedical']);
 
-        self::assertSame(1, $result['Summary']['Helmsman']);
-        self::assertSame(1, $result['Summary']['Beds']);
-        self::assertArrayNotHasKey('MedicalBeds', $result['Summary']);
+        self::assertSame(1, $result['CrewStations']);
+        self::assertSame(1, $result['TotalBeds']);
+        self::assertArrayNotHasKey('MedicalBeds', $result);
     }
 
     public function test_build_seating_info_classifies_medical_beds(): void
@@ -311,8 +308,8 @@ final class ShipLoadoutExportRegressionTest extends TestCase
         self::assertSame('Bunk', $bunkBed['BedType']);
         self::assertFalse($bunkBed['IsMedical']);
 
-        self::assertSame(2, $result['Summary']['Beds']);
-        self::assertArrayNotHasKey('MedicalBeds', $result['Summary']);
+        self::assertSame(2, $result['TotalBeds']);
+        self::assertArrayNotHasKey('MedicalBeds', $result);
     }
 
     public function test_build_seating_info_detects_medical_tier_from_classname_pattern(): void
@@ -341,7 +338,7 @@ final class ShipLoadoutExportRegressionTest extends TestCase
         self::assertTrue($medBed['IsMedical']);
         self::assertSame('T2', $medBed['MedicalTier']);
 
-        self::assertSame(['T2' => 1], $result['Summary']['MedicalBeds']);
+        self::assertSame([['tier' => 'T2', 'count' => 1]], $result['MedicalBeds']);
     }
 
     private function newShipForInternalInvocation(): Ship
