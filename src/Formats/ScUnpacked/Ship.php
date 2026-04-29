@@ -27,8 +27,10 @@ use Octfx\ScDataDumper\Services\Vehicle\SeatingAnalyzer;
 use Octfx\ScDataDumper\Services\Vehicle\SocpakBedExtractor;
 use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartBuilder;
 use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartWalker;
+use Octfx\ScDataDumper\Services\Vehicle\TurretControlMapper;
 use Octfx\ScDataDumper\Services\Vehicle\VehicleDataContext;
 use Octfx\ScDataDumper\Services\Vehicle\VehicleDataOrchestrator;
+use Octfx\ScDataDumper\Services\Vehicle\WeaponDpsAggregator;
 use Octfx\ScDataDumper\Services\Vehicle\WeaponSystemAnalyzer;
 
 final class Ship extends BaseFormat
@@ -45,6 +47,8 @@ final class Ship extends BaseFormat
 
     private readonly ?Vehicle $vehicle;
 
+    private readonly ?Element $entityPorts;
+
     public function __construct(private readonly VehicleWrapper $vehicleWrapper)
     {
         parent::__construct($this->vehicleWrapper->entity);
@@ -54,12 +58,12 @@ final class Ship extends BaseFormat
         $this->cargoGridResolver = new CargoGridResolver;
         $this->inventoryContainerResolver = new InventoryContainerResolver;
         $this->portSummaryBuilder = new PortSummaryBuilder(new PortFinder);
-        $entityPorts = $this->vehicleWrapper->entity->get('Components/SItemPortContainerComponentParams/Ports');
+        $this->entityPorts = $this->vehicleWrapper->entity->get('Components/SItemPortContainerComponentParams/Ports');
         $this->standardisedPartBuilder = new StandardisedPartBuilder(
             ServiceFactory::getItemService(),
             new ItemClassifierService,
             new PortClassifierService,
-            $entityPorts
+            $this->entityPorts
         );
     }
 
@@ -205,6 +209,12 @@ final class Ship extends BaseFormat
 
         $portSummary = $this->portSummaryBuilder->build($standardisedParts);
 
+        // Build turret control map: which turrets are bridge-controllable
+        $turretControlMap = (new TurretControlMapper)->getBridgeControllableTurrets(
+            $this->vehicle,
+            $this->vehicleWrapper->entity,
+        );
+
         $context = new VehicleDataContext(
             standardisedParts: $standardisedParts,
             portSummary: $portSummary,
@@ -214,6 +224,7 @@ final class Ship extends BaseFormat
             isVehicle: $isVehicle,
             isGravlev: $isGravlev,
             isSpaceship: ! ($isVehicle || $isGravlev),
+            turretControlMap: $turretControlMap,
             intermediateResults: [],
             entity: $this->vehicleWrapper->entity,
         );
@@ -225,6 +236,7 @@ final class Ship extends BaseFormat
             new QuantumTravelCalculator,
             new FlightCharacteristicsCalculator,
             new HealthAggregator($walker),
+            new WeaponDpsAggregator($walker),
             new WeaponSystemAnalyzer,
             new SeatingAnalyzer(
                 bedExtractor: new SocpakBedExtractor(ServiceFactory::getActiveScDataPath()),
@@ -260,17 +272,43 @@ final class Ship extends BaseFormat
             $data['Seats'] = Arr::get($calculatedData['Seating'], 'CrewStations');
         }
 
-        $summary = [
-            // 'Thrusters' => $this->buildThrusterSummary($portSummary),
-        ];
+        $summary = [];
 
         $crossSectionValues = [];
 
-        // Shield Face Type
+        // Shield Face Type + Shield Resistance/Absorption
+        $shields = [];
         foreach ($walker->walkItems($standardisedParts) as $entry) {
             if (Arr::has($entry, 'Item.stdItem.ShieldController')) {
                 $data['ShieldController'] = Arr::get($entry, 'Item.stdItem.ShieldController');
-                break;
+            }
+
+            // Collect shield generators for resistance/absorption rollup
+            $item = $entry['Item'] ?? null;
+            $itemType = $item['type'] ?? null;
+            if ($itemType === 'Shield') {
+                $stdItem = Arr::get($item, 'stdItem');
+                if ($stdItem !== null) {
+                    $shields[] = $stdItem;
+                }
+            }
+        }
+
+        // Shield Resistance/Absorption: average across active shields only
+        $shieldResistance = null;
+        $shieldAbsorption = null;
+        if ($shields !== []) {
+            $maxShields = $this->getShieldPoolMaxCount();
+            $activeShields = array_slice($shields, 0, $maxShields);
+
+            $resistance = $this->averageShieldMinMax($activeShields, 'Shield.Resistance');
+            if ($resistance !== null) {
+                $shieldResistance = $resistance;
+            }
+
+            $absorption = $this->averageShieldMinMax($activeShields, 'Shield.Absorption');
+            if ($absorption !== null) {
+                $shieldAbsorption = $absorption;
             }
         }
 
@@ -357,6 +395,12 @@ final class Ship extends BaseFormat
         $data['power'] = $calculatedData['power'] ?? [];
         $data['power_pools'] = $calculatedData['power_pools'] ?? [];
         $data['shields_total'] = $calculatedData['shields_total'] ?? [];
+        if (isset($shieldResistance)) {
+            $data['shields_total']['Resistance'] = $shieldResistance;
+        }
+        if (isset($shieldAbsorption)) {
+            $data['shields_total']['Absorption'] = $shieldAbsorption;
+        }
         // deprecated, use shields_total.hp
         $data['shield_hp'] = round($calculatedData['shields_total']['hp'] ?? 0);
         $data['distortion'] = $calculatedData['distortion'] ?? [];
@@ -388,8 +432,52 @@ final class Ship extends BaseFormat
         if (! empty($calculatedData['RemoteTurrets'])) {
             $summary['RemoteTurrets'] = $calculatedData['RemoteTurrets'];
         }
+
+        // Merge Weaponry.Turrets DPS data into typed turret arrays
+        $weaponryTurrets = $calculatedData['Weaponry']['Turrets'] ?? [];
+        if (! empty($weaponryTurrets)) {
+            $turretDpsMap = [];
+            foreach ($weaponryTurrets as $turret) {
+                $turretDpsMap[$turret['HardpointName']] = $turret;
+            }
+
+            foreach (['MannedTurrets', 'PdcTurrets', 'RemoteTurrets'] as $key) {
+                if (empty($calculatedData[$key])) {
+                    continue;
+                }
+                foreach ($calculatedData[$key] as $i => $turret) {
+                    $hp = $turret['HardpointName'] ?? null;
+                    if ($hp !== null && isset($turretDpsMap[$hp])) {
+                        $dps = $turretDpsMap[$hp];
+                        $calculatedData[$key][$i]['DpsTotal'] = $dps['DpsTotal'] ?? null;
+                        $calculatedData[$key][$i]['SustainedDpsTotal'] = $dps['SustainedDpsTotal'] ?? null;
+                        $calculatedData[$key][$i]['AlphaTotal'] = $dps['AlphaTotal'] ?? null;
+                        $calculatedData[$key][$i]['Weapons'] = $dps['Weapons'] ?? [];
+                        $calculatedData[$key][$i]['IsPilotSlaveable'] = $dps['IsPilotSlaveable'] ?? false;
+                    }
+                }
+            }
+
+            // Re-assign merged turret arrays to summary
+            if (! empty($calculatedData['MannedTurrets'])) {
+                $summary['MannedTurrets'] = $calculatedData['MannedTurrets'];
+            }
+            if (! empty($calculatedData['PdcTurrets'])) {
+                $summary['PdcTurrets'] = $calculatedData['PdcTurrets'];
+            }
+            if (! empty($calculatedData['RemoteTurrets'])) {
+                $summary['RemoteTurrets'] = $calculatedData['RemoteTurrets'];
+            }
+        }
         if (! empty($calculatedData['Propulsion'])) {
             $summary['Propulsion'] = $calculatedData['Propulsion'];
+        }
+        if (! empty($calculatedData['Weaponry'])) {
+            $weaponry = $calculatedData['Weaponry'];
+            unset($weaponry['Turrets']);
+            if (! empty($weaponry)) {
+                $summary['Weaponry'] = $weaponry;
+            }
         }
         if (! empty($calculatedData['QuantumTravel'])) {
             $summary['QuantumTravel'] = $calculatedData['QuantumTravel'];
@@ -399,6 +487,9 @@ final class Ship extends BaseFormat
         }
 
         $loadout = $this->buildLoadout($standardisedParts);
+        if (! empty($loadout) && ! empty($turretControlMap)) {
+            $this->markPilotSlaveable($loadout, $turretControlMap);
+        }
         if (! empty($loadout)) {
             $data['loadout'] = $loadout;
         }
@@ -408,6 +499,12 @@ final class Ship extends BaseFormat
                 static fn (float $value): float => $value * $crossSectionMultiplier,
                 $crossSectionValues
             );
+        }
+
+        // Engineering boost (multi-crew weapon regen modifier)
+        $engineeringBoost = $this->extractEngineeringBoost();
+        if ($engineeringBoost !== null) {
+            $data['engineering_boost'] = $engineeringBoost;
         }
 
         $data = array_merge($data, $summary);
@@ -603,5 +700,118 @@ final class Ship extends BaseFormat
         }
 
         return $loadout;
+    }
+
+    /**
+     * Read the max shield pool count from the ship entity.
+     * This limits how many shields are active simultaneously.
+     */
+    private function getShieldPoolMaxCount(): int
+    {
+        $pools = $this->vehicleWrapper->entity->get('Components/SItemPortContainerComponentParams/resourceNetworkPowerPools/itemPools');
+
+        foreach ($pools?->children() ?? [] as $pool) {
+            $itemType = $pool->get('@itemType');
+            if ($itemType === 'Shield') {
+                return (int) ($pool->get('@maxItemCount') ?? 0);
+            }
+        }
+
+        // Fallback: no pool constraint means all shields active
+        return PHP_INT_MAX;
+    }
+
+    /**
+     * Average Min/Max values across shields for a given key path.
+     * Key path is like 'Shield.Resistance' which resolves to stdItem.Shield.Resistance.
+     * The value at that path is expected to be [DamageType => [Minimum => float, Maximum => float], ...]
+     *
+     * @param  array<int, array>  $shields  stdItem arrays for active shields
+     * @return array<string, array{Minimum: float, Maximum: float}>|null
+     */
+    private function averageShieldMinMax(array $shields, string $keyPath): ?array
+    {
+        if ($shields === []) {
+            return null;
+        }
+
+        $damageTypes = ['Physical', 'Energy', 'Distortion', 'Thermal', 'Biochemical', 'Stun'];
+        $result = [];
+        $count = count($shields);
+
+        foreach ($damageTypes as $type) {
+            $minSum = 0.0;
+            $maxSum = 0.0;
+            $hasData = false;
+
+            foreach ($shields as $stdItem) {
+                $values = Arr::get($stdItem, "{$keyPath}.{$type}");
+                if (is_array($values)) {
+                    $minSum += (float) ($values['Minimum'] ?? 0.0);
+                    $maxSum += (float) ($values['Maximum'] ?? 0.0);
+                    $hasData = true;
+                }
+            }
+
+            if ($hasData) {
+                $result[$type] = [
+                    'Minimum' => round($minSum / $count, 4),
+                    'Maximum' => round($maxSum / $count, 4),
+                ];
+            }
+        }
+
+        return $result !== [] ? $result : null;
+    }
+
+    private function extractEngineeringBoost(): ?array
+    {
+        if ($this->entityPorts === null) {
+            return null;
+        }
+
+        $engineeringBuffPort = null;
+        foreach ($this->entityPorts->children() as $portDef) {
+            $name = $portDef->get('@Name');
+            if ($name === 'engineeringBuff') {
+                $engineeringBuffPort = $portDef;
+                break;
+            }
+        }
+
+        if ($engineeringBuffPort === null) {
+            return null;
+        }
+
+        $uuid = $engineeringBuffPort->get('defaultItem/@entityClass');
+        if ($uuid === null) {
+            return null;
+        }
+
+        $modifierEntity = ServiceFactory::getItemService()->getByReference($uuid);
+        if ($modifierEntity === null) {
+            return null;
+        }
+
+        return new EngineeringBoost($modifierEntity)->toArray();
+    }
+
+    /**
+     * Recursively mark loadout entries whose hardpoint is bridge-controllable.
+     */
+    private function markPilotSlaveable(array &$loadout, array $turretControlMap): void
+    {
+        $slaveableSet = array_flip($turretControlMap);
+
+        foreach ($loadout as &$entry) {
+            $hardpointName = $entry['HardpointName'] ?? null;
+            if ($hardpointName !== null && isset($slaveableSet[$hardpointName])) {
+                $entry['IsPilotSlaveable'] = true;
+            }
+
+            if (isset($entry['Loadout']) && is_array($entry['Loadout'])) {
+                $this->markPilotSlaveable($entry['Loadout'], $turretControlMap);
+            }
+        }
     }
 }

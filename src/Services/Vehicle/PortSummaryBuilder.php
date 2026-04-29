@@ -215,11 +215,13 @@ final class PortSummaryBuilder
         }
 
         if (isset($config['category'])) {
-            return static fn ($part) => Arr::get($part, 'Port.Category') === $config['category'];
+            return static fn ($part) => Arr::get($part, 'Port.Category') === $config['category']
+                || Arr::get($part, 'Category') === $config['category'];
         }
 
         if (isset($config['categories'])) {
-            return static fn ($part) => in_array(Arr::get($part, 'Port.Category', ''), $config['categories'], true);
+            return static fn ($part) => in_array(Arr::get($part, 'Port.Category', ''), $config['categories'], true)
+                || in_array(Arr::get($part, 'Category', ''), $config['categories'], true);
         }
 
         return static fn ($x) => false;

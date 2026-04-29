@@ -86,7 +86,7 @@ final class PortFinder
             }
 
             if ($predicate($port)) {
-                $results->push([$port, $depth]);
+                $results->push([['Port' => $port], $depth]);
                 if ($options->stopOnFind) {
                     continue;
                 }

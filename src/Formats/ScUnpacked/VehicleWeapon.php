@@ -51,9 +51,7 @@ final class VehicleWeapon extends AbstractWeapon
         $shotsToOverheat = $shotsToOverheatExact !== null ? floor($shotsToOverheatExact) : null;
         $timeToOverheat = ($shotsToOverheat !== null && $shotsPerSec > 0) ? $shotsToOverheat / $shotsPerSec : null;
 
-        // sustained DPS over 60s window
-        $window = 60.0;
-        $sustainedDamage = null;
+        // sustained DPS = cycle_damage / cycle_total_time
         $sustainedDps = null;
 
         if ($shotsPerSec > 0 && $damagePerShot > 0) {
@@ -68,27 +66,16 @@ final class VehicleWeapon extends AbstractWeapon
 
                 if ($cycleTotalTime > 0) {
                     $cycleDamage = $maxAmmoLoad * $damagePerShot;
-                    $cycles = floor($window / $cycleTotalTime);
-                    $remTime = $window - ($cycles * $cycleTotalTime);
-                    $remShots = min($maxAmmoLoad, $shotsPerSec * max(0.0, $remTime));
-                    $remDamage = $remShots * $damagePerShot;
-                    $sustainedDamage = ($cycles * $cycleDamage) + $remDamage;
-                    $sustainedDps = $window > 0 ? $sustainedDamage / $window : null;
+                    $sustainedDps = $cycleDamage / $cycleTotalTime;
                 }
             } elseif ($shotsToOverheatExact === null) {
-                $sustainedDamage = $damagePerShot * $shotsPerSec * $window;
                 $sustainedDps = $damagePerShot * $shotsPerSec;
             } else {
                 $cycleFireTime = $shotsToOverheatExact / $shotsPerSec;
                 $cycleDamage = $damagePerShot * $shotsToOverheatExact;
                 $cycleTotalTime = $cycleFireTime + $fixTime;
 
-                $cycles = ($cycleTotalTime > 0) ? floor($window / $cycleTotalTime) : 0;
-                $remTime = $window - ($cycles * $cycleTotalTime);
-                $remShots = min($shotsPerSec * max(0.0, $remTime), $shotsToOverheatExact);
-                $remDamage = $remShots * $damagePerShot;
-                $sustainedDamage = ($cycles * $cycleDamage) + $remDamage;
-                $sustainedDps = $window > 0 ? $sustainedDamage / $window : null;
+                $sustainedDps = $cycleTotalTime > 0 ? $cycleDamage / $cycleTotalTime : null;
             }
         }
 
@@ -101,7 +88,7 @@ final class VehicleWeapon extends AbstractWeapon
             'FireMode' => Arr::get($mode, 'Name'),
             'Spread' => $actionSequence ? $this->extractSpread($actionSequence) : null,
             'Damage' => [
-                'Sustained60s' => $this->roundStat($sustainedDps, 1),
+                'Sustained' => $this->roundStat($sustainedDps, 1),
                 'Burst' => $mode['Dps'] ?? $mode['DamagePerSecond'] ?? null,
                 'AlphaTotal' => $mode['Alpha'] ?? $mode['DamagePerShot'] ?? null,
                 'DpsTotal' => $mode['Dps'] ?? null,

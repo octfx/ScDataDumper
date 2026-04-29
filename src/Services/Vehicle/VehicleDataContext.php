@@ -21,6 +21,7 @@ final readonly class VehicleDataContext
      * @param  bool  $isVehicle  True if this is a ground vehicle
      * @param  bool  $isGravlev  True if this is a gravlev vehicle
      * @param  bool  $isSpaceship  True if this is a spaceship
+     * @param  array  $turretControlMap  List of turret hardpoint names controllable from bridge positions
      * @param  array  $intermediateResults  Results from previously executed calculators
      * @param  VehicleDefinition|null  $entity  Vehicle entity class definition for socpak bed extraction
      */
@@ -33,6 +34,7 @@ final readonly class VehicleDataContext
         public bool $isVehicle,
         public bool $isGravlev,
         public bool $isSpaceship,
+        public array $turretControlMap = [],
         public array $intermediateResults = [],
         public ?VehicleDefinition $entity = null,
     ) {}
@@ -54,6 +56,7 @@ final readonly class VehicleDataContext
             isVehicle: $this->isVehicle,
             isGravlev: $this->isGravlev,
             isSpaceship: $this->isSpaceship,
+            turretControlMap: $this->turretControlMap,
             intermediateResults: $intermediateResults,
             entity: $this->entity,
         );

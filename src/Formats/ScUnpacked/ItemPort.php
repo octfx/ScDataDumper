@@ -66,7 +66,7 @@ class ItemPort extends BaseFormat
      */
     public static function accepts(array $port, string $typePattern): bool
     {
-        if ($port['Types'] === null) {
+        if (($port['Types'] ?? null) === null) {
             return false;
         }
 

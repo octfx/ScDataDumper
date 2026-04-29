@@ -5,9 +5,9 @@ namespace Octfx\ScDataDumper\Services;
 use Octfx\ScDataDumper\Formats\ScUnpacked\ItemPort;
 use Octfx\ScDataDumper\Services\Vehicle\ItemTypeResolver;
 
-final class PortClassifierService
+final readonly class PortClassifierService
 {
-    private readonly ItemTypeResolver $itemTypeResolver;
+    private ItemTypeResolver $itemTypeResolver;
 
     public function __construct(?ItemTypeResolver $itemTypeResolver = null)
     {
@@ -86,7 +86,16 @@ final class PortClassifierService
         if (ItemPort::accepts($port, 'MissileLauncher.MissileRack')) {
             return ['Weapons', 'Missile racks'];
         }
+        if (ItemPort::accepts($port, 'WeaponMount')) {
+            if ($this->isAutonomousTurret($installedItem)) {
+                return ['Weapons', 'Autonomous turrets'];
+            }
+            return ['Weapons', 'Weapon hardpoints'];
+        }
         if (ItemPort::accepts($port, 'WeaponGun')) {
+            if ($this->isAutonomousTurret($installedItem)) {
+                return ['Weapons', 'Autonomous turrets'];
+            }
             return ['Weapons', 'Weapon hardpoints'];
         }
         if (ItemPort::accepts($port, 'Missile.Missile')) {
@@ -347,6 +356,30 @@ final class PortClassifierService
         if (! empty($port['Loadout']) &&
             stripos($port['Loadout'], $lookFor) !== false) {
             return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if an installed item is an autonomous turret mount.
+     * Autonomous turrets are WeaponGun.Gun items that contain a WeaponController sub-port
+     * (e.g., the Asgard's YellowJacket door turrets).
+     */
+    private function isAutonomousTurret(?array $installedItem): bool
+    {
+        if ($installedItem === null) {
+            return false;
+        }
+
+        $ports = $installedItem['stdItem']['Ports'] ?? [];
+
+        foreach ($ports as $port) {
+            $types = $port['Types'] ?? [];
+
+            if (array_any($types, fn($type) => str_starts_with(strtolower($type), 'weaponcontroller'))) {
+                return true;
+            }
         }
 
         return false;
