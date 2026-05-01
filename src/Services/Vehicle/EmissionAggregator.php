@@ -94,6 +94,11 @@ final readonly class EmissionAggregator implements VehicleDataCalculator
 
             $itemType = $item['type'];
 
+            // Skip docked vehicle entities, including them inflates the parent's EM/IR signature.
+            if (str_starts_with($itemType, 'NOITEM_Vehicle')) {
+                continue;
+            }
+
             if (! isset($itemCounts[$itemType])) {
                 $itemCounts[$itemType] = 0;
             }

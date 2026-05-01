@@ -107,21 +107,24 @@ final class LoadoutBuilder
             $entry['ItemRaw'] = $entity->toArray();
             $entry['Item'] = $this->formatItem($entity);
 
-            // Load item's own default loadout entries
-            $itemLoadoutEntries = $this->loadItemLoadout($entity);
+            // Don't populate sub-loadout for docked vehicle entities.
+            if (!str_starts_with($entry['Item']['type'] ?? '', 'NOITEM_Vehicle')) {
+                // Load item's own default loadout entries
+                $itemLoadoutEntries = $this->loadItemLoadout($entity);
 
-            // Merge nested entries from cigEntry with item's default loadout
-            $nestedEntries = $this->extractNestedEntries($cigEntry);
-            $mergedEntries = $this->mergeLoadoutEntries($nestedEntries, $itemLoadoutEntries);
+                // Merge nested entries from cigEntry with item's default loadout
+                $nestedEntries = $this->extractNestedEntries($cigEntry);
+                $mergedEntries = $this->mergeLoadoutEntries($nestedEntries, $itemLoadoutEntries);
 
-            // Get item's ports and install loadouts recursively
-            $itemPorts = $entry['Item']['stdItem']['Ports'] ?? [];
-            $entry['Item']['stdItem']['Ports'] = $this->installLoadoutIntoPorts($itemPorts, $mergedEntries, $visited, $depth + 1);
+                // Get item's ports and install loadouts recursively
+                $itemPorts = $entry['Item']['stdItem']['Ports'] ?? [];
+                $entry['Item']['stdItem']['Ports'] = $this->installLoadoutIntoPorts($itemPorts, $mergedEntries, $visited, $depth + 1);
 
-            foreach ($mergedEntries as $nestedEntry) {
-                $builtEntry = $this->buildEntryFromArray($nestedEntry, $visited, $depth + 1);
-                if ($builtEntry !== null) {
-                    $entry['entries'][] = $builtEntry;
+                foreach ($mergedEntries as $nestedEntry) {
+                    $builtEntry = $this->buildEntryFromArray($nestedEntry, $visited, $depth + 1);
+                    if ($builtEntry !== null) {
+                        $entry['entries'][] = $builtEntry;
+                    }
                 }
             }
         } else {
@@ -175,18 +178,20 @@ final class LoadoutBuilder
             $entry['ItemRaw'] = $entity->toArray();
             $entry['Item'] = $this->formatItem($entity);
 
-            $itemLoadoutEntries = $this->loadItemLoadout($entity);
+            if (!str_starts_with($entry['Item']['type'] ?? '', 'NOITEM_Vehicle')) {
+                $itemLoadoutEntries = $this->loadItemLoadout($entity);
 
-            $nestedEntries = $entryData['entries'] ?? [];
-            $mergedEntries = $this->mergeLoadoutEntries($nestedEntries, $itemLoadoutEntries);
+                $nestedEntries = $entryData['entries'] ?? [];
+                $mergedEntries = $this->mergeLoadoutEntries($nestedEntries, $itemLoadoutEntries);
 
-            $itemPorts = $entry['Item']['stdItem']['Ports'] ?? [];
-            $entry['Item']['stdItem']['Ports'] = $this->installLoadoutIntoPorts($itemPorts, $mergedEntries, $visited, $depth + 1);
+                $itemPorts = $entry['Item']['stdItem']['Ports'] ?? [];
+                $entry['Item']['stdItem']['Ports'] = $this->installLoadoutIntoPorts($itemPorts, $mergedEntries, $visited, $depth + 1);
 
-            foreach ($mergedEntries as $nestedEntry) {
-                $builtEntry = $this->buildEntryFromArray($nestedEntry, $visited, $depth + 1);
-                if ($builtEntry !== null) {
-                    $entry['entries'][] = $builtEntry;
+                foreach ($mergedEntries as $nestedEntry) {
+                    $builtEntry = $this->buildEntryFromArray($nestedEntry, $visited, $depth + 1);
+                    if ($builtEntry !== null) {
+                        $entry['entries'][] = $builtEntry;
+                    }
                 }
             }
         }
@@ -249,12 +254,14 @@ final class LoadoutBuilder
 
             $installedItem = $this->formatItem($entity);
 
-            $itemLoadoutEntries = $this->loadItemLoadout($entity);
-            $nestedEntries = $loadoutEntry['entries'] ?? [];
-            $mergedEntries = $this->mergeLoadoutEntries($nestedEntries, $itemLoadoutEntries);
+            if (!str_starts_with($installedItem['type'] ?? '', 'NOITEM_Vehicle')) {
+                $itemLoadoutEntries = $this->loadItemLoadout($entity);
+                $nestedEntries = $loadoutEntry['entries'] ?? [];
+                $mergedEntries = $this->mergeLoadoutEntries($nestedEntries, $itemLoadoutEntries);
 
-            $itemPorts = $installedItem['stdItem']['Ports'] ?? [];
-            $installedItem['stdItem']['Ports'] = $this->installLoadoutIntoPorts($itemPorts, $mergedEntries, $visited, $depth + 1);
+                $itemPorts = $installedItem['stdItem']['Ports'] ?? [];
+                $installedItem['stdItem']['Ports'] = $this->installLoadoutIntoPorts($itemPorts, $mergedEntries, $visited, $depth + 1);
+            }
 
             $port['InstalledItem'] = $installedItem;
         }

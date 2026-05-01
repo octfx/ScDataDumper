@@ -599,9 +599,6 @@ final class Ship extends BaseFormat
     private function buildLoadoutEntry(array $port): ?array
     {
         $portName = $port['PortName'] ?? null;
-        if ($portName === null) {
-            return null;
-        }
 
         $installedItemPayload = $port['InstalledItem'] ?? null;
         $installedItem = is_array($installedItemPayload) ? ($installedItemPayload['stdItem'] ?? null) : null;
