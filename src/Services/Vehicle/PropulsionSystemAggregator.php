@@ -105,8 +105,8 @@ final class PropulsionSystemAggregator implements VehicleDataCalculator
     {
         return 20;
     }
-    private const G = 9.80665;
 
+    private const G = 9.80665;
 
     /**
      * Build thruster summary with count, capacity (MN), and G-force

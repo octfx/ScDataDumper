@@ -90,12 +90,14 @@ final readonly class PortClassifierService
             if ($this->isAutonomousTurret($installedItem)) {
                 return ['Weapons', 'Autonomous turrets'];
             }
+
             return ['Weapons', 'Weapon hardpoints'];
         }
         if (ItemPort::accepts($port, 'WeaponGun')) {
             if ($this->isAutonomousTurret($installedItem)) {
                 return ['Weapons', 'Autonomous turrets'];
             }
+
             return ['Weapons', 'Weapon hardpoints'];
         }
         if (ItemPort::accepts($port, 'Missile.Missile')) {
@@ -377,7 +379,7 @@ final readonly class PortClassifierService
         foreach ($ports as $port) {
             $types = $port['Types'] ?? [];
 
-            if (array_any($types, fn($type) => str_starts_with(strtolower($type), 'weaponcontroller'))) {
+            if (array_any($types, fn ($type) => str_starts_with(strtolower($type), 'weaponcontroller'))) {
                 return true;
             }
         }

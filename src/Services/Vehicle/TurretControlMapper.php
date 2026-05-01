@@ -116,9 +116,9 @@ final class TurretControlMapper
         if ((str_contains($lower, 'remote_turret')
             || str_contains($lower, 'manned_turret')
             || str_contains($lower, '_turret'))
-            && !str_contains($lower, 'turret_console')
-            && !str_contains($lower, 'console')
-            && !str_contains($lower, 'seat')) {
+            && ! str_contains($lower, 'turret_console')
+            && ! str_contains($lower, 'console')
+            && ! str_contains($lower, 'seat')) {
             return true;
         }
 
@@ -152,7 +152,7 @@ final class TurretControlMapper
             $controlledTags = $this->extractWeaponControllerPriorities($itemPort);
 
             $chain['seats'][$partName] = [
-                'isBridge' => !$isUnderTurret,
+                'isBridge' => ! $isUnderTurret,
                 'controlledTags' => $controlledTags,
                 'controllableTag' => $controllableTag,
             ];
@@ -161,7 +161,7 @@ final class TurretControlMapper
         if ($isWeaponController) {
             if ($controllableTag !== null) {
                 $mappedTags = $this->extractWeaponControllerMappedTags($itemPort);
-                if (!empty($mappedTags)) {
+                if (! empty($mappedTags)) {
                     $chain['weaponControllers'][$controllableTag] = $mappedTags;
                 }
             }
@@ -169,7 +169,7 @@ final class TurretControlMapper
 
         // Turret hardpoint: has controllableTag, is not a seat or weapon controller,
         // and is actually a turret port type (not salvage/light/countermeasure controllers).
-        if ($controllableTag !== null && !$isSeat && !$isWeaponController && $this->isTurretPort($itemPort)) {
+        if ($controllableTag !== null && ! $isSeat && ! $isWeaponController && $this->isTurretPort($itemPort)) {
             $chain['turrets'][$partName] = $controllableTag;
         }
     }
@@ -402,7 +402,7 @@ final class TurretControlMapper
             $controllableTag = $this->getEntityPortControllableTag($portDef);
             $turretTags = $this->getEntityPortWeaponControllerTags($portDef);
 
-            if ($controllableTag !== null && !empty($turretTags)) {
+            if ($controllableTag !== null && ! empty($turretTags)) {
                 $chain['weaponControllers'][$controllableTag] = $turretTags;
             }
         }
@@ -415,7 +415,7 @@ final class TurretControlMapper
             }
 
             $portNameStr = (string) $portName;
-            if (!$this->isEntitySeatPort($portDef, $portNameStr)) {
+            if (! $this->isEntitySeatPort($portDef, $portNameStr)) {
                 continue;
             }
 
@@ -439,8 +439,8 @@ final class TurretControlMapper
 
             $portNameStr = (string) $portName;
             $controllableTag = $this->getEntityPortControllableTag($portDef);
-            if ($controllableTag !== null && !isset($chain['seats'][$portNameStr])) {
-                if (!isset($chain['turrets'][$portNameStr])) {
+            if ($controllableTag !== null && ! isset($chain['seats'][$portNameStr])) {
+                if (! isset($chain['turrets'][$portNameStr])) {
                     $chain['turrets'][$portNameStr] = $controllableTag;
                 }
             }
@@ -583,7 +583,7 @@ final class TurretControlMapper
         $bridgeControlledTags = [];
 
         foreach ($chain['seats'] as $seatData) {
-            if (!$seatData['isBridge']) {
+            if (! $seatData['isBridge']) {
                 continue;
             }
 

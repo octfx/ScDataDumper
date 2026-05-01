@@ -91,7 +91,7 @@ final class ItemTypeResolver
             return false;
         }
 
-        return array_any(self::CLASSIFIER_PREFIXES, fn($prefix) => str_starts_with($value, $prefix));
+        return array_any(self::CLASSIFIER_PREFIXES, fn ($prefix) => str_starts_with($value, $prefix));
     }
 
     private function extractItem(?array $payload): ?array

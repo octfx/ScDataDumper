@@ -143,7 +143,6 @@ final class FlightCharacteristicsCalculator implements VehicleDataCalculator
         ];
     }
 
-
     /**
      * Calculate timing values (zero-to-speed transitions)
      *
