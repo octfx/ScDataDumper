@@ -943,7 +943,7 @@ final class Contract extends BaseFormat
         $templateRef = $this->entry->getTemplateReference();
         if ($templateRef !== null) {
             $template = ServiceFactory::getFoundryLookupService()->getContractTemplateByReference($templateRef);
-            $templateTypeUuid = $template?->getStringValue('ContractDisplayInfo@type');
+            $templateTypeUuid = $template?->getStringValue('contractDisplayInfo/ContractDisplayInfo@type');
             if ($templateTypeUuid !== null) {
                 return $this->resolveMissionTypeInfo($templateTypeUuid);
             }
