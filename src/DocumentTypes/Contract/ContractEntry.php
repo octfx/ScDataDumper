@@ -6,9 +6,13 @@ namespace Octfx\ScDataDumper\DocumentTypes\Contract;
 
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
+use Octfx\ScDataDumper\Services\ServiceFactory;
 
 class ContractEntry extends RootDocument
 {
+    /** @var array{0: ?string, 1: ?string, 2: ?string}|null Cached template display strings [title, description, contractor], null = not yet resolved */
+    private ?array $templateDisplayStrings = null;
+
     public function getId(): ?string
     {
         return $this->getString('@id');
@@ -51,17 +55,32 @@ class ContractEntry extends RootDocument
 
     public function getTitle(): ?string
     {
-        return $this->getString('paramOverrides/stringParamOverrides/ContractStringParam[@param="Title"]@value');
+        $value = $this->getString('paramOverrides/stringParamOverrides/ContractStringParam[@param="Title"]@value');
+        if ($value !== null) {
+            return $value;
+        }
+
+        return $this->resolveTemplateDisplayStrings()[0];
     }
 
     public function getDescription(): ?string
     {
-        return $this->getString('paramOverrides/stringParamOverrides/ContractStringParam[@param="Description"]@value');
+        $value = $this->getString('paramOverrides/stringParamOverrides/ContractStringParam[@param="Description"]@value');
+        if ($value !== null) {
+            return $value;
+        }
+
+        return $this->resolveTemplateDisplayStrings()[1];
     }
 
     public function getContractor(): ?string
     {
-        return $this->getString('paramOverrides/stringParamOverrides/ContractStringParam[@param="Contractor"]@value');
+        $value = $this->getString('paramOverrides/stringParamOverrides/ContractStringParam[@param="Contractor"]@value');
+        if ($value !== null) {
+            return $value;
+        }
+
+        return $this->resolveTemplateDisplayStrings()[2];
     }
 
     public function isIllegal(): ?bool
@@ -264,6 +283,41 @@ class ContractEntry extends RootDocument
     public function canReacceptAfterAbandoning(): ?bool
     {
         return $this->getNullableBool('paramOverrides/boolParamOverrides/ContractBoolParam[@param="CanReacceptAfterAbandoning"]@value');
+    }
+
+    /**
+     * Resolves title, description, and contractor from the referenced ContractTemplate's displayInfo.
+     *
+     * @return array{0: ?string, 1: ?string, 2: ?string} [title, description, contractor]
+     */
+    private function resolveTemplateDisplayStrings(): array
+    {
+        if ($this->templateDisplayStrings !== null) {
+            return $this->templateDisplayStrings;
+        }
+
+        $templateRef = $this->getTemplateReference();
+        if ($templateRef === null) {
+            return $this->templateDisplayStrings = [null, null, null];
+        }
+
+        $template = ServiceFactory::getFoundryLookupService()
+            ->getContractTemplateByReference($templateRef);
+
+        if ($template === null) {
+            return $this->templateDisplayStrings = [null, null, null];
+        }
+
+        $locIds = $template->getAll(
+            'contractDisplayInfo/ContractDisplayInfo/displayString/LocID@value'
+        );
+
+        // LocID order: [0]=Title, [1]=Title(dup), [2]=Description, [3]=Contractor, [4]=placeholder
+        $title = isset($locIds[0]) && $locIds[0] !== '@LOC_UNINITIALIZED' ? $locIds[0] : null;
+        $desc = isset($locIds[2]) && $locIds[2] !== '@LOC_UNINITIALIZED' ? $locIds[2] : null;
+        $contractor = isset($locIds[3]) && $locIds[3] !== '@LOC_UNINITIALIZED' ? $locIds[3] : null;
+
+        return $this->templateDisplayStrings = [$title, $desc, $contractor];
     }
 
     public function canReacceptAfterFailing(): ?bool
