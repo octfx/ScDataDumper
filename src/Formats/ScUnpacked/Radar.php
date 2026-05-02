@@ -41,6 +41,10 @@ final class Radar extends BaseFormat
             $signatureList[] = $sig;
         }
 
+        if (empty($signatureList)) {
+            return null;
+        }
+
         $sensitivity = $this->extractSignatureColumns($signatureList, 'sensitivity');
         $piercing = $this->extractSignatureColumns($signatureList, 'piercing');
 
