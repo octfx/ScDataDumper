@@ -48,7 +48,7 @@ class LoadTags extends AbstractDataCommand
 
         try {
             $tags = $tagService->getTagNameMap();
-            $json = json_encode($tags, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
+            $json = json_encode($tags, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_PRESERVE_ZERO_FRACTION);
 
             if (! $this->writeJsonFile($filePath, $json, $io)) {
                 $io->error('Failed to write tags file');

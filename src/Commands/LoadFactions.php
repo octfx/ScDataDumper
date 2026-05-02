@@ -58,7 +58,7 @@ class LoadFactions extends AbstractDataCommand
                 }
 
                 try {
-                    $json = json_encode((new ScUnpackedFaction($faction))->toArray(), JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+                    $json = json_encode((new ScUnpackedFaction($faction))->toArray(), JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
 
                     if (! $this->writeJsonFile($filePath, $json, $io)) {
                         $io->warning(sprintf('Skipping faction %s due to write failure', $fileName));
