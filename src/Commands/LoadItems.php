@@ -91,7 +91,10 @@ class LoadItems extends AbstractDataCommand
                 }
                 fwrite($fpsHandle, $encodedItem);
                 $fpsFirst = false;
-            } elseif (is_string($classification) && str_starts_with($classification, 'Ship.')) {
+            } elseif (
+                (is_string($classification) && str_starts_with($classification, 'Ship.'))
+                || ($stdItem['type'] ?? null) === 'TractorBeam'
+            ) {
                 if (! $shipFirst) {
                     fwrite($shipHandle, ",\n");
                 }
