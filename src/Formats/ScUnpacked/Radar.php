@@ -36,23 +36,15 @@ final class Radar extends BaseFormat
             return null;
         }
 
-        $radar = $this->item?->getRadarSystem();
-
-        if ($radar === null) {
-            return null;
-        }
-
         $signatureList = [];
-        foreach (($radar?->get('signatureDetection')?->children() ?? []) as $sig) {
+        foreach (($this->get('Components/SCItemRadarComponentParams/signatureDetection')?->children() ?? []) as $sig) {
             $signatureList[] = $sig;
         }
 
         $sensitivity = $this->extractSignatureColumns($signatureList, 'sensitivity');
         $piercing = $this->extractSignatureColumns($signatureList, 'piercing');
 
-        $gvSensitivityAddition = $this->findSensitivityAdditionForContactGroup(
-            $radar
-        );
+        $gvSensitivityAddition = $this->findSensitivityAdditionForContactGroup();
 
         $gvScalar = $gvSensitivityAddition === null
             ? null
@@ -73,7 +65,7 @@ final class Radar extends BaseFormat
         $aimAssist = $this->item?->get('Components/SCItemRadarComponentParams/aimAssist');
 
         return [
-            'Cooldown' => $this->toFloatOrNull($radar?->get('pingProperties@cooldownTime')),
+            'Cooldown' => $this->toFloatOrNull($this->get('Components/SCItemRadarComponentParams/pingProperties@cooldownTime')),
 
             'Sensitivity' => $sensitivity,
             'GroundVehicleDetectionSensitivity' => $gvSensitivity,
@@ -109,13 +101,14 @@ final class Radar extends BaseFormat
      *
      * Handles both single and multiple SCItemRadarSensitivityModifier nodes.
      */
-    private function findSensitivityAdditionForContactGroup($radar): ?float
+    private function findSensitivityAdditionForContactGroup(): ?float
     {
-        $mods = $radar->get('sensitivityModifiers/SCItemRadarSensitivityModifier')?->children() ?? [];
+        $basePath = 'Components/SCItemRadarComponentParams/sensitivityModifiers';
+        $mods = $this->get($basePath.'/SCItemRadarSensitivityModifier')?->children() ?? [];
 
         if ($mods === null) {
             return $this->toFloatOrNull(
-                $radar->get('sensitivityModifiers/SCItemRadarSensitivityModifier@sensitivityAddition')
+                $this->get($basePath.'/SCItemRadarSensitivityModifier@sensitivityAddition')
             );
         }
 
@@ -139,7 +132,7 @@ final class Radar extends BaseFormat
         }
 
         return $this->toFloatOrNull(
-            $radar->get('sensitivityModifiers/SCItemRadarSensitivityModifier@sensitivityAddition')
+            $this->get($basePath.'/SCItemRadarSensitivityModifier@sensitivityAddition')
         );
     }
 

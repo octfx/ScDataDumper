@@ -58,7 +58,19 @@ final class EntityClassDefinitionComponentRelationTest extends ScDataTestCase
                   </fireActions>
                 </SCItemWeaponComponentParams>
                 <SAmmoContainerComponentParams ammoParamsRecord="10000000-0000-0000-0000-000000000003" secondaryAmmoParamsRecord="10000000-0000-0000-0000-000000000004" initialAmmoCount="3" maxAmmoCount="8" />
-                <SCItemRadarComponentParams sharedParams="10000000-0000-0000-0000-000000000005" />
+                <SCItemRadarComponentParams sharedParams="10000000-0000-0000-0000-000000000005">
+                  <pingProperties cooldownTime="7" />
+                  <signatureDetection>
+                    <SignatureDetection sensitivity="1" piercing="2" />
+                    <SignatureDetection sensitivity="3" piercing="4" />
+                    <SignatureDetection sensitivity="5" piercing="6" />
+                    <SignatureDetection sensitivity="7" piercing="8" />
+                    <SignatureDetection sensitivity="9" piercing="10" />
+                  </signatureDetection>
+                  <sensitivityModifiers>
+                    <SCItemRadarSensitivityModifier sensitivityAddition="0" />
+                  </sensitivityModifiers>
+                </SCItemRadarComponentParams>
                 <SEntityComponentMiningLaserParams globalParams="10000000-0000-0000-0000-000000000006" throttleMinimum="0.5" usesPowerThrottle="1" />
                 <SMeleeWeaponComponentParams meleeCombatConfig="10000000-0000-0000-0000-000000000007" />
                 <SCItemSuitArmorParams damageResistance="10000000-0000-0000-0000-000000000008">
@@ -143,17 +155,6 @@ final class EntityClassDefinitionComponentRelationTest extends ScDataTestCase
             'Game2/libs/foundry/records/radarsystem/test_radar.xml',
             <<<'XML'
             <RadarSystemSharedParams.TEST_RADAR __type="RadarSystemSharedParams" __ref="10000000-0000-0000-0000-000000000005" __path="libs/foundry/records/radarsystem/test_radar.xml">
-              <pingProperties cooldownTime="7" />
-              <signatureDetection>
-                <SignatureDetection sensitivity="1" piercing="2" />
-                <SignatureDetection sensitivity="3" piercing="4" />
-                <SignatureDetection sensitivity="5" piercing="6" />
-                <SignatureDetection sensitivity="7" piercing="8" />
-                <SignatureDetection sensitivity="9" piercing="10" />
-              </signatureDetection>
-              <sensitivityModifiers>
-                <SCItemRadarSensitivityModifier sensitivityAddition="0" />
-              </sensitivityModifiers>
             </RadarSystemSharedParams.TEST_RADAR>
             XML
         );
@@ -284,5 +285,22 @@ final class EntityClassDefinitionComponentRelationTest extends ScDataTestCase
         self::assertSame(4.0, $formatted['PowerTransfer'] ?? null);
         self::assertSame(1.0, $formatted['MinPowerTransfer'] ?? null);
         self::assertSame(0.25, $formatted['GlobalParams']['ThrottleHoldAccFactor'] ?? null);
+    }
+
+    public function test_formats_radar_from_sc_item_component_params(): void
+    {
+        $document = new EntityClassDefinition;
+        $document->load($this->tempDir.'/Data/Libs/Foundry/Records/entities/items/test_component_item.xml');
+
+        $formatted = (new \Octfx\ScDataDumper\Formats\ScUnpacked\Radar($document))->toArray();
+
+        self::assertSame(7.0, $formatted['Cooldown'] ?? null);
+        self::assertNotNull($formatted['SignatureDetection']);
+        self::assertCount(5, $formatted['SignatureDetection']);
+        self::assertSame(1.0, $formatted['SignatureDetection'][0]['Sensitivity']);
+        self::assertSame(2.0, $formatted['SignatureDetection'][0]['Piercing']);
+        self::assertSame(9.0, $formatted['SignatureDetection'][4]['Sensitivity']);
+        self::assertSame(10.0, $formatted['SignatureDetection'][4]['Piercing']);
+        self::assertSame(0.0, $formatted['GroundVehicleSensitivityAddition'] ?? null);
     }
 }
