@@ -87,7 +87,7 @@ class LoadVehicles extends AbstractDataCommand
 
             try {
                 if ($withRaw) {
-                    $jsonRaw = json_encode($out, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
+                    $jsonRaw = json_encode($out, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_PRESERVE_ZERO_FRACTION);
                     if (! $this->writeJsonFile($filePathRaw, $jsonRaw, $io)) {
                         $io->warning(sprintf('Skipping vehicle %s due to write failure', $fileName));
                         $io->progressAdvance();
