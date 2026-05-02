@@ -80,6 +80,7 @@ final class ServiceFactory
         VehicleService::resetDocumentCache();
         LoadoutFileService::resetDocumentCache();
         ItemClassifierService::resetCache();
+        ManufacturerService::resetDocumentCache();
     }
 
     public static function getInventoryContainerService(): InventoryContainerService

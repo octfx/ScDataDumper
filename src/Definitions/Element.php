@@ -25,9 +25,24 @@ class Element
      */
     protected static ?WeakMap $initialized = null;
 
+    /**
+     * Shared DOMXPath per DOMDocument. Avoids creating a new DOMXPath
+     * for every Element wrapping a node in the same document.
+     * WeakMap ensures entries are freed when the DOMDocument is discarded.
+     */
+    private static ?WeakMap $xPathCache = null;
+
     public function __construct(protected readonly DOMNode $node)
     {
-        $this->domXPath = new DOMXPath($this->getDomDocument());
+        $doc = $this->getDomDocument();
+
+        self::$xPathCache ??= new WeakMap;
+
+        if (! isset(self::$xPathCache[$doc])) {
+            self::$xPathCache[$doc] = new DOMXPath($doc);
+        }
+
+        $this->domXPath = self::$xPathCache[$doc];
     }
 
     protected function getDomDocument(): DOMDocument

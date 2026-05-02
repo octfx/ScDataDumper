@@ -11,6 +11,22 @@ final class ManufacturerService extends BaseService
 {
     private array $manufacturerPaths;
 
+    /**
+     * LRU document cache keyed by file path.
+     * With ~50 unique manufacturers across 80k items, this avoids re-parsing
+     * the same XML file for every item that shares a manufacturer.
+     *
+     * @var array<string, SCItemManufacturer>
+     */
+    private static array $documentCache = [];
+
+    private const CACHE_LIMIT = 100;
+
+    public static function resetDocumentCache(): void
+    {
+        self::$documentCache = [];
+    }
+
     public function count(): int
     {
         return count($this->manufacturerPaths);
@@ -59,6 +75,16 @@ final class ManufacturerService extends BaseService
 
     public function load(string $filePath): ?SCItemManufacturer
     {
-        return $this->loadDocument($filePath, SCItemManufacturer::class);
+        $cacheKey = $this->referenceHydrationEnabled ? '1:' . $filePath : '0:' . $filePath;
+
+        $cached = self::cacheGet(self::$documentCache, $cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $doc = $this->loadDocument($filePath, SCItemManufacturer::class);
+        self::cachePut(self::$documentCache, $cacheKey, $doc, self::CACHE_LIMIT);
+
+        return $doc;
     }
 }
