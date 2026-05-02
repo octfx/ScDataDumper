@@ -60,7 +60,7 @@ class LoadCommodityTradeLocations extends AbstractDataCommand
         usort($results, static fn (array $a, array $b): int => [$a['CommodityName'], $a['CommodityKey']]
             <=> [$b['CommodityName'], $b['CommodityKey']]);
 
-        $encoded = json_encode($results, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
+        $encoded = json_encode($results, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
 
         $bytesWritten = file_put_contents($outPath, $encoded);
 

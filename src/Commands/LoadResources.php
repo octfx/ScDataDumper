@@ -92,8 +92,8 @@ final class LoadResources extends AbstractDataCommand
             $resources
         ));
 
-        $encodedResources = json_encode($resources, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
-        $encodedLocations = json_encode($locations, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
+        $encodedResources = json_encode($resources, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        $encodedLocations = json_encode($locations, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
 
         if (! $this->writeJsonFile($resourcesPath, $encodedResources, $io)) {
             return Command::FAILURE;
