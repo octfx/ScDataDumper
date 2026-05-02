@@ -660,7 +660,7 @@ final class LoadResourcesCommandTest extends ScDataTestCase
         self::assertCount(1, $locationsByProvider['HPP_SpaceDerelict_General']['Groups'][0]['Deposits']);
         $salvageDeposit = $locationsByProvider['HPP_SpaceDerelict_General']['Groups'][0]['Deposits'][0];
         self::assertSame(self::SALVAGE_ENTITY_UUID, $salvageDeposit['ResourceUUID']);
-        self::assertSame(1, $salvageDeposit['RelativeProbability']);
+        self::assertSame(1.0, $salvageDeposit['RelativeProbability']);
         self::assertSame(self::SALVAGE_SETUP_UUID, $salvageDeposit['HarvestableSetup']['UUID']);
         self::assertSame(7200, $salvageDeposit['HarvestableSetup']['RespawnInSlotTime']);
         self::assertEquals(100.0, $salvageDeposit['HarvestableSetup']['MovementHarvestDistance']);
@@ -679,8 +679,8 @@ final class LoadResourcesCommandTest extends ScDataTestCase
         self::assertSame(5, $salvageDeposit['Clustering']['MinProximity']);
         self::assertSame(10, $salvageDeposit['Clustering']['MaxProximity']);
         self::assertArrayNotHasKey('ProbabilityPercent', $salvageDeposit['Clustering']);
-        self::assertSame(5, $salvageDeposit['Clustering']['Params'][0]['MinSize']);
-        self::assertSame(1, $salvageDeposit['Clustering']['Params'][0]['RelativeProbability']);
+        self::assertSame(5.0, $salvageDeposit['Clustering']['Params'][0]['MinSize']);
+        self::assertSame(1.0, $salvageDeposit['Clustering']['Params'][0]['RelativeProbability']);
 
         self::assertSame(self::PROVIDER_UUID, $locationsByProvider['HPP_Stanton1']['Provider']['UUID']);
         self::assertSame('Stanton', $locationsByProvider['HPP_Stanton1']['Locations'][0]['System']);
@@ -691,7 +691,7 @@ final class LoadResourcesCommandTest extends ScDataTestCase
         self::assertSame('tag', $locationsByProvider['HPP_Stanton1']['Locations'][0]['MatchStrategy']);
         self::assertCount(2, $locationsByProvider['HPP_Stanton1']['Areas']);
         self::assertSame('Deserts', $locationsByProvider['HPP_Stanton1']['Areas'][0]['Name']);
-        self::assertSame(1, $locationsByProvider['HPP_Stanton1']['Areas'][0]['GlobalModifier']);
+        self::assertSame(1.0, $locationsByProvider['HPP_Stanton1']['Areas'][0]['GlobalModifier']);
         self::assertSame('Savanna', $locationsByProvider['HPP_Stanton1']['Areas'][1]['Name']);
         self::assertSame(2.5, $locationsByProvider['HPP_Stanton1']['Areas'][1]['GlobalModifier']);
         self::assertCount(1, $locationsByProvider['HPP_Stanton1']['Groups']);
@@ -745,13 +745,13 @@ final class LoadResourcesCommandTest extends ScDataTestCase
         self::assertSame(self::CAVE_RESOURCE_UUID, $caveItem['ResourceTypes'][0]['ResourceTypeUUID']);
         self::assertSame('CaveResource', $caveItem['ResourceTypes'][0]['Key']);
         self::assertSame('Cave resource', $caveItem['ResourceTypes'][0]['Name']);
-        self::assertSame(1, $caveItem['ResourceTypes'][0]['Weight']);
+        self::assertSame(1.0, $caveItem['ResourceTypes'][0]['Weight']);
         self::assertFalse($caveItem['Immutable']);
-        self::assertSame(1, $caveItem['FillFraction']);
+        self::assertSame(1.0, $caveItem['FillFraction']);
         self::assertSame('µSCU', $caveItem['Capacity']['UnitName']);
-        self::assertSame(500, $caveItem['Capacity']['Value']);
-        self::assertSame(1, $caveItem['RelativeProbability']);
-        self::assertSame(1, $caveItem['RespawnTimeMultiplier']);
+        self::assertSame(500.0, $caveItem['Capacity']['Value']);
+        self::assertSame(1.0, $caveItem['RelativeProbability']);
+        self::assertSame(1.0, $caveItem['RespawnTimeMultiplier']);
         self::assertSame(1, $caveItem['MinCount']);
         self::assertSame(2, $caveItem['MaxCount']);
 
