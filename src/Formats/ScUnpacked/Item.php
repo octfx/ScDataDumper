@@ -155,6 +155,7 @@ final class Item extends BaseFormat
                 'SuitArmor' => new SuitArmor($this->item),
                 'TemperatureResistance' => new TemperatureResistance($this->item),
                 'RadiationResistance' => new RadiationResistance($this->item),
+                'GForceResistance' => new GForceResistance($this->item),
                 'Thruster' => new Thruster($this->item),
                 'TractorBeam' => new TractorBeam($this->item),
                 'Turret' => new Turret($this->item),
