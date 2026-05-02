@@ -568,10 +568,10 @@ final class LoadResourcesCommandTest extends ScDataTestCase
         self::assertCount(2, $part['ResourceTypes']);
         self::assertSame(self::RESOURCE_UUID, $part['ResourceTypes'][0]['ResourceTypeUUID']);
         self::assertSame('Carinite', $part['ResourceTypes'][0]['Name']);
-        self::assertSame(3, $part['ResourceTypes'][0]['Weight']);
+        self::assertSame(3.0, $part['ResourceTypes'][0]['Weight']);
         self::assertSame(self::ENTITY_ONE_UUID, $part['ResourceTypes'][1]['ResourceTypeUUID']);
         self::assertSame('SampleEntityOne', $part['ResourceTypes'][1]['Name']);
-        self::assertSame(1, $part['ResourceTypes'][1]['Weight']);
+        self::assertSame(1.0, $part['ResourceTypes'][1]['Weight']);
         self::assertTrue($part['Immutable']);
         self::assertSame(0.75, $part['FillFraction']);
         self::assertSame('µSCU', $part['Capacity']['UnitName']);
