@@ -107,7 +107,7 @@ class LoadItems extends AbstractDataCommand
             }
 
             try {
-                $rawEntity = $this->buildRawEntity($itemExport['item']);
+                $rawEntity = $this->buildRawEntity($itemExport['item'], $stdItem['type'] ?? null);
                 $json = json_encode([
                     'Raw' => [
                         'Entity' => [
@@ -264,13 +264,16 @@ class LoadItems extends AbstractDataCommand
     }
 
     /**
-     * Restore historical command behavior where Raw.Entity is emitted from a
-     * hydrated document, while keeping the primary item export on the lazy path.
+     * Fully load and hydrate entity classes, skipping vehicle entities
      *
      * @return array<string, mixed>
      */
-    private function buildRawEntity(object $item): array
+    private function buildRawEntity(object $item, ?string $type = null): array
     {
+        if ($type === 'NOITEM_Vehicle') {
+            return $item->toArray();
+        }
+
         if ($item instanceof EntityClassDefinition) {
             $hydrated = EntityClassDefinition::fromNode($item->documentElement, true);
 

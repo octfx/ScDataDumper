@@ -108,7 +108,7 @@ final class LoadoutBuilder
             $entry['Item'] = $this->formatItem($entity);
 
             // Don't populate sub-loadout for docked vehicle entities.
-            if (!str_starts_with($entry['Item']['type'] ?? '', 'NOITEM_Vehicle')) {
+            if (! str_starts_with($entry['Item']['type'] ?? '', 'NOITEM_Vehicle')) {
                 // Load item's own default loadout entries
                 $itemLoadoutEntries = $this->loadItemLoadout($entity);
 
@@ -178,7 +178,7 @@ final class LoadoutBuilder
             $entry['ItemRaw'] = $entity->toArray();
             $entry['Item'] = $this->formatItem($entity);
 
-            if (!str_starts_with($entry['Item']['type'] ?? '', 'NOITEM_Vehicle')) {
+            if (! str_starts_with($entry['Item']['type'] ?? '', 'NOITEM_Vehicle')) {
                 $itemLoadoutEntries = $this->loadItemLoadout($entity);
 
                 $nestedEntries = $entryData['entries'] ?? [];
@@ -254,7 +254,7 @@ final class LoadoutBuilder
 
             $installedItem = $this->formatItem($entity);
 
-            if (!str_starts_with($installedItem['type'] ?? '', 'NOITEM_Vehicle')) {
+            if (! str_starts_with($installedItem['type'] ?? '', 'NOITEM_Vehicle')) {
                 $itemLoadoutEntries = $this->loadItemLoadout($entity);
                 $nestedEntries = $loadoutEntry['entries'] ?? [];
                 $mergedEntries = $this->mergeLoadoutEntries($nestedEntries, $itemLoadoutEntries);

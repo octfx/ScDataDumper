@@ -2,12 +2,12 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
-use Octfx\ScDataDumper\Formats\LazyFormat;
 use Illuminate\Support\Arr;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\DocumentTypes\SCItemManufacturer;
 use Octfx\ScDataDumper\Formats\BaseFormat;
+use Octfx\ScDataDumper\Formats\LazyFormat;
 use Octfx\ScDataDumper\Helper\ItemDescriptionParser;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 

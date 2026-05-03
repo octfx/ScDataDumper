@@ -26,9 +26,7 @@ class Element
     protected static ?WeakMap $initialized = null;
 
     /**
-     * Shared DOMXPath per DOMDocument. Avoids creating a new DOMXPath
-     * for every Element wrapping a node in the same document.
-     * WeakMap ensures entries are freed when the DOMDocument is discarded.
+     * Shared DOMXPath per DOMDocument
      */
     private static ?WeakMap $xPathCache = null;
 
