@@ -37,7 +37,7 @@ class LoadTranslations extends AbstractDataCommand
         $filePath = sprintf('%s%slabels.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
 
         try {
-            $json = json_encode($translations, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_PRESERVE_ZERO_FRACTION);
+            $json = json_encode($translations, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
             if (! $this->writeJsonFile($filePath, $json, $io)) {
                 $io->error('Failed to write translations file');
 
