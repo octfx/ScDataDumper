@@ -61,7 +61,7 @@ class LoadManufacturers extends AbstractDataCommand
         $filePath = sprintf('%s%smanufacturers.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
 
         try {
-            $json = json_encode($manufacturers, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_PRESERVE_ZERO_FRACTION);
+            $json = json_encode($manufacturers, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
             if (! $this->writeJsonFile($filePath, $json, $io)) {
                 $io->error('Failed to write manufacturers file');
 

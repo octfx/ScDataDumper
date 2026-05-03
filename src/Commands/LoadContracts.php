@@ -172,7 +172,7 @@ class LoadContracts extends AbstractDataCommand
             $data = $format->toArray();
             $data['entry_type'] = $type;
 
-            $json = json_encode($data, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
+            $json = json_encode($data, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
             if (! $this->writeJsonFile($filePath, $json, $io)) {
                 $io->warning(sprintf('Skipping contract %s due to write failure', $fileName));
