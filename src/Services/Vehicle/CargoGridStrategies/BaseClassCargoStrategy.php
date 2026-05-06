@@ -15,9 +15,11 @@ use Octfx\ScDataDumper\ValueObjects\CargoGridResult;
  */
 final class BaseClassCargoStrategy implements CargoGridStrategyInterface
 {
+    use DetectsSiblingVariantGrids;
+
     public function resolve(VehicleWrapper $vehicle, CargoGridResult $result): void
     {
-        if (! $result->shouldContinueSearching()) {
+        if ($this->shouldSkipFallback($result)) {
             return;
         }
 
@@ -54,6 +56,17 @@ final class BaseClassCargoStrategy implements CargoGridStrategyInterface
                     continue;
                 }
 
+                // Skip grids from sibling variants
+                if ($this->isSiblingVariantGrid($vehicleClassName, $container->getClassName())) {
+                    continue;
+                }
+
+                // For vehicles without a variant suffix (2-part names), detect sibling variant
+                // grids by checking if the grid's non-descriptive suffix matches the loadout.
+                if ($this->isUnmatchedVariantCapacityGrid($vehicleClassName, $container->getClassName(), $result)) {
+                    continue;
+                }
+
                 $uuid = $container->getUuid();
                 if (in_array($uuid, $result->existingGridUuids, true)) {
                     continue;
@@ -68,4 +81,5 @@ final class BaseClassCargoStrategy implements CargoGridStrategyInterface
             }
         }
     }
+
 }

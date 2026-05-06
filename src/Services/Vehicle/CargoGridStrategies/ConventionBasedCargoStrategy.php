@@ -20,6 +20,7 @@ use Throwable;
  */
 final class ConventionBasedCargoStrategy implements CargoGridStrategyInterface
 {
+    use DetectsSiblingVariantGrids;
     use NormalizesValues;
 
     public function resolve(VehicleWrapper $vehicle, CargoGridResult $result): void
@@ -52,11 +53,22 @@ final class ConventionBasedCargoStrategy implements CargoGridStrategyInterface
             ? substr($vehicleClassName, 0, strrpos($vehicleClassName, '_'))
             : null;
 
+        // Track base-class candidates separately so we can skip them for variant
+        // vehicles that have no cargo infrastructure.
+        $baseClassCandidates = [];
         foreach (array_filter(array_unique([$baseClassName, $baseClassFromName])) as $baseCandidate) {
             if ($baseCandidate !== $vehicleClassName) {
-                $classCandidates[] = $baseCandidate.'_CargoGrid';
+                $baseClassCandidates[] = $baseCandidate.'_CargoGrid';
             }
         }
+
+        // When the vehicle has no cargo infrastructure,
+        // skip base-class candidates — they belong to sibling variants.
+        if (! $result->hasCargoInfrastructure()) {
+            $baseClassCandidates = [];
+        }
+
+        $classCandidates = array_merge($classCandidates, $baseClassCandidates);
 
         foreach ($this->collectCargoGridSuffixes($vehicle->loadout) as $suffix) {
             $classCandidates[] = $vehicleClassName.'_CargoGrid_'.$suffix;
@@ -79,6 +91,12 @@ final class ConventionBasedCargoStrategy implements CargoGridStrategyInterface
             }
 
             if (! $container || ! $container->isOpenContainer()) {
+                continue;
+            }
+
+            // Skip grids from sibling variants when the vehicle has a variant suffix.
+            // e.g. CNOU_Mustang_Beta should not pick up CNOU_Mustang_CargoGrid (Alpha's grid).
+            if ($this->isSiblingVariantGrid($vehicleClassName, $container->getClassName())) {
                 continue;
             }
 

@@ -14,9 +14,11 @@ use Octfx\ScDataDumper\ValueObjects\CargoGridResult;
  */
 final class PrefixBasedCargoStrategy implements CargoGridStrategyInterface
 {
+    use DetectsSiblingVariantGrids;
+
     public function resolve(VehicleWrapper $vehicle, CargoGridResult $result): void
     {
-        if (! $result->shouldContinueSearching()) {
+        if ($this->shouldSkipFallback($result)) {
             return;
         }
 
@@ -37,6 +39,18 @@ final class PrefixBasedCargoStrategy implements CargoGridStrategyInterface
             }
 
             if (str_ends_with(strtolower($container->getClassName()), '_template')) {
+                continue;
+            }
+
+            // Skip grids from sibling variants.
+            // e.g. CRUS_Starlifter_A2 should not pick up CRUS_Starlifter_CargoGrid_Large_C2.
+            if ($this->isSiblingVariantGrid($vehicleClassName, $container->getClassName())) {
+                continue;
+            }
+
+            // For vehicles without a variant suffix (2-part names), detect sibling variant
+            // grids by checking if the grid's non-descriptive suffix matches the loadout.
+            if ($this->isUnmatchedVariantCapacityGrid($vehicleClassName, $container->getClassName(), $result)) {
                 continue;
             }
 

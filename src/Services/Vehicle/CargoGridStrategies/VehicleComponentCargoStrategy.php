@@ -24,6 +24,12 @@ final class VehicleComponentCargoStrategy implements CargoGridStrategyInterface
             return;
         }
 
+        // Only open containers are cargo grids. Closed containers (personal
+        // storage, equipment lockers, generic Ship_Small/Ship_Large) are never cargo.
+        if (! $container->isOpenContainer()) {
+            return;
+        }
+
         $className = strtolower($container->getClassName() ?? '');
         if ($className !== '' && str_ends_with($className, '_template')) {
             return;

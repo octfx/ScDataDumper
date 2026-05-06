@@ -128,9 +128,30 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
         $result->grids = $result->grids->merge($standardisedGrids);
         $result->existingGridUuids = $result->grids->pluck('uuid')->filter()->all();
 
+        // Track loadout-resolved grid class names so prefix/base strategies can detect
+        // sibling variant grids for vehicles without a variant suffix (2-part class names).
+        $result->loadoutGridClassNames = $standardisedGrids
+            ->pluck('class')
+            ->filter()
+            ->map(static fn ($class) => strtolower($class))
+            ->all();
+
+        // Mark that the loadout strategy found grids so fallback strategies
+        // can apply variant-aware filtering to avoid over-counting.
+        if ($standardisedGrids->isNotEmpty()) {
+            $result->markLoadoutFoundGrids();
+        }
+
         // Keep expected slot estimation broad so fallback strategies can fill missing grids,
         // but avoid double-counting the same hardpoint while scanning.
         $result->setExpectedSlots($this->countCargoGridPorts($vehicle->loadout));
+
+        // Detect cargo infrastructure so fallback strategies know whether the vehicle
+        // has any cargo capability at all. When no infrastructure exists, prefix/base
+        // strategies should not add grids from sibling variants.
+        if ($this->hasCargoInfrastructure($vehicle->loadout)) {
+            $result->markHasCargoInfrastructure();
+        }
     }
 
     /**
@@ -231,6 +252,79 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
         $walker($entries);
 
         return count($hits);
+    }
+
+    /**
+     * Detect whether the vehicle has any cargo-related infrastructure in its loadout.
+     *
+     * Checks for port names matching cargo-related patterns (cargogrid, cargoarea,
+     * cargoramp) that indicate the vehicle was designed with cargo capability.
+     * Also checks whether cargogrid ports are populated with actual entities.
+     *
+     * This distinguishes ships like the 135c (has cargoarea/cargoramp but no cargogrid)
+     * from ships like the Avenger Stalker (has no cargo ports at all).
+     */
+    private function hasCargoInfrastructure(array $entries): bool
+    {
+        $narrowCargoPattern = '/cargogrid|cargoarea|cargoramp/i';
+        $broadCargoPattern = '/cargo/i';
+
+        $walker = static function (array $items) use (&$walker, $narrowCargoPattern, $broadCargoPattern): bool {
+            foreach ($items as $entry) {
+                if (! is_array($entry)) {
+                    continue;
+                }
+
+                $portName = (string) ($entry['portName'] ?? '');
+
+                // Narrow pattern (cargogrid, cargoarea, cargoramp): port indicates
+                // cargo infrastructure when it has an entity loaded. Empty ports mean
+                // the variant intentionally disabled cargo (e.g. Reliant Mako, MPUV Personnel).
+                if ($portName !== '' && preg_match($narrowCargoPattern, $portName)) {
+                    $entityClass = $entry['className'] ?? $entry['ClassName'] ?? '';
+                    $itemRaw = $entry['ItemRaw'] ?? null;
+
+                    if ($entityClass !== '' || is_array($itemRaw)) {
+                        return true;
+                    }
+
+                    // Port exists but is empty — variant disabled cargo
+                    continue;
+                }
+
+                // Broad pattern (any "cargo" port): only counts if the loaded entity
+                // has a cargo-related class name (CargoGrid, Cargo_Rack, Cargo_Area, etc.).
+                // This distinguishes a cargo rack (Nomad) from a cover plate (Mustang Beta).
+                if ($portName !== '' && preg_match($broadCargoPattern, $portName)
+                    && ! preg_match($narrowCargoPattern, $portName)
+                ) {
+                    $itemRaw = $entry['ItemRaw'] ?? null;
+                    if (is_array($itemRaw)) {
+                        $entityClass = strtolower($itemRaw['className'] ?? $itemRaw['ClassName'] ?? '');
+
+                        // Check for cargo-related entity class patterns
+                        if ($entityClass !== '' && preg_match('/cargogrid|cargo[ _-]?(rack|area|bed|grid)/i', $entityClass)) {
+                            return true;
+                        }
+                    }
+                }
+
+                // Recurse into sub-entries
+                if (!empty($entry['entries']) && is_array($entry['entries']) && $walker($entry['entries'])) {
+                    return true;
+                }
+
+                // Also check manual loadout entries
+                $manualEntries = Arr::get($entry, 'ItemRaw.Components.SEntityComponentDefaultLoadoutParams.loadout.SItemPortLoadoutManualParams.entries', []);
+                if (!empty($manualEntries) && is_array($manualEntries) && $walker($manualEntries)) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+        return $walker($entries);
     }
 
     private function calculateInlineGridScu(array $item): ?float

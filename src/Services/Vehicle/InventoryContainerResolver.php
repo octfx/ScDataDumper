@@ -47,7 +47,13 @@ final class InventoryContainerResolver
                 $containerData['itemClass'] = $entry['className'];
             }
 
-            $result->addContainer($containerData, $key, $isClosed);
+            // Scope the dedup key to the hardpoint so the same container document
+            // instantiated on multiple ports is counted once per port, not once globally.
+            $dedupKey = ($entry['portName'] ?? null) !== null
+                ? $entry['portName'] . ':' . $key
+                : $key;
+
+            $result->addContainer($containerData, $dedupKey, $isClosed);
         }
 
         return $result;
@@ -64,6 +70,12 @@ final class InventoryContainerResolver
         }
 
         $containerData = $this->formatContainer($container);
+        // Ship_TempItemCarryingCapacity_* containers are physics-based loose-item
+        // carrying volumes, not personal storage. Exclude them from stowage.
+        if (str_contains(strtolower($container->getClassName()), 'tempitemcarryingcapacity')) {
+            return;
+        }
+
         $containerData['source'] = 'vehicle';
 
         $result->addContainer($containerData, $container->getUuid(), $container->isClosedContainer());

@@ -21,6 +21,9 @@ final class CargoGridResult
     /** @var array<string> UUIDs of cargo grids already found (prevents double-counting) */
     public array $existingGridUuids = [];
 
+    /** @var array<string> Lowercased class names of cargo grids found by the loadout strategy */
+    public array $loadoutGridClassNames = [];
+
     /** @var int Number of remaining cargo grid slots to fill */
     public int $remainingSlots = 0;
 
@@ -29,6 +32,12 @@ final class CargoGridResult
 
     /** Tracks whether we know how many cargo grid ports to expect */
     private bool $hasExpectedSlots = false;
+
+    /** Tracks whether the loadout strategy discovered any cargo grids */
+    private bool $loadoutFoundGrids = false;
+
+    /** Tracks whether the vehicle has any cargo-related infrastructure (ports/items) */
+    private bool $hasCargoInfra = false;
 
     public function __construct()
     {
@@ -98,6 +107,46 @@ final class CargoGridResult
     {
         $this->hasExpectedSlots = $slots > 0;
         $this->remainingSlots = max(0, $slots - count($this->existingGridUuids));
+    }
+
+    /**
+     * Mark that the loadout strategy discovered cargo grids
+     *
+     * When the loadout found grids, convention/prefix/base strategies should
+     * only add grids that match the specific vehicle variant (not sibling variants).
+     */
+    public function markLoadoutFoundGrids(): void
+    {
+        $this->loadoutFoundGrids = true;
+    }
+
+    /**
+     * Check if the loadout strategy found any cargo grids
+     */
+    public function loadoutFoundGrids(): bool
+    {
+        return $this->loadoutFoundGrids;
+    }
+
+    /**
+     * Mark that the vehicle has cargo infrastructure (cargo-related ports or items)
+     */
+    public function markHasCargoInfrastructure(): void
+    {
+        $this->hasCargoInfra = true;
+    }
+
+    /**
+     * Check if the vehicle has any cargo-related infrastructure
+     *
+     * When true, convention/prefix/base strategies may legitimately need to discover
+     * grids not found in the loadout (e.g., 890 Jump's rear grid, 135c's convention grid).
+     * When false (no cargo ports, no cargo items in loadout), those strategies should
+     * not add grids since they would only find grids from sibling variants.
+     */
+    public function hasCargoInfrastructure(): bool
+    {
+        return $this->hasCargoInfra || $this->loadoutFoundGrids;
     }
 
     /**
