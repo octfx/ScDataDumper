@@ -27,6 +27,7 @@ use Octfx\ScDataDumper\Services\Vehicle\SeatingAnalyzer;
 use Octfx\ScDataDumper\Services\Vehicle\SocpakBedExtractor;
 use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartBuilder;
 use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartWalker;
+use Octfx\ScDataDumper\Services\Vehicle\StanceSpeedExtractor;
 use Octfx\ScDataDumper\Services\Vehicle\TurretControlMapper;
 use Octfx\ScDataDumper\Services\Vehicle\VehicleDataContext;
 use Octfx\ScDataDumper\Services\Vehicle\VehicleDataOrchestrator;
@@ -106,8 +107,20 @@ final class Ship extends BaseFormat
             (float) $vehicleComponent->get('maxBoundingBoxSize@y', 0),
             (float) $vehicleComponent->get('maxBoundingBoxSize@z', 0),
         ];
-
         rsort($dimensions, SORT_NUMERIC);
+
+        if ($dimensions === [0.0, 0.0, 0.0]) {
+            $min = $vehicleComponent->get('inventoryOccupancyLocalBoundsMin');
+            $max = $vehicleComponent->get('inventoryOccupancyLocalBoundsMax');
+            if ($min !== null && $max !== null) {
+                $dimensions = [
+                    abs((float) $max->get('@x') - (float) $min->get('@x')),
+                    abs((float) $max->get('@y') - (float) $min->get('@y')),
+                    abs((float) $max->get('@z') - (float) $min->get('@z')),
+                ];
+                rsort($dimensions, SORT_NUMERIC);
+            }
+        }
 
         $vehicleName = $this->translateLocalizationValue(
             Arr::get($vehicleComponentData, 'vehicleName')
@@ -120,6 +133,17 @@ final class Ship extends BaseFormat
         );
         $vehicleCareerLabel = $this->translateLocalizationValue($vehicleComponent->get('@vehicleCareer'));
         $vehicleRoleLabel = $this->translateLocalizationValue($vehicleComponent->get('@vehicleRole'));
+
+        if ($vehicleCareerLabel === '' || $vehicleCareerLabel === null) {
+            $vehicleCareerLabel = $this->translateLocalizationValue(
+                $this->item->get('StaticEntityClassData/SEntityInsuranceProperties/displayParams@career')
+            );
+        }
+        if ($vehicleRoleLabel === '' || $vehicleRoleLabel === null) {
+            $vehicleRoleLabel = $this->translateLocalizationValue(
+                $this->item->get('StaticEntityClassData/SEntityInsuranceProperties/displayParams@role')
+            );
+        }
 
         $descriptionData = ItemDescriptionParser::parse($vehicleDescription);
 
@@ -184,6 +208,11 @@ final class Ship extends BaseFormat
                 'MinSpeedForChargeCollisionDamage' => (float) ($physicsData['minSpeedForChargeCollisionDamage'] ?? 0),
                 'ChargeAttackDamage' => (float) ($physicsData['chargeAttackDamage'] ?? 0),
             ];
+
+            $stanceSpeed = (new StanceSpeedExtractor)->extract($this->vehicleWrapper->entity);
+            if ($stanceSpeed !== null) {
+                $data['StanceSpeed'] = $stanceSpeed;
+            }
         }
 
         // Build standardised parts with loadout

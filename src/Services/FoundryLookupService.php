@@ -376,7 +376,14 @@ final class FoundryLookupService extends BaseService
      * @param  class-string<T>  $class
      * @return T|null
      */
-    private function getByReference(?string $uuid, ?array $pathNeedles = null, string $class = FoundryRecord::class): ?RootDocument
+    /**
+     * @template T of RootDocument
+     *
+     * @param  ?array<int, string>  $pathNeedles
+     * @param  class-string<T>  $class
+     * @return T|null
+     */
+    public function getByReference(?string $uuid, ?array $pathNeedles = null, string $class = FoundryRecord::class): ?RootDocument
     {
         $path = $this->resolvePathByReference($uuid);
 
