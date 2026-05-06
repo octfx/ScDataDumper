@@ -16,7 +16,7 @@ final class InventoryContainer extends BaseFormat
 
         $container = $this->item?->getInventoryContainer();
 
-        return [
+        return $this->transformArrayKeysToPascalCase([
             'SCU' => $container?->getSCU(),
             'Unit' => $container?->getScuConversionUnit(),
             'UnitName' => $container?->getCapacityName(),
@@ -27,7 +27,7 @@ final class InventoryContainer extends BaseFormat
             'IsExternalContainer' => $container?->isExternalContainer(),
             'IsClosedContainer' => $container?->isClosedContainer(),
             'UUID' => $container?->getUuid(),
-        ];
+        ]);
     }
 
     public function canTransform(): bool
