@@ -95,7 +95,15 @@ final class SocpakReader
     }
 
     /**
-     * Extract the first XML entry that is NOT `_editor.xml` and NOT `metadata*.xml`.
+     * Extract the main object-container XML from a socpak zip.
+     *
+     * The container XML always matches the socpak basename (e.g. `stanton3b.socpak` →
+     * `stanton3b.xml`).  This is more robust than positional filtering, which broke when
+     * CIG added nested `hcd/*.xml` entries in 4.8 that appeared before the main XML in
+     * zip-index order.
+     *
+     * Falls back to the first non-editor, non-metadata XML if the basename match fails
+         * (backwards-compatibility with older or atypical socpak layouts).
      *
      * Results are cached per socpak path.
      */
@@ -111,17 +119,31 @@ final class SocpakReader
             return $this->xmlCache[$socpakPath] = null;
         }
 
+        $target = pathinfo($socpakPath, PATHINFO_FILENAME) . '.xml';
         $xml = null;
 
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $stat = $zip->statIndex($i);
             $name = str_replace('\\', '/', $stat['name']);
 
-            if (str_ends_with($name, '.xml')
-                && ! str_contains($name, '_editor')
-                && ! str_contains($name, 'metadata')) {
+            if ($name === $target) {
                 $xml = $zip->getFromIndex($i);
                 break;
+            }
+        }
+
+        // Fallback: first non-editor, non-metadata XML (covers older/non-standard layouts)
+        if ($xml === null || $xml === false) {
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $stat = $zip->statIndex($i);
+                $name = str_replace('\\', '/', $stat['name']);
+
+                if (str_ends_with($name, '.xml')
+                    && ! str_contains($name, '_editor')
+                    && ! str_contains($name, 'metadata')) {
+                    $xml = $zip->getFromIndex($i);
+                    break;
+                }
             }
         }
 

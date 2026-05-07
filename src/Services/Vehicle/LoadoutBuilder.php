@@ -116,6 +116,10 @@ final class LoadoutBuilder
                 $nestedEntries = $this->extractNestedEntries($cigEntry);
                 $mergedEntries = $this->mergeLoadoutEntries($nestedEntries, $itemLoadoutEntries);
 
+                // Also include port defaultItem definitions as lowest-priority fallback
+                $defaultItemEntries = $this->extractDefaultItemEntries($entity);
+                $mergedEntries = $this->mergeLoadoutEntries($mergedEntries, $defaultItemEntries);
+
                 // Get item's ports and install loadouts recursively
                 $itemPorts = $entry['Item']['stdItem']['Ports'] ?? [];
                 $entry['Item']['stdItem']['Ports'] = $this->installLoadoutIntoPorts($itemPorts, $mergedEntries, $visited, $depth + 1);
@@ -183,6 +187,10 @@ final class LoadoutBuilder
 
                 $nestedEntries = $entryData['entries'] ?? [];
                 $mergedEntries = $this->mergeLoadoutEntries($nestedEntries, $itemLoadoutEntries);
+
+                // Also include port defaultItem definitions as lowest-priority fallback
+                $defaultItemEntries = $this->extractDefaultItemEntries($entity);
+                $mergedEntries = $this->mergeLoadoutEntries($mergedEntries, $defaultItemEntries);
 
                 $itemPorts = $entry['Item']['stdItem']['Ports'] ?? [];
                 $entry['Item']['stdItem']['Ports'] = $this->installLoadoutIntoPorts($itemPorts, $mergedEntries, $visited, $depth + 1);
@@ -281,6 +289,51 @@ final class LoadoutBuilder
             static fn (LoadoutEntry $entry): array => $entry->toDefinitionArray(),
             $entity->getDefaultLoadoutEntries()
         );
+    }
+
+    /**
+     * Extract defaultItem UUIDs from an entity's port definitions as synthetic loadout entries.
+     *
+     * These are <defaultItem entityClass="..."> elements on SItemPortDef ports.
+     * They serve as implicit loadout when no explicit loadout or nested entries are provided.
+     *
+     * @return array<string, array{portName: string, className: ?string, classReference: ?string, entries: list<array>}>
+     */
+    private function extractDefaultItemEntries(EntityClassDefinition $entity): array
+    {
+        $entries = [];
+
+        $portsNode = $entity->get('Components/SItemPortContainerComponentParams/Ports');
+
+        if ($portsNode === null) {
+            return $entries;
+        }
+
+        foreach ($portsNode->children() as $portDef) {
+            $portName = $portDef->get('@Name');
+
+            if ($portName === null || $portName === '') {
+                continue;
+            }
+
+            $defaultItemUuid = $portDef->get('./defaultItem/@entityClass');
+
+            if (empty($defaultItemUuid) || $defaultItemUuid === self::NULL_UUID) {
+                continue;
+            }
+
+            $defaultEntity = $this->resolveItem($defaultItemUuid, null);
+            $className = $defaultEntity?->getClassName();
+
+            $entries[strtolower($portName)] = [
+                'portName' => $portName,
+                'className' => $className,
+                'classReference' => $defaultItemUuid,
+                'entries' => [],
+            ];
+        }
+
+        return $entries;
     }
 
     /**

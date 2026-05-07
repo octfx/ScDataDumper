@@ -602,7 +602,7 @@ final class SocpakMappingGenerator extends BaseService
 
         $this->hppUuidSet = [];
         foreach (self::$classToUuidMap as $className => $uuid) {
-            if (str_starts_with($className, 'HPP_') || str_starts_with($className, 'AsteroidCluster_')) {
+            if (str_starts_with((string)$className, 'HPP_') || str_starts_with((string)$className, 'AsteroidCluster_')) {
                 $this->hppUuidSet[strtolower($uuid)] = true;
             }
         }

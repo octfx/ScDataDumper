@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Services\Resource;
 
+use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityQuantizationRecord;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestablePreset;
 use Octfx\ScDataDumper\DocumentTypes\Mining\MineableCompositionPart;
@@ -322,6 +323,8 @@ final readonly class ResourceIndexBuilder
             ...$resourceTypeIdentity,
         ];
 
+        $quantization = $resourceType?->getQualityQuantization();
+
         return [
             'uuid' => $part->getMineableElementReference(),
             ...$resourceTypeIdentity,
@@ -330,7 +333,22 @@ final readonly class ResourceIndexBuilder
             'probability' => $this->normalizePercentage($part->getProbability()),
             'quality_scale' => $part->getQualityScale(),
             'curve_exponent' => $part->getCurveExponent(),
+            'quality_quantization' => $this->toQuantizationBands($quantization),
         ];
+    }
+
+    /**
+     * @return list<array{start: int, end: int, mappedValue: int}>|null
+     */
+    private function toQuantizationBands(?CraftingQualityQuantizationRecord $quantization): ?array
+    {
+        if ($quantization === null) {
+            return null;
+        }
+
+        $bands = $quantization->getBands();
+
+        return $bands === [] ? null : $bands;
     }
 
     private function resolveResourceType(?string $reference, ?ResourceType $resourceType): ?ResourceType

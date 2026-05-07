@@ -86,6 +86,13 @@ final readonly class CacheService
             }
         }
 
+        // array_flip() casts numeric-string keys (e.g. class name "987") to int;
+        // build the map manually to keep all keys as strings.
+        $classToUuidMap = [];
+        foreach ($uuidToClassMap as $uuid => $className) {
+            $classToUuidMap[(string) $className] = $uuid;
+        }
+
         $files = [
             [
                 sprintf('classToPathMap-%s.json', PHP_OS_FAMILY),
@@ -101,7 +108,7 @@ final readonly class CacheService
             ],
             [
                 sprintf('classToUuidMap-%s.json', PHP_OS_FAMILY),
-                array_flip($uuidToClassMap),
+                $classToUuidMap,
             ],
             [
                 sprintf('uuidToClassMap-%s.json', PHP_OS_FAMILY),

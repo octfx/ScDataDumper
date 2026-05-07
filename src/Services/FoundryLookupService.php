@@ -12,6 +12,7 @@ use Octfx\ScDataDumper\DocumentTypes\Contract\ContractGeneratorRecord;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingGameplayPropertyDef;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityDistributionRecord;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityLocationOverrideRecord;
+use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityQuantizationRecord;
 use Octfx\ScDataDumper\DocumentTypes\DamageResistanceMacro;
 use Octfx\ScDataDumper\DocumentTypes\Faction\Faction;
 use Octfx\ScDataDumper\DocumentTypes\Faction\Faction_LEGACY;
@@ -145,6 +146,15 @@ final class FoundryLookupService extends BaseService
             $uuid,
             ['/records/crafting/qualitydistribution/'],
             CraftingQualityLocationOverrideRecord::class
+        );
+    }
+
+    public function getCraftingQualityQuantizationByReference(?string $uuid): ?CraftingQualityQuantizationRecord
+    {
+        return $this->getByReference(
+            $uuid,
+            ['/records/crafting/qualityquantization/'],
+            CraftingQualityQuantizationRecord::class
         );
     }
 

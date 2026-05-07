@@ -286,4 +286,5 @@ class ItemPort extends BaseFormat
 
         return $this->loadoutMap[$portNameLower] ?? null;
     }
+
 }

@@ -7,6 +7,7 @@ namespace Octfx\ScDataDumper\DocumentTypes;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityDistributionRecord;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityLocationOverrideRecord;
+use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityQuantizationRecord;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class ResourceType extends RootDocument
@@ -51,6 +52,26 @@ final class ResourceType extends RootDocument
         );
 
         return $resolved instanceof CraftingQualityDistributionRecord ? $resolved : null;
+    }
+
+    public function getQualityQuantizationReference(): ?string
+    {
+        return $this->getString(
+            'properties/ResourceTypeCraftingData/qualityQuantization/CraftingQualityQuantization_RecordRef@qualityQuantizationRecord'
+        );
+    }
+
+    public function getQualityQuantization(): ?CraftingQualityQuantizationRecord
+    {
+        $resolved = $this->resolveRelatedDocument(
+            'QualityQuantization',
+            CraftingQualityQuantizationRecord::class,
+            $this->getQualityQuantizationReference(),
+            static fn (string $reference): ?CraftingQualityQuantizationRecord => ServiceFactory::getFoundryLookupService()
+                ->getCraftingQualityQuantizationByReference($reference)
+        );
+
+        return $resolved instanceof CraftingQualityQuantizationRecord ? $resolved : null;
     }
 
     public function getQualityLocationOverride(): ?CraftingQualityLocationOverrideRecord
