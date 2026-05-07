@@ -44,7 +44,7 @@ final class QuantumDrive extends BaseFormat
             'FuelConsumptionSCUPerGM' => $consumptionPerGm,
             'FuelEfficiencyGMPerSCU' => $this->formatFuelEfficiencyGmPerScu($consumptionPerGm, $driveSpeed),
             'FuelRequirement10GM' => $this->formatFuelForDistanceGm($consumptionPerGm, self::DEFAULT_DISTANCE_GM),
-            'TravelTime10GMSeconds' => round($standardTravelSeconds10Gm),
+            'TravelTime10GMSeconds' => $standardTravelSeconds10Gm !== null ? round($standardTravelSeconds10Gm) : null,
             'TravelTime10GM' => $this->formatDuration($standardTravelSeconds10Gm),
         ];
     }

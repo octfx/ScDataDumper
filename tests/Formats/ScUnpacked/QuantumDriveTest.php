@@ -174,9 +174,7 @@ final class QuantumDriveTest extends TestCase
         $qd = $this->makeDrive(driveSpeed: 0, stageOneAccel: 500, stageTwoAccel: 1000);
         $result = $qd->toArray();
 
-        // estimateTravelTimeSeconds returns null when vmax=0,
-        // but round(null) returns 0.0 in PHP
-        self::assertSame(0.0, $result['TravelTime10GMSeconds']);
+        self::assertNull($result['TravelTime10GMSeconds']);
     }
 
     public function test_travel_time_null_when_zero_acceleration(): void
@@ -184,9 +182,7 @@ final class QuantumDriveTest extends TestCase
         $qd = $this->makeDrive(driveSpeed: 200000000, stageOneAccel: 0, stageTwoAccel: 0);
         $result = $qd->toArray();
 
-        // estimateTravelTimeSeconds returns null when accel=0,
-        // but round(null) returns 0.0 in PHP
-        self::assertSame(0.0, $result['TravelTime10GMSeconds']);
+        self::assertNull($result['TravelTime10GMSeconds']);
     }
 
     // ------------------------------------------------------------------ //
