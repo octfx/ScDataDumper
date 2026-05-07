@@ -654,16 +654,25 @@ final class LoadResources extends AbstractDataCommand
                     continue;
                 }
 
+                $resourceType = ServiceFactory::getFoundryLookupService()->getResourceTypeByReference($resourceTypeUuid);
+                $quantization = $resourceType?->getQualityQuantization()?->getBands();
+
                 $overrides[] = [
                     'resource_key' => $resourceKey,
                     'min_percentage' => is_numeric($part['min_percentage'] ?? null) ? (float) $part['min_percentage'] : null,
                     'max_percentage' => is_numeric($part['max_percentage'] ?? null) ? (float) $part['max_percentage'] : null,
+                    'quality_scale' => $qualityScale,
                     'quality_range' => [
                         'min' => $qualityRange['effective_min'],
                         'max' => $qualityRange['effective_max'],
                         'mean' => $qualityRange['effective_mean'],
                         'stddev' => $qualityRange['effective_stddev'],
                     ],
+                    'quality_quantization' => QualityRangeResolver::filterReachableQuantization(
+                        $quantization,
+                        $qualityRange['effective_min'],
+                        $qualityRange['effective_max']
+                    ),
                 ];
             }
         } elseif ($kind === 'harvestable' || $kind === 'cave_harvestable') {

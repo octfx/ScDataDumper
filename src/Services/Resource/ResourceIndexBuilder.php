@@ -324,6 +324,10 @@ final readonly class ResourceIndexBuilder
         ];
 
         $quantization = $resourceType?->getQualityQuantization();
+        $qualityRange = (new QualityRangeResolver)->resolveForCompositionPart($part);
+
+        $effectiveMin = $qualityRange['effective_min'] ?? null;
+        $effectiveMax = $qualityRange['effective_max'] ?? null;
 
         return [
             'uuid' => $part->getMineableElementReference(),
@@ -333,22 +337,47 @@ final readonly class ResourceIndexBuilder
             'probability' => $this->normalizePercentage($part->getProbability()),
             'quality_scale' => $part->getQualityScale(),
             'curve_exponent' => $part->getCurveExponent(),
-            'quality_quantization' => $this->toQuantizationBands($quantization),
+            'quality_range' => $this->toQualityRange($qualityRange),
+            'quality_quantization' => $this->toQuantizationBands($quantization, $effectiveMin, $effectiveMax),
         ];
     }
 
     /**
-     * @return list<array{start: int, end: int, mappedValue: int}>|null
+     * @return array{base_min: int, base_max: int, effective_min: int, effective_max: int}|null
      */
-    private function toQuantizationBands(?CraftingQualityQuantizationRecord $quantization): ?array
+    private function toQualityRange(?array $qualityRange): ?array
     {
+        if ($qualityRange === null) {
+            return null;
+        }
+
+        return [
+            'base_min' => $qualityRange['base_min'],
+            'base_max' => $qualityRange['base_max'],
+            'effective_min' => $qualityRange['effective_min'],
+            'effective_max' => $qualityRange['effective_max'],
+        ];
+    }
+
+    /**
+     * @return list<int>|null Sorted list of reachable mapped values
+     */
+    private function toQuantizationBands(
+        ?CraftingQualityQuantizationRecord $quantization,
+        ?int $effectiveMin,
+        ?int $effectiveMax
+    ): ?array {
         if ($quantization === null) {
             return null;
         }
 
         $bands = $quantization->getBands();
 
-        return $bands === [] ? null : $bands;
+        if ($bands === []) {
+            return null;
+        }
+
+        return QualityRangeResolver::filterReachableQuantization($bands, $effectiveMin, $effectiveMax);
     }
 
     private function resolveResourceType(?string $reference, ?ResourceType $resourceType): ?ResourceType

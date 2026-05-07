@@ -279,16 +279,27 @@ final class ResourceLocation extends BaseFormat
             $minPercentage = is_numeric($part['min_percentage'] ?? null) ? (float) $part['min_percentage'] : null;
             $maxPercentage = is_numeric($part['max_percentage'] ?? null) ? (float) $part['max_percentage'] : null;
 
+            // Locations currently do not override the resource type quantization,
+            // so we can re-use the data from the resource type in the location to calculate quality bands
+            $resourceType = ServiceFactory::getFoundryLookupService()->getResourceTypeByReference($resourceTypeUuid);
+            $quantization = $resourceType?->getQualityQuantization()?->getBands();
+
             $overrides[] = [
                 'resource_key' => $resourceKey,
                 'min_percentage' => $minPercentage,
                 'max_percentage' => $maxPercentage,
+                'quality_scale' => $qualityScale,
                 'quality_range' => [
                     'min' => $qualityRange['effective_min'],
                     'max' => $qualityRange['effective_max'],
                     'mean' => $qualityRange['effective_mean'],
                     'stddev' => $qualityRange['effective_stddev'],
                 ],
+                'quality_quantization' => QualityRangeResolver::filterReachableQuantization(
+                    $quantization,
+                    $qualityRange['effective_min'],
+                    $qualityRange['effective_max']
+                ),
             ];
         }
 
