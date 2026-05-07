@@ -6,6 +6,8 @@ namespace Octfx\ScDataDumper\Tests\Commands;
 
 use Octfx\ScDataDumper\Commands\LoadVehicles;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Tester\CommandTester;
 
 final class LoadVehiclesCommandTest extends ScDataTestCase
@@ -49,17 +51,6 @@ final class LoadVehiclesCommandTest extends ScDataTestCase
         self::assertSame('TEST_SHIP', $rawFile['Raw']['Entity']['ClassName']);
         self::assertSame('seat_mount', $rawFile['Loadout'][0]['portName']);
     }
-
-    /**
-     * @return array<int|string, mixed>
-     */
-    private function readJsonFile(string $relativePath): array
-    {
-        $contents = file_get_contents($this->tempDir.DIRECTORY_SEPARATOR.$relativePath);
-        self::assertNotFalse($contents);
-
-        return json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
-    }
 }
 
 final class TestLoadVehiclesCommand extends LoadVehicles
@@ -73,7 +64,7 @@ final class TestLoadVehiclesCommand extends LoadVehicles
         $this->setName('load:vehicles');
     }
 
-    protected function prepareServices(\Symfony\Component\Console\Input\InputInterface $input, \Symfony\Component\Console\Output\OutputInterface $output): void {}
+    protected function prepareServices(InputInterface $input, OutputInterface $output): void {}
 
     protected function getVehicleExportCount(): int
     {

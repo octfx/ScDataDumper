@@ -7,10 +7,13 @@ namespace Octfx\ScDataDumper\Tests\Services\Vehicle;
 use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 use Octfx\ScDataDumper\DocumentTypes\VehicleDefinition;
 use Octfx\ScDataDumper\Services\Vehicle\TurretControlMapper;
+use Octfx\ScDataDumper\Tests\Fixtures\BuildsTestItems;
 use PHPUnit\Framework\TestCase;
 
 final class TurretControlMapperTest extends TestCase
 {
+    use BuildsTestItems;
+
     /**
      * Ballista pattern: pilot seat directly controls a turret via WeaponController priority.
      * The pilot seat has a WeaponController PriorityGroup with the turret's tag at exclusive_control.
@@ -690,32 +693,5 @@ XML);
         unlink($tempFile);
 
         return $entity;
-    }
-
-    private function makeItem(string $type, array $stdItem = []): array
-    {
-        return [
-            'type' => $type,
-            'stdItem' => $stdItem,
-        ];
-    }
-
-    private function makeWeapon(string $type, string $className, float $dps, float $alpha, ?float $sustained): array
-    {
-        $damage = [
-            'DpsTotal' => $dps,
-            'AlphaTotal' => $alpha,
-        ];
-        if ($sustained !== null) {
-            $damage['Sustained'] = $sustained;
-        }
-
-        return $this->makeItem($type, [
-            'UUID' => $className . '_UUID',
-            'ClassName' => $className,
-            'Weapon' => [
-                'Damage' => $damage,
-            ],
-        ]);
     }
 }

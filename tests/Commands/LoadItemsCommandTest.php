@@ -212,15 +212,78 @@ final class LoadItemsCommandTest extends ScDataTestCase
         ]);
     }
 
-    /**
-     * @return array<int, mixed>
-     */
-    private function readJsonFile(string $relativePath): array
-    {
-        $contents = file_get_contents($this->tempDir.DIRECTORY_SEPARATOR.$relativePath);
-        self::assertNotFalse($contents);
+    // -- Type filter tests (merged from LoadItemsTest) --
 
-        return json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
+    public function test_type_filter_extends_defaults_instead_of_replacing_them(): void
+    {
+        $command = new LoadItems;
+        $excluded = $this->invokeBuildTypeFilterAvoidList($command, 'Ship.Weapon.Gun, noitem_player');
+
+        self::assertContains('undefined', $excluded);
+        self::assertContains('noitem_player', $excluded);
+        self::assertContains('ship.weapon.gun', $excluded);
+        self::assertSame(1, $this->countOccurrences('noitem_player', $excluded));
+    }
+
+    public function test_type_filter_matching_is_case_insensitive_and_exact(): void
+    {
+        $command = new LoadItems;
+        $excluded = $this->invokeBuildTypeFilterAvoidList($command, '  SeAt.Component  ');
+
+        self::assertTrue($this->invokeIsTypeExcluded($command, 'seat.component', $excluded));
+        self::assertTrue($this->invokeIsTypeExcluded($command, 'SEAT.COMPONENT', $excluded));
+        self::assertFalse($this->invokeIsTypeExcluded($command, 'seat', $excluded));
+        self::assertFalse($this->invokeIsTypeExcluded($command, 'seat.component.extra', $excluded));
+    }
+
+    public function test_type_filter_ignores_empty_tokens_and_deduplicates(): void
+    {
+        $command = new LoadItems;
+        $excluded = $this->invokeBuildTypeFilterAvoidList($command, ' , , BUTTON, button , custom , custom ,, ');
+
+        self::assertSame(1, $this->countOccurrences('button', $excluded));
+        self::assertSame(1, $this->countOccurrences('custom', $excluded));
+        self::assertSame(0, $this->countOccurrences('', $excluded));
+    }
+
+    public function test_wildcard_tokens_are_treated_as_literal_values(): void
+    {
+        $command = new LoadItems;
+        $excluded = $this->invokeBuildTypeFilterAvoidList($command, 'ship.*');
+
+        self::assertTrue($this->invokeIsTypeExcluded($command, 'ship.*', $excluded));
+        self::assertFalse($this->invokeIsTypeExcluded($command, 'ship.weapon.gun', $excluded));
+        self::assertFalse($this->invokeIsTypeExcluded($command, 'ship', $excluded));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function invokeBuildTypeFilterAvoidList(LoadItems $command, mixed $typeFilter): array
+    {
+        $result = $this->invokeMethod($command, 'buildTypeFilterAvoidList', $typeFilter);
+        self::assertIsArray($result);
+
+        return $result;
+    }
+
+    /**
+     * @param  array<int, string>  $excludedTypes
+     */
+    private function invokeIsTypeExcluded(LoadItems $command, string $type, array $excludedTypes): bool
+    {
+        $result = $this->invokeMethod($command, 'isTypeExcluded', $type, $excludedTypes);
+        self::assertIsBool($result);
+
+        return $result;
+    }
+
+    /**
+     * @param  array<int, string>  $values
+     */
+    private function countOccurrences(string $needle, array $values): int
+    {
+        return count(array_keys($values, $needle, true));
     }
 }
 

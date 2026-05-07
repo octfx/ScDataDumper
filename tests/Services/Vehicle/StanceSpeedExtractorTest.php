@@ -137,25 +137,4 @@ XML);
 
         return $entity;
     }
-
-    private function writeFoundryRecord(string $uuid, string $relativeDirectory, string $xml): void
-    {
-        $normalizedUuid = strtolower($uuid);
-        $path = $this->writeFile(sprintf('Game2/libs/foundry/%s/%s.xml', $relativeDirectory, $normalizedUuid), $xml);
-
-        $this->mergeCacheFile('uuidToPathMap', [$normalizedUuid => $path]);
-    }
-
-    /**
-     * @param  array<string, mixed>  $values
-     */
-    private function mergeCacheFile(string $name, array $values): void
-    {
-        $path = sprintf('%s%s%s-%s.json', $this->tempDir, DIRECTORY_SEPARATOR, $name, PHP_OS_FAMILY);
-        $current = file_exists($path)
-            ? json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR)
-            : [];
-
-        file_put_contents($path, json_encode(array_replace($current, $values), JSON_THROW_ON_ERROR));
-    }
 }

@@ -16,6 +16,7 @@ use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionClass;
+use ReflectionMethod;
 use RuntimeException;
 
 abstract class ScDataTestCase extends TestCase
@@ -358,10 +359,99 @@ abstract class ScDataTestCase extends TestCase
      */
     protected function initializeBlueprintDefinitionServices(): void
     {
-        (new ServiceFactory($this->tempDir))->initialize();
+        new ServiceFactory($this->tempDir)->initialize();
     }
 
-    private function writeCacheFile(string $name, array $payload): void
+    protected function mergeCacheFile(string $name, array $values): void
+    {
+        $path = sprintf('%s%s%s-%s.json', $this->tempDir, DIRECTORY_SEPARATOR, $name, PHP_OS_FAMILY);
+        $current = file_exists($path)
+            ? json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR)
+            : [];
+        file_put_contents($path, json_encode(array_replace($current, $values), JSON_THROW_ON_ERROR));
+    }
+
+    protected function writeFoundryRecord(string $uuid, string $relativeDirectory, string $xml): void
+    {
+        $normalizedUuid = strtolower($uuid);
+        $path = $this->writeFile(sprintf('Game2/libs/foundry/%s/%s.xml', $relativeDirectory, $normalizedUuid), $xml);
+        $this->mergeCacheFile('uuidToPathMap', [$normalizedUuid => $path]);
+    }
+
+    protected function invokeMethod(object $object, string $methodName, mixed ...$args): mixed
+    {
+        $method = new ReflectionMethod($object::class, $methodName);
+
+        return $method->invoke($object, ...$args);
+    }
+
+    protected function addServiceToFactory(string $key, object $service): void
+    {
+        $services = $this->getPrivateProperty(ServiceFactory::class, 'services');
+        $services[$key] = $service;
+        $this->setPrivateProperty(ServiceFactory::class, 'services', $services);
+    }
+
+    /**
+     * Write the standard FALLBACK manufacturer file used across ship tests.
+     */
+    protected function writeFallbackManufacturerFile(
+        string $code = 'FALL',
+        string $uuid = '11111111-1111-1111-1111-111111111111',
+        string $className = 'FALLBACK',
+        string $fileName = 'fallback.xml',
+        string $nameKey = '@manufacturer_name',
+    ): string {
+        return $this->writeFile(
+            "records/scitemmanufacturer/{$fileName}",
+            <<<XML
+            <SCItemManufacturer.{$className} Code="{$code}" __type="SCItemManufacturer" __ref="{$uuid}" __path="libs/foundry/records/scitemmanufacturer/{$fileName}">
+                <Localization Name="{$nameKey}" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY" __type="SCItemLocalization">
+                    <displayFeatures __type="SCExtendedLocalizationLevelParams" />
+                </Localization>
+            </SCItemManufacturer.{$className}>
+            XML
+        );
+    }
+
+    /**
+     * Write the standard test vehicle implementation XML (seat_mount with Pilot seat port).
+     */
+    protected function writeStandardVehicleImplementationFile(): string
+    {
+        return $this->writeFile(
+            'records/vehicles/test_ship_impl.xml',
+            <<<'XML'
+            <?xml version="1.0" encoding="UTF-8"?>
+            <Vehicle.TEST_SHIP_IMPL>
+                <Parts>
+                    <Part name="seat_mount" mass="100" damageMax="500">
+                        <ItemPort maxSize="1" minSize="1">
+                            <Types>
+                                <Type type="Seat" subtypes="Pilot" />
+                            </Types>
+                        </ItemPort>
+                    </Part>
+                </Parts>
+            </Vehicle.TEST_SHIP_IMPL>
+            XML
+        );
+    }
+
+    protected function setPrivateProperty(object|string $target, string $property, mixed $value): void
+    {
+        $ref = new ReflectionClass(is_string($target) ? $target : $target::class);
+        $ref->getProperty($property)->setValue(is_string($target) ? null : $target, $value);
+    }
+
+    protected function getPrivateProperty(object|string $target, string $property): mixed
+    {
+        $ref = new ReflectionClass(is_string($target) ? $target : $target::class);
+
+        return $ref->getProperty($property)->getValue(is_string($target) ? null : $target);
+    }
+
+    protected function writeCacheFile(string $name, array $payload): void
     {
         $path = sprintf('%s%s%s-%s.json', $this->tempDir, DIRECTORY_SEPARATOR, $name, PHP_OS_FAMILY);
         file_put_contents($path, json_encode($payload, JSON_THROW_ON_ERROR));
@@ -392,6 +482,17 @@ abstract class ScDataTestCase extends TestCase
         $parts = explode('.', $matches[1], 2);
 
         return $parts[1] ?? null;
+    }
+
+    /**
+     * @return array<int|string, mixed>
+     */
+    protected function readJsonFile(string $relativePath): array
+    {
+        $contents = file_get_contents($this->tempDir.DIRECTORY_SEPARATOR.$relativePath);
+        self::assertNotFalse($contents);
+
+        return json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
     }
 
     private function resetServiceState(): void

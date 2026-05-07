@@ -142,7 +142,7 @@ final class StarMapObjectTest extends ScDataTestCase
             ['name' => 'tag-radar', 'uuid' => 'tag-radar'],
         ]);
 
-        (new ServiceFactory($this->tempDir))->initialize();
+        new ServiceFactory($this->tempDir)->initialize();
     }
 
     public function test_resolves_linked_documents_when_reference_hydration_is_disabled(): void
@@ -159,5 +159,80 @@ final class StarMapObjectTest extends ScDataTestCase
         self::assertCount(1, $document->getAmenities());
         self::assertSame(self::AMENITY_UUID, $document->getAmenities()[0]->getUuid());
         self::assertSame([self::AMENITY_UUID], $document->getAmenityReferences());
+    }
+
+    public function test_accessors_return_localized_values(): void
+    {
+        $document = (new StarMapObject)
+            ->setReferenceHydrationEnabled(false);
+        $document->load($this->tempDir.'/Game2/libs/foundry/records/starmap/pu/system/test/test_object.xml');
+
+        // getName/getDescription return the raw @-prefixed localization keys from the XML attribute,
+        // not the resolved localized string. They go through getString() which returns the attribute value as-is.
+        self::assertSame('@loc_starmap_name', $document->getName());
+        self::assertSame('@loc_starmap_desc', $document->getDescription());
+    }
+
+    public function test_type_reference_and_nav_icon_accessors(): void
+    {
+        $document = (new StarMapObject)
+            ->setReferenceHydrationEnabled(false);
+        $document->load($this->tempDir.'/Game2/libs/foundry/records/starmap/pu/system/test/test_object.xml');
+
+        self::assertSame(self::TYPE_UUID, $document->getTypeReference());
+        self::assertNull($document->getNavIcon());
+    }
+
+    public function test_boolean_accessors_default_to_false(): void
+    {
+        $path = $this->writeFile(
+            'Game2/libs/foundry/records/starmap/pu/system/test/minimal_object.xml',
+            sprintf(
+                '<StarMapObject.MinimalObject __type="StarMapObject" __ref="%1$s" __path="libs/foundry/records/starmap/pu/system/test/minimal_object.xml" />',
+                '99999999-0000-0000-0000-000000000001'
+            )
+        );
+
+        $this->writeCacheFiles(
+            uuidToClassMap: [
+                strtolower('99999999-0000-0000-0000-000000000001') => 'MinimalObject',
+            ],
+            classToUuidMap: [
+                'MinimalObject' => strtolower('99999999-0000-0000-0000-000000000001'),
+            ],
+            uuidToPathMap: [
+                strtolower('99999999-0000-0000-0000-000000000001') => $path,
+            ],
+        );
+
+        $this->writeFile('Data/Localization/english/global.ini', "LOC_EMPTY=\n");
+
+        new ServiceFactory($this->tempDir)->initialize();
+
+        $document = new StarMapObject;
+        $document->load($path);
+
+        self::assertFalse($document->getIsScannable());
+        self::assertFalse($document->getHideInStarmap());
+        self::assertFalse($document->getHideInWorld());
+    }
+
+    public function test_amenity_references_returns_uuid_array(): void
+    {
+        $document = (new StarMapObject)
+            ->setReferenceHydrationEnabled(false);
+        $document->load($this->tempDir.'/Game2/libs/foundry/records/starmap/pu/system/test/test_object.xml');
+
+        self::assertSame([self::AMENITY_UUID], $document->getAmenityReferences());
+    }
+
+    public function test_affiliation_is_faction_instance(): void
+    {
+        $document = (new StarMapObject)
+            ->setReferenceHydrationEnabled(false);
+        $document->load($this->tempDir.'/Game2/libs/foundry/records/starmap/pu/system/test/test_object.xml');
+
+        $affiliation = $document->getAffiliation();
+        self::assertInstanceOf(Faction::class, $affiliation);
     }
 }

@@ -7,7 +7,6 @@ namespace Octfx\ScDataDumper\Tests\Services\Vehicle;
 use Octfx\ScDataDumper\DocumentTypes\VehicleDefinition;
 use Octfx\ScDataDumper\Helper\VehicleWrapper;
 use Octfx\ScDataDumper\Services\Vehicle\InventoryContainerResolver;
-use Octfx\ScDataDumper\Services\Vehicle\SocpakPersonalStorageExtractor;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 
 final class InventoryContainerResolverTest extends ScDataTestCase
@@ -95,10 +94,8 @@ final class InventoryContainerResolverTest extends ScDataTestCase
             ],
         ]];
 
-        // Inject a null extractor to skip socpak processing (not relevant to this test)
-        $resolver = new InventoryContainerResolver(
-            new SocpakPersonalStorageExtractor(null),
-        );
+        // No extractor injected — the resolver lazily creates one that finds no socpak files in the test temp dir
+        $resolver = new InventoryContainerResolver;
 
         $result = $resolver->resolveInventoryContainers(
             new VehicleWrapper(null, $vehicle, $loadout),
@@ -191,9 +188,8 @@ final class InventoryContainerResolverTest extends ScDataTestCase
             ],
         ]];
 
-        $resolver = new InventoryContainerResolver(
-            new SocpakPersonalStorageExtractor(null),
-        );
+        // No extractor injected — the resolver lazily creates one that finds no socpak files in the test temp dir
+        $resolver = new InventoryContainerResolver;
 
         $result = $resolver->resolveInventoryContainers(
             new VehicleWrapper(null, $vehicle, $loadout),
@@ -304,9 +300,8 @@ final class InventoryContainerResolverTest extends ScDataTestCase
             ],
         ]];
 
-        $resolver = new InventoryContainerResolver(
-            new SocpakPersonalStorageExtractor(null),
-        );
+        // No extractor injected — the resolver lazily creates one that finds no socpak files in the test temp dir
+        $resolver = new InventoryContainerResolver;
 
         $result = $resolver->resolveInventoryContainers(
             new VehicleWrapper(null, $vehicle, $loadout),

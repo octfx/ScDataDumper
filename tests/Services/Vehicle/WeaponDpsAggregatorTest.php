@@ -7,10 +7,13 @@ namespace Octfx\ScDataDumper\Tests\Services\Vehicle;
 use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartWalker;
 use Octfx\ScDataDumper\Services\Vehicle\VehicleDataContext;
 use Octfx\ScDataDumper\Services\Vehicle\WeaponDpsAggregator;
+use Octfx\ScDataDumper\Tests\Fixtures\BuildsTestItems;
 use PHPUnit\Framework\TestCase;
 
 final class WeaponDpsAggregatorTest extends TestCase
 {
+    use BuildsTestItems;
+
     public function test_empty_parts_returns_empty(): void
     {
         $aggregator = new WeaponDpsAggregator(new StandardisedPartWalker);
@@ -249,8 +252,6 @@ final class WeaponDpsAggregatorTest extends TestCase
         self::assertFalse($weapons[0]['IsPilotSlaveable']);
     }
 
-
-
     public function test_autonomous_turret_detected_by_port_category(): void
     {
         // Asgard-style autonomous door turret: WeaponGun.Gun mount with port category 'Autonomous turrets'
@@ -352,17 +353,7 @@ final class WeaponDpsAggregatorTest extends TestCase
 
     private function calculateForItems(array $items): array
     {
-        $parts = array_map(
-            fn (array $item, int $index): array => [
-                'Name' => "Part {$index}",
-                'Port' => [
-                    'PortName' => "Port {$index}",
-                    'InstalledItem' => $item,
-                ],
-            ],
-            $items,
-            array_keys($items)
-        );
+        $parts = $this->wrapItemsAsParts($items);
 
         $aggregator = new WeaponDpsAggregator(new StandardisedPartWalker);
 
@@ -381,33 +372,6 @@ final class WeaponDpsAggregatorTest extends TestCase
             isGravlev: false,
             isSpaceship: true,
         );
-    }
-
-    private function makeItem(string $type, array $stdItem = []): array
-    {
-        return [
-            'type' => $type,
-            'stdItem' => $stdItem,
-        ];
-    }
-
-    private function makeWeapon(string $type, string $className, float $dps, float $alpha, ?float $sustained): array
-    {
-        $damage = [
-            'DpsTotal' => $dps,
-            'AlphaTotal' => $alpha,
-        ];
-        if ($sustained !== null) {
-            $damage['Sustained'] = $sustained;
-        }
-
-        return $this->makeItem($type, [
-            'UUID' => $className . '_UUID',
-            'ClassName' => $className,
-            'Weapon' => [
-                'Damage' => $damage,
-            ],
-        ]);
     }
 
     private function makeMissile(string $className, array $damageByType): array

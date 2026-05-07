@@ -15,8 +15,6 @@ use Octfx\ScDataDumper\Services\ItemService;
 use Octfx\ScDataDumper\Services\ManufacturerService;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
-use ReflectionClass;
-use RuntimeException;
 
 final class EngineeringBoostTest extends ScDataTestCase
 {
@@ -210,13 +208,9 @@ final class EngineeringBoostTest extends ScDataTestCase
         $uuid = self::MODIFIER_UUID;
         $className = self::MODIFIER_CLASS;
 
-        $path = $this->tempDir.DIRECTORY_SEPARATOR.'records'.DIRECTORY_SEPARATOR.'modifier'.DIRECTORY_SEPARATOR.'engineering_buff_test.xml';
-        $directory = dirname($path);
-        if (! is_dir($directory) && ! mkdir($directory, 0777, true) && ! is_dir($directory)) {
-            throw new RuntimeException(sprintf('Failed to create directory: %s', $directory));
-        }
-
-        $xml = <<<XML
+        return $this->writeFile(
+            'records/modifier/engineering_buff_test.xml',
+            <<<XML
             <?xml version="1.0" encoding="UTF-8"?>
             <EntityClassDefinition.{$className} __type="EntityClassDefinition" __ref="{$uuid}" __path="libs/foundry/records/entities/scitem/ships/utility/engineering/engineering_buff_test.xml">
                 <Components>
@@ -237,42 +231,13 @@ final class EngineeringBoostTest extends ScDataTestCase
                     </EntityComponentAttachableModifierParams>
                 </Components>
             </EntityClassDefinition.{$className}>
-            XML;
-
-        file_put_contents($path, trim($xml).PHP_EOL);
-
-        $resolvedPath = realpath($path);
-        if (! is_string($resolvedPath)) {
-            throw new RuntimeException(sprintf('Failed to resolve path: %s', $path));
-        }
-
-        return str_replace('\\', '/', $resolvedPath);
+            XML
+        );
     }
 
     private function writeManufacturerFile(): string
     {
-        $path = $this->tempDir.DIRECTORY_SEPARATOR.'records'.DIRECTORY_SEPARATOR.'scitemmanufacturer'.DIRECTORY_SEPARATOR.'fallback.xml';
-        $directory = dirname($path);
-        if (! is_dir($directory) && ! mkdir($directory, 0777, true) && ! is_dir($directory)) {
-            throw new RuntimeException(sprintf('Failed to create directory: %s', $directory));
-        }
-
-        $xml = <<<'XML'
-            <SCItemManufacturer.FALLBACK Code="FALL" __type="SCItemManufacturer" __ref="11111111-1111-1111-1111-111111111111" __path="libs/foundry/records/scitemmanufacturer/fallback.xml">
-                <Localization Name="@manufacturer_name" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY" __type="SCItemLocalization">
-                    <displayFeatures __type="SCExtendedLocalizationLevelParams" />
-                </Localization>
-            </SCItemManufacturer.FALLBACK>
-            XML;
-
-        file_put_contents($path, trim($xml).PHP_EOL);
-
-        $resolvedPath = realpath($path);
-        if (! is_string($resolvedPath)) {
-            throw new RuntimeException(sprintf('Failed to resolve path: %s', $path));
-        }
-
-        return str_replace('\\', '/', $resolvedPath);
+        return $this->writeFallbackManufacturerFile();
     }
 
     private function writeVehicleEntityWithEngineeringBuff(): string
@@ -280,13 +245,9 @@ final class EngineeringBoostTest extends ScDataTestCase
         $modifierUuid = self::MODIFIER_UUID;
         $manufacturerUuid = self::MANUFACTURER_UUID;
 
-        $path = $this->tempDir.DIRECTORY_SEPARATOR.'records'.DIRECTORY_SEPARATOR.'entity'.DIRECTORY_SEPARATOR.'test_ship_engbuff.xml';
-        $directory = dirname($path);
-        if (! is_dir($directory) && ! mkdir($directory, 0777, true) && ! is_dir($directory)) {
-            throw new RuntimeException(sprintf('Failed to create directory: %s', $directory));
-        }
-
-        $xml = <<<XML
+        return $this->writeFile(
+            'records/entity/test_ship_engbuff.xml',
+            <<<XML
             <?xml version="1.0" encoding="UTF-8"?>
             <VehicleDefinition.TEST_SHIP_ENGBUFF __type="EntityClassDefinition" __ref="ship-engbuff-uuid" __path="libs/foundry/records/entityclassdefinition/test_ship_engbuff.xml">
                 <Components>
@@ -310,22 +271,15 @@ final class EngineeringBoostTest extends ScDataTestCase
                     </SEntityInsuranceProperties>
                 </StaticEntityClassData>
             </VehicleDefinition.TEST_SHIP_ENGBUFF>
-            XML;
-
-        file_put_contents($path, trim($xml).PHP_EOL);
-
-        return $path;
+            XML
+        );
     }
 
     private function writeVehicleEntityFile(): string
     {
-        $path = $this->tempDir.DIRECTORY_SEPARATOR.'records'.DIRECTORY_SEPARATOR.'entity'.DIRECTORY_SEPARATOR.'test_ship_noengbuff.xml';
-        $directory = dirname($path);
-        if (! is_dir($directory) && ! mkdir($directory, 0777, true) && ! is_dir($directory)) {
-            throw new RuntimeException(sprintf('Failed to create directory: %s', $directory));
-        }
-
-        $xml = <<<'XML'
+        return $this->writeFile(
+            'records/entity/test_ship_noengbuff.xml',
+            <<<'XML'
             <?xml version="1.0" encoding="UTF-8"?>
             <VehicleDefinition.TEST_SHIP_NOENGBUFF __type="EntityClassDefinition" __ref="ship-noengbuff-uuid" __path="libs/foundry/records/entityclassdefinition/test_ship_noengbuff.xml">
                 <Components>
@@ -342,51 +296,20 @@ final class EngineeringBoostTest extends ScDataTestCase
                     </SEntityInsuranceProperties>
                 </StaticEntityClassData>
             </VehicleDefinition.TEST_SHIP_NOENGBUFF>
-            XML;
-
-        file_put_contents($path, trim($xml).PHP_EOL);
-
-        return $path;
+            XML
+        );
     }
 
     private function writeVehicleImplementationFile(): string
     {
-        $path = $this->tempDir.DIRECTORY_SEPARATOR.'records'.DIRECTORY_SEPARATOR.'vehicles'.DIRECTORY_SEPARATOR.'test_ship_impl.xml';
-        $directory = dirname($path);
-        if (! is_dir($directory) && ! mkdir($directory, 0777, true) && ! is_dir($directory)) {
-            throw new RuntimeException(sprintf('Failed to create directory: %s', $directory));
-        }
-
-        $xml = <<<'XML'
-            <?xml version="1.0" encoding="UTF-8"?>
-            <Vehicle.TEST_SHIP_IMPL>
-                <Parts>
-                    <Part name="seat_mount" mass="100" damageMax="500">
-                        <ItemPort maxSize="1" minSize="1">
-                            <Types>
-                                <Type type="Seat" subtypes="Pilot" />
-                            </Types>
-                        </ItemPort>
-                    </Part>
-                </Parts>
-            </Vehicle.TEST_SHIP_IMPL>
-            XML;
-
-        file_put_contents($path, trim($xml).PHP_EOL);
-
-        return $path;
+        return $this->writeStandardVehicleImplementationFile();
     }
 
     private function writeLocalizationFile(): void
     {
-        $path = $this->tempDir.DIRECTORY_SEPARATOR.'Data'.DIRECTORY_SEPARATOR.'Localization'.DIRECTORY_SEPARATOR.'english';
-        if (! is_dir($path) && ! mkdir($path, 0777, true) && ! is_dir($path)) {
-            throw new RuntimeException(sprintf('Failed to create directory: %s', $path));
-        }
-
-        file_put_contents(
-            $path.DIRECTORY_SEPARATOR.'global.ini',
-            "manufacturer_name=Fallback Industries\nvehicle_name=Test Ship\nvehicle_description=Test description\nvehicle_career=Combat\nvehicle_role=Patrol\nLOC_EMPTY=\n"
+        $this->writeFile(
+            'Data/Localization/english/global.ini',
+            "manufacturer_name=Fallback Industries\nvehicle_name=Test Ship\nvehicle_description=Test description\nvehicle_career=Combat\nvehicle_role=Patrol\nLOC_EMPTY="
         );
     }
 
@@ -404,12 +327,9 @@ final class EngineeringBoostTest extends ScDataTestCase
         $localizationService = new \Octfx\ScDataDumper\Services\LocalizationService($this->tempDir);
         $localizationService->initialize();
 
-        $factory = new ReflectionClass(ServiceFactory::class);
-        $factory->getProperty('initialized')->setValue(null, true);
-        $factory->getProperty('activeScDataPath')->setValue(null, $this->tempDir);
-
-        $servicesProperty = $factory->getProperty('services');
-        $servicesProperty->setValue(null, [
+        $this->setPrivateProperty(ServiceFactory::class, 'initialized', true);
+        $this->setPrivateProperty(ServiceFactory::class, 'activeScDataPath', $this->tempDir);
+        $this->setPrivateProperty(ServiceFactory::class, 'services', [
             'ManufacturerService' => $manufacturerService,
             'ItemService' => $itemService,
             'LocalizationService' => $localizationService,

@@ -15,8 +15,6 @@ use Octfx\ScDataDumper\Services\LocalizationService;
 use Octfx\ScDataDumper\Services\ManufacturerService;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
-use ReflectionClass;
-use RuntimeException;
 
 final class ShipIntegrationTest extends ScDataTestCase
 {
@@ -274,9 +272,6 @@ final class ShipIntegrationTest extends ScDataTestCase
         self::assertSame(64.0, $result['CargoGrids'][0]['SCU']);
     }
 
-    /**
-     * @throws JsonException
-     */
     private function configureServiceFactory(): void
     {
         $this->writeLocalizationFile();
@@ -293,12 +288,9 @@ final class ShipIntegrationTest extends ScDataTestCase
         $localizationService = new LocalizationService($this->tempDir);
         $localizationService->initialize();
 
-        $factory = new ReflectionClass(ServiceFactory::class);
-        $initializedProperty = $factory->getProperty('initialized');
-        $initializedProperty->setValue(null, true);
-
-        $servicesProperty = $factory->getProperty('services');
-        $servicesProperty->setValue(null, [
+        $this->setPrivateProperty(ServiceFactory::class, 'initialized', true);
+        $this->setPrivateProperty(ServiceFactory::class, 'activeScDataPath', $this->tempDir);
+        $this->setPrivateProperty(ServiceFactory::class, 'services', [
             'InventoryContainerService' => $inventoryContainerService,
             'ManufacturerService' => $manufacturerService,
             'ItemService' => $itemService,
@@ -308,69 +300,29 @@ final class ShipIntegrationTest extends ScDataTestCase
 
     private function writeManufacturerFile(): string
     {
-        $path = $this->tempDir.DIRECTORY_SEPARATOR.'records'.DIRECTORY_SEPARATOR.'scitemmanufacturer'.DIRECTORY_SEPARATOR.'fallback.xml';
-        $directory = dirname($path);
-        if (! is_dir($directory) && ! mkdir($directory, 0777, true) && ! is_dir($directory)) {
-            throw new RuntimeException(sprintf('Failed to create directory: %s', $directory));
-        }
-
-        $xml = <<<'XML'
-            <SCItemManufacturer.FALLBACK Code="FALL" __type="SCItemManufacturer" __ref="11111111-1111-1111-1111-111111111111" __path="libs/foundry/records/scitemmanufacturer/fallback.xml">
-                <Localization Name="@manufacturer_name" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY" __type="SCItemLocalization">
-                    <displayFeatures __type="SCExtendedLocalizationLevelParams" />
-                </Localization>
-            </SCItemManufacturer.FALLBACK>
-            XML;
-
-        file_put_contents($path, trim($xml).PHP_EOL);
-
-        $resolvedPath = realpath($path);
-        if (! is_string($resolvedPath)) {
-            throw new RuntimeException(sprintf('Failed to resolve path: %s', $path));
-        }
-
-        return str_replace('\\', '/', $resolvedPath);
+        return $this->writeFallbackManufacturerFile();
     }
 
     private function writeBanuManufacturerFile(): string
     {
-        $path = $this->tempDir.DIRECTORY_SEPARATOR.'records'.DIRECTORY_SEPARATOR.'scitemmanufacturer'.DIRECTORY_SEPARATOR.'banu.xml';
-        $directory = dirname($path);
-        if (! is_dir($directory) && ! mkdir($directory, 0777, true) && ! is_dir($directory)) {
-            throw new RuntimeException(sprintf('Failed to create directory: %s', $directory));
-        }
-
-        $xml = <<<'XML'
-            <SCItemManufacturer.BANU Code="BANU" __type="SCItemManufacturer" __ref="22222222-2222-2222-2222-222222222222" __path="libs/foundry/records/scitemmanufacturer/banu.xml">
-                <Localization Name="@manufacturer_name_banu" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY" __type="SCItemLocalization">
-                    <displayFeatures __type="SCExtendedLocalizationLevelParams" />
-                </Localization>
-            </SCItemManufacturer.BANU>
-            XML;
-
-        file_put_contents($path, trim($xml).PHP_EOL);
-
-        $resolvedPath = realpath($path);
-        if (! is_string($resolvedPath)) {
-            throw new RuntimeException(sprintf('Failed to resolve path: %s', $path));
-        }
-
-        return str_replace('\\', '/', $resolvedPath);
+        return $this->writeFallbackManufacturerFile(
+            code: 'BANU',
+            uuid: '22222222-2222-2222-2222-222222222222',
+            className: 'BANU',
+            fileName: 'banu.xml',
+            nameKey: '@manufacturer_name_banu',
+        );
     }
 
     private function writeVehicleEntityFile(?string $inventoryContainerRef = null): string
     {
-        $path = $this->tempDir.DIRECTORY_SEPARATOR.'records'.DIRECTORY_SEPARATOR.'entity'.DIRECTORY_SEPARATOR.'test_ship.xml';
-        $directory = dirname($path);
-        if (! is_dir($directory) && ! mkdir($directory, 0777, true) && ! is_dir($directory)) {
-            throw new RuntimeException(sprintf('Failed to create directory: %s', $directory));
-        }
-
         $inventoryContainerAttribute = $inventoryContainerRef !== null
             ? sprintf(' inventoryContainerParams="%s"', $inventoryContainerRef)
             : '';
 
-        $xml = <<<XML
+        return $this->writeFile(
+            'records/entity/test_ship.xml',
+            <<<XML
             <?xml version="1.0" encoding="UTF-8"?>
             <VehicleDefinition.TEST_SHIP __type="EntityClassDefinition" __ref="ship-uuid" __path="libs/foundry/records/entityclassdefinition/test_ship.xml">
                 <Components>
@@ -387,22 +339,15 @@ final class ShipIntegrationTest extends ScDataTestCase
                     </SEntityInsuranceProperties>
                 </StaticEntityClassData>
             </VehicleDefinition.TEST_SHIP>
-            XML;
-
-        file_put_contents($path, trim($xml).PHP_EOL);
-
-        return $path;
+            XML
+        );
     }
 
     private function writeActorVehicleEntityFile(): string
     {
-        $path = $this->tempDir.DIRECTORY_SEPARATOR.'records'.DIRECTORY_SEPARATOR.'entity'.DIRECTORY_SEPARATOR.'actor_ship.xml';
-        $directory = dirname($path);
-        if (! is_dir($directory) && ! mkdir($directory, 0777, true) && ! is_dir($directory)) {
-            throw new RuntimeException(sprintf('Failed to create directory: %s', $directory));
-        }
-
-        $xml = <<<'XML'
+        return $this->writeFile(
+            'records/entity/actor_ship.xml',
+            <<<'XML'
             <?xml version="1.0" encoding="UTF-8"?>
             <VehicleDefinition.ACTOR_SHIP __type="EntityClassDefinition" __ref="actor-ship-uuid" __path="libs/foundry/records/entityclassdefinition/actor_ship.xml">
                 <Components>
@@ -418,39 +363,13 @@ final class ShipIntegrationTest extends ScDataTestCase
                     </SEntityInsuranceProperties>
                 </StaticEntityClassData>
             </VehicleDefinition.ACTOR_SHIP>
-            XML;
-
-        file_put_contents($path, trim($xml).PHP_EOL);
-
-        return $path;
+            XML
+        );
     }
 
     private function writeVehicleImplementationFile(): string
     {
-        $path = $this->tempDir.DIRECTORY_SEPARATOR.'records'.DIRECTORY_SEPARATOR.'vehicles'.DIRECTORY_SEPARATOR.'test_ship_impl.xml';
-        $directory = dirname($path);
-        if (! is_dir($directory) && ! mkdir($directory, 0777, true) && ! is_dir($directory)) {
-            throw new RuntimeException(sprintf('Failed to create directory: %s', $directory));
-        }
-
-        $xml = <<<'XML'
-            <?xml version="1.0" encoding="UTF-8"?>
-            <Vehicle.TEST_SHIP_IMPL>
-                <Parts>
-                    <Part name="seat_mount" mass="100" damageMax="500">
-                        <ItemPort maxSize="1" minSize="1">
-                            <Types>
-                                <Type type="Seat" subtypes="Pilot" />
-                            </Types>
-                        </ItemPort>
-                    </Part>
-                </Parts>
-            </Vehicle.TEST_SHIP_IMPL>
-            XML;
-
-        file_put_contents($path, trim($xml).PHP_EOL);
-
-        return $path;
+        return $this->writeStandardVehicleImplementationFile();
     }
 
     private function writeInventoryContainerFile(
@@ -459,15 +378,11 @@ final class ShipIntegrationTest extends ScDataTestCase
         string $reference = 'cargo-grid-container-uuid',
         array $dimensions = ['x' => 3.75, 'y' => 2.5, 'z' => 3.75]
     ): string {
-        $path = $this->tempDir.DIRECTORY_SEPARATOR.'records'.DIRECTORY_SEPARATOR.'inventorycontainers'.DIRECTORY_SEPARATOR.$fileName;
-        $directory = dirname($path);
-        if (! is_dir($directory) && ! mkdir($directory, 0777, true) && ! is_dir($directory)) {
-            throw new RuntimeException(sprintf('Failed to create directory: %s', $directory));
-        }
-
         $normalizedPath = sprintf('libs/foundry/records/inventorycontainers/%s', $fileName);
 
-        $xml = <<<XML
+        return $this->writeFile(
+            "records/inventorycontainers/{$fileName}",
+            <<<XML
             <InventoryContainer.{$className} __type="InventoryContainer" __ref="{$reference}" __path="{$normalizedPath}">
                 <interiorDimensions x="{$dimensions['x']}" y="{$dimensions['y']}" z="{$dimensions['z']}" />
                 <inventoryType>
@@ -477,23 +392,15 @@ final class ShipIntegrationTest extends ScDataTestCase
                     </InventoryOpenContainerType>
                 </inventoryType>
             </InventoryContainer.{$className}>
-            XML;
-
-        file_put_contents($path, trim($xml).PHP_EOL);
-
-        return $path;
+            XML
+        );
     }
 
     private function writeLocalizationFile(): void
     {
-        $path = $this->tempDir.DIRECTORY_SEPARATOR.'Data'.DIRECTORY_SEPARATOR.'Localization'.DIRECTORY_SEPARATOR.'english';
-        if (! is_dir($path) && ! mkdir($path, 0777, true) && ! is_dir($path)) {
-            throw new RuntimeException(sprintf('Failed to create directory: %s', $path));
-        }
-
-        file_put_contents(
-            $path.DIRECTORY_SEPARATOR.'global.ini',
-            "manufacturer_name=Fallback Industries\nmanufacturer_name_banu=Banu\nvehicle_name=Argo CSV-SM\\n\nvehicle_description=Manufacturer: Fallback Industries\\nFocus: Cargo\\n\\nFast hauler.\nvehicle_career=Combat\nvehicle_role=Light Fighter\nactor_vehicle_name=Argo ATLS IKTI\nactor_vehicle_description=Manufacturer: Banu\\nFocus: Combat\\n\\nHandcrafted by Wikelo.\nLOC_EMPTY=\n"
+        $this->writeFile(
+            'Data/Localization/english/global.ini',
+            "manufacturer_name=Fallback Industries\nmanufacturer_name_banu=Banu\nvehicle_name=Argo CSV-SM\\n\nvehicle_description=Manufacturer: Fallback Industries\\nFocus: Cargo\\n\\nFast hauler.\nvehicle_career=Combat\nvehicle_role=Light Fighter\nactor_vehicle_name=Argo ATLS IKTI\nactor_vehicle_description=Manufacturer: Banu\\nFocus: Combat\\n\\nHandcrafted by Wikelo.\nLOC_EMPTY="
         );
     }
 
@@ -631,19 +538,11 @@ final class ShipIntegrationTest extends ScDataTestCase
      */
     private function writeCacheFilesWithInventoryContainers(string $manufacturerPath, array $inventoryContainers = [], array $extraManufacturers = []): void
     {
-        $uuidToClassMap = [
-            self::MANUFACTURER_UUID => 'FALLBACK',
-        ];
-        $classToUuidMap = [
-            'FALLBACK' => self::MANUFACTURER_UUID,
-        ];
-        $uuidToPathMap = [
-            self::MANUFACTURER_UUID => $manufacturerPath,
-        ];
+        $uuidToClassMap = [self::MANUFACTURER_UUID => 'FALLBACK'];
+        $classToUuidMap = ['FALLBACK' => self::MANUFACTURER_UUID];
+        $uuidToPathMap = [self::MANUFACTURER_UUID => $manufacturerPath];
         $inventoryContainerPaths = [];
-        $manufacturerPaths = [
-            'FALLBACK' => $manufacturerPath,
-        ];
+        $manufacturerPaths = ['FALLBACK' => $manufacturerPath];
 
         foreach ($inventoryContainers as $class => $config) {
             $uuidToClassMap[$config['uuid']] = $class;
@@ -653,33 +552,20 @@ final class ShipIntegrationTest extends ScDataTestCase
         }
 
         foreach ($extraManufacturers as $uuid => $config) {
-            $class = $config['class'];
-            $path = $config['path'];
-
-            $uuidToClassMap[$uuid] = $class;
-            $classToUuidMap[$class] = $uuid;
-            $uuidToPathMap[$uuid] = $path;
-            $manufacturerPaths[$class] = $path;
+            $uuidToClassMap[$uuid] = $config['class'];
+            $classToUuidMap[$config['class']] = $uuid;
+            $uuidToPathMap[$uuid] = $config['path'];
+            $manufacturerPaths[$config['class']] = $config['path'];
         }
 
-        $this->writeCacheFile('classToTypeMap', []);
-        $this->writeCacheFile('classToPathMap', [
-            'EntityClassDefinition' => [],
-            'InventoryContainer' => $inventoryContainerPaths,
-            'CargoGrid' => [],
-            'SCItemManufacturer' => $manufacturerPaths,
-        ]);
-        $this->writeCacheFile('uuidToClassMap', $uuidToClassMap);
-        $this->writeCacheFile('classToUuidMap', $classToUuidMap);
-        $this->writeCacheFile('uuidToPathMap', $uuidToPathMap);
-    }
-
-    /**
-     * @throws JsonException
-     */
-    private function writeCacheFile(string $name, array $payload): void
-    {
-        $path = sprintf('%s%s%s-%s.json', $this->tempDir, DIRECTORY_SEPARATOR, $name, PHP_OS_FAMILY);
-        file_put_contents($path, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->writeCacheFiles(
+            classToPathMap: [
+                'InventoryContainer' => $inventoryContainerPaths,
+                'SCItemManufacturer' => $manufacturerPaths,
+            ],
+            uuidToClassMap: $uuidToClassMap,
+            classToUuidMap: $classToUuidMap,
+            uuidToPathMap: $uuidToPathMap,
+        );
     }
 }

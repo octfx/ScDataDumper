@@ -8,9 +8,7 @@ use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\Formats\ScUnpacked\Item;
 use Octfx\ScDataDumper\Formats\ScUnpacked\WeaponAttachment;
 use Octfx\ScDataDumper\Services\LoadoutFileService;
-use Octfx\ScDataDumper\Services\ServiceFactory;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
-use ReflectionClass;
 
 final class TypedHelperMigrationTest extends ScDataTestCase
 {
@@ -250,10 +248,6 @@ final class TypedHelperMigrationTest extends ScDataTestCase
     {
         $service = new LoadoutFileService($this->tempDir);
         $service->initialize();
-
-        $factory = new ReflectionClass(ServiceFactory::class);
-        $services = $factory->getProperty('services')->getValue();
-        $services['LoadoutFileService'] = $service;
-        $factory->getProperty('services')->setValue(null, $services);
+        $this->addServiceToFactory('LoadoutFileService', $service);
     }
 }

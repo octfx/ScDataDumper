@@ -130,15 +130,4 @@ final class LoadStarmapCommandTest extends ScDataTestCase
         self::assertSame('Refuel Display', $export[0]['Amenities'][0]['DisplayName']);
         self::assertSame('tag-location', $export[0]['LocationHierarchyTag']['Name']);
     }
-
-    /**
-     * @return array<int|string, mixed>
-     */
-    private function readJsonFile(string $relativePath): array
-    {
-        $contents = file_get_contents($this->tempDir.DIRECTORY_SEPARATOR.$relativePath);
-        self::assertNotFalse($contents);
-
-        return json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
-    }
 }

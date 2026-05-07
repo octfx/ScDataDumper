@@ -9,10 +9,13 @@ use Octfx\ScDataDumper\Helper\VehicleWrapper;
 use Octfx\ScDataDumper\Services\Vehicle\EmissionAggregator;
 use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartWalker;
 use Octfx\ScDataDumper\Services\Vehicle\VehicleDataContext;
+use Octfx\ScDataDumper\Tests\Fixtures\BuildsTestItems;
 use PHPUnit\Framework\TestCase;
 
 final class EmissionAggregatorTest extends TestCase
 {
+    use BuildsTestItems;
+
     public function test_multi_powerplant_generation_uses_segment_sharing_formula(): void
     {
         $result = $this->calculateForItems(
@@ -242,24 +245,9 @@ final class EmissionAggregatorTest extends TestCase
         self::assertSame(0.0, $result['power_budgeting']['shields']['remaining_over_budget_segments']);
     }
 
-    /**
-     * @param  array<int, array<string, mixed>>  $items
-     * @param  array<int, array<string, mixed>>  $pools
-     * @return array<string, mixed>
-     */
     private function calculateForItems(array $items, array $pools = []): array
     {
-        $parts = array_map(
-            fn (array $item, int $index): array => [
-                'Name' => "Part {$index}",
-                'Port' => [
-                    'PortName' => "Port {$index}",
-                    'InstalledItem' => $item,
-                ],
-            ],
-            $items,
-            array_keys($items)
-        );
+        $parts = $this->wrapItemsAsParts($items);
 
         $aggregator = new EmissionAggregator(
             new StandardisedPartWalker,
@@ -314,21 +302,5 @@ final class EmissionAggregatorTest extends TestCase
         $entity->initXPath();
 
         return $entity;
-    }
-
-    /**
-     * @param  array<string, mixed>  $stdItem
-     * @param  array<string, mixed>  $extra
-     * @return array<string, mixed>
-     */
-    private function makeItem(string $type, array $stdItem = [], array $extra = []): array
-    {
-        return array_replace_recursive(
-            [
-                'type' => $type,
-                'stdItem' => $stdItem,
-            ],
-            $extra
-        );
     }
 }

@@ -7,11 +7,10 @@ namespace Octfx\ScDataDumper\Tests\Formats\ScUnpacked;
 use Octfx\ScDataDumper\Formats\ScUnpacked\Ship;
 use Octfx\ScDataDumper\Services\Vehicle\SeatingAnalyzer;
 use Octfx\ScDataDumper\Services\Vehicle\VehicleDataContext;
-use PHPUnit\Framework\TestCase;
+use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 use ReflectionClass;
-use ReflectionMethod;
 
-final class ShipLoadoutExportRegressionTest extends TestCase
+final class ShipLoadoutExportRegressionTest extends ScDataTestCase
 {
     public function test_loadout_entry_keeps_semantic_type_and_does_not_export_classifier_fields(): void
     {
@@ -348,9 +347,7 @@ final class ShipLoadoutExportRegressionTest extends TestCase
 
     private function invokeBuildLoadoutEntry(Ship $ship, array $port): ?array
     {
-        $method = new ReflectionMethod(Ship::class, 'buildLoadoutEntry');
-
-        $result = $method->invoke($ship, $port);
+        $result = $this->invokeMethod($ship, 'buildLoadoutEntry', $port);
 
         return is_array($result) ? $result : null;
     }

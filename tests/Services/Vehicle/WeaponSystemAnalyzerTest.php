@@ -7,10 +7,13 @@ namespace Octfx\ScDataDumper\Tests\Services\Vehicle;
 use Illuminate\Support\Collection;
 use Octfx\ScDataDumper\Services\Vehicle\VehicleDataContext;
 use Octfx\ScDataDumper\Services\Vehicle\WeaponSystemAnalyzer;
+use Octfx\ScDataDumper\Tests\Fixtures\BuildsTestItems;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 
 final class WeaponSystemAnalyzerTest extends ScDataTestCase
 {
+    use BuildsTestItems;
+
     public function test_analyze_turrets_includes_part_names_and_recursively_resolves_remote_gun_sizes(): void
     {
         $this->writeCacheFiles();

@@ -10,25 +10,17 @@ use Octfx\ScDataDumper\DocumentTypes\Contract\ContractHandler;
 use Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride\HaulingOrdersValue;
 use Octfx\ScDataDumper\Formats\ScUnpacked\Contract;
 use Octfx\ScDataDumper\Services\FoundryLookupService;
-use Octfx\ScDataDumper\Services\ServiceFactory;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
-use ReflectionMethod;
 
 final class ContractTest extends ScDataTestCase
 {
     private function bootServices(): void
     {
-        $this->initializeMinimalItemServices([
-            'LOC_EMPTY' => '',
-        ]);
+        $this->initializeMinimalItemServices();
 
-        $ref = new \ReflectionClass(ServiceFactory::class);
-        $services = $ref->getProperty('services')->getValue();
-
-        $services['FoundryLookupService'] = new FoundryLookupService($this->tempDir);
-        $services['FoundryLookupService']->initialize();
-
-        $ref->getProperty('services')->setValue(null, $services);
+        $foundryService = new FoundryLookupService($this->tempDir);
+        $foundryService->initialize();
+        $this->addServiceToFactory('FoundryLookupService', $foundryService);
     }
 
     public function test_offset_extracts_hex_refs_from_entry_overrides(): void
@@ -111,7 +103,7 @@ final class ContractTest extends ScDataTestCase
         $contract = new Contract($entry2, $handler2, $record);
 
         $overrides = $this->invokeMethod($contract, 'getAllOverrides');
-        $offset = $this->invokeMethod($contract, 'computeHandlerPropertyBaseOffset', [$overrides]);
+        $offset = $this->invokeMethod($contract, 'computeHandlerPropertyBaseOffset', $overrides);
 
         self::assertNotNull($offset, 'Handler-scoped offset should be computed for handler 2');
 
@@ -158,13 +150,13 @@ final class ContractTest extends ScDataTestCase
         );
 
         $this->writeCacheFiles(
-            uuidToPathMap: [
-                'aaaa0000-0000-0000-0000-000000000001' => $itemPath,
-                'bbbb0000-0000-0000-0000-000000000001' => $missionItemPath,
-            ],
             uuidToClassMap: [
                 'aaaa0000-0000-0000-0000-000000000001' => 'TestItem',
                 'bbbb0000-0000-0000-0000-000000000001' => 'TestMissionItem',
+            ],
+            uuidToPathMap: [
+                'aaaa0000-0000-0000-0000-000000000001' => $itemPath,
+                'bbbb0000-0000-0000-0000-000000000001' => $missionItemPath,
             ],
         );
 
@@ -223,7 +215,7 @@ final class ContractTest extends ScDataTestCase
 
         $contract = new Contract($entry, $handler, $record);
         $overrides = $this->invokeMethod($contract, 'getAllOverrides');
-        $offset = $this->invokeMethod($contract, 'computeHandlerPropertyBaseOffset', [$overrides]);
+        $offset = $this->invokeMethod($contract, 'computeHandlerPropertyBaseOffset', $overrides);
 
         self::assertNull($offset);
     }
@@ -277,12 +269,5 @@ final class ContractTest extends ScDataTestCase
             'Data/Libs/Foundry/Records/contracts/contractgenerator/test_multi.xml',
             $fullXml
         );
-    }
-
-    private function invokeMethod(object $object, string $method, array $args = []): mixed
-    {
-        $ref = new ReflectionMethod($object, $method);
-
-        return $ref->invokeArgs($object, $args);
     }
 }

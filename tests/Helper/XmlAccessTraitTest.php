@@ -6,10 +6,10 @@ use DOMDocument;
 use DOMXPath;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Helper\XmlAccess;
+use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 use Octfx\ScDataDumper\Tests\Fixtures\TestRootDocument;
-use PHPUnit\Framework\TestCase;
 
-class XmlAccessTraitTest extends TestCase
+class XmlAccessTraitTest extends ScDataTestCase
 {
     protected DOMDocument $domDocument;
 
@@ -19,6 +19,8 @@ class XmlAccessTraitTest extends TestCase
 
     protected function setUp(): void
     {
+        parent::setUp();
+
         // Create a test DOMDocument
         $this->domDocument = new DOMDocument;
         $this->domDocument->loadXML('<?xml version="1.0" encoding="UTF-8"?>
@@ -250,28 +252,24 @@ class XmlAccessTraitTest extends TestCase
      */
     public function test_split_x_path_attribute(): void
     {
-        // Use reflection to access the private splitXPathAttribute method
-        $reflection = new \ReflectionClass($this->testInstance);
-        $method = $reflection->getMethod('splitXPathAttribute');
-
         // Test 1: Simple path with attribute
-        $result = $method->invoke($this->testInstance, 'path@attr');
+        $result = $this->invokeMethod($this->testInstance, 'splitXPathAttribute', 'path@attr');
         $this->assertEquals(['path', 'attr'], $result, 'Should split simple path@attr correctly');
 
         // Test 2: Multi-level path with attribute
-        $result = $method->invoke($this->testInstance, 'path/to/element@attr');
+        $result = $this->invokeMethod($this->testInstance, 'splitXPathAttribute', 'path/to/element@attr');
         $this->assertEquals(['path/to/element', 'attr'], $result, 'Should split multi-level path@attr correctly');
 
         // Test 3: Path with predicate (ignores @ inside brackets)
-        $result = $method->invoke($this->testInstance, 'element[@condition]/child@attr');
+        $result = $this->invokeMethod($this->testInstance, 'splitXPathAttribute', 'element[@condition]/child@attr');
         $this->assertEquals(['element[@condition]/child', 'attr'], $result, 'Should ignore @ inside brackets and split correctly');
 
         // Test 4: Path with no attribute
-        $result = $method->invoke($this->testInstance, 'path');
+        $result = $this->invokeMethod($this->testInstance, 'splitXPathAttribute', 'path');
         $this->assertEquals(['path', null], $result, 'Should return path with null attribute when no @ present');
 
         // Test 5: Attribute alone (empty path)
-        $result = $method->invoke($this->testInstance, '@attr');
+        $result = $this->invokeMethod($this->testInstance, 'splitXPathAttribute', '@attr');
         $this->assertEquals(['', 'attr'], $result, 'Should return empty path and attribute when @attr alone');
     }
 

@@ -11,7 +11,6 @@ use Octfx\ScDataDumper\Services\ServiceFactory;
 use Octfx\ScDataDumper\Services\Vehicle\LoadoutBuilder;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 use Octfx\ScDataDumper\Tests\Fixtures\TestRootDocument;
-use ReflectionClass;
 
 final class LoadoutBuilderTest extends ScDataTestCase
 {
@@ -355,11 +354,7 @@ final class LoadoutBuilderTest extends ScDataTestCase
     {
         $service = new LoadoutFileService($this->tempDir);
         $service->initialize();
-
-        $factory = new ReflectionClass(ServiceFactory::class);
-        $services = $factory->getProperty('services')->getValue();
-        $services['LoadoutFileService'] = $service;
-        $factory->getProperty('services')->setValue(null, $services);
+        $this->addServiceToFactory('LoadoutFileService', $service);
     }
 
     /**

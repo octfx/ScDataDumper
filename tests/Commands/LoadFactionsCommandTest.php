@@ -165,15 +165,4 @@ final class LoadFactionsCommandTest extends ScDataTestCase
         self::assertSame('Allied Display', $export['Reputation']['Allied']['Standing']['DisplayName']);
         self::assertSame('Hello Citizen', $export['Reputation']['Properties']['Greeting']);
     }
-
-    /**
-     * @return array<int|string, mixed>
-     */
-    private function readJsonFile(string $relativePath): array
-    {
-        $contents = file_get_contents($this->tempDir.DIRECTORY_SEPARATOR.$relativePath);
-        self::assertNotFalse($contents);
-
-        return json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
-    }
 }

@@ -7,10 +7,13 @@ namespace Octfx\ScDataDumper\Tests\Services\Vehicle;
 use Octfx\ScDataDumper\Services\Vehicle\ResourceAggregator;
 use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartWalker;
 use Octfx\ScDataDumper\Services\Vehicle\VehicleDataContext;
+use Octfx\ScDataDumper\Tests\Fixtures\BuildsTestItems;
 use PHPUnit\Framework\TestCase;
 
 final class ResourceAggregatorTest extends TestCase
 {
+    use BuildsTestItems;
+
     private ResourceAggregator $aggregator;
 
     protected function setUp(): void
@@ -357,19 +360,7 @@ final class ResourceAggregatorTest extends TestCase
      */
     private function calculateForItems(array $items): array
     {
-        $parts = array_map(
-            fn (array $item, int $index): array => [
-                'Name' => "Part {$index}",
-                'Port' => [
-                    'PortName' => "Port {$index}",
-                    'InstalledItem' => $item,
-                ],
-            ],
-            $items,
-            array_keys($items)
-        );
-
-        return $this->calculateForParts($parts);
+        return $this->calculateForParts($this->wrapItemsAsParts($items));
     }
 
     /**

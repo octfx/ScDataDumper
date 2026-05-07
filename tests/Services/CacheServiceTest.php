@@ -8,28 +8,20 @@ use JsonException;
 use Octfx\ScDataDumper\Services\BaseService;
 use Octfx\ScDataDumper\Services\CacheService;
 use Octfx\ScDataDumper\Services\ItemService;
-use PHPUnit\Framework\TestCase;
+use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
-use ReflectionClass;
 use RuntimeException;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use XMLReader;
 
-final class CacheServiceTest extends TestCase
+final class CacheServiceTest extends ScDataTestCase
 {
-    private string $tempDir;
-
     protected function setUp(): void
     {
         parent::setUp();
-
-        $this->tempDir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'sc-data-dumper-cache-test-'.str_replace('.', '', uniqid('', true));
-        if (! mkdir($this->tempDir, 0777, true) && ! is_dir($this->tempDir)) {
-            throw new RuntimeException(sprintf('Failed to create test directory: %s', $this->tempDir));
-        }
 
         $this->resetServiceState();
     }
@@ -37,7 +29,6 @@ final class CacheServiceTest extends TestCase
     protected function tearDown(): void
     {
         $this->resetServiceState();
-        $this->removeDirectory($this->tempDir);
 
         parent::tearDown();
     }
@@ -49,7 +40,7 @@ final class CacheServiceTest extends TestCase
     {
         $className = 'COMP_BEHR_S01_CSR-RP';
         $uuid = 'uuid-hyphen-class-1';
-        $entityPath = $this->writeXmlFile(
+        $entityPath = $this->writeFile(
             'records/entity/hyphenated-item.xml',
             <<<'XML'
                 <EntityClassDefinition.COMP_BEHR_S01_CSR-RP __type="EntityClassDefinition" __ref="uuid-hyphen-class-1" __path="libs/foundry/records/entityclassdefinition/comp_behr_s01_csr-rp.xml">
@@ -92,7 +83,7 @@ final class CacheServiceTest extends TestCase
         $className = 'COMP_BEHR_S01_CSR-RP';
         $uuid = 'uuid-hyphen-class-lookup';
         $declaredPath = 'libs/foundry/records/entityclassdefinition/comp_behr_s01_csr-rp.xml';
-        $entityPath = $this->writeXmlFile(
+        $entityPath = $this->writeFile(
             'records/entity/hyphenated-lookup.xml',
             <<<'XML'
                 <EntityClassDefinition.COMP_BEHR_S01_CSR-RP __type="EntityClassDefinition" __ref="uuid-hyphen-class-lookup" __path="libs/foundry/records/entityclassdefinition/comp_behr_s01_csr-rp.xml">
@@ -116,8 +107,7 @@ final class CacheServiceTest extends TestCase
         $this->assertSame($declaredPath, $resolvedEntity->getPath());
         $this->assertSame($uuid, $service->getUuidByClassName($className));
 
-        $entityPathsProperty = (new ReflectionClass($service))->getProperty('entityPaths');
-        $entityPaths = $entityPathsProperty->getValue($service);
+        $entityPaths = $this->getPrivateProperty($service, 'entityPaths');
         $this->assertSame($entityPath, $entityPaths[$className] ?? null);
     }
 
@@ -128,7 +118,7 @@ final class CacheServiceTest extends TestCase
     {
         $withPathUuid = 'uuid-no-dot-with-path';
         $fallbackUuid = 'uuid-no-dot-fallback';
-        $withPathFile = $this->writeXmlFile(
+        $withPathFile = $this->writeFile(
             'records/no-dot/with-path.xml',
             <<<'XML'
                 <InventoryContainer __type="InventoryContainer" __ref="uuid-no-dot-with-path" __path="libs/foundry/records/inventorycontainer/alpha-grid-item.xml">
@@ -136,7 +126,7 @@ final class CacheServiceTest extends TestCase
                 </InventoryContainer>
                 XML
         );
-        $fallbackFile = $this->writeXmlFile(
+        $fallbackFile = $this->writeFile(
             'records/no-dot/fallback-item.xml',
             <<<'XML'
                 <InventoryContainer __type="InventoryContainer" __ref="uuid-no-dot-fallback">
@@ -171,7 +161,7 @@ final class CacheServiceTest extends TestCase
     {
         $firstUuid = 'uuid-collision-first';
         $secondUuid = 'uuid-collision-second';
-        $firstPath = $this->writeXmlFile(
+        $firstPath = $this->writeFile(
             'records/collision/first.xml',
             <<<'XML'
                 <InventoryContainer __type="InventoryContainer" __ref="uuid-collision-first" __path="libs/foundry/records/inventorycontainer/collision-grid.xml">
@@ -179,7 +169,7 @@ final class CacheServiceTest extends TestCase
                 </InventoryContainer>
                 XML
         );
-        $secondPath = $this->writeXmlFile(
+        $secondPath = $this->writeFile(
             'records/collision/second.xml',
             <<<'XML'
                 <InventoryContainer __type="InventoryContainer" __ref="uuid-collision-second" __path="libs/foundry/records/inventorycontainer/collision-grid.xml">
@@ -217,7 +207,7 @@ final class CacheServiceTest extends TestCase
     {
         $entityClassName = 'COMP_MISC_MINER';
         $entityUuid = 'uuid-entity-metadata-1';
-        $entityPath = $this->writeXmlFile(
+        $entityPath = $this->writeFile(
             'records/entity/mineable.xml',
             <<<'XML'
                 <EntityClassDefinition.COMP_MISC_MINER __type="EntityClassDefinition" __ref="uuid-entity-metadata-1" __path="libs/foundry/records/entityclassdefinition/comp_misc_miner.xml">
@@ -230,7 +220,7 @@ final class CacheServiceTest extends TestCase
                 XML
         );
 
-        $this->writeXmlFile(
+        $this->writeFile(
             'records/resource/resource.xml',
             <<<'XML'
                 <ResourceType.Carinite __type="ResourceType" __ref="uuid-resource-metadata-1" __path="libs/foundry/records/resourcetypedatabase/carinite.xml" />
@@ -248,24 +238,6 @@ final class CacheServiceTest extends TestCase
             'sub_type' => 'Mineable',
         ], $entityMetadataMap[$entityClassName] ?? null);
         $this->assertCount(1, $entityMetadataMap);
-    }
-
-    private function writeXmlFile(string $relativePath, string $contents): string
-    {
-        $fullPath = $this->tempDir.DIRECTORY_SEPARATOR.$relativePath;
-        $directory = dirname($fullPath);
-        if (! is_dir($directory) && ! mkdir($directory, 0777, true) && ! is_dir($directory)) {
-            throw new RuntimeException(sprintf('Failed to create directory: %s', $directory));
-        }
-
-        file_put_contents($fullPath, trim($contents).PHP_EOL);
-
-        $realPath = realpath($fullPath);
-        if (! is_string($realPath)) {
-            throw new RuntimeException(sprintf('Failed to resolve real path for: %s', $fullPath));
-        }
-
-        return str_replace('\\', '/', $realPath);
     }
 
     private function generateCacheFiles(?BufferedOutput $output = null): void
@@ -366,37 +338,13 @@ final class CacheServiceTest extends TestCase
 
     private function resetServiceState(): void
     {
-        $baseService = new ReflectionClass(BaseService::class);
-        foreach (['uuidToPathMap', 'uuidToClassMap', 'classToUuidMap', 'classToPathMap', 'entityMetadataMap'] as $propertyName) {
-            $property = $baseService->getProperty($propertyName);
-            $property->setValue(null, []);
-        }
-        $baseService->getProperty('entityMetadataMapLoaded')->setValue(null, false);
+        $this->setPrivateProperty(BaseService::class, 'uuidToPathMap', []);
+        $this->setPrivateProperty(BaseService::class, 'uuidToClassMap', []);
+        $this->setPrivateProperty(BaseService::class, 'classToUuidMap', []);
+        $this->setPrivateProperty(BaseService::class, 'classToPathMap', []);
+        $this->setPrivateProperty(BaseService::class, 'entityMetadataMap', []);
+        $this->setPrivateProperty(BaseService::class, 'entityMetadataMapLoaded', false);
 
-        $itemService = new ReflectionClass(ItemService::class);
-        $documentCache = $itemService->getProperty('documentCache');
-        $documentCache->setValue(null, []);
-    }
-
-    private function removeDirectory(string $directory): void
-    {
-        if (! is_dir($directory)) {
-            return;
-        }
-
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($directory, RecursiveDirectoryIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::CHILD_FIRST
-        );
-
-        foreach ($iterator as $item) {
-            if ($item->isDir()) {
-                rmdir($item->getPathname());
-            } else {
-                unlink($item->getPathname());
-            }
-        }
-
-        rmdir($directory);
+        $this->setPrivateProperty(ItemService::class, 'documentCache', []);
     }
 }

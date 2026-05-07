@@ -42,15 +42,51 @@ final class LoadTagsCommandTest extends ScDataTestCase
         ], $this->readJsonFile('tags.json'));
     }
 
-    /**
-     * @return array<string, string>
-     */
-    private function readJsonFile(string $relativePath): array
+    public function test_execute_handles_empty_tag_database(): void
     {
-        $contents = file_get_contents($this->tempDir.DIRECTORY_SEPARATOR.$relativePath);
-        self::assertNotFalse($contents);
+        $this->writeCacheFiles();
+        file_put_contents($this->getCachePath(), json_encode([], JSON_THROW_ON_ERROR));
 
-        return json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
+        $tester = new CommandTester(new LoadTags);
+        $exitCode = $tester->execute([
+            'scDataPath' => $this->tempDir,
+            'jsonOutPath' => $this->tempDir,
+        ]);
+
+        self::assertSame(0, $exitCode);
+        self::assertSame([], $this->readJsonFile('tags.json'));
+    }
+
+    public function test_execute_skips_tags_with_empty_names(): void
+    {
+        $this->writeCacheFiles();
+        file_put_contents(
+            $this->getCachePath(),
+            json_encode([
+                'uuid-empty' => [
+                    'name' => '',
+                    'legacyGUID' => '4294967295',
+                    'children' => [],
+                ],
+                'uuid-valid' => [
+                    'name' => 'ValidTag',
+                    'legacyGUID' => '7',
+                    'children' => [],
+                ],
+            ], JSON_THROW_ON_ERROR)
+        );
+
+        $tester = new CommandTester(new LoadTags);
+        $exitCode = $tester->execute([
+            'scDataPath' => $this->tempDir,
+            'jsonOutPath' => $this->tempDir,
+        ]);
+
+        self::assertSame(0, $exitCode);
+        $result = $this->readJsonFile('tags.json');
+        // The command does not filter empty-name tags — they pass through as-is
+        self::assertSame('', $result['uuid-empty']);
+        self::assertSame('ValidTag', $result['uuid-valid']);
     }
 
     private function getCachePath(): string

@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Tests\Commands;
 
 use Octfx\ScDataDumper\Commands\LoadManufacturers;
+use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\TestCase;
-use ReflectionMethod;
 
-final class LoadManufacturersTest extends TestCase
+final class LoadManufacturersTest extends ScDataTestCase
 {
     private LoadManufacturers $command;
 
@@ -92,9 +91,7 @@ final class LoadManufacturersTest extends TestCase
      */
     private function invokeBuildManufacturerExportEntry(array $manufacturerArray): array
     {
-        $method = new ReflectionMethod(LoadManufacturers::class, 'buildManufacturerExportEntry');
-
-        $result = $method->invoke($this->command, $manufacturerArray);
+        $result = $this->invokeMethod($this->command, 'buildManufacturerExportEntry', $manufacturerArray);
         self::assertIsArray($result);
 
         return $result;
