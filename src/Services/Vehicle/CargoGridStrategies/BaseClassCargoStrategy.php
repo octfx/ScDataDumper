@@ -81,5 +81,4 @@ final class BaseClassCargoStrategy implements CargoGridStrategyInterface
             }
         }
     }
-
 }

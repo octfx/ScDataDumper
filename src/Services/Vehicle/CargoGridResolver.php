@@ -22,12 +22,12 @@ use Octfx\ScDataDumper\ValueObjects\CargoGridResult;
  *
  * Strategy execution order:
  * 1. LoadoutCargoGridStrategy - Extract from vehicle loadout (primary)
- * 2. ResourceContainerCargoStrategy - ResourceContainer-based cargo
- * 3. ConventionBasedCargoStrategy - Convention-based class names
- * 4. PrefixBasedCargoStrategy - Vehicle prefix search
- * 5. BaseClassCargoStrategy - Base implementation class prefix
- * 6. VehicleComponentCargoStrategy - Direct vehicle component inventory
- * 7. FallbackCargoStrategy - Hardcoded cargo values (last resort)
+ * 2. ConventionBasedCargoStrategy - Convention-based class names
+ * 3. PrefixBasedCargoStrategy - Vehicle prefix search
+ * 4. BaseClassCargoStrategy - Base implementation class prefix
+ * 5. VehicleComponentCargoStrategy - Direct vehicle component inventory
+ * 6. FallbackCargoStrategy - Hardcoded cargo values (last resort)
+ * 7. ResourceContainerCargoStrategy - Ore pod capacity (always runs, independent)
  */
 final class CargoGridResolver
 {
@@ -39,7 +39,6 @@ final class CargoGridResolver
         // executed in order
         $this->strategies = [
             new LoadoutCargoGridStrategy,
-            new ResourceContainerCargoStrategy,
             new ConventionBasedCargoStrategy,
             new PrefixBasedCargoStrategy,
             new BaseClassCargoStrategy,
@@ -68,6 +67,9 @@ final class CargoGridResolver
                 break;
             }
         }
+
+        // Always run — ore pods are independent of cargo grids
+        (new ResourceContainerCargoStrategy)->resolve($vehicle, $result);
 
         $this->finalizeCargo($result);
 

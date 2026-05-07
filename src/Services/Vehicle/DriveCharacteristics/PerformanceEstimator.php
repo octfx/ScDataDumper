@@ -40,7 +40,7 @@ final readonly class PerformanceEstimator
 
         $result = [];
 
-        if (!empty($speedMetrics)) {
+        if (! empty($speedMetrics)) {
             $result['Speed'] = $speedMetrics;
         }
 
@@ -54,7 +54,6 @@ final readonly class PerformanceEstimator
 
         return $result;
     }
-
 
     /**
      * Calculate speed metrics based on vehicle type
@@ -237,7 +236,7 @@ final readonly class PerformanceEstimator
      */
     private function extractEngineData(?array $movementData): ?array
     {
-        if ($movementData === null || !isset($movementData['Movement']['PhysicalWheeled']['PhysicsParams'])) {
+        if ($movementData === null || ! isset($movementData['Movement']['PhysicalWheeled']['PhysicsParams'])) {
             return null;
         }
 
@@ -248,12 +247,12 @@ final readonly class PerformanceEstimator
             'RPMMax' => $this->coerceNumeric($physicsParams['Engine']['RPMmax'] ?? null),
             'RPMIdle' => $this->coerceNumeric($physicsParams['Engine']['RPMidle'] ?? null),
             'TorqueScale' => $this->coerceNumeric($physicsParams['Engine']['TorqueScale'] ?? null),
-        ], static fn($v) => $v !== null);
+        ], static fn ($v) => $v !== null);
 
         $gears = $physicsParams['Gears'] ?? null;
         if (is_array($gears)) {
             $gearSection = $this->extractGears($gears);
-            if (!empty($gearSection)) {
+            if (! empty($gearSection)) {
                 $engine['Gears'] = $gearSection;
             }
         }

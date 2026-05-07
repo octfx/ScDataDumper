@@ -195,7 +195,7 @@ trait DetectsSiblingVariantGrids
 
             $loadoutParts = array_filter(explode('_', $loadoutSuffix));
 
-            if (array_any($loadoutParts, fn($loadoutPart) => strtolower($loadoutPart) === $partLower)) {
+            if (array_any($loadoutParts, fn ($loadoutPart) => strtolower($loadoutPart) === $partLower)) {
                 return true;
             }
         }

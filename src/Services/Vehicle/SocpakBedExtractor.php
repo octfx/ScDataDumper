@@ -9,20 +9,17 @@ use DOMElement;
 use DOMXPath;
 use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\VehicleDefinition;
-use ZipArchive;
+use Octfx\ScDataDumper\Services\DataDumper\SocpakReader;
 
 final class SocpakBedExtractor
 {
     private const string BED_TYPE_PREFIX = 'Bed_';
 
-    /** @var array<string, list<string>> */
-    private array $dirCache = [];
-
     /** @var array<string, list<array{ClassName: string, InstanceName: string, Section: string, Layer: string|null}>> */
     private array $socpakBedCache = [];
 
     public function __construct(
-        private readonly ?string $scDataPath,
+        private readonly SocpakReader $reader,
     ) {}
 
     /**
@@ -32,10 +29,6 @@ final class SocpakBedExtractor
      */
     public function extractBeds(VehicleDefinition $entity): array
     {
-        if ($this->scDataPath === null) {
-            return [];
-        }
-
         $ocRefs = $entity->getAll('Components/VehicleComponentParams/objectContainers/SVehicleObjectContainerParams');
 
         if ($ocRefs === []) {
@@ -56,7 +49,7 @@ final class SocpakBedExtractor
                 continue;
             }
 
-            $socpakPath = $this->resolveSocpakPath((string) $fileName);
+            $socpakPath = $this->reader->resolveSocpakPath((string) $fileName);
 
             if ($socpakPath === null) {
                 continue;
@@ -80,7 +73,7 @@ final class SocpakBedExtractor
             return array_map(static fn (array $bed) => [...$bed, 'Section' => $section], $cached);
         }
 
-        $editorXml = $this->extractEditorXml($socpakPath);
+        $editorXml = $this->reader->extractEditorXml($socpakPath);
 
         if ($editorXml === null) {
             return $this->socpakBedCache[$socpakPath] = [];
@@ -120,31 +113,6 @@ final class SocpakBedExtractor
         return $beds;
     }
 
-    private function extractEditorXml(string $socpakPath): ?string
-    {
-        $zip = new ZipArchive;
-
-        if ($zip->open($socpakPath) !== true) {
-            return null;
-        }
-
-        $editorXml = null;
-
-        for ($i = 0; $i < $zip->numFiles; $i++) {
-            $stat = $zip->statIndex($i);
-            $entryName = str_replace('\\', '/', $stat['name']);
-
-            if (str_ends_with($entryName, '_editor.xml')) {
-                $editorXml = $zip->getFromIndex($i);
-                break;
-            }
-        }
-
-        $zip->close();
-
-        return $editorXml !== false ? $editorXml : null;
-    }
-
     private function findParentLayerName(DOMElement $node): ?string
     {
         $parent = $node->parentNode;
@@ -160,70 +128,5 @@ final class SocpakBedExtractor
         }
 
         return null;
-    }
-
-    private function resolveSocpakPath(string $relativePath): ?string
-    {
-        $normalized = str_replace('\\', '/', $relativePath);
-        $normalized = ltrim($normalized, '/');
-        $normalized = strtolower($normalized);
-
-        $dataDir = $this->scDataPath.DIRECTORY_SEPARATOR.'Data';
-
-        $parts = explode('/', $normalized);
-        $currentDir = $dataDir;
-
-        foreach ($parts as $i => $part) {
-            $isLast = $i === count($parts) - 1;
-
-            if ($isLast) {
-                $resolved = $this->findFileInDir($part, $currentDir);
-
-                return $resolved !== null
-                    ? $currentDir.DIRECTORY_SEPARATOR.$resolved
-                    : null;
-            }
-
-            $resolved = $this->findDirInDir($part, $currentDir);
-
-            if ($resolved === null) {
-                return null;
-            }
-
-            $currentDir .= DIRECTORY_SEPARATOR.$resolved;
-        }
-
-        return null;
-    }
-
-    private function findFileInDir(string $lowerName, string $dir): ?string
-    {
-        $entries = $this->scanDir($dir);
-        $lower = strtolower($lowerName);
-
-        return array_find($entries, fn ($entry) => strtolower($entry) === $lower && ! is_dir($dir.DIRECTORY_SEPARATOR.$entry));
-    }
-
-    private function findDirInDir(string $lowerName, string $dir): ?string
-    {
-        $entries = $this->scanDir($dir);
-        $lower = strtolower($lowerName);
-
-        return array_find($entries, fn ($entry) => strtolower($entry) === $lower && is_dir($dir.DIRECTORY_SEPARATOR.$entry));
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function scanDir(string $dir): array
-    {
-        if (! isset($this->dirCache[$dir])) {
-            $entries = @scandir($dir);
-            $this->dirCache[$dir] = $entries !== false
-                ? array_values(array_diff($entries, ['.', '..']))
-                : [];
-        }
-
-        return $this->dirCache[$dir];
     }
 }

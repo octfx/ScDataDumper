@@ -7,6 +7,7 @@ namespace Octfx\ScDataDumper\Commands;
 use Exception;
 use Octfx\ScDataDumper\Services\CacheService;
 use Octfx\ScDataDumper\Services\DataDumper\Game2ExtractorService;
+use Octfx\ScDataDumper\Services\DataDumper\SocpakReader;
 use Octfx\ScDataDumper\Services\Resource\SocpakMappingGenerator;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -129,7 +130,8 @@ class GenerateCache extends Command
         }
 
         $io->section('Generating socpak mapping');
-        $mappingGenerator = new SocpakMappingGenerator($input->getArgument('path'));
+        $mappingGenerator = new SocpakMappingGenerator($input->getArgument('path'), new SocpakReader($input->getArgument('path')));
+        $mappingGenerator->initialize();
         $mappingGenerator->generate();
         $io->success('Generated socpak mapping');
     }

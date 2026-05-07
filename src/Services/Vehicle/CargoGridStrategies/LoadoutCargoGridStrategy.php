@@ -310,13 +310,13 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
                 }
 
                 // Recurse into sub-entries
-                if (!empty($entry['entries']) && is_array($entry['entries']) && $walker($entry['entries'])) {
+                if (! empty($entry['entries']) && is_array($entry['entries']) && $walker($entry['entries'])) {
                     return true;
                 }
 
                 // Also check manual loadout entries
                 $manualEntries = Arr::get($entry, 'ItemRaw.Components.SEntityComponentDefaultLoadoutParams.loadout.SItemPortLoadoutManualParams.entries', []);
-                if (!empty($manualEntries) && is_array($manualEntries) && $walker($manualEntries)) {
+                if (! empty($manualEntries) && is_array($manualEntries) && $walker($manualEntries)) {
                     return true;
                 }
             }

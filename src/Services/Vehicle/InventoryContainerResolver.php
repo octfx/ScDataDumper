@@ -5,6 +5,7 @@ namespace Octfx\ScDataDumper\Services\Vehicle;
 use Illuminate\Support\Arr;
 use Octfx\ScDataDumper\DocumentTypes\InventoryContainer;
 use Octfx\ScDataDumper\Helper\VehicleWrapper;
+use Octfx\ScDataDumper\Services\DataDumper\SocpakReader;
 use Octfx\ScDataDumper\Services\InventoryContainerService;
 use Octfx\ScDataDumper\Services\ItemClassifierService;
 use Octfx\ScDataDumper\Services\ServiceFactory;
@@ -13,13 +14,17 @@ use Octfx\ScDataDumper\ValueObjects\ScuCalculator;
 
 final class InventoryContainerResolver
 {
+    public function __construct(
+        private readonly ?SocpakPersonalStorageExtractor $psExtractor = null,
+    ) {}
+
     public function resolveInventoryContainers(VehicleWrapper $vehicle): InventoryContainerResult
     {
         $result = new InventoryContainerResult;
         $inventoryService = ServiceFactory::getInventoryContainerService();
         $classifier = new ItemClassifierService;
 
-        $this->addVehicleContainer($vehicle, $inventoryService, $result);
+        $vehicleContainerUuid = $this->addVehicleContainer($vehicle, $inventoryService, $result);
 
         foreach ($this->collectLoadoutContainers($vehicle->loadout) as $entry) {
             $itemRaw = $entry['itemRaw'] ?? null;
@@ -37,6 +42,12 @@ final class InventoryContainerResolver
                 continue;
             }
 
+            // Skip loadout items whose container UUID matches the vehicle container
+            // (prevents double-counting, e.g. Gladius SeatAccess referencing vehicle template)
+            if ($vehicleContainerUuid !== null && $key === $vehicleContainerUuid) {
+                continue;
+            }
+
             $containerData['source'] = 'loadout';
 
             if (! empty($entry['portName'])) {
@@ -50,11 +61,49 @@ final class InventoryContainerResolver
             // Scope the dedup key to the hardpoint so the same container document
             // instantiated on multiple ports is counted once per port, not once globally.
             $dedupKey = ($entry['portName'] ?? null) !== null
-                ? $entry['portName'] . ':' . $key
+                ? $entry['portName'].':'.$key
                 : $key;
 
             $result->addContainer($containerData, $dedupKey, $isClosed);
         }
+
+        // Extract PersonalStorage items from socpak interior files
+        $psExtractor = $this->psExtractor ?? new SocpakPersonalStorageExtractor(
+            new SocpakReader(ServiceFactory::getActiveScDataPath()),
+            ServiceFactory::getItemService(),
+        );
+
+        foreach ($psExtractor->extractPersonalStorage($vehicle->entity) as $psItem) {
+            $scu = $psItem['SCU'] ?? 0;
+
+            if ($scu <= 0) {
+                continue;
+            }
+
+            $containerData = [
+                'uuid' => $psItem['ContainerUUID'],
+                'class' => $psItem['ClassName'],
+                'scu' => $scu,
+                'capacity' => $scu,
+                'capacity_name' => 'SCU',
+                'x' => null,
+                'y' => null,
+                'z' => null,
+                'isOpenContainer' => false,
+                'isExternalContainer' => false,
+                'isClosedContainer' => true,
+                'source' => 'socpak',
+            ];
+
+            // Each PersonalStorage instance in a socpak is a unique physical locker.
+            // Dedup by instance name to avoid counting the same physical locker twice.
+            $dedupKey = 'socpak:'.$psItem['InstanceName'];
+
+            // true = isClosedContainer; PersonalStorage lockers are always closed containers
+            $result->addContainer($containerData, $dedupKey, true);
+        }
+
+        $vehicleContainerUuid = null;
 
         return $result;
     }
@@ -63,22 +112,24 @@ final class InventoryContainerResolver
         VehicleWrapper $vehicle,
         InventoryContainerService $inventoryService,
         InventoryContainerResult $result
-    ): void {
+    ): ?string {
         $container = $vehicle->entity->getInventoryContainer();
         if (! $container) {
-            return;
+            return null;
         }
 
         $containerData = $this->formatContainer($container);
         // Ship_TempItemCarryingCapacity_* containers are physics-based loose-item
         // carrying volumes, not personal storage. Exclude them from stowage.
         if (str_contains(strtolower($container->getClassName()), 'tempitemcarryingcapacity')) {
-            return;
+            return null;
         }
 
         $containerData['source'] = 'vehicle';
 
         $result->addContainer($containerData, $container->getUuid(), $container->isClosedContainer());
+
+        return $container->getUuid();
     }
 
     private function collectLoadoutContainers(array $entries): array
@@ -90,7 +141,7 @@ final class InventoryContainerResolver
                 continue;
             }
 
-            $results = array_merge($results, $this->extractLoadoutContainerEntry($entry));
+            array_push($results, ...$this->extractLoadoutContainerEntry($entry));
         }
 
         return $results;
@@ -115,7 +166,7 @@ final class InventoryContainerResolver
                     continue;
                 }
 
-                $results = array_merge($results, $this->extractLoadoutContainerEntry($child));
+                array_push($results, ...$this->extractLoadoutContainerEntry($child));
             }
         }
 

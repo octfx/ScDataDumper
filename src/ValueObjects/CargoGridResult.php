@@ -15,6 +15,9 @@ final class CargoGridResult
     /** @var float Total cargo capacity in SCU */
     public float $totalCapacity = 0;
 
+    /** @var float Ore pod capacity in SCU (mining ships only, tracked separately from cargo) */
+    public float $oreCapacity = 0;
+
     /** @var Collection<int, array> Standardised cargo grid data */
     public Collection $grids;
 
@@ -96,6 +99,19 @@ final class CargoGridResult
     public function addCapacity(float $capacity): void
     {
         $this->totalCapacity += $capacity;
+    }
+
+    /**
+     * Add ore pod capacity (tracked separately from regular cargo)
+     *
+     * Ore pods are mining-specific containers with restricted resources.
+     * They should not be included in the general cargo total.
+     *
+     * @param  float  $capacity  The ore capacity to add in SCU
+     */
+    public function addOreCapacity(float $capacity): void
+    {
+        $this->oreCapacity += $capacity;
     }
 
     /**

@@ -146,7 +146,7 @@ final class DriveCharacteristicsCalculator
             if (isset($wheelAggregates['Friction']['MinFrictionAverage'])) {
                 $friction['MinAverage'] = $wheelAggregates['Friction']['MinFrictionAverage'];
             }
-            if (!empty($friction)) {
+            if (! empty($friction)) {
                 $wheels['Friction'] = $friction;
             }
         }
@@ -165,7 +165,7 @@ final class DriveCharacteristicsCalculator
             if (isset($wheelAggregates['Suspension']['MaxExtensionMeters'])) {
                 $suspension['MaxExtensionMeters'] = $wheelAggregates['Suspension']['MaxExtensionMeters'];
             }
-            if (!empty($suspension)) {
+            if (! empty($suspension)) {
                 $wheels['Suspension'] = $suspension;
             }
         }

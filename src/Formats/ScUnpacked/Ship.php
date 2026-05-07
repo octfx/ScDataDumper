@@ -8,6 +8,7 @@ use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 use Octfx\ScDataDumper\Helper\ItemDescriptionParser;
 use Octfx\ScDataDumper\Helper\VehicleWrapper;
+use Octfx\ScDataDumper\Services\DataDumper\SocpakReader;
 use Octfx\ScDataDumper\Services\ItemClassifierService;
 use Octfx\ScDataDumper\Services\PortClassifierService;
 use Octfx\ScDataDumper\Services\ServiceFactory;
@@ -25,9 +26,9 @@ use Octfx\ScDataDumper\Services\Vehicle\QuantumTravelCalculator;
 use Octfx\ScDataDumper\Services\Vehicle\ResourceAggregator;
 use Octfx\ScDataDumper\Services\Vehicle\SeatingAnalyzer;
 use Octfx\ScDataDumper\Services\Vehicle\SocpakBedExtractor;
+use Octfx\ScDataDumper\Services\Vehicle\StanceSpeedExtractor;
 use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartBuilder;
 use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartWalker;
-use Octfx\ScDataDumper\Services\Vehicle\StanceSpeedExtractor;
 use Octfx\ScDataDumper\Services\Vehicle\TurretControlMapper;
 use Octfx\ScDataDumper\Services\Vehicle\VehicleDataContext;
 use Octfx\ScDataDumper\Services\Vehicle\VehicleDataOrchestrator;
@@ -268,7 +269,7 @@ final class Ship extends BaseFormat
             new WeaponDpsAggregator($walker),
             new WeaponSystemAnalyzer,
             new SeatingAnalyzer(
-                bedExtractor: new SocpakBedExtractor(ServiceFactory::getActiveScDataPath()),
+                bedExtractor: new SocpakBedExtractor(new SocpakReader(ServiceFactory::getActiveScDataPath())),
                 itemService: ServiceFactory::getItemService(),
             ),
             new DriveCharacteristicsVehicleCalculator(
@@ -364,6 +365,9 @@ final class Ship extends BaseFormat
         $cargoResult = $this->cargoGridResolver->resolveCargoGrids($this->vehicleWrapper);
 
         $summary['Cargo'] = $cargoResult->totalCapacity;
+        if ($cargoResult->oreCapacity > 0) {
+            $summary['OreCapacity'] = round($cargoResult->oreCapacity, 2);
+        }
         $summary['CargoGrids'] = $cargoResult->grids->map(function ($grid) {
             return $this->transformArrayKeysToPascalCase($grid);
         });

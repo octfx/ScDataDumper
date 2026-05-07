@@ -28,7 +28,7 @@ final class ResourceContainerCargoStrategy implements CargoGridStrategyInterface
             ->sum(fn ($x) => Arr::get($x, 'ItemRaw.Components.ResourceContainer.capacity.SStandardCargoUnit.standardCargoUnits', 0));
 
         if ($resourceContainerCapacity > 0) {
-            $result->addCapacity($resourceContainerCapacity);
+            $result->addOreCapacity($resourceContainerCapacity);
         }
     }
 }

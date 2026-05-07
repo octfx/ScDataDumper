@@ -8,9 +8,11 @@ use DOMDocument;
 use DOMElement;
 use DOMXPath;
 use JsonException;
+use Octfx\ScDataDumper\Services\BaseService;
+use Octfx\ScDataDumper\Services\DataDumper\SocpakReader;
 use ZipArchive;
 
-final class SocpakMappingGenerator
+final class SocpakMappingGenerator extends BaseService
 {
     private const array EXCLUDED_CHILD_SUFFIXES = [
         '_station_lghts.socpak',
@@ -35,18 +37,20 @@ final class SocpakMappingGenerator
 
     private const string OBJECTCONTAINERS_PATTERN = '#^Data/objectcontainers/#i';
 
-    /** @var array<string, array<string, true>> */
-    private array $dirFileCache = [];
-
     /** @var array<string, true>|null */
     private ?array $hppUuidSet = null;
 
-    /** @var array<string, array{hppUuid: string|null, xml: string|null}> */
-    private array $socpakCache = [];
-
+    /**
+     * @throws JsonException
+     */
     public function __construct(
-        private readonly string $scDataPath,
-    ) {}
+        string $scDataDir,
+        private readonly SocpakReader $reader,
+    ) {
+        parent::__construct($scDataDir);
+    }
+
+    public function initialize(): void {}
 
     /**
      * @throws JsonException
@@ -54,7 +58,7 @@ final class SocpakMappingGenerator
     public function generate(): void
     {
         $baseDir = implode(DIRECTORY_SEPARATOR, [
-            $this->scDataPath,
+            $this->scDataDir,
             'Data',
             'ObjectContainers',
             'PU',
@@ -68,8 +72,6 @@ final class SocpakMappingGenerator
         $mappings = [];
         $parentMappings = [];
         $pinnedUuids = [];
-        $uuidToClassMap = $this->loadUuidToClassMap();
-        $this->loadHppUuidSet();
 
         $queue = [];
         $processed = [];
@@ -77,9 +79,9 @@ final class SocpakMappingGenerator
 
         $this->seedFromLagrangePoints($baseDir, $queue, $processed, $pinnedSocpaks);
         $this->seedFromManualMapping($baseDir, $queue, $processed, $pinnedSocpaks);
-        $this->seedFromSystemSocpaks($baseDir, $uuidToClassMap, $queue, $processed, $pinnedSocpaks, $parentMappings);
+        $this->seedFromSystemSocpaks($baseDir, $queue, $processed, $pinnedSocpaks, $parentMappings);
 
-        $this->walkQueue($queue, $processed, $uuidToClassMap, $mappings, $pinnedUuids, $parentMappings);
+        $this->walkQueue($queue, $processed, $mappings, $pinnedUuids, $parentMappings);
 
         $parentMappings = array_merge($parentMappings, self::PARENT_OVERRIDES);
         $parentMappings = array_filter($parentMappings, fn (string $parent, string $child) => $parent !== $child, ARRAY_FILTER_USE_BOTH);
@@ -89,24 +91,22 @@ final class SocpakMappingGenerator
         }
 
         file_put_contents(
-            $this->scDataPath.DIRECTORY_SEPARATOR.'socpak_mappings.json',
+            $this->scDataDir.DIRECTORY_SEPARATOR.'socpak_mappings.json',
             json_encode($mappings, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
         );
 
         file_put_contents(
-            $this->scDataPath.DIRECTORY_SEPARATOR.'socpak_parent_mappings.json',
+            $this->scDataDir.DIRECTORY_SEPARATOR.'socpak_parent_mappings.json',
             json_encode($parentMappings, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
         );
 
-        $this->generateCaveMappings($baseDir, $uuidToClassMap);
+        $this->generateCaveMappings($baseDir);
     }
 
     /**
-     * @param  array<string, string>  $uuidToClassMap
-     *
      * @throws JsonException
      */
-    private function generateCaveMappings(string $baseDir, array $uuidToClassMap): void
+    private function generateCaveMappings(string $baseDir): void
     {
         $caveMappings = [];
 
@@ -125,7 +125,7 @@ final class SocpakMappingGenerator
             }
 
             foreach ($socpaks as $socpakPath) {
-                $xml = $this->extractXmlFromSocpakCached($socpakPath);
+                $xml = $this->reader->extractXml($socpakPath);
                 if ($xml === null) {
                     continue;
                 }
@@ -138,7 +138,7 @@ final class SocpakMappingGenerator
                     continue;
                 }
 
-                $className = $this->resolveSocpakClassName($socpakPath, $uuidToClassMap);
+                $className = $this->resolveSocpakClassName($socpakPath);
                 if ($className === null) {
                     continue;
                 }
@@ -170,7 +170,7 @@ final class SocpakMappingGenerator
         unset($systemData, $typeData, $occupancyData);
 
         file_put_contents(
-            $this->scDataPath.DIRECTORY_SEPARATOR.'cave_mappings.json',
+            $this->scDataDir.DIRECTORY_SEPARATOR.'cave_mappings.json',
             json_encode($caveMappings, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
         );
     }
@@ -190,14 +190,11 @@ final class SocpakMappingGenerator
         return ['type' => $type, 'occupancy' => $occupancy];
     }
 
-    /**
-     * @param  array<string, string>  $uuidToClassMap
-     */
-    private function resolveSocpakClassName(string $socpakPath, array $uuidToClassMap): ?string
+    private function resolveSocpakClassName(string $socpakPath): ?string
     {
         $filename = pathinfo($socpakPath, PATHINFO_FILENAME);
 
-        $xml = $this->extractXmlFromSocpakCached($socpakPath);
+        $xml = $this->reader->extractXml($socpakPath);
         if ($xml === null) {
             return null;
         }
@@ -215,7 +212,7 @@ final class SocpakMappingGenerator
 
                 $starMapRecord = $node->getAttribute('starMapRecord');
                 if ($starMapRecord !== '') {
-                    $resolved = $uuidToClassMap[strtolower($starMapRecord)] ?? null;
+                    $resolved = self::$uuidToClassMap[strtolower($starMapRecord)] ?? null;
                     if ($resolved !== null && ! $this->isPrivateMiningPoint($resolved)) {
                         return $resolved;
                     }
@@ -232,12 +229,11 @@ final class SocpakMappingGenerator
     }
 
     /**
-     * @param  array<string, string>  $uuidToClassMap
      * @param  list<array{socpakPath: string, className: string, pinned: bool}>  $queue
      * @param  array<string, true>  $processed
      * @param  array<string, string>  $parentMappings
      */
-    private function seedFromSystemSocpaks(string $baseDir, array $uuidToClassMap, array &$queue, array &$processed, array &$pinnedSocpaks, array &$parentMappings): void
+    private function seedFromSystemSocpaks(string $baseDir, array &$queue, array &$processed, array &$pinnedSocpaks, array &$parentMappings): void
     {
         $systemDirs = glob($baseDir.DIRECTORY_SEPARATOR.'*', GLOB_ONLYDIR);
         if ($systemDirs === false) {
@@ -251,7 +247,7 @@ final class SocpakMappingGenerator
                 continue;
             }
 
-            $xml = $this->extractXmlFromSocpakCached($systemSocpak);
+            $xml = $this->reader->extractXml($systemSocpak);
             if ($xml === null) {
                 continue;
             }
@@ -259,17 +255,16 @@ final class SocpakMappingGenerator
             $dom = new DOMDocument;
             $dom->loadXML($xml);
 
-            $this->walkSystemXmlNode($dom->documentElement, null, false, $systemDir, $uuidToClassMap, $queue, $processed, $pinnedSocpaks, $parentMappings);
+            $this->walkSystemXmlNode($dom->documentElement, null, false, $systemDir, $queue, $processed, $pinnedSocpaks, $parentMappings);
         }
     }
 
     /**
-     * @param  array<string, string>  $uuidToClassMap
      * @param  list<array{socpakPath: string, className: string, pinned: bool}>  $queue
      * @param  array<string, true>  $processed
      * @param  array<string, string>  $parentMappings
      */
-    private function walkSystemXmlNode(DOMElement $node, ?string $parentClassName, bool $pinned, string $systemDir, array $uuidToClassMap, array &$queue, array &$processed, array &$pinnedSocpaks, array &$parentMappings): void
+    private function walkSystemXmlNode(DOMElement $node, ?string $parentClassName, bool $pinned, string $systemDir, array &$queue, array &$processed, array &$pinnedSocpaks, array &$parentMappings): void
     {
         foreach ($node->childNodes as $childNode) {
             if (! ($childNode instanceof DOMElement) || $childNode->nodeName !== 'ChildObjectContainers') {
@@ -286,7 +281,7 @@ final class SocpakMappingGenerator
                     continue;
                 }
 
-                $childClassName = $this->resolveChildClassName($child, $parentClassName, $pinned, $uuidToClassMap);
+                $childClassName = $this->resolveChildClassName($child, $parentClassName, $pinned);
 
                 if ($childClassName !== null && $parentClassName !== null) {
                     $parentMappings[$childClassName] = $parentClassName;
@@ -304,7 +299,7 @@ final class SocpakMappingGenerator
                     }
                 }
 
-                $this->walkSystemXmlNode($child, $childClassName, $pinned, $systemDir, $uuidToClassMap, $queue, $processed, $pinnedSocpaks, $parentMappings);
+                $this->walkSystemXmlNode($child, $childClassName, $pinned, $systemDir, $queue, $processed, $pinnedSocpaks, $parentMappings);
             }
         }
     }
@@ -376,12 +371,11 @@ final class SocpakMappingGenerator
     /**
      * @param  list<array{socpakPath: string, className: string, pinned: bool}>  $queue
      * @param  array<string, true>  $processed
-     * @param  array<string, string>  $uuidToClassMap
      * @param  array<string, list<string>>  $mappings
      * @param  array<string, true>  $pinnedUuids
      * @param  array<string, string>  $parentMappings
      */
-    private function walkQueue(array &$queue, array &$processed, array $uuidToClassMap, array &$mappings, array &$pinnedUuids, array &$parentMappings): void
+    private function walkQueue(array &$queue, array &$processed, array &$mappings, array &$pinnedUuids, array &$parentMappings): void
     {
         $i = 0;
         while (isset($queue[$i])) {
@@ -396,7 +390,7 @@ final class SocpakMappingGenerator
             }
             $processed[$queueKey] = true;
 
-            $hppUuid = $this->extractHppUuidFromSocpakCached($socpakPath);
+            $hppUuid = $this->extractHppUuid($socpakPath);
             if ($hppUuid !== null && $hppUuid !== self::NULL_UUID && $className !== null && $this->isHppUuid($hppUuid) && $this->shouldExtractMapping($pinned, $hppUuid, $pinnedUuids)) {
                 $mappings[$hppUuid][] = $className;
                 if ($pinned) {
@@ -404,19 +398,18 @@ final class SocpakMappingGenerator
                 }
             }
 
-            $this->enqueueChildren($socpakPath, $className, $pinned, $uuidToClassMap, $queue, $processed, $parentMappings);
+            $this->enqueueChildren($socpakPath, $className, $pinned, $queue, $processed, $parentMappings);
         }
     }
 
     /**
-     * @param  array<string, string>  $uuidToClassMap
      * @param  list<array{socpakPath: string, className: string, pinned: bool}>  $queue
      * @param  array<string, true>  $processed
      * @param  array<string, string>  $parentMappings
      */
-    private function enqueueChildren(string $socpakPath, ?string $parentClassName, bool $pinned, array $uuidToClassMap, array &$queue, array &$processed, array &$parentMappings): void
+    private function enqueueChildren(string $socpakPath, ?string $parentClassName, bool $pinned, array &$queue, array &$processed, array &$parentMappings): void
     {
-        $xml = $this->extractXmlFromSocpakCached($socpakPath);
+        $xml = $this->reader->extractXml($socpakPath);
         if ($xml === null) {
             return;
         }
@@ -433,12 +426,16 @@ final class SocpakMappingGenerator
         $systemDir = $this->inferSystemDir($socpakPath);
 
         foreach ($nodes as $node) {
+            if (! ($node instanceof DOMElement)) {
+                continue;
+            }
+
             $name = $node->getAttribute('name');
             if ($name === '' || $this->shouldExcludeChild($name)) {
                 continue;
             }
 
-            $childClassName = $this->resolveChildClassName($node, $parentClassName, $pinned, $uuidToClassMap);
+            $childClassName = $this->resolveChildClassName($node, $parentClassName, $pinned);
 
             if ($childClassName !== null && $parentClassName !== null) {
                 $parentMappings[$childClassName] = $parentClassName;
@@ -458,9 +455,8 @@ final class SocpakMappingGenerator
 
     /**
      * @param  DOMElement  $node  A <Child> element
-     * @param  array<string, string>  $uuidToClassMap
      */
-    private function resolveChildClassName(DOMElement $node, ?string $parentClassName, bool $pinned, array $uuidToClassMap): ?string
+    private function resolveChildClassName(DOMElement $node, ?string $parentClassName, bool $pinned): ?string
     {
         if ($pinned) {
             return $parentClassName;
@@ -468,7 +464,7 @@ final class SocpakMappingGenerator
 
         $starMapRecord = $node->getAttribute('starMapRecord');
         if ($starMapRecord !== '') {
-            $resolved = $uuidToClassMap[strtolower($starMapRecord)] ?? null;
+            $resolved = self::$uuidToClassMap[strtolower($starMapRecord)] ?? null;
             if ($resolved !== null && ! $this->isPrivateMiningPoint($resolved)) {
                 return $resolved;
             }
@@ -504,7 +500,7 @@ final class SocpakMappingGenerator
         ];
 
         foreach ($searchDirs as $dir) {
-            if ($this->fileExistsInDir($filename, $dir)) {
+            if ($this->reader->fileExistsInDir($filename, $dir)) {
                 return $dir.DIRECTORY_SEPARATOR.$filename;
             }
         }
@@ -515,24 +511,12 @@ final class SocpakMappingGenerator
             $fullPath = $basePath.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $relative);
             $dir = dirname($fullPath);
             $base = basename($fullPath);
-            if ($this->fileExistsInDir($base, $dir)) {
+            if ($this->reader->fileExistsInDir($base, $dir)) {
                 return $fullPath;
             }
         }
 
         return null;
-    }
-
-    private function fileExistsInDir(string $filename, string $dir): bool
-    {
-        if (! isset($this->dirFileCache[$dir])) {
-            $entries = @scandir($dir);
-            $this->dirFileCache[$dir] = $entries !== false
-                ? array_flip(array_map('strtolower', $entries))
-                : [];
-        }
-
-        return isset($this->dirFileCache[$dir][strtolower($filename)]);
     }
 
     private function lagrangeDirToClassName(string $dirName): string
@@ -568,123 +552,61 @@ final class SocpakMappingGenerator
 
     private function isHppUuid(string $uuid): bool
     {
-        return isset($this->hppUuidSet[$uuid]);
+        return isset($this->getHppUuidSet()[$uuid]);
     }
 
     /**
-     * @throws JsonException
+     * Extract the raw bytes of a `.soc` entry and parse the HPP UUID from it.
+     *
+     * @param  string  $socpakPath  Absolute path to the .socpak (zip) file
+     * @return string|null Lowercased UUID or null if not found
      */
-    private function loadHppUuidSet(): void
+    private function extractHppUuid(string $socpakPath): ?string
     {
-        $filename = sprintf('classToUuidMap-%s.json', PHP_OS_FAMILY);
-        $path = $this->scDataPath.DIRECTORY_SEPARATOR.$filename;
-
-        if (! file_exists($path)) {
-            $this->hppUuidSet = [];
-
-            return;
-        }
-
-        $content = file_get_contents($path);
-        if ($content === false) {
-            $this->hppUuidSet = [];
-
-            return;
-        }
-
-        $data = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
-        if (! is_array($data)) {
-            $this->hppUuidSet = [];
-
-            return;
-        }
-
-        $this->hppUuidSet = [];
-        foreach ($data as $className => $uuid) {
-            if (! is_string($className) || ! is_string($uuid)) {
-                continue;
-            }
-            if (str_starts_with($className, 'HPP_') || str_starts_with($className, 'AsteroidCluster_')) {
-                $this->hppUuidSet[strtolower($uuid)] = true;
-            }
-        }
-    }
-
-    private function extractHppUuidFromSocpakCached(string $socpakPath): ?string
-    {
-        return $this->extractSocpakCached($socpakPath)['hppUuid'];
-    }
-
-    private function extractXmlFromSocpakCached(string $socpakPath): ?string
-    {
-        return $this->extractSocpakCached($socpakPath)['xml'];
-    }
-
-    /**
-     * @return array{hppUuid: string|null, xml: string|null}
-     */
-    private function extractSocpakCached(string $socpakPath): array
-    {
-        if (array_key_exists($socpakPath, $this->socpakCache)) {
-            return $this->socpakCache[$socpakPath];
-        }
-
         $zip = new ZipArchive;
+
         if ($zip->open($socpakPath) !== true) {
-            return $this->socpakCache[$socpakPath] = ['hppUuid' => null, 'xml' => null];
+            return null;
         }
 
         $hppUuid = null;
-        $xml = null;
 
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $stat = $zip->statIndex($i);
             $name = str_replace('\\', '/', $stat['name']);
 
-            if ($hppUuid === null && str_ends_with($name, '.soc')) {
+            if (str_ends_with($name, '.soc')) {
                 $content = $zip->getFromIndex($i);
-                if ($content !== false && preg_match('/preset\x00([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i', $content, $matches)) {
+                if ($content !== false && preg_match('/preset\\x00([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i', $content, $matches)) {
                     $hppUuid = strtolower($matches[1]);
                 }
-            }
-
-            if ($xml === null && str_ends_with($name, '.xml')
-                && ! str_contains($name, '_editor')
-                && ! str_contains($name, 'metadata')) {
-                $xml = $zip->getFromIndex($i);
-            }
-
-            if ($hppUuid !== null && $xml !== null) {
                 break;
             }
         }
 
         $zip->close();
 
-        return $this->socpakCache[$socpakPath] = ['hppUuid' => $hppUuid, 'xml' => $xml];
+        return $hppUuid;
     }
 
     /**
-     * @return array<string, string>
+     * Derive the HPP UUID set from the already-loaded classToUuidMap.
      *
-     * @throws JsonException
+     * @return array<string, true>
      */
-    private function loadUuidToClassMap(): array
+    private function getHppUuidSet(): array
     {
-        $filename = sprintf('uuidToClassMap-%s.json', PHP_OS_FAMILY);
-        $path = $this->scDataPath.DIRECTORY_SEPARATOR.$filename;
-
-        if (! file_exists($path)) {
-            return [];
+        if ($this->hppUuidSet !== null) {
+            return $this->hppUuidSet;
         }
 
-        $content = file_get_contents($path);
-        if ($content === false) {
-            return [];
+        $this->hppUuidSet = [];
+        foreach (self::$classToUuidMap as $className => $uuid) {
+            if (str_starts_with($className, 'HPP_') || str_starts_with($className, 'AsteroidCluster_')) {
+                $this->hppUuidSet[strtolower($uuid)] = true;
+            }
         }
 
-        $data = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
-
-        return is_array($data) ? $data : [];
+        return $this->hppUuidSet;
     }
 }
