@@ -41,6 +41,8 @@ final class Turret extends BaseFormat
             $data['MovementList'] = $movements;
         }
 
+        $data['ForceAlignSubgimbalsDuringPipAiming'] = (bool) ($turret?->get('@forceAlignSubgimbalsDuringPipAiming') ?? false);
+
         return $this->removeNullValues(
             $this->transformArrayKeysToPascalCase($data)
         );

@@ -34,6 +34,7 @@ final class Thruster extends BaseFormat
         $data['BurnRatePerMN'] = $burnRatePerMn;
         $data['BurnRatePerMNStandardResourceUnits'] = $burnRatePerMnStandardResource;
         $data['BurnRatePerMNMicroUnits'] = $burnRatePerMnMicroUnits;
+        $data['NoFuelThresholdRatio'] = (float) ($thruster?->get('@noFuelThresholdRatio') ?? 0);
 
         return $data === [] ? null : $data;
     }

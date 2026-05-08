@@ -27,8 +27,12 @@ final class FuelTank extends BaseFormat
 
         $container = $this->get();
 
+        $tankParams = $this->item?->get('Components/SCItemFuelTankParams');
+
         return [
             'Capacity' => (float) Item::convertToScu($container?->get('capacity')),
+            'HydrogenMaxFlowMultiplier' => (float) ($tankParams?->get('@hydrogenMaxFlowMultiplier') ?? 1),
+            'QuantumMaxFlowMultiplier' => (float) ($tankParams?->get('@quantumMaxFlowMultiplier') ?? 1),
         ];
     }
 
