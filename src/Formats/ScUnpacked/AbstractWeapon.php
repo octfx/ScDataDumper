@@ -369,7 +369,40 @@ abstract class AbstractWeapon extends BaseFormat
     {
         $range = $weapon->get('effectiveRange');
 
-        return $range ?? $ammunition['Range'] ?? null;
+        if ($range !== null) {
+            return (float) $range;
+        }
+
+        // For beam-type weapons, use the fire action's range instead of ammunition range
+        $beamRange = $this->resolveBeamRange($weapon);
+
+        return $beamRange ?? $ammunition['Range'] ?? null;
+    }
+
+    /**
+     * Resolve effective range from the first beam-type fire action.
+     *
+     * Beam-type weapons (beam, healing, salvage, gathering, tractor) define their
+     * range on the fire action element, not in the ammunition's Speed × Lifetime.
+     *
+     * @return float|null Range in meters, or null if no beam action found
+     */
+    private function resolveBeamRange(Element $weapon): ?float
+    {
+        $firstAction = $weapon->get('fireActions')?->children()->current();
+
+        if (! $firstAction instanceof Element) {
+            return null;
+        }
+
+        return match ($firstAction->nodeName) {
+            'SWeaponActionFireBeamParams' => (float) ($firstAction->get('@fullDamageRange') ?? 0) ?: null,
+            'SWeaponActionFireHealingBeamParams' => (float) ($firstAction->get('@maxDistance') ?? 0) ?: null,
+            'SWeaponActionFireSalvageRepairParams' => (float) ($firstAction->get('rangeParams@maxBeamDistance') ?? 0) ?: null,
+            'SWeaponActionGatheringBeamParams' => (float) ($firstAction->get('@maximumDistance') ?? 0) ?: null,
+            'SWeaponActionFireTractorBeamParams' => (float) ($firstAction->get('@maxDistance') ?? 0) ?: null,
+            default => null,
+        };
     }
 
     private function buildMagazine(): array
