@@ -540,6 +540,12 @@ final class Ship extends BaseFormat
             $data['engineering_boost'] = $engineeringBoost;
         }
 
+        // Relay network topology
+        $relayNetwork = new RelayNetwork($this->vehicleWrapper->entity, $this->vehicleWrapper->loadout);
+        if ($relayNetwork->canTransform()) {
+            $data['RelayNetwork'] = $relayNetwork->toArray();
+        }
+
         $data = array_merge($data, $summary);
 
         $this->processArray($data);
