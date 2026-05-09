@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
