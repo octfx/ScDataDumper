@@ -9,3 +9,6 @@ AGENTS.md
 .plans
 .beads
 .claude
+.pi
+export-*
+import-*

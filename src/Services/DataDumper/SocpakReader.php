@@ -103,7 +103,7 @@ final class SocpakReader
      * zip-index order.
      *
      * Falls back to the first non-editor, non-metadata XML if the basename match fails
-         * (backwards-compatibility with older or atypical socpak layouts).
+     * (backwards-compatibility with older or atypical socpak layouts).
      *
      * Results are cached per socpak path.
      */
@@ -119,7 +119,7 @@ final class SocpakReader
             return $this->xmlCache[$socpakPath] = null;
         }
 
-        $target = pathinfo($socpakPath, PATHINFO_FILENAME) . '.xml';
+        $target = pathinfo($socpakPath, PATHINFO_FILENAME).'.xml';
         $xml = null;
 
         for ($i = 0; $i < $zip->numFiles; $i++) {
