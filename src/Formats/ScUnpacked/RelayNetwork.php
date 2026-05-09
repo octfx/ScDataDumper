@@ -12,8 +12,9 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
  * Extracts the relay power-distribution topology from a ship entity.
  *
  * Reads SInternalHardpointLink elements to build the relay->hardpoint graph,
- * enriches relay entries with fuse slot counts from the loadout, and maps
- * optional room names from SVehicleObjectContainerParams.
+ * enriches relay entries with fuse slot counts from the loadout, maps
+ * optional room names from SVehicleObjectContainerParams, and resolves
+ * connected hardpoints to their installed item details.
  *
  * @extends BaseFormat<RootDocument>
  */
@@ -24,14 +25,22 @@ final class RelayNetwork extends BaseFormat
     /** @var array Raw loadout array from VehicleWrapper (entries with portName, className, Item, etc.) */
     private readonly array $loadout;
 
+    /** @var array Processed loadout from Ship::buildLoadout() (PascalCase keys, has Name/Type/UUID) */
+    private readonly array $processedLoadout;
+
+    /** @var array<string, array>|null Lazy-loaded lookup: lowercase hardpoint name -> processed loadout entry */
+    private ?array $processedLoadoutLookup = null;
+
     /**
      * @param  RootDocument|Element  $entity  Ship entity (VehicleDefinition)
      * @param  array  $loadout  Raw loadout entries from VehicleWrapper
+     * @param  array  $processedLoadout  Processed loadout from Ship::buildLoadout() (PascalCase keys)
      */
-    public function __construct(RootDocument|Element $entity, array $loadout)
+    public function __construct(RootDocument|Element $entity, array $loadout, array $processedLoadout = [])
     {
         parent::__construct($entity);
         $this->loadout = $loadout;
+        $this->processedLoadout = $processedLoadout;
     }
 
     public function toArray(): ?array
@@ -107,7 +116,9 @@ final class RelayNetwork extends BaseFormat
                 'ClassName' => $className,
                 'FuseSlots' => $fuseSlots,
                 'Room' => $roomMap[$relayName] ?? null,
-                'ConnectedHardpoints' => $connectedByRelay[$relayName] ?? [],
+                'ConnectedHardpoints' => $this->enrichHardpoints(
+                    $connectedByRelay[$relayName] ?? []
+                ),
             ];
 
             $totalFuses += $fuseSlots;
@@ -187,6 +198,78 @@ final class RelayNetwork extends BaseFormat
 
             if ($nested !== []) {
                 $this->walkLoadout($nested, $lookup);
+            }
+        }
+    }
+
+    /**
+     * Enrich hardpoint name strings with installed item data from the processed loadout.
+     *
+     * When a processed loadout was provided, each hardpoint name is resolved to an
+     * object containing the installed item's display name, class name, type, and UUID.
+     * Empty ports (no installed item) get null for all item fields.
+     *
+     * Falls back to plain string arrays when no processed loadout is available.
+     *
+     * @param  array<int, string>  $hardpointNames
+     * @return array<int, string>|array<int, array{HardpointName: string, ItemName: string|null, ClassName: string|null, Type: string|null, UUID: string|null}>
+     */
+    private function enrichHardpoints(array $hardpointNames): array
+    {
+        if ($this->processedLoadout === []) {
+            return $hardpointNames;
+        }
+
+        $lookup = $this->processedLoadoutLookup ??= $this->buildProcessedLoadoutLookup();
+
+        return array_map(function (string $hp) use ($lookup) {
+            $key = strtolower($hp);
+
+            return [
+                'HardpointName' => $hp,
+                'ItemName' => $lookup[$key]['Name'] ?? null,
+                'ClassName' => $lookup[$key]['ClassName'] ?? null,
+                'Type' => $lookup[$key]['Type'] ?? null,
+                'UUID' => $lookup[$key]['UUID'] ?? null,
+            ];
+        }, $hardpointNames);
+    }
+
+    /**
+     * Build a lookup table from lowercase hardpoint name to processed loadout entry.
+     *
+     * Walks the processed loadout recursively (nested under the 'Loadout' key),
+     * indexing every entry by its HardpointName.
+     *
+     * @return array<string, array>
+     */
+    private function buildProcessedLoadoutLookup(): array
+    {
+        $lookup = [];
+        $this->walkProcessedLoadout($this->processedLoadout, $lookup);
+
+        return $lookup;
+    }
+
+    /**
+     * Recursively walk processed loadout entries, indexing by HardpointName.
+     *
+     * @param  array<int, array>  $entries  Processed loadout entries (PascalCase keys)
+     * @param  array<string, array>  &$lookup  Accumulator: lowercase hardpoint name -> entry
+     */
+    private function walkProcessedLoadout(array $entries, array &$lookup): void
+    {
+        foreach ($entries as $entry) {
+            $hpName = $entry['HardpointName'] ?? null;
+
+            if ($hpName !== null && $hpName !== '') {
+                $lookup[strtolower($hpName)] = $entry;
+            }
+
+            $nested = $entry['Loadout'] ?? [];
+
+            if ($nested !== []) {
+                $this->walkProcessedLoadout($nested, $lookup);
             }
         }
     }

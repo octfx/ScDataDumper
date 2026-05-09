@@ -541,7 +541,7 @@ final class Ship extends BaseFormat
         }
 
         // Relay network topology
-        $relayNetwork = new RelayNetwork($this->vehicleWrapper->entity, $this->vehicleWrapper->loadout);
+        $relayNetwork = new RelayNetwork($this->vehicleWrapper->entity, $this->vehicleWrapper->loadout, $loadout);
         if ($relayNetwork->canTransform()) {
             $data['RelayNetwork'] = $relayNetwork->toArray();
         }
