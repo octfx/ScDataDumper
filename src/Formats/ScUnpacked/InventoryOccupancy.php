@@ -10,11 +10,19 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
  * Inventory occupancy payload as stored by CIG.
  *
  * Key points from the raw data (see sc-data items/ships JSON):
- * - inventoryOccupancyDimensions are physical meters (x=width, y=length/depth, z=height)
- * - inventoryOccupancyLocalBoundsMin/Max define the occupancy box corners in item-local space.  x/y often center
- *   around the pivot (negative to positive), while z usually starts at 0 so the box rests on the pivot plane.
+ * - inventoryOccupancyDimensions are cargo-grid slot dimensions in meters (x=width, y=length/depth, z=height).
+ * - inventoryOccupancyLocalBoundsMin/Max define the 3D model AABB corners in item-local space.
+ *   When non-zero, these represent the true physical dimensions of the item. x/y often center around the pivot
+ *   (negative to positive), while z usually starts at 0 so the box rests on the pivot plane.
+ *   When both Min and Max are (0,0,0), no model bounds are available and we fall back to cargo-grid dims.
  * - inventoryOccupancyDimensionsUIOverride supplies alternative meter dimensions for UI display only.
  * - inventoryOccupancyVolume may come as SCU / centiSCU / microSCU; we normalize to SCU with source metadata.
+ *
+ * Output structure:
+ * - Dimensions: true physical size from localBounds when available, otherwise falls back to cargo-grid dims.
+ * - CargoGrid: cargo-grid slot dimensions (how much space the item occupies in inventory).
+ * - UIDimensions: CIG's UI display override dimensions.
+ * - Volume: SCU-normalized volume.
  */
 final class InventoryOccupancy extends BaseFormat
 {
@@ -29,11 +37,15 @@ final class InventoryOccupancy extends BaseFormat
         /** @var Element $attach */
         $attach = $this->get();
 
-        $grid = [
+        // Cargo-grid slot dimensions (inventory occupancy)
+        $cargoGrid = [
             'Width' => round($attach->get('inventoryOccupancyDimensions@x', 0), 2),
             'Length' => round($attach->get('inventoryOccupancyDimensions@y', 0), 2),
             'Height' => round($attach->get('inventoryOccupancyDimensions@z', 0), 2),
         ];
+
+        // True physical dimensions from 3D model bounding box
+        $dimensions = $this->buildDimensionsFromBounds($attach) ?? $this->removeNull($cargoGrid);
 
         $ui = new Vec3(
             $attach->get('inventoryOccupancyDimensionsUIOverride/Vec3'),
@@ -42,30 +54,41 @@ final class InventoryOccupancy extends BaseFormat
 
         $volume = $this->buildVolume($attach->get('inventoryOccupancyVolume'));
 
-        $localBounds = [
-            'Minimum' => $this->buildBounds($attach, '@inventoryOccupancyLocalBoundsMin'),
-            'Maximum' => $this->buildBounds($attach, '@inventoryOccupancyLocalBoundsMax'),
-        ];
-
         return $this->removeNull(
             [
-                'Dimensions' => $this->removeNull($grid),
+                'Dimensions' => $dimensions,
+                'CargoGrid' => $this->removeNull($cargoGrid),
                 'UIDimensions' => $ui->toArray(),
-                // 'LocalBounds' => $this->removeNull($localBounds),
                 'Volume' => $volume,
             ]
         );
     }
 
-    private function buildBounds(Element $attach, string $basePath): ?array
+    /**
+     * Derive physical dimensions from the 3D model local bounding box.
+     *
+     * Returns {Width, Length, Height} in meters, or null when bounds are zeroed out
+     * (indicating no model bounds data is available).
+     */
+    private function buildDimensionsFromBounds(Element $attach): ?array
     {
-        $bounds = [
-            'X' => $attach->get($basePath.'@x'),
-            'Y' => $attach->get($basePath.'@y'),
-            'Z' => $attach->get($basePath.'@z'),
-        ];
+        $minX = $attach->get('@inventoryOccupancyLocalBoundsMin@x');
+        $minY = $attach->get('@inventoryOccupancyLocalBoundsMin@y');
+        $minZ = $attach->get('@inventoryOccupancyLocalBoundsMin@z');
+        $maxX = $attach->get('@inventoryOccupancyLocalBoundsMax@x');
+        $maxY = $attach->get('@inventoryOccupancyLocalBoundsMax@y');
+        $maxZ = $attach->get('@inventoryOccupancyLocalBoundsMax@z');
 
-        return $this->removeNull($bounds);
+        // All-zero bounds mean no model data available
+        if (($minX == 0 && $minY == 0 && $minZ == 0 && $maxX == 0 && $maxY == 0 && $maxZ == 0)) {
+            return null;
+        }
+
+        return [
+            'Width' => round(abs((float) $maxX - (float) $minX), 4),
+            'Length' => round(abs((float) $maxY - (float) $minY), 4),
+            'Height' => round(abs((float) $maxZ - (float) $minZ), 4),
+        ];
     }
 
     private function buildVolume(Element|EntityClassDefinition|null $node): ?array

@@ -45,6 +45,8 @@ final class ItemTest extends ScDataTestCase
                         <AttachDef Type="SeatDashboard" SubType="UNDEFINED" Size="1" Grade="1" Manufacturer="11111111-1111-1111-1111-111111111111">
                             <Localization Name="@item_name" ShortName="@LOC_EMPTY" Description="@item_description" />
                             <inventoryOccupancyDimensions x="1" y="1" z="1" />
+                            <inventoryOccupancyLocalBoundsMin x="-0.5" y="-0.5" z="0" />
+                            <inventoryOccupancyLocalBoundsMax x="0.5" y="0.5" z="1" />
                             <inventoryOccupancyVolume>
                                 <SMicroCargoUnit microSCU="1" />
                             </inventoryOccupancyVolume>
@@ -77,5 +79,81 @@ final class ItemTest extends ScDataTestCase
         );
         self::assertSame('Utility mount.', $result['stdItem']['DescriptionText']);
         self::assertSame('Fallback Industries', $result['stdItem']['Manufacturer']['Name']);
+
+        // InventoryOccupancy: Dimensions from bounds, CargoGrid from inventoryOccupancyDimensions
+        $occ = $result['stdItem']['InventoryOccupancy'];
+        self::assertEqualsWithDelta(1.0, $occ['Dimensions']['Width'], 0.001);
+        self::assertEqualsWithDelta(1.0, $occ['Dimensions']['Length'], 0.001);
+        self::assertEqualsWithDelta(1.0, $occ['Dimensions']['Height'], 0.001);
+        self::assertEqualsWithDelta(1.0, $occ['CargoGrid']['Width'], 0.001);
+        self::assertEqualsWithDelta(1.0, $occ['CargoGrid']['Length'], 0.001);
+        self::assertEqualsWithDelta(1.0, $occ['CargoGrid']['Height'], 0.001);
+    }
+
+    public function test_inventory_occupancy_falls_back_to_cargo_grid_when_bounds_zero(): void
+    {
+        $manufacturerPath = $this->writeFile(
+            'records/scitemmanufacturer/fallback.xml',
+            <<<'XML'
+            <SCItemManufacturer.FALLBACK Code="FALL" __type="SCItemManufacturer" __ref="11111111-1111-1111-1111-111111111111" __path="libs/foundry/records/scitemmanufacturer/fallback.xml">
+                <Localization Name="@LOC_EMPTY" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY">
+                    <displayFeatures />
+                </Localization>
+            </SCItemManufacturer.FALLBACK>
+            XML
+        );
+
+        $this->writeCacheFiles(
+            uuidToClassMap: ['11111111-1111-1111-1111-111111111111' => 'FALLBACK'],
+            classToUuidMap: ['FALLBACK' => '11111111-1111-1111-1111-111111111111'],
+            uuidToPathMap: ['11111111-1111-1111-1111-111111111111' => $manufacturerPath]
+        );
+
+        $this->initializeMinimalItemServices([
+            'LOC_EMPTY' => '',
+        ]);
+
+        $path = $this->writeFile(
+            'records/entities/scitem/test_item_zero_bounds.xml',
+            <<<'XML'
+            <EntityClassDefinition.TEST_ITEM_ZERO_BOUNDS __type="EntityClassDefinition" __ref="33333333-3333-3333-3333-333333333333" __path="libs/foundry/records/entities/scitem/test_item_zero_bounds.xml">
+                <Components>
+                    <SAttachableComponentParams>
+                        <AttachDef Type="UNDEFINED" SubType="UNDEFINED" Size="1" Grade="1" Manufacturer="11111111-1111-1111-1111-111111111111">
+                            <Localization Name="@LOC_EMPTY" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY" />
+                            <inventoryOccupancyDimensions x="0.15" y="0.15" z="0.15" />
+                            <inventoryOccupancyLocalBoundsMin x="0" y="0" z="0" />
+                            <inventoryOccupancyLocalBoundsMax x="0" y="0" z="0" />
+                            <inventoryOccupancyVolume>
+                                <SMicroCargoUnit microSCU="1" />
+                            </inventoryOccupancyVolume>
+                        </AttachDef>
+                    </SAttachableComponentParams>
+                    <SEntityPhysicsControllerParams>
+                        <PhysType>
+                            <SEntityRigidPhysicsControllerParams Mass="1" />
+                        </PhysType>
+                    </SEntityPhysicsControllerParams>
+                </Components>
+            </EntityClassDefinition.TEST_ITEM_ZERO_BOUNDS>
+            XML
+        );
+
+        $item = new EntityClassDefinition;
+        $item->load($path);
+
+        $result = (new Item($item))->toArray();
+
+        $occ = $result['stdItem']['InventoryOccupancy'];
+
+        // When bounds are zero, Dimensions falls back to cargo-grid values
+        self::assertEqualsWithDelta(0.15, $occ['Dimensions']['Width'], 0.001);
+        self::assertEqualsWithDelta(0.15, $occ['Dimensions']['Length'], 0.001);
+        self::assertEqualsWithDelta(0.15, $occ['Dimensions']['Height'], 0.001);
+
+        // CargoGrid always reflects inventoryOccupancyDimensions
+        self::assertEqualsWithDelta(0.15, $occ['CargoGrid']['Width'], 0.001);
+        self::assertEqualsWithDelta(0.15, $occ['CargoGrid']['Length'], 0.001);
+        self::assertEqualsWithDelta(0.15, $occ['CargoGrid']['Height'], 0.001);
     }
 }

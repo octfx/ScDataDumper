@@ -86,7 +86,7 @@ final class Item extends BaseFormat
                 'ClassName' => $this->item->getClassName(),
                 'Size' => $attach->get('@Size', 0),
                 'Grade' => $attach->get('@Grade', 0),
-                // @deprecated use InventoryOccupancy.GridDimensions.Width, Height, Length
+                // @deprecated use InventoryOccupancy.CargoGrid.Width, Length, Height
                 'Width' => $attach->get('inventoryOccupancyDimensions@x', 0),
                 'Height' => $attach->get('inventoryOccupancyDimensions@z', 0),
                 'Length' => $attach->get('inventoryOccupancyDimensions@y', 0),
