@@ -204,4 +204,53 @@ class ItemDescriptionParserTest extends TestCase
         // Should capture until newline, including the colon in the value
         $this->assertEquals('10:30 meters', $result['data']['Range']);
     }
+
+    #[Test]
+    public function it_handles_whitespace_only_line_as_separator()
+    {
+        // SC uses "\n \n" (newline-space-newline) as separator in some items
+        $input = "Item Type: Light Armor\nCapacity: 2000 mSCU\n \nThe Xy'kara Armor description text.";
+        $result = ItemDescriptionParser::parse($input, ['Item Type', 'Capacity']);
+
+        $this->assertEquals('Light Armor', $result['data']['Item Type']);
+        $this->assertEquals('2000 mSCU', $result['data']['Capacity']);
+        $this->assertEquals("The Xy'kara Armor description text.", $result['description']);
+    }
+
+    #[Test]
+    public function it_handles_nbsp_only_line_as_separator()
+    {
+        // SC uses "\n\u{00A0}\n" (newline-NBSP-newline) as separator in some items
+        $nbsp = "\u{00A0}";
+        $input = "Item Type: Light Armor\nCapacity: 2000 mSCU\n{$nbsp}\nRSI Venture helmet.";
+        $result = ItemDescriptionParser::parse($input, ['Item Type', 'Capacity']);
+
+        $this->assertEquals('Light Armor', $result['data']['Item Type']);
+        $this->assertEquals('2000 mSCU', $result['data']['Capacity']);
+        $this->assertEquals('RSI Venture helmet.', $result['description']);
+    }
+
+    #[Test]
+    public function it_extracts_prose_when_no_separator_between_data_and_text()
+    {
+        // Some items have data lines flowing directly into prose with just \n
+        $input = "Manufacturer: Unknown\nFocus: Heavy Fighter\nCrudely constructed from a patchwork.";
+        $result = ItemDescriptionParser::parse($input, ['Manufacturer', 'Focus']);
+
+        $this->assertEquals('Unknown', $result['data']['Manufacturer']);
+        $this->assertEquals('Heavy Fighter', $result['data']['Focus']);
+        $this->assertEquals('Crudely constructed from a patchwork.', $result['description']);
+    }
+
+    #[Test]
+    public function it_does_not_filter_prose_with_mid_sentence_colons()
+    {
+        // Prose containing colons like "here: the" or "responsibility: moving" should not be removed
+        $input = "Manufacturer: Drake\nFocus: Light Fighter\n\nThe Buccaneer has been designed. No hyperpillows here: the Bucc is a scrapper.";
+        $result = ItemDescriptionParser::parse($input, ['Manufacturer', 'Focus']);
+
+        $this->assertEquals('Drake', $result['data']['Manufacturer']);
+        $this->assertEquals('Light Fighter', $result['data']['Focus']);
+        $this->assertStringContainsString('hyperpillows here: the Bucc', $result['description']);
+    }
 }

@@ -12,7 +12,7 @@ class ItemDescriptionParser
     /**
      * Standard keywords extracted from SC item descriptions
      */
-    public const STANDARD_KEYWORDS = [
+    public const array STANDARD_KEYWORDS = [
         'Action Figure',
         'All Charge Rates',
         'Area of Effect',
@@ -125,8 +125,8 @@ class ItemDescriptionParser
 
         $description = self::normalizeText($description);
 
-        // Extract lines with "keyword: value" pattern
         $parts = explode("\n", $description);
+
         if (count($parts) === 1) {
             $parts = explode('\n', $parts[0]);
         }
@@ -135,14 +135,12 @@ class ItemDescriptionParser
             return preg_match('/\w:/u', $part) === 1;
         })->implode("\n");
 
-        // Handle both array formats: ['Size'] or ['Size' => 'size']
         if (array_is_list($keywords)) {
             $keywords = array_combine($keywords, $keywords);
         }
 
         $keywords = self::filterRelevantKeywords($withColon, $keywords);
 
-        // Early return if no keywords remain
         if (empty($keywords)) {
             return [
                 'description' => $description,
@@ -180,8 +178,7 @@ class ItemDescriptionParser
             }
         }
 
-        // Apply manufacturer name corrections automatically
-        // Check for both 'manufacturer' and 'Manufacturer' keys
+        // manufacturer name corrections
         foreach (['manufacturer', 'Manufacturer'] as $key) {
             if (! empty($out[$key])) {
                 $fixed = self::getConfig()->getManufacturerFix($out[$key]);
@@ -192,7 +189,7 @@ class ItemDescriptionParser
         }
 
         return [
-            'description' => self::getCleanText($description),
+            'description' => self::getCleanText($description, array_keys($out)),
             'data' => $out ?: null,
         ];
     }
@@ -201,23 +198,50 @@ class ItemDescriptionParser
      * Extract clean description text, removing data section
      *
      * @param  string  $description  Raw description text
+     * @param  array<string>  $matchedKeywords  Keywords that were actually matched and extracted
      * @return string Description with "Keyword: Value" section removed
      */
-    private static function getCleanText(string $description): string
+    private static function getCleanText(string $description, array $matchedKeywords): string
     {
         $description = self::normalizeText($description);
 
+        // If no keywords were matched, the entire description is prose
+        if (empty($matchedKeywords)) {
+            return $description;
+        }
+
         $exploded = explode("\n\n", $description);
+
         if (count($exploded) === 1) {
             $exploded = explode('\n\n', $exploded[0]);
         }
 
-        // Remove sections containing "keyword: value" patterns
-        $exploded = array_filter($exploded, static function (string $part) {
-            return preg_match('/(：|\w:)/u', $part) !== 1;
-        });
+        // Build a regex from the actual matched keywords to strip those data lines
+        $escapedKeywords = array_map(static fn (string $kw) => preg_quote($kw, '/'), $matchedKeywords);
+        $keywordPattern = '/^('.implode('|', $escapedKeywords).')\s*[：:]/m';
 
-        return trim(implode("\n\n", $exploded));
+        // General data-line pattern: catches unknown keywords like "G-Force Tolerance"
+        // Pattern: line starts with short uppercase label (letters, spaces, dots, hyphens)
+        // followed by colon and a non-empty value. Max label length ~35 chars.
+        $generalDataPattern = '/^[A-Z\d][A-Za-z\s.\-]{0,33}[：:]\s*\S/m';
+
+        $cleaned = [];
+
+        foreach ($exploded as $part) {
+            $lines = explode("\n", $part);
+            $prose = array_filter($lines, static function (string $line) use ($keywordPattern, $generalDataPattern) {
+                // Strip if it matches a known keyword OR looks like a general data line
+                return preg_match($keywordPattern, $line) !== 1
+                    && preg_match($generalDataPattern, $line) !== 1;
+            });
+            $prose = implode("\n", $prose);
+
+            if (trim($prose) !== '') {
+                $cleaned[] = $prose;
+            }
+        }
+
+        return trim(implode("\n\n", $cleaned));
     }
 
     /**
@@ -271,16 +295,19 @@ class ItemDescriptionParser
     {
         $config = self::getConfig();
 
-        foreach ($config->getNewlineFormats() as $format) {
+        foreach ($config->newlineFormats as $format) {
             $description = str_replace($format, "\n", $description);
         }
 
         // Normalize double-escaped newlines with spaces (\\n \\n -> \n\n)
         $description = preg_replace('/\\\n\s+\\\n/', "\n\n", $description);
 
+        // Normalize literal whitespace-only lines between newlines ("\n \n", "\n\xa0\n" -> "\n\n")
+        $description = preg_replace('/\n[ \t\x{00A0}]+\n/u', "\n\n", $description);
+
         $description = str_replace(
-            array_keys($config->getUnicodeReplacements()),
-            array_values($config->getUnicodeReplacements()),
+            array_keys($config->unicodeReplacements),
+            array_values($config->unicodeReplacements),
             $description
         );
 

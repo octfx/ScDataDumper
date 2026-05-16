@@ -29,12 +29,16 @@ class ItemDescriptionParserConfig
     /**
      * Newline sequences to normalize to \n
      */
-    private array $newlineFormats = ["\r\n", "\r", '\n', '\\n'];
+    public array $newlineFormats = ["\r\n", "\r", '\n', '\\n'] {
+        get {
+            return $this->newlineFormats;
+        }
+    }
 
     /**
      * Unicode character replacements
      */
-    private array $unicodeReplacements = [
+    public array $unicodeReplacements = [
         "\u{2018}" => "'",  // Left single quotation mark
         "\u{2019}" => "'",  // Right single quotation mark
         "\u{201C}" => '"',  // Left double quotation mark
@@ -44,7 +48,11 @@ class ItemDescriptionParserConfig
         "\u{00A0}" => ' ',  // Non-breaking space
         "\u{2013}" => '-',  // En dash
         "\u{2014}" => '-',  // Em dash
-    ];
+    ] {
+        get {
+            return $this->unicodeReplacements;
+        }
+    }
 
     /**
      * Add a manufacturer name normalization
@@ -67,17 +75,7 @@ class ItemDescriptionParserConfig
      */
     public function getManufacturerFix(string $name): ?string
     {
-        if (isset($this->manufacturerFixes[$name])) {
-            return $this->manufacturerFixes[$name];
-        }
-
-        foreach ($this->manufacturerFixes as $key => $value) {
-            if (strcasecmp($key, $name) === 0) {
-                return $value;
-            }
-        }
-
-        return null;
+        return $this->manufacturerFixes[$name] ?? array_find($this->manufacturerFixes, fn ($value, $key) => strcasecmp($key, $name) === 0);
     }
 
     /**
@@ -99,28 +97,6 @@ class ItemDescriptionParserConfig
      */
     public function isPlaceholder(string $description): bool
     {
-        foreach ($this->placeholderPatterns as $pattern) {
-            if (preg_match($pattern, $description)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Get Unicode character replacement map
-     */
-    public function getUnicodeReplacements(): array
-    {
-        return $this->unicodeReplacements;
-    }
-
-    /**
-     * Get newline format variants to normalize
-     */
-    public function getNewlineFormats(): array
-    {
-        return $this->newlineFormats;
+        return array_any($this->placeholderPatterns, fn ($pattern) => preg_match($pattern, $description));
     }
 }
