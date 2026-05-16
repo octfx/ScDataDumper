@@ -352,6 +352,224 @@ final class ShipLoadoutExportRegressionTest extends ScDataTestCase
         return is_array($result) ? $result : null;
     }
 
+    public function test_loadout_entry_uses_port_required_tags_when_present(): void
+    {
+        $ship = $this->newShipForInternalInvocation();
+
+        $port = [
+            'PortName' => 'hardpoint_controller_flight',
+            'Uneditable' => false,
+            'Types' => ['FlightController'],
+            'MinSize' => 1,
+            'MaxSize' => 1,
+            'RequiredTags' => ['ANVL_Paladin_Blade'],
+            'InstalledItem' => [
+                'stdItem' => [
+                    'ClassName' => 'Controller_Flight_ANVL_Paladin',
+                    'UUID' => '00000000-0000-0000-0000-000000000002',
+                    'Name' => 'Paladin Flight Controller',
+                    'Manufacturer' => ['Name' => 'Anvil Aerospace'],
+                    'Type' => 'FlightController.UNDEFINED',
+                    'Grade' => 'C',
+                    'RequiredTags' => ['ANVL_Paladin_Blade'],
+                    'Ports' => [],
+                ],
+            ],
+        ];
+
+        $entry = $this->invokeBuildLoadoutEntry($ship, $port);
+
+        self::assertIsArray($entry);
+        self::assertSame(['ANVL_Paladin_Blade'], $entry['RequiredTags'] ?? null);
+    }
+
+    public function test_loadout_entry_falls_back_to_item_required_tags_when_port_has_none(): void
+    {
+        $ship = $this->newShipForInternalInvocation();
+
+        // Avenger Stalker scenario: port has no RequiredTags, item does
+        $port = [
+            'PortName' => 'hardpoint_controller_flight',
+            'Uneditable' => false,
+            'Types' => ['FlightController'],
+            'MinSize' => 1,
+            'MaxSize' => 1,
+            'RequiredTags' => [],
+            'InstalledItem' => [
+                'stdItem' => [
+                    'ClassName' => 'Controller_Flight_AEGS_Avenger_Stalker',
+                    'UUID' => '00000000-0000-0000-0000-000000000003',
+                    'Name' => 'Avenger Stalker Standard Flight Blade',
+                    'Manufacturer' => ['Name' => 'Aegis Dynamics'],
+                    'Type' => 'FlightController.UNDEFINED',
+                    'Grade' => 1,
+                    'RequiredTags' => ['AEGS_Avenger_Stalker_Blade'],
+                    'Ports' => [],
+                ],
+            ],
+        ];
+
+        $entry = $this->invokeBuildLoadoutEntry($ship, $port);
+
+        self::assertIsArray($entry);
+        self::assertSame(['AEGS_Avenger_Stalker_Blade'], $entry['RequiredTags'] ?? null);
+    }
+
+    public function test_loadout_entry_has_no_required_tags_when_neither_port_nor_item_have_them(): void
+    {
+        $ship = $this->newShipForInternalInvocation();
+
+        $port = [
+            'PortName' => 'hardpoint_cooler',
+            'Uneditable' => false,
+            'Types' => ['Cooler'],
+            'MinSize' => 1,
+            'MaxSize' => 1,
+            'RequiredTags' => [],
+            'InstalledItem' => [
+                'stdItem' => [
+                    'ClassName' => 'COOL_AEGS_SingleS1',
+                    'UUID' => '00000000-0000-0000-0000-000000000004',
+                    'Name' => 'Endurance Cooler',
+                    'Manufacturer' => ['Name' => 'Aegis Dynamics'],
+                    'Type' => 'Cooler.UNDEFINED',
+                    'Grade' => 1,
+                    'RequiredTags' => [],
+                    'Ports' => [],
+                ],
+            ],
+        ];
+
+        $entry = $this->invokeBuildLoadoutEntry($ship, $port);
+
+        self::assertIsArray($entry);
+        self::assertArrayNotHasKey('RequiredTags', $entry);
+    }
+
+    public function test_loadout_entry_has_no_required_tags_when_no_item_installed(): void
+    {
+        $ship = $this->newShipForInternalInvocation();
+
+        $port = [
+            'PortName' => 'hardpoint_paint',
+            'Uneditable' => false,
+            'Types' => ['Paints'],
+            'MinSize' => 1,
+            'MaxSize' => 1,
+            'RequiredTags' => [],
+        ];
+
+        $entry = $this->invokeBuildLoadoutEntry($ship, $port);
+
+        self::assertIsArray($entry);
+        self::assertArrayNotHasKey('RequiredTags', $entry);
+    }
+
+    public function test_loadout_entry_falls_back_to_item_required_tags_with_multiple_tags(): void
+    {
+        $ship = $this->newShipForInternalInvocation();
+
+        $port = [
+            'PortName' => 'hardpoint_paint',
+            'Uneditable' => false,
+            'Types' => ['Paints'],
+            'MinSize' => 1,
+            'MaxSize' => 1,
+            'RequiredTags' => [],
+            'InstalledItem' => [
+                'stdItem' => [
+                    'ClassName' => 'Paint_AEGS_Avenger_Stalker_White',
+                    'UUID' => '00000000-0000-0000-0000-000000000005',
+                    'Name' => 'Avenger Stalker White Paint',
+                    'Manufacturer' => ['Name' => 'Aegis Dynamics'],
+                    'Type' => 'Paints.UNDEFINED',
+                    'Grade' => 1,
+                    'RequiredTags' => ['Paint_Avenger_Stalker', 'Paint_Base_Avenger'],
+                    'Ports' => [],
+                ],
+            ],
+        ];
+
+        $entry = $this->invokeBuildLoadoutEntry($ship, $port);
+
+        self::assertIsArray($entry);
+        self::assertSame(['Paint_Avenger_Stalker', 'Paint_Base_Avenger'], $entry['RequiredTags'] ?? null);
+    }
+
+    public function test_compatible_types_groups_subtypes_by_major_type(): void
+    {
+        $ship = $this->newShipForInternalInvocation();
+
+        $port = [
+            'PortName' => 'hardpoint_weapon_left',
+            'Uneditable' => false,
+            'Types' => ['WeaponGun.Ballistic', 'WeaponGun.Energy', 'Turret.GunTurret'],
+            'MinSize' => 1,
+            'MaxSize' => 3,
+            'RequiredTags' => [],
+        ];
+
+        $entry = $this->invokeBuildLoadoutEntry($ship, $port);
+
+        self::assertIsArray($entry);
+        self::assertArrayHasKey('CompatibleTypes', $entry);
+        self::assertArrayNotHasKey('ItemTypes', $entry);
+
+        $ct = $entry['CompatibleTypes'];
+        self::assertCount(2, $ct);
+
+        // First group: WeaponGun with two sub-types
+        self::assertSame('WeaponGun', $ct[0]['Type']);
+        self::assertSame(['Ballistic', 'Energy'], $ct[0]['SubTypes']);
+
+        // Second group: Turret with one sub-type
+        self::assertSame('Turret', $ct[1]['Type']);
+        self::assertSame(['GunTurret'], $ct[1]['SubTypes']);
+    }
+
+    public function test_compatible_types_with_no_subtypes(): void
+    {
+        $ship = $this->newShipForInternalInvocation();
+
+        $port = [
+            'PortName' => 'hardpoint_cooler',
+            'Uneditable' => false,
+            'Types' => ['Cooler'],
+            'MinSize' => 1,
+            'MaxSize' => 1,
+            'RequiredTags' => [],
+        ];
+
+        $entry = $this->invokeBuildLoadoutEntry($ship, $port);
+
+        self::assertIsArray($entry);
+        $ct = $entry['CompatibleTypes'];
+        self::assertCount(1, $ct);
+        self::assertSame('Cooler', $ct[0]['Type']);
+        self::assertArrayNotHasKey('SubTypes', $ct[0]);
+    }
+
+    public function test_compatible_types_deduplicates_subtypes(): void
+    {
+        $ship = $this->newShipForInternalInvocation();
+
+        $port = [
+            'PortName' => 'hardpoint_weapon',
+            'Uneditable' => false,
+            'Types' => ['WeaponGun.Ballistic', 'WeaponGun.Ballistic', 'WeaponGun.Energy'],
+            'MinSize' => 1,
+            'MaxSize' => 2,
+            'RequiredTags' => [],
+        ];
+
+        $entry = $this->invokeBuildLoadoutEntry($ship, $port);
+
+        self::assertIsArray($entry);
+        $ct = $entry['CompatibleTypes'];
+        self::assertCount(1, $ct);
+        self::assertSame(['Ballistic', 'Energy'], $ct[0]['SubTypes']);
+    }
+
     private function invokeSeatingAnalyzer(array $standardisedParts): array
     {
         $context = new VehicleDataContext(
@@ -371,5 +589,66 @@ final class ShipLoadoutExportRegressionTest extends ScDataTestCase
         self::assertIsArray($result);
 
         return $result;
+    }
+
+    public function test_loadout_entry_exports_port_tags_when_present(): void
+    {
+        $ship = $this->newShipForInternalInvocation();
+
+        $port = [
+            'PortName' => 'hardpoint_weapon_class2_nose',
+            'Uneditable' => false,
+            'Types' => ['Turret.GunTurret'],
+            'MinSize' => 3,
+            'MaxSize' => 3,
+            'RequiredTags' => [],
+            'PortTags' => ['AEGS_Avenger_Base'],
+        ];
+
+        $entry = $this->invokeBuildLoadoutEntry($ship, $port);
+
+        self::assertIsArray($entry);
+        self::assertSame(['AEGS_Avenger_Base'], $entry['PortTags'] ?? null);
+    }
+
+    public function test_loadout_entry_exports_port_tags_with_ship_and_per_port_tags_merged(): void
+    {
+        $ship = $this->newShipForInternalInvocation();
+
+        // Polaris PDC port: ship-level "RSI_Polaris" + per-port "PDC"
+        $port = [
+            'PortName' => 'hardpoint_pdc_top_01',
+            'Uneditable' => false,
+            'Types' => ['Turret.PDCTurret'],
+            'MinSize' => 2,
+            'MaxSize' => 2,
+            'RequiredTags' => ['PDC'],
+            'PortTags' => ['RSI_Polaris', 'PDC'],
+        ];
+
+        $entry = $this->invokeBuildLoadoutEntry($ship, $port);
+
+        self::assertIsArray($entry);
+        self::assertSame(['RSI_Polaris', 'PDC'], $entry['PortTags'] ?? null);
+    }
+
+    public function test_loadout_entry_omits_port_tags_when_empty(): void
+    {
+        $ship = $this->newShipForInternalInvocation();
+
+        $port = [
+            'PortName' => 'hardpoint_cooler',
+            'Uneditable' => false,
+            'Types' => ['Cooler'],
+            'MinSize' => 1,
+            'MaxSize' => 1,
+            'RequiredTags' => [],
+            'PortTags' => [],
+        ];
+
+        $entry = $this->invokeBuildLoadoutEntry($ship, $port);
+
+        self::assertIsArray($entry);
+        self::assertArrayNotHasKey('PortTags', $entry);
     }
 }
