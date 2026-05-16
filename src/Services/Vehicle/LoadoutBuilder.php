@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Services\Vehicle;
 
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\DocumentTypes\Loadout\LoadoutEntry;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\Formats\ScUnpacked\Item as ScUnpackedItem;
+use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Services\ItemClassifierService;
 use Octfx\ScDataDumper\Services\ItemService;
 

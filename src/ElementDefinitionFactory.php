@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper;
 
 use DOMNode;
-use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\Helper\Element;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RegexIterator;
 
+/**
+ * @deprecated Eager hydration is deprecated
+ */
 class ElementDefinitionFactory
 {
     private static ?ElementDefinitionFactory $instance = null;

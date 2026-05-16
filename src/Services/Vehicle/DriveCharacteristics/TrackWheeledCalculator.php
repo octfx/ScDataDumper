@@ -3,8 +3,8 @@
 namespace Octfx\ScDataDumper\Services\Vehicle\DriveCharacteristics;
 
 use Octfx\ScDataDumper\Concerns\NormalizesValues;
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\Vehicle;
+use Octfx\ScDataDumper\Helper\Element;
 
 /**
  * Capture MovementParams snapshot for track wheeled vehicles

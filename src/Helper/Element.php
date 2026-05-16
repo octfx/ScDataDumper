@@ -1,6 +1,6 @@
 <?php
 
-namespace Octfx\ScDataDumper\Definitions;
+namespace Octfx\ScDataDumper\Helper;
 
 use DOMDocument;
 use DOMException;
@@ -9,7 +9,6 @@ use DOMXPath;
 use Generator;
 use Octfx\ScDataDumper\Concerns\NormalizesValues;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
-use Octfx\ScDataDumper\Helper\XmlAccess;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
 use WeakMap;

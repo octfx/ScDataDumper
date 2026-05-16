@@ -8,8 +8,8 @@ use DOMDocument;
 use DOMElement;
 use DOMNode;
 use JsonException;
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\ElementDefinitionFactory;
+use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Helper\XmlAccess;
 use Octfx\ScDataDumper\Loader\ElementLoader;
 use RuntimeException;
@@ -23,6 +23,9 @@ abstract class RootDocument extends DOMDocument
 
     private bool $referenceHydrationEnabled = false;
 
+    /**
+     * @param  bool  $referenceHydrationEnabled  @deprecated Eager hydration is deprecated.
+     */
     public static function fromNode(?DOMNode $node, bool $referenceHydrationEnabled = false): ?self
     {
         if (! $node) {
@@ -60,6 +63,9 @@ abstract class RootDocument extends DOMDocument
         return true;
     }
 
+    /**
+     * @deprecated Eager hydration is deprecated.
+     */
     public function setReferenceHydrationEnabled(bool $enabled): static
     {
         $this->referenceHydrationEnabled = $enabled;
@@ -67,6 +73,9 @@ abstract class RootDocument extends DOMDocument
         return $this;
     }
 
+    /**
+     * @deprecated Eager hydration is deprecated.
+     */
     public function isReferenceHydrationEnabled(): bool
     {
         return $this->referenceHydrationEnabled;

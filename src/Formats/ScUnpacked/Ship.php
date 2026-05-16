@@ -3,9 +3,9 @@
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Illuminate\Support\Arr;
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 use Octfx\ScDataDumper\Formats\BaseFormat;
+use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Helper\ItemDescriptionParser;
 use Octfx\ScDataDumper\Helper\VehicleWrapper;
 use Octfx\ScDataDumper\Services\DataDumper\SocpakReader;
@@ -61,85 +61,43 @@ final class Ship extends BaseFormat
         $this->inventoryContainerResolver = new InventoryContainerResolver;
         $this->portSummaryBuilder = new PortSummaryBuilder(new PortFinder);
         $this->entityPorts = $this->vehicleWrapper->entity->get('Components/SItemPortContainerComponentParams/Ports');
+
         $this->standardisedPartBuilder = new StandardisedPartBuilder(
             ServiceFactory::getItemService(),
             new ItemClassifierService,
             new PortClassifierService,
-            $this->entityPorts
+            $this->entityPorts,
+            $this->vehicleWrapper->entity->getPortTags(),
         );
     }
 
     public function toArray(): array
     {
         $attach = $this->vehicleWrapper->entity->getAttachDef();
-        $vehicleComponent = $this->get('Components/VehicleComponentParams');
-
-        $vehicleComponentData = [];
-        if ($vehicleComponent) {
-            $vehicleComponentData = new Element($vehicleComponent->getNode())->attributesToArray();
-        } else {
-            $vehicleComponent = $this->vehicleWrapper->entity->getAttachDef();
-        }
 
         $manufacturer = $this->vehicleWrapper->entity->getManufacturer();
-        if ($manufacturer === null) {
-            // Some actor-based vehicles (e.g. power suits) don't carry a valid manufacturer on AttachDef
-            // and lack VehicleComponentParams entirely. Fall back to the insurance display params
-            // which still hold the canonical manufacturer reference.
-            $manufacturerRef = $this->item->get('StaticEntityClassData/SEntityInsuranceProperties/displayParams@manufacturer');
-            $manufacturer = ServiceFactory::getManufacturerService()->getByReference($manufacturerRef);
-        }
 
-        $subType = $this->item->get('Components/SAttachableComponentParams/AttachDef@SubType');
-        $vehicleCareer = $this->item->get('Components/VehicleComponentParams@vehicleCareer', '');
-        $movementClass = $this->item->get('Components/VehicleComponentParams@movementClass');
-
-        $isVehicle = $subType === 'Vehicle_GroundVehicle' ||
-                     $movementClass === 'ArcadeWheeled' ||
-                     str_contains($vehicleCareer, 'ground');
-        $isGravlevValue = $this->item->get('Components/VehicleComponentParams@isGravlevVehicle');
-        $isGravlev = filter_var($isGravlevValue, FILTER_VALIDATE_BOOLEAN) || (is_numeric($isGravlevValue) && (float) $isGravlevValue > 0);
-
-        // Star Citizen bounding boxes are stored as maxBoundingBoxSize@x/y/z but
-        // their axis assignment is not consistent between vehicles. We normalize
-        // dimensions to be Length >= Width >= Height.
-        $dimensions = [
-            (float) $vehicleComponent->get('maxBoundingBoxSize@x', 0),
-            (float) $vehicleComponent->get('maxBoundingBoxSize@y', 0),
-            (float) $vehicleComponent->get('maxBoundingBoxSize@z', 0),
-        ];
-        rsort($dimensions, SORT_NUMERIC);
-
-        if ($dimensions === [0.0, 0.0, 0.0]) {
-            $min = $vehicleComponent->get('inventoryOccupancyLocalBoundsMin');
-            $max = $vehicleComponent->get('inventoryOccupancyLocalBoundsMax');
-            if ($min !== null && $max !== null) {
-                $dimensions = [
-                    abs((float) $max->get('@x') - (float) $min->get('@x')),
-                    abs((float) $max->get('@y') - (float) $min->get('@y')),
-                    abs((float) $max->get('@z') - (float) $min->get('@z')),
-                ];
-                rsort($dimensions, SORT_NUMERIC);
-            }
-        }
+        $isVehicle = $this->vehicleWrapper->entity->isGroundVehicle();
+        $isGravlev = $this->vehicleWrapper->entity->isGravlev();
+        $dimensions = $this->vehicleWrapper->entity->getDimensions();
 
         $vehicleName = $this->translateLocalizationValue(
-            Arr::get($vehicleComponentData, 'vehicleName')
-            ?? $vehicleComponent->get('@vehicleName')
+            $this->vehicleWrapper->entity->getVehicleNameKey()
             ?? $attach?->get('Localization@Name')
         );
         $vehicleDescription = $this->translateLocalizationValue(
-            $vehicleComponent->get('@vehicleDescription')
+            $this->vehicleWrapper->entity->getVehicleDescriptionKey()
             ?? $attach?->get('Localization@Description')
         );
-        $vehicleCareerLabel = $this->translateLocalizationValue($vehicleComponent->get('@vehicleCareer'));
-        $vehicleRoleLabel = $this->translateLocalizationValue($vehicleComponent->get('@vehicleRole'));
+        $vehicleCareerLabel = $this->translateLocalizationValue($this->vehicleWrapper->entity->getCareerKey());
+        $vehicleRoleLabel = $this->translateLocalizationValue($this->vehicleWrapper->entity->getRoleKey());
 
         if ($vehicleCareerLabel === '' || $vehicleCareerLabel === null) {
             $vehicleCareerLabel = $this->translateLocalizationValue(
                 $this->item->get('StaticEntityClassData/SEntityInsuranceProperties/displayParams@career')
             );
         }
+
         if ($vehicleRoleLabel === '' || $vehicleRoleLabel === null) {
             $vehicleRoleLabel = $this->translateLocalizationValue(
                 $this->item->get('StaticEntityClassData/SEntityInsuranceProperties/displayParams@role')
@@ -148,7 +106,7 @@ final class Ship extends BaseFormat
 
         $descriptionData = ItemDescriptionParser::parse($vehicleDescription);
 
-        $physicsParams = $this->vehicleWrapper->entity->get('Components/SSCActorPhysicsControllerComponentParams/physType/SEntityActorPhysicsControllerParams');
+        $physicsParams = $this->vehicleWrapper->entity->getPhysicsParams();
 
         $data = [
             'UUID' => $this->item->getUuid(),
@@ -171,21 +129,17 @@ final class Ship extends BaseFormat
             'Length' => $dimensions[0] ?? 0,
             'Width' => $dimensions[1] ?? 0,
             'Height' => $dimensions[2] ?? 0,
-            'Crew' => $vehicleComponent->get('@crewSize', 1),
+            'Crew' => $this->vehicleWrapper->entity->getCrewSize(),
 
-            'Insurance' => [
-                'ExpeditedCost' => $this->item->get('StaticEntityClassData/SEntityInsuranceProperties/shipInsuranceParams@baseExpeditingFee', 0),
-                'ExpeditedClaimTime' => $this->item->get('StaticEntityClassData/SEntityInsuranceProperties/shipInsuranceParams@mandatoryWaitTimeMinutes', 0),
-                'StandardClaimTime' => $this->item->get('StaticEntityClassData/SEntityInsuranceProperties/shipInsuranceParams@baseWaitTimeMinutes', 0),
-            ],
+            'Insurance' => $this->vehicleWrapper->entity->getInsuranceParams(),
 
             'IsVehicle' => $isVehicle,
             'IsGravlev' => $isGravlev,
-            'IsSpaceship' => ! ($isVehicle || $isGravlev),
+            'IsSpaceship' => $this->vehicleWrapper->entity->isSpaceship(),
 
             'PenetrationMultiplier' => [
-                'Fuse' => $vehicleComponent->get('@fusePenetrationDamageMultiplier'),
-                'Components' => $vehicleComponent->get('@componentPenetrationDamageMultiplier', []),
+                'Fuse' => $this->vehicleWrapper->entity->getFusePenetrationMultiplier(),
+                'Components' => $this->vehicleWrapper->entity->getComponentPenetrationMultiplier(),
             ],
         ];
 
@@ -221,6 +175,7 @@ final class Ship extends BaseFormat
             $this->vehicle?->get('Parts')?->children() ?? [],
             $this->vehicleWrapper->loadout
         );
+
         if (! empty($standardisedParts)) {
             $data['Parts'] = $this->buildPartsTree($standardisedParts);
         }
@@ -228,6 +183,7 @@ final class Ship extends BaseFormat
         $walker = new StandardisedPartWalker;
 
         $data['Mass'] = 0.0;
+
         foreach ($walker->walkParts($standardisedParts) as $part) {
             $data['Mass'] += Arr::get($part, 'part.Mass', 0.0);
         }
@@ -316,8 +272,10 @@ final class Ship extends BaseFormat
             // Collect shield generators for resistance/absorption rollup
             $item = $entry['Item'] ?? null;
             $itemType = $item['type'] ?? null;
+
             if ($itemType === 'Shield') {
                 $stdItem = Arr::get($item, 'stdItem');
+
                 if ($stdItem !== null) {
                     $shields[] = $stdItem;
                 }
@@ -327,16 +285,19 @@ final class Ship extends BaseFormat
         // Shield Resistance/Absorption: average across active shields only
         $shieldResistance = null;
         $shieldAbsorption = null;
+
         if ($shields !== []) {
-            $maxShields = $this->getShieldPoolMaxCount();
+            $maxShields = $this->vehicleWrapper->entity->getShieldPoolMaxCount();
             $activeShields = array_slice($shields, 0, $maxShields);
 
             $resistance = $this->averageShieldMinMax($activeShields, 'Shield.Resistance');
+
             if ($resistance !== null) {
                 $shieldResistance = $resistance;
             }
 
             $absorption = $this->averageShieldMinMax($activeShields, 'Shield.Absorption');
+
             if ($absorption !== null) {
                 $shieldAbsorption = $absorption;
             }
@@ -355,19 +316,20 @@ final class Ship extends BaseFormat
             ];
         }
 
-        $signatureParams = $this->vehicleWrapper->entity->get('Components/SSCSignatureSystemParams');
+        $crossSectionParams = $this->vehicleWrapper->entity->getCrossSectionParams();
 
-        if ($signatureParams) {
-            $data['cross_section'] = $signatureParams->get('radarProperties/SSCRadarContactProperites/crossSectionParams/SSCSignatureSystemManualCrossSectionParams/crossSection')?->attributesToArray() ?? [];
-            $data['cross_section'] = array_map(static fn ($x) => (float) $x * $crossSectionMultiplier, $data['cross_section']);
+        if ($crossSectionParams !== null) {
+            $data['cross_section'] = array_map(static fn ($x) => (float) $x * $crossSectionMultiplier, $crossSectionParams);
         }
 
         $cargoResult = $this->cargoGridResolver->resolveCargoGrids($this->vehicleWrapper);
 
         $summary['Cargo'] = $cargoResult->totalCapacity;
+
         if ($cargoResult->oreCapacity > 0) {
             $summary['OreCapacity'] = round($cargoResult->oreCapacity, 2);
         }
+
         $summary['CargoGrids'] = $cargoResult->grids->map(function ($grid) {
             return $this->transformArrayKeysToPascalCase($grid);
         });
@@ -375,9 +337,11 @@ final class Ship extends BaseFormat
         $summary['CargoSizeLimits'] = $this->transformArrayKeysToPascalCase($cargoSizeLimits);
 
         $inventoryResult = $this->inventoryContainerResolver->resolveInventoryContainers($this->vehicleWrapper);
+
         if ($inventoryResult->stowageCapacity > 0) {
             $summary['Stowage'] = round($inventoryResult->stowageCapacity, 2);
         }
+
         if ($inventoryResult->containers->isNotEmpty()) {
             $summary['InventoryContainers'] = $inventoryResult->containers->map(function ($container) {
                 return $this->transformArrayKeysToPascalCase($container);
@@ -428,12 +392,15 @@ final class Ship extends BaseFormat
         $data['power'] = $calculatedData['power'] ?? [];
         $data['power_pools'] = $calculatedData['power_pools'] ?? [];
         $data['shields_total'] = $calculatedData['shields_total'] ?? [];
+
         if (isset($shieldResistance)) {
             $data['shields_total']['Resistance'] = $shieldResistance;
         }
+
         if (isset($shieldAbsorption)) {
             $data['shields_total']['Absorption'] = $shieldAbsorption;
         }
+
         // deprecated, use shields_total.hp
         $data['shield_hp'] = round($calculatedData['shields_total']['hp'] ?? 0);
         $data['distortion'] = $calculatedData['distortion'] ?? [];
@@ -444,24 +411,31 @@ final class Ship extends BaseFormat
         if (! empty($calculatedData['Health'])) {
             $summary['Health'] = round($calculatedData['Health']);
         }
+
         if (! empty($calculatedData['DamageBeforeDestruction'])) {
             $summary['DamageBeforeDestruction'] = $calculatedData['DamageBeforeDestruction'];
         }
+
         if (! empty($calculatedData['DamageBeforeDetach'])) {
             $summary['DamageBeforeDetach'] = $calculatedData['DamageBeforeDetach'];
         }
+
         if (! empty($calculatedData['FlightCharacteristics'])) {
             $summary['FlightCharacteristics'] = $calculatedData['FlightCharacteristics'];
         }
+
         if (! empty($calculatedData['Agility'])) {
             $data['Agility'] = $calculatedData['Agility'];
         }
+
         if (! empty($calculatedData['MannedTurrets'])) {
             $summary['MannedTurrets'] = $calculatedData['MannedTurrets'];
         }
+
         if (! empty($calculatedData['PdcTurrets'])) {
             $summary['PdcTurrets'] = $calculatedData['PdcTurrets'];
         }
+
         if (! empty($calculatedData['RemoteTurrets'])) {
             $summary['RemoteTurrets'] = $calculatedData['RemoteTurrets'];
         }
@@ -535,15 +509,24 @@ final class Ship extends BaseFormat
         }
 
         // Engineering boost (multi-crew weapon regen modifier)
-        $engineeringBoost = $this->extractEngineeringBoost();
-        if ($engineeringBoost !== null) {
-            $data['engineering_boost'] = $engineeringBoost;
+        $engineeringBoostItem = $this->vehicleWrapper->entity->getEngineeringBoostItem();
+        if ($engineeringBoostItem !== null) {
+            $engineeringBoost = new EngineeringBoost($engineeringBoostItem)->toArray();
+            if ($engineeringBoost !== null) {
+                $data['engineering_boost'] = $engineeringBoost;
+            }
         }
 
         // Relay network topology
         $relayNetwork = new RelayNetwork($this->vehicleWrapper->entity, $this->vehicleWrapper->loadout, $loadout);
         if ($relayNetwork->canTransform()) {
             $data['RelayNetwork'] = $relayNetwork->toArray();
+        }
+
+        // Ship-to-ship service provider (CryAstro-style repair/restock/refuel for hangar ships)
+        $shipServices = new ShipServices($this->vehicleWrapper->entity);
+        if ($shipServices->canTransform()) {
+            $data['ShipServices'] = $shipServices->toArray();
         }
 
         $data = array_merge($data, $summary);
@@ -571,28 +554,38 @@ final class Ship extends BaseFormat
     }
 
     /**
-     * Convert Types array to itemTypes format.
-     * Example: ['WeaponGun', 'WeaponGun.Ballistic'] -> [{type: 'WeaponGun'}, {type: 'WeaponGun', subType: 'Ballistic'}]
+     * Convert flat Types array to grouped CompatibleTypes format.
+     * Example: ['WeaponGun.Ballistic', 'WeaponGun.Energy', 'WeaponMining']
+     *   -> [{Type: 'WeaponGun', SubTypes: ['Ballistic', 'Energy']}, {Type: 'WeaponMining'}]
+     *
+     * @param  list<string>  $types  Dot-separated type strings from extractTypes()
+     * @return list<array{Type: string, SubTypes?: list<string>}>
      */
-    private function buildItemTypes(array $types): array
+    private function buildCompatibleTypes(array $types): array
     {
-        $result = [];
-        $seen = [];
+        $grouped = [];
 
         foreach ($types as $typeString) {
             $parts = explode('.', $typeString, 2);
-            $majorType = $parts[0];
-            $subType = $parts[1] ?? null;
+            $major = $parts[0];
+            $minor = $parts[1] ?? null;
 
-            $key = $majorType.'|'.($subType ?? '');
-            if (isset($seen[$key])) {
-                continue;
+            if (! isset($grouped[$major])) {
+                $grouped[$major] = [];
             }
-            $seen[$key] = true;
 
-            $entry = ['type' => $majorType];
-            if ($subType !== null) {
-                $entry['subType'] = $subType;
+            if ($minor !== null && ! in_array($minor, $grouped[$major], true)) {
+                $grouped[$major][] = $minor;
+            }
+        }
+
+        $result = [];
+
+        foreach ($grouped as $type => $subTypes) {
+            $entry = ['Type' => $type];
+
+            if ($subTypes !== []) {
+                $entry['SubTypes'] = $subTypes;
             }
 
             $result[] = $entry;
@@ -668,19 +661,33 @@ final class Ship extends BaseFormat
 
         $entry['Editable'] = ! $uneditable;
         $entry['EditableChildren'] = $this->determineEditableChildren($nestedLoadout, ! $uneditable);
-        $entry['ItemTypes'] = $this->buildItemTypes($port['Types'] ?? []);
+        $entry['CompatibleTypes'] = $this->buildCompatibleTypes($port['Types'] ?? []);
         $entry['MaxSize'] = (int) ($port['MaxSize'] ?? 0);
         $entry['MinSize'] = (int) ($port['MinSize'] ?? 0);
-
         $requiredTags = $port['RequiredTags'] ?? [];
-        if (! empty($requiredTags)) {
-            $tags = is_array($requiredTags)
-                ? implode(' ', array_filter($requiredTags))
-                : trim((string) $requiredTags);
 
-            if ($tags !== '') {
-                $entry['RequiredTags'] = $tags;
+        if (empty($requiredTags) && is_array($installedItem)) {
+            // Fall back to the equipped item's RequiredTags when the port
+            // definition has no RequiredPortTags (e.g. virtual ports for
+            // paint or flight controller on ships like the Avenger Stalker).
+            $requiredTags = $installedItem['RequiredTags'] ?? [];
+        }
+
+        if (! empty($requiredTags)) {
+            $entry['RequiredTags'] = is_array($requiredTags)
+                ? array_values(array_filter($requiredTags))
+                : array_values(array_filter(explode(' ', trim((string) $requiredTags))));
+
+            if ($entry['RequiredTags'] === []) {
+                unset($entry['RequiredTags']);
             }
+        }
+
+        // Export PortTags: ship-level tags merged with per-port PortTags from SItemPortDef
+        $portTags = $port['PortTags'] ?? [];
+
+        if (! empty($portTags)) {
+            $entry['PortTags'] = array_values(array_unique($portTags));
         }
 
         return $entry;
@@ -735,26 +742,166 @@ final class Ship extends BaseFormat
             }
         }
 
+        // Inject paint RequiredTags for ships without an explicit paint port definition.
+        // Derives the base paint tag from SGeometryResourceParams SubGeometry tags.
+        $paintIndex = array_find_key($loadout, static fn (array $e): bool => ($e['HardpointName'] ?? '') === 'hardpoint_paint');
+
+        if ($paintIndex !== null && ! isset($loadout[$paintIndex]['RequiredTags'])) {
+            $paintTag = $this->extractPaintTagFromGeometry();
+
+            if ($paintTag !== null) {
+                $loadout[$paintIndex]['RequiredTags'] = [$paintTag];
+            }
+        }
+
         return $loadout;
     }
 
     /**
-     * Read the max shield pool count from the ship entity.
-     * This limits how many shields are active simultaneously.
+     * Extract the base paint compatibility tag from SGeometryResourceParams SubGeometry.
+     *
+     * All SubGeometry paint tags follow the pattern "Paint_{Base}_{Variant}".
+     * The base tag (e.g. "Paint_Avenger" or "Paint_890J") is the common prefix
+     * shared by all paint variants, stripped of the trailing underscore.
+     *
+     * The geometry tag uses the internal platform codename which may differ from
+     * the actual paint item's RequiredTags (e.g. "Paint_Atlas" vs "Paint_Centurion").
+     * To handle this, we look up an actual paint item by class name and prefer its
+     * RequiredTags value when available.
      */
-    private function getShieldPoolMaxCount(): int
+    private function extractPaintTagFromGeometry(): ?string
     {
-        $pools = $this->vehicleWrapper->entity->get('Components/SItemPortContainerComponentParams/resourceNetworkPowerPools/itemPools');
+        $subGeometry = $this->vehicleWrapper->entity->get('Components/SGeometryResourceParams/Geometry/SubGeometry');
 
-        foreach ($pools?->children() ?? [] as $pool) {
-            $itemType = $pool->get('@itemType');
-            if ($itemType === 'Shield') {
-                return (int) ($pool->get('@maxItemCount') ?? 0);
+        if ($subGeometry === null) {
+            return null;
+        }
+
+        $paintTags = [];
+
+        foreach ($subGeometry->children() as $node) {
+            $tags = trim((string) ($node->get('@Tags') ?? ''));
+
+            if (str_starts_with($tags, 'Paint_')) {
+                $paintTags[] = $tags;
             }
         }
 
-        // Fallback: no pool constraint means all shields active
-        return PHP_INT_MAX;
+        if ($paintTags === []) {
+            return null;
+        }
+
+        // Derive the geometry-based base tag for class name lookup.
+        $baseTag = $this->extractBasePaintTag($paintTags);
+
+        if ($baseTag === null) {
+            return null;
+        }
+
+        // Resolve the actual paint compatibility tag from a paint item.
+        // Geometry tags use the platform codename (e.g. Paint_Atlas) but paint
+        // items may use the ship name (e.g. Paint_Centurion) as their RequiredTags.
+        $resolved = $this->resolvePaintTagFromItem($baseTag);
+
+        if ($resolved !== null) {
+            return $resolved;
+        }
+
+        // The geometry-based lookup may fail for sub-modules whose geometry
+        // uses the parent ship codename (e.g. Command Module uses Caterpillar
+        // geometry tags). Try the entity's own class name as a fallback.
+        $className = $this->item->getClassName();
+        if ($className !== '') {
+            $classBase = 'Paint_'.implode('_', array_slice(explode('_', $className), 1));
+            $classResolved = $this->resolvePaintTagFromItem($classBase);
+
+            if ($classResolved !== null) {
+                return $classResolved;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Derive the base paint tag from a list of SubGeometry paint tag variants.
+     *
+     * @param  list<string>  $paintTags
+     */
+    private function extractBasePaintTag(array $paintTags): ?string
+    {
+        if (count($paintTags) === 1) {
+            $lastUnderscore = strrpos($paintTags[0], '_');
+
+            return $lastUnderscore !== false ? substr($paintTags[0], 0, $lastUnderscore) : $paintTags[0];
+        }
+
+        // Multiple variants: find the longest common prefix, then strip trailing underscore
+        $prefix = $paintTags[0];
+
+        for ($i = 1, $count = count($paintTags); $i < $count; $i++) {
+            while (! str_starts_with($paintTags[$i], $prefix)) {
+                $prefix = substr($prefix, 0, -1);
+
+                if ($prefix === '') {
+                    return null;
+                }
+            }
+        }
+
+        return rtrim($prefix, '_');
+    }
+
+    /**
+     * Look up a paint item by class name and return its RequiredTags.
+     *
+     * Paint items carry the authoritative compatibility tag in their AttachDef@RequiredTags.
+     * The geometry-derived base tag is used as a class name prefix to find any matching
+     * paint item. We try exact class names first (_Template, _Base, _Default), then fall
+     * back to scanning class names for a prefix match.
+     */
+    private function resolvePaintTagFromItem(string $baseTag): ?string
+    {
+        $itemService = ServiceFactory::getItemService();
+
+        // Try exact class name lookups for well-known suffixes.
+        // Some templates (e.g. Paint_Gladius_Default) exist but have no
+        // RequiredTags - continue searching for a better match.
+        foreach (['_Template', '_Base', '_Default'] as $suffix) {
+            $item = $itemService->getByClassName($baseTag.$suffix);
+
+            if ($item !== null) {
+                $tag = $item->getRequiredTagList()[0] ?? null;
+
+                if ($tag !== null) {
+                    return $tag;
+                }
+            }
+        }
+
+        // Prefix scan when the base tag has enough specificity.
+        // Bare "Paint" (0 underscores) would match the first item in the
+        // entire paint index - an arbitrary, unrelated paint.
+        // Skip items with empty RequiredTags (e.g. Paint_Gladius_Default).
+        if (substr_count($baseTag, '_') >= 1) {
+            $candidate = $itemService->getFirstByClassNamePrefix($baseTag.'_');
+
+            while ($candidate !== null) {
+                $tag = $candidate->getRequiredTagList()[0] ?? null;
+
+                if ($tag !== null) {
+                    return $tag;
+                }
+
+                // Get next candidate with same prefix
+                $candidate = $itemService->getNextByClassNamePrefix(
+                    $baseTag.'_',
+                    $candidate->getClassName(),
+                );
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -782,6 +929,7 @@ final class Ship extends BaseFormat
 
             foreach ($shields as $stdItem) {
                 $values = Arr::get($stdItem, "{$keyPath}.{$type}");
+
                 if (is_array($values)) {
                     $minSum += (float) ($values['Minimum'] ?? 0.0);
                     $maxSum += (float) ($values['Maximum'] ?? 0.0);
@@ -800,38 +948,6 @@ final class Ship extends BaseFormat
         return $result !== [] ? $result : null;
     }
 
-    private function extractEngineeringBoost(): ?array
-    {
-        if ($this->entityPorts === null) {
-            return null;
-        }
-
-        $engineeringBuffPort = null;
-        foreach ($this->entityPorts->children() as $portDef) {
-            $name = $portDef->get('@Name');
-            if ($name === 'engineeringBuff') {
-                $engineeringBuffPort = $portDef;
-                break;
-            }
-        }
-
-        if ($engineeringBuffPort === null) {
-            return null;
-        }
-
-        $uuid = $engineeringBuffPort->get('defaultItem/@entityClass');
-        if ($uuid === null) {
-            return null;
-        }
-
-        $modifierEntity = ServiceFactory::getItemService()->getByReference($uuid);
-        if ($modifierEntity === null) {
-            return null;
-        }
-
-        return new EngineeringBoost($modifierEntity)->toArray();
-    }
-
     /**
      * Recursively mark loadout entries whose hardpoint is bridge-controllable.
      */
@@ -841,6 +957,7 @@ final class Ship extends BaseFormat
 
         foreach ($loadout as &$entry) {
             $hardpointName = $entry['HardpointName'] ?? null;
+
             if ($hardpointName !== null && isset($slaveableSet[$hardpointName])) {
                 $entry['IsPilotSlaveable'] = true;
             }

@@ -15,7 +15,7 @@ final class TagDatabaseService extends BaseService
     private array $tagByUuid = [];
 
     /**
-     * @var array<string, string>|null Lazy-built child UUID → parent UUID map
+     * @var array<string, string>|null Lazy-built child UUID -> parent UUID map
      */
     private ?array $parentMap = null;
 

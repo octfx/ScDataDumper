@@ -2,8 +2,8 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Formats\BaseFormat;
+use Octfx\ScDataDumper\Helper\Element;
 
 /**
  * Extracts turret movement characteristics (per-axis speeds, acceleration, limits, etc).

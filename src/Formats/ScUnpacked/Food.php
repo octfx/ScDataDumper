@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Formats\BaseFormat;
+use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
 /**
  * Format class for food consumables (non-medical)
  *
  * **Calculation Overview:**
- * - Nutrition (Hunger/Thirst/BloodDrugLevel): statPointChange × ratio × volume
- * - Health: healthChange × ratio × volume
+ * - Nutrition (Hunger/Thirst/BloodDrugLevel): statPointChange * ratio * volume
+ * - Health: healthChange * ratio * volume
  * - Buffs/Debuffs: Collected from ConsumableSubtype effects
  * - Medical Effects: Categorized buffs for medical use cases
  *
@@ -91,16 +91,16 @@ class Food extends BaseFormat
      * Calculate nutrition values from consumable subtypes
      *
      * **Calculation Formula:**
-     * - PerMicroSCU = statPointChange × ratio
-     * - Total = PerMicroSCU × volume
+     * - PerMicroSCU = statPointChange * ratio
+     * - Total = PerMicroSCU * volume
      *
      * **BloodDrugLevel Example (MedPen - Hemozal):**
      * - ConsumableSubtype UUID: 2e3fc0d3-be97-4c57-972e-526872e4bd56 (Coagulant)
      * - Cache data: {"type": "ModifyActorStatus", "statType": "BloodDrugLevel", "statPointChange": 1}
      * - Volume: 30 µSCU (from XML: <SMicroCargoUnit microSCU="30" />)
      * - Ratio: 1.0 (from XML: <ConsumableContent ratio="1" />)
-     * - Calculation: 1.0 × 1.0 = 1.0 (PerMicroSCU)
-     * - Calculation: 1.0 × 30 = 30.0 (Total BloodDrugLevel)
+     * - Calculation: 1.0 * 1.0 = 1.0 (PerMicroSCU)
+     * - Calculation: 1.0 * 30 = 30.0 (Total BloodDrugLevel)
      *
      * BloodDrugLevel represents drug dosage that limits how much medical consumable
      * can be used before experiencing negative effects.
@@ -172,22 +172,22 @@ class Food extends BaseFormat
      * Calculate health change values from consumable subtypes
      *
      * **Calculation Formula:**
-     * - PerMicroSCU = healthChange × ratio
-     * - Total = PerMicroSCU × volume
+     * - PerMicroSCU = healthChange * ratio
+     * - Total = PerMicroSCU * volume
      *
      * **Health Restoration Example (MedPen - Hemozal):**
      * - ConsumableSubtype UUID: 2e3fc0d3-be97-4c57-972e-526872e4bd56 (Coagulant)
      * - Cache data: {"type": "Health", "healthChange": 3.75}
      * - Volume: 30 µSCU (from XML: <SMicroCargoUnit microSCU="30" />)
      * - Ratio: 1.0 (from XML: <ConsumableContent ratio="1" />)
-     * - Calculation: 3.75 × 1.0 = 3.75 (PerMicroSCU)
-     * - Calculation: 3.75 × 30 = 112.5 (Total Health Restored)
+     * - Calculation: 3.75 * 1.0 = 3.75 (PerMicroSCU)
+     * - Calculation: 3.75 * 30 = 112.5 (Total Health Restored)
      *
      * **SuperCoagulant Comparison:**
      * - Cache data: {"type": "Health", "healthChange": 8.0}
-     * - Calculation: 8.0 × 1.0 = 8.0 (PerMicroSCU)
-     * - Calculation: 8.0 × 30 = 240.0 (Total Health Restored)
-     * - SuperCoagulant restores 2.13× more health for same BloodDrugLevel cost
+     * - Calculation: 8.0 * 1.0 = 8.0 (PerMicroSCU)
+     * - Calculation: 8.0 * 30 = 240.0 (Total Health Restored)
+     * - SuperCoagulant restores 2.13* more health for same BloodDrugLevel cost
      *
      * Health restoration is calculated independently of BloodDrugLevel - they're separate effects
      * from the same ConsumableSubtype.
@@ -240,7 +240,7 @@ class Food extends BaseFormat
      *
      * **Data Flow:**
      * 1. XML: <ConsumableContent consumableSubtype="UUID" />
-     * 2. Cache: Lookup UUID → get ConsumableSubtype
+     * 2. Cache: Lookup UUID -> get ConsumableSubtype
      * 3. Effects: Get debuffs from ConsumableSubtype
      * 4. Merge: Combine debuffs from all defaultContents
      *
@@ -278,7 +278,7 @@ class Food extends BaseFormat
      *
      * **Data Flow:**
      * 1. XML: <ConsumableContent consumableSubtype="UUID" />
-     * 2. Cache: Lookup UUID → get ConsumableSubtype
+     * 2. Cache: Lookup UUID -> get ConsumableSubtype
      * 3. Effects: Get buffs from ConsumableSubtype
      * 4. Merge: Combine buffs from all defaultContents
      *
@@ -319,7 +319,7 @@ class Food extends BaseFormat
      *
      * **Data Flow:**
      * 1. XML: <ConsumableContent consumableSubtype="UUID" />
-     * 2. Cache: Lookup UUID → get ConsumableSubtype
+     * 2. Cache: Lookup UUID -> get ConsumableSubtype
      * 3. Effects: Get medical effects from ConsumableSubtype
      * 4. Merge: Combine effects from all defaultContents by category
      * 5. Unique: Remove duplicate buff types within each category
@@ -435,9 +435,9 @@ class Food extends BaseFormat
      * the total effect of consuming the entire item.
      *
      * **Example Values:**
-     * - MedPen (Hemozal): 30 µSCU → 112.5 total health
-     * - Simple fruit: 1 µSCU → small nutrition values
-     * - Canned food: 500-1000 µSCU → larger nutrition values
+     * - MedPen (Hemozal): 30 µSCU -> 112.5 total health
+     * - Simple fruit: 1 µSCU -> small nutrition values
+     * - Canned food: 500-1000 µSCU -> larger nutrition values
      */
     protected function parseConsumableVolume(Element $consumable): int
     {
@@ -458,7 +458,7 @@ class Food extends BaseFormat
 
     protected function isMedicalSubtype(): bool
     {
-        $subType = (string) $this->get('Components/SAttachableComponentParams/AttachDef@SubType', '');
+        $subType = (string) ($this->item->getAttachSubType() ?? '');
 
         if ($subType === '') {
             return false;

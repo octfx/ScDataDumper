@@ -4,7 +4,7 @@ namespace Octfx\ScDataDumper\Tests\Helper;
 
 use DOMDocument;
 use DOMXPath;
-use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Helper\XmlAccess;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 use Octfx\ScDataDumper\Tests\Fixtures\TestRootDocument;

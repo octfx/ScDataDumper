@@ -3,7 +3,7 @@
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Illuminate\Support\Arr;
-use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\Helper\Element;
 
 /**
  * Vehicle-mounted weapons add sustained / overheat / capacitor stats on top of the base output.

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Services\Vehicle;
 
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Formats\ScUnpacked\Item as ScUnpackedItem;
 use Octfx\ScDataDumper\Formats\ScUnpacked\ItemPort;
+use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Services\ItemClassifierService;
 use Octfx\ScDataDumper\Services\ItemService;
 use Octfx\ScDataDumper\Services\PortClassifierService;
@@ -25,13 +25,18 @@ final class StandardisedPartBuilder
     /** @var array<string, Element> */
     private array $entityPortDefinitions;
 
+    /** @var list<string> Ship-level PortTags inherited by all ports */
+    private readonly array $shipPortTags;
+
     public function __construct(
         private readonly ItemService $itemService,
         private readonly ItemClassifierService $classifierService,
         private readonly PortClassifierService $portClassifier,
-        ?Element $entityPorts = null
+        ?Element $entityPorts = null,
+        array $shipPortTags = [],
     ) {
         $this->entityPortDefinitions = $this->collectEntityPortDefinitions($entityPorts);
+        $this->shipPortTags = $shipPortTags;
     }
 
     /**
@@ -139,6 +144,7 @@ final class StandardisedPartBuilder
 
         $virtualParts = [];
 
+        // Pass 1: loadout entries that have no matching implementation part
         foreach ($loadout as $entry) {
             $portName = $entry['portName'] ?? null;
             if ($portName === null) {
@@ -152,6 +158,28 @@ final class StandardisedPartBuilder
 
             $virtualParts[] = $this->buildVirtualPart($portName, $entry);
             $usedPorts[$lowerPortName] = true;
+        }
+
+        // Pass 2: editable entity port definitions with no implementation part
+        // and no loadout entry (e.g. Aurora Mk2 module slot, Polaris PDC turrets).
+        foreach ($this->entityPortDefinitions as $lowerName => $portDef) {
+            if (isset($usedPorts[$lowerName])) {
+                continue;
+            }
+
+            // Only inject ports that are explicitly marked as editable
+            $flags = trim((string) ($portDef->get('@Flags') ?? ''));
+            if (! str_contains($flags, '$editable')) {
+                continue;
+            }
+
+            $portName = $portDef->get('@Name') ?? $portDef->get('Name');
+            if ($portName === null) {
+                continue;
+            }
+
+            $virtualParts[] = $this->buildVirtualPart($portName, null);
+            $usedPorts[$lowerName] = true;
         }
 
         return $virtualParts;
@@ -174,7 +202,7 @@ final class StandardisedPartBuilder
         }
     }
 
-    private function buildVirtualPart(string $portName, array $loadoutEntry): array
+    private function buildVirtualPart(string $portName, ?array $loadoutEntry): array
     {
         $portDef = $this->entityPortDefinitions[strtolower($portName)] ?? null;
 
@@ -193,7 +221,7 @@ final class StandardisedPartBuilder
         ];
     }
 
-    private function buildVirtualPort(string $portName, array $loadoutEntry, ?Element $portDef): array
+    private function buildVirtualPort(string $portName, ?array $loadoutEntry, ?Element $portDef): array
     {
         $portData = [];
         if ($portDef !== null) {
@@ -212,9 +240,10 @@ final class StandardisedPartBuilder
             'Types' => $types,
             'Flags' => $flags,
             'RequiredTags' => $portData['RequiredTags'] ?? [],
+            'PortTags' => $this->mergePortTags($portData['Tags'] ?? []),
             'Category' => null,
             'Loadout' => $loadoutEntry['className'] ?? null,
-            'InstalledItem' => $this->buildInstalledItem($loadoutEntry),
+            'InstalledItem' => $loadoutEntry !== null ? $this->buildInstalledItem($loadoutEntry) : null,
         ];
 
         $port['Uneditable'] = in_array('$uneditable', $port['Flags'], true)
@@ -241,6 +270,7 @@ final class StandardisedPartBuilder
             'Types' => $this->extractTypes($itemPort),
             'Flags' => $this->extractFlags($itemPort),
             'RequiredTags' => $this->extractRequiredTags($itemPort),
+            'PortTags' => $this->mergePortTags($this->extractPortTags($itemPort)),
             'Category' => null, // Will be set by PortClassifier
             'Loadout' => $loadoutEntry['className'] ?? null,
             'InstalledItem' => null,
@@ -416,7 +446,30 @@ final class StandardisedPartBuilder
     {
         $rawTags = trim((string) ($itemPort->get('@RequiredPortTags') ?? ''));
 
-        return $rawTags === '' ? [] : array_filter(explode(' ', $rawTags));
+        return $rawTags === '' ? [] : array_map(static fn (string $tag): string => ltrim($tag, '$'), array_filter(explode(' ', $rawTags)));
+    }
+
+    /**
+     * Extract per-port PortTags from an ItemPort SItemPortDef element.
+     *
+     * @return list<string>
+     */
+    private function extractPortTags(Element $itemPort): array
+    {
+        $rawTags = trim((string) ($itemPort->get('@PortTags') ?? ''));
+
+        return $rawTags === '' ? [] : array_values(array_filter(explode(' ', $rawTags)));
+    }
+
+    /**
+     * Merge per-port PortTags with the ship-level PortTags.
+     *
+     * @param  list<string>  $perPortTags
+     * @return list<string>
+     */
+    private function mergePortTags(array $perPortTags): array
+    {
+        return array_values(array_unique(array_merge($this->shipPortTags, $perPortTags)));
     }
 
     /**

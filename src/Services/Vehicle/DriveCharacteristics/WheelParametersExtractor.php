@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Services\Vehicle\DriveCharacteristics;
 
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\Vehicle;
+use Octfx\ScDataDumper\Helper\Element;
 
 /**
  * Extract raw SubPartWheel parameters from vehicle definition

@@ -3,9 +3,9 @@
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use DOMNode;
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\Formats\BaseFormat;
+use Octfx\ScDataDumper\Helper\Element;
 
 class ItemPort extends BaseFormat
 {
@@ -46,12 +46,17 @@ class ItemPort extends BaseFormat
                 : array_filter(explode(' ', $portTags)),
             'RequiredTags' => ($requiredTags = trim((string) ($port->get('@RequiredPortTags') ?? ''))) === ''
                 ? []
-                : array_filter(explode(' ', $requiredTags)),
+                : array_map(static fn (string $tag): string => ltrim($tag, '$'), array_filter(explode(' ', $requiredTags))),
             'Types' => $this->buildTypesList($port),
             'CompatibleTypes' => $this->buildCompatibleTypes($port),
             'EquippedItem' => $this->getEquippedItemUuid($port, $portName ?? ''),
-            'Position' => $this->detectPosition($portName),
         ];
+
+        $position = $this->detectPosition($portName);
+
+        if ($position !== null) {
+            $stdPort['Position'] = $position;
+        }
 
         $stdPort['Uneditable'] = in_array('$uneditable', $stdPort['Flags'], true) || in_array('uneditable', $stdPort['Flags'], true) || in_array('invisible', $stdPort['Flags'], true);
 

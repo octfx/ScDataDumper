@@ -4,27 +4,27 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Services\Vehicle;
 
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 use Octfx\ScDataDumper\DocumentTypes\VehicleDefinition;
+use Octfx\ScDataDumper\Helper\Element;
 
 /**
  * Extracts the seat-to-turret control chain from vehicle implementation scripts
  * and spaceship entity definitions.
  *
- * Determines which turrets are "bridge-controllable" — i.e. controllable from
+ * Determines which turrets are "bridge-controllable" - i.e. controllable from
  * any cockpit/bridge position (pilot, copilot, bridge console, bridge turret seat)
  * rather than only from a dedicated turret seat.
  *
  * The control chain is defined in the vehicle implementation script XML:
  *
  *   Seat ControllerDef > UserDef > PriorityGroups > PriorityGroup(itemType="WeaponController")
- *     → tags tag="X" → Priority value > 0  (seat can control tag X)
+ *     -> tags tag="X" -> Priority value > 0  (seat can control tag X)
  *
  *   Turret ControllerDef controllableTags="X"  (turret is controlled by tag X)
  *
  *   WeaponController ControllerDef controllableTags="Y" > UsableDef > PriorityGroups
- *     → PriorityGroup > tags tag="Z"  (controller bridges tag Y → tag Z)
+ *     -> PriorityGroup > tags tag="Z"  (controller bridges tag Y -> tag Z)
  *
  * Priority values can be numeric ("100", "50") or string ("exclusive_control").
  * Any non-zero, non-"no_control" value means the seat can control that tag.

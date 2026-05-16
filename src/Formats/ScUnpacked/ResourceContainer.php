@@ -2,14 +2,14 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Formats\BaseFormat;
+use Octfx\ScDataDumper\Helper\Element;
 
 final class ResourceContainer extends BaseFormat
 {
     protected ?string $elementKey = 'Components/ResourceContainer';
 
-    private const UNIT_NAMES = [
+    private const array UNIT_NAMES = [
         'SStandardCargoUnit' => 'SCU',
         'SCentiCargoUnit' => 'cSCU',
         'SMicroCargoUnit' => 'µSCU',

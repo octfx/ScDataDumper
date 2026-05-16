@@ -5,7 +5,6 @@ namespace Octfx\ScDataDumper\Helper;
 use DOMDocument;
 use DOMElement;
 use DOMXPath;
-use Octfx\ScDataDumper\Definitions\Element;
 
 trait XmlAccess
 {

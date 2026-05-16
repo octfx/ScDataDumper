@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Services;
 
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\AmmoParams;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
+use Octfx\ScDataDumper\Helper\Element;
 
 final class AmmoParamsService extends BaseService
 {

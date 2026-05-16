@@ -2,9 +2,9 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\Formats\BaseFormat;
+use Octfx\ScDataDumper\Helper\Element;
 
 /**
  * @extends BaseFormat<EntityClassDefinition>
@@ -39,10 +39,8 @@ final class HackingChip extends BaseFormat
             ?? $this->extractValue($removableValues, 'errorchance')
             ?? $errorChanceFromChipParams;
 
-        $accessTag = $this->item->get('Components/SAttachableComponentParams/AttachDef@Tags');
-        if (is_string($accessTag) && trim($accessTag) === '') {
-            $accessTag = null;
-        }
+        $accessTag = $this->item->getTagList();
+        $accessTag = $accessTag !== [] ? implode(' ', $accessTag) : null;
 
         $data = [
             'MaxCharges' => $maxCharges,

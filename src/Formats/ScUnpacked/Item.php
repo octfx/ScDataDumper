@@ -3,11 +3,11 @@
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Illuminate\Support\Arr;
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\DocumentTypes\SCItemManufacturer;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 use Octfx\ScDataDumper\Formats\LazyFormat;
+use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Helper\ItemDescriptionParser;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
@@ -93,7 +93,7 @@ final class Item extends BaseFormat
                 // @deprecated use InventoryOccupancy.Volume.SCU
                 'Volume' => self::convertToScu($attach->get('@inventoryOccupancyVolume')),
                 'InventoryOccupancy' => new LazyFormat(fn () => new InventoryOccupancy($this->item)),
-                'Mass' => $this->item->get('Components/SEntityPhysicsControllerParams/PhysType/SEntityRigidPhysicsControllerParams@Mass', 0),
+                'Mass' => $this->item->getMass(),
                 'Type' => self::buildTypeName($attach->get('@Type', 'UNKNOWN'), $attach->get('@SubType', 'UNKNOWN')),
                 'Name' => $name,
                 'Description' => $description,
@@ -189,14 +189,7 @@ final class Item extends BaseFormat
      */
     private function extractEmission(): ?array
     {
-        $onlineState = null;
-
-        foreach (($this->item->get('Components/ItemResourceComponentParams/states')?->children() ?? []) as $state) {
-            if ($state->get('@name') === 'Online') {
-                $onlineState = $state;
-                break;
-            }
-        }
+        $onlineState = $this->item->getResourceOnlineState();
 
         if ($onlineState === null) {
             return null;

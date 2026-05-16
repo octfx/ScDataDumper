@@ -2,9 +2,9 @@
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\Formats\BaseFormat;
+use Octfx\ScDataDumper\Helper\Element;
 
 final class ResourceNetwork extends BaseFormat
 {
@@ -352,14 +352,7 @@ final class ResourceNetwork extends BaseFormat
 
     private function buildUsage(): ?array
     {
-        $onlineState = null;
-
-        foreach ($this->item->get('Components/ItemResourceComponentParams/states')?->children() ?? [] as $state) {
-            if ($state->get('@name') === 'Online') {
-                $onlineState = $state;
-                break;
-            }
-        }
+        $onlineState = $this->item->getResourceOnlineState();
 
         if ($onlineState === null) {
             return null;
@@ -467,14 +460,7 @@ final class ResourceNetwork extends BaseFormat
 
     private function buildGeneration(): ?array
     {
-        $onlineState = null;
-
-        foreach ($this->item->get('Components/ItemResourceComponentParams/states')?->children() ?? [] as $state) {
-            if ($state->get('@name') === 'Online') {
-                $onlineState = $state;
-                break;
-            }
-        }
+        $onlineState = $this->item->getResourceOnlineState();
 
         if ($onlineState === null) {
             return null;

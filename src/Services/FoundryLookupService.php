@@ -6,6 +6,7 @@ namespace Octfx\ScDataDumper\Services;
 
 use Generator;
 use Octfx\ScDataDumper\DocumentTypes\AmmoParams;
+use Octfx\ScDataDumper\DocumentTypes\AreaServices\AreaServices;
 use Octfx\ScDataDumper\DocumentTypes\BlueprintPoolRecord;
 use Octfx\ScDataDumper\DocumentTypes\ConsumableSubtype;
 use Octfx\ScDataDumper\DocumentTypes\Contract\ContractGeneratorRecord;
@@ -364,9 +365,14 @@ final class FoundryLookupService extends BaseService
         return $this->getByReference($uuid, ['/records/contracts/contractgenerator/'], ContractGeneratorRecord::class);
     }
 
+    public function getAreaServicesByReference(?string $uuid): ?AreaServices
+    {
+        return $this->getByReference($uuid, ['/records/areaservices/'], AreaServices::class);
+    }
+
     public function getBlueprintPoolByReference(?string $uuid): ?BlueprintPoolRecord
     {
-        return $this->getByReference($uuid, ['blueprintrewards/blueprintmissionpools/'], BlueprintPoolRecord::class);
+        return $this->getByReference($uuid, ['blueprintrewards/'], BlueprintPoolRecord::class);
     }
 
     public function getHaulingEntityClassesByReference(?string $uuid): ?FoundryRecord

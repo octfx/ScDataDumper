@@ -2,11 +2,10 @@
 
 namespace Octfx\ScDataDumper\Tests\Formats;
 
-use Attribute;
 use DOMDocument;
 use DOMElement;
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Formats\BaseFormat;
+use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Tests\Fixtures\TestableFormat;
 use Octfx\ScDataDumper\Tests\Fixtures\TestRootDocument;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -620,7 +619,7 @@ class BaseFormatTest extends TestCase
     public function test_constructor_rejects_unsupported_type(): void
     {
         $this->expectException(\TypeError::class);
-        $this->expectExceptionMessage('must be of type Octfx\\ScDataDumper\\DocumentTypes\\RootDocument|Octfx\\ScDataDumper\\Definitions\\Element|DOMNode|null, string given');
+        $this->expectExceptionMessage('must be of type Octfx\\ScDataDumper\\DocumentTypes\\RootDocument|Octfx\\ScDataDumper\\Helper\\Element|DOMNode|null, string given');
 
         new TestableFormat('not a dom node');
     }

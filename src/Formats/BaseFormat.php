@@ -6,8 +6,8 @@ use DOMNode;
 use InvalidArgumentException;
 use JsonException;
 use Octfx\ScDataDumper\Concerns\NormalizesValues;
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
+use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
 

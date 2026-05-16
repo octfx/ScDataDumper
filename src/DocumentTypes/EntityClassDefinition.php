@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes;
 
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\Loadout\LoadoutEntry;
 use Octfx\ScDataDumper\DocumentTypes\Mining\MineableParams;
+use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
 
@@ -353,6 +353,46 @@ class EntityClassDefinition extends RootDocument
     }
 
     /**
-     * @return list<LoadoutEntry>
+     * Entity mass in kg from the rigid physics controller.
      */
+    public function getMass(): float
+    {
+        return (float) $this->get(
+            'Components/SEntityPhysicsControllerParams/PhysType/SEntityRigidPhysicsControllerParams@Mass',
+            0,
+        );
+    }
+
+    /**
+     * Item size from the AttachDef.
+     */
+    public function getAttachSize(): ?int
+    {
+        $size = $this->getAttachDef()?->get('@Size');
+
+        return $size !== null ? (int) $size : null;
+    }
+
+    /**
+     * Resolve the "Online" state element from ItemResourceComponentParams.
+     *
+     * Centralises the find-by-name iteration that was duplicated across
+     * Item.php, ResourceNetwork.php, and QuantumDrive.php.
+     */
+    public function getResourceOnlineState(): ?Element
+    {
+        $states = $this->get('Components/ItemResourceComponentParams/states');
+
+        if ($states === null) {
+            return null;
+        }
+
+        foreach ($states->children() as $state) {
+            if ($state->get('@name') === 'Online') {
+                return $state;
+            }
+        }
+
+        return null;
+    }
 }

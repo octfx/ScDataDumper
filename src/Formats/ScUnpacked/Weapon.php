@@ -29,7 +29,7 @@ final class Weapon extends BaseFormat
 
     private function resolveFormatter(): AbstractWeapon
     {
-        $type = $this->item?->get('Components/SAttachableComponentParams/AttachDef@Type');
+        $type = $this->item?->getAttachType();
 
         if ($type === 'WeaponPersonal') {
             return new PersonalWeapon($this->item);

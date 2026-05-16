@@ -146,14 +146,13 @@ final class ItemTest extends ScDataTestCase
 
         $occ = $result['stdItem']['InventoryOccupancy'];
 
-        // When bounds are zero, Dimensions falls back to cargo-grid values
-        self::assertEqualsWithDelta(0.15, $occ['Dimensions']['Width'], 0.001);
-        self::assertEqualsWithDelta(0.15, $occ['Dimensions']['Length'], 0.001);
-        self::assertEqualsWithDelta(0.15, $occ['Dimensions']['Height'], 0.001);
+        // When bounds are zero, Dimensions is absent (no true physical size available)
+        self::assertArrayNotHasKey('Dimensions', $occ);
 
-        // CargoGrid always reflects inventoryOccupancyDimensions
-        self::assertEqualsWithDelta(0.15, $occ['CargoGrid']['Width'], 0.001);
-        self::assertEqualsWithDelta(0.15, $occ['CargoGrid']['Length'], 0.001);
-        self::assertEqualsWithDelta(0.15, $occ['CargoGrid']['Height'], 0.001);
+        // CargoGrid is also absent when dims are the 0.15³ placeholder
+        self::assertArrayNotHasKey('CargoGrid', $occ);
+
+        // Volume is still present
+        self::assertArrayHasKey('Volume', $occ);
     }
 }

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\Faction\Faction as FactionDocument;
 use Octfx\ScDataDumper\DocumentTypes\Faction\FactionReputation;
 use Octfx\ScDataDumper\DocumentTypes\Reputation\SReputationContextUI;
 use Octfx\ScDataDumper\DocumentTypes\Reputation\SReputationScopeParams;
 use Octfx\ScDataDumper\DocumentTypes\Reputation\SReputationStandingParams;
 use Octfx\ScDataDumper\Formats\BaseFormat;
+use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class Faction extends BaseFormat

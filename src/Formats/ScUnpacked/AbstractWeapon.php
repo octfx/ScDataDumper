@@ -3,8 +3,8 @@
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Exception;
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\Formats\BaseFormat;
+use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
 /**
@@ -28,9 +28,9 @@ abstract class AbstractWeapon extends BaseFormat
         }
 
         $out = [
-            'Size' => $this->item->get('Components/SAttachableComponentParams/AttachDef@Size'),
-            'WeaponType' => $this->item->get('Components/SAttachableComponentParams/AttachDef@Type'),
-            'WeaponClass' => $this->item->get('Components/SAttachableComponentParams/AttachDef@SubType'),
+            'Size' => $this->item->getAttachSize(),
+            'WeaponType' => $this->item->getAttachType(),
+            'WeaponClass' => $this->item->getAttachSubType(),
             'EffectiveRange' => $this->resolveEffectiveRange($weapon, $ammunitionArray),
             'RateOfFire' => null,
             'Capacity' => $capacity,
@@ -383,7 +383,7 @@ abstract class AbstractWeapon extends BaseFormat
      * Resolve effective range from the first beam-type fire action.
      *
      * Beam-type weapons (beam, healing, salvage, gathering, tractor) define their
-     * range on the fire action element, not in the ammunition's Speed × Lifetime.
+     * range on the fire action element, not in the ammunition's Speed * Lifetime.
      *
      * @return float|null Range in meters, or null if no beam action found
      */
