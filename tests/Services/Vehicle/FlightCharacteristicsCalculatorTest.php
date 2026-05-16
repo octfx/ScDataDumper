@@ -216,9 +216,9 @@ final class FlightCharacteristicsCalculatorTest extends TestCase
     {
         $result = $this->calculateDefault();
 
-        // Raw Main = 10.0, multiplier positive.y = 2.0 → Boosted Main = 20.0
+        // Raw Main = 10.0, multiplier positive.y = 2.0 -> Boosted Main = 20.0
         self::assertEquals(20.0, $result['Acceleration']['Boosted']['Main']);
-        // Raw Retro = 5.0, multiplier negative.y = 1.8 → Boosted Retro = 9.0
+        // Raw Retro = 5.0, multiplier negative.y = 1.8 -> Boosted Retro = 9.0
         self::assertEquals(9.0, $result['Acceleration']['Boosted']['Retro']);
     }
 

@@ -288,7 +288,7 @@ final class LoadoutCargoGridStrategy implements CargoGridStrategyInterface
                         return true;
                     }
 
-                    // Port exists but is empty — variant disabled cargo
+                    // Port exists but is empty - variant disabled cargo
                     continue;
                 }
 

@@ -97,10 +97,9 @@ final class SocpakReader
     /**
      * Extract the main object-container XML from a socpak zip.
      *
-     * The container XML always matches the socpak basename (e.g. `stanton3b.socpak` →
-     * `stanton3b.xml`).  This is more robust than positional filtering, which broke when
-     * CIG added nested `hcd/*.xml` entries in 4.8 that appeared before the main XML in
-     * zip-index order.
+     * The container XML always matches the socpak basename (e.g. `stanton3b.socpak` ->
+     * `stanton3b.xml`).  Matching by name avoids false positives from nested or
+     * auxiliary XML entries in the zip.
      *
      * Falls back to the first non-editor, non-metadata XML if the basename match fails
      * (backwards-compatibility with older or atypical socpak layouts).

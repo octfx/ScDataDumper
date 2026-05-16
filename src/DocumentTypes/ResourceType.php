@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes;
 
-use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityDistributionRecord;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityLocationOverrideRecord;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityQuantizationRecord;

@@ -37,8 +37,8 @@ final class QuantumDriveTest extends TestCase
         $qd = $this->makeDrive(driveSpeed: 200000000);
         $result = $qd->toArray();
 
-        // No micro units and no raw requirement → consumption is null
-        // But wait — raw requirement default is 0 which makes getFuelConsumptionPerGm return null (v <= 0)
+        // No micro units and no raw requirement -> consumption is null
+        // But wait - raw requirement default is 0 which makes getFuelConsumptionPerGm return null (v <= 0)
         self::assertNull($result['FuelConsumptionSCUPerGM']);
     }
 
@@ -59,7 +59,7 @@ final class QuantumDriveTest extends TestCase
         // driveSpeed = 200,000,000 m/s
         // consumption = 50.0 SCU/GM (from micro units 50000)
         // gmPerSecond = 200_000_000 / 1_000_000_000 = 0.2
-        // efficiency = 0.2 / (50.0 * 10) = 0.0004 → round to 0.0
+        // efficiency = 0.2 / (50.0 * 10) = 0.0004 -> round to 0.0
         $qd = $this->makeDrive(driveSpeed: 200000000, microResourceUnits: 50000);
         $result = $qd->toArray();
 
@@ -88,7 +88,7 @@ final class QuantumDriveTest extends TestCase
 
     public function test_fuel_for_10gm(): void
     {
-        // consumption = 50.0 SCU/GM → 50.0 * 10 = 500.0
+        // consumption = 50.0 SCU/GM -> 50.0 * 10 = 500.0
         $qd = $this->makeDrive(microResourceUnits: 50000, driveSpeed: 200000000);
         $result = $qd->toArray();
 
@@ -111,11 +111,11 @@ final class QuantumDriveTest extends TestCase
     {
         // driveSpeed = 200,000,000 m/s, a1 = 500, a2 = 1000
         // tRamp = 2 * 200_000_000 / 1500 ≈ 266,666.67 s
-        // dRamp ≈ 23,704 GM → dTwoRamps ≈ 47,407 GM
-        // For distance = 100 GM: 100 GM << 47,407 GM → short trip!
-        // We need a MUCH larger distance for a long trip, or smaller drive speed.
+        // dRamp ≈ 23,704 GM -> dTwoRamps ≈ 47,407 GM
+        // For distance = 100 GM: 100 GM << 47,407 GM -> short trip!
+        // A smaller drive speed produces a long trip.
         //
-        // Let's use: driveSpeed = 10,000, a1 = 1000, a2 = 2000
+        // driveSpeed = 10,000, a1 = 1000, a2 = 2000
         // tRamp = 2*10000/3000 = 6.67s
         // dRamp = (2*1e8 / 9e6) * ((1000/3)+1000) = 22.22 * 1333.33 = 29,629.6 m = 0.0000296 GM
         // dTwoRamps ≈ 0.00006 GM
@@ -153,7 +153,7 @@ final class QuantumDriveTest extends TestCase
         // driveSpeed = 200,000,000 m/s (0.2c), a1 = 500, a2 = 1000
         // For 10 GM = 1e10m:
         // dTwoRamps ≈ 2.37e13m = 23,704 GM
-        // 10 GM < 23,704 GM → short trip (binary search path)
+        // 10 GM < 23,704 GM -> short trip (binary search path)
         $qd = $this->makeDrive(driveSpeed: 200000000, stageOneAccel: 500, stageTwoAccel: 1000);
         $result = $qd->toArray();
 
@@ -191,9 +191,8 @@ final class QuantumDriveTest extends TestCase
 
     public function test_format_duration_under_one_minute(): void
     {
-        // Create a drive where we can predict the duration
-        // Use a drive with very slow speed to get a known time
-        // 30 seconds → "0:30"
+        // Drive with slow speed for a predictable duration.
+        // 30 seconds -> "0:30"
         $qd = $this->makeDrive(driveSpeed: 10000, stageOneAccel: 1000, stageTwoAccel: 2000);
         $result = $qd->toArray();
 
@@ -298,7 +297,7 @@ final class QuantumDriveTest extends TestCase
 
     public function test_format_fuel_rate_divides_by_1e6(): void
     {
-        // quantumFuelRequirement = 25,000,000 → FuelRate = 25.0
+        // quantumFuelRequirement = 25,000,000 -> FuelRate = 25.0
         $qd = $this->makeDrive(quantumFuelRequirement: 25000000, driveSpeed: 200000000);
         $result = $qd->toArray();
 
@@ -307,7 +306,7 @@ final class QuantumDriveTest extends TestCase
 
     public function test_format_fuel_rate_null_input(): void
     {
-        // No quantumFuelRequirement attribute → raw is null → FuelRate is null
+        // No quantumFuelRequirement attribute -> raw is null -> FuelRate is null
         // But the fixture uses quantumFuelRequirement="0" as default, so FuelRate = 0/1e6 = 0.0
         $qd = $this->makeDrive(driveSpeed: 200000000, microResourceUnits: 50000, quantumFuelRequirement: 0);
         $result = $qd->toArray();

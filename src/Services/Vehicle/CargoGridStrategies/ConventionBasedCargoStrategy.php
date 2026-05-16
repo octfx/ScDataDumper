@@ -53,7 +53,7 @@ final class ConventionBasedCargoStrategy implements CargoGridStrategyInterface
             ? substr($vehicleClassName, 0, strrpos($vehicleClassName, '_'))
             : null;
 
-        // Track base-class candidates separately so we can skip them for variant
+        // Track base-class candidates separately; these are skipped for variant
         // vehicles that have no cargo infrastructure.
         $baseClassCandidates = [];
         foreach (array_filter(array_unique([$baseClassName, $baseClassFromName])) as $baseCandidate) {
@@ -63,7 +63,7 @@ final class ConventionBasedCargoStrategy implements CargoGridStrategyInterface
         }
 
         // When the vehicle has no cargo infrastructure,
-        // skip base-class candidates — they belong to sibling variants.
+        // skip base-class candidates - they belong to sibling variants.
         if (! $result->hasCargoInfrastructure()) {
             $baseClassCandidates = [];
         }

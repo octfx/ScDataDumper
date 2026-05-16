@@ -74,7 +74,7 @@ final class InventoryContainerResolverTest extends ScDataTestCase
         $vehicle->load($vehiclePath);
 
         // Loadout item whose container resolves to the same UUID as the vehicle's
-        // own inventory container — simulates the Gladius SeatAccess scenario.
+        // own inventory container - simulates the Gladius SeatAccess scenario.
         $loadout = [[
             'portName' => 'hardpoint_seat_access',
             'className' => 'TEST_DEDUP_VEHICLE',
@@ -94,7 +94,7 @@ final class InventoryContainerResolverTest extends ScDataTestCase
             ],
         ]];
 
-        // No extractor injected — the resolver lazily creates one that finds no socpak files in the test temp dir
+        // No extractor injected - the resolver lazily creates one that finds no socpak files in the test temp dir
         $resolver = new InventoryContainerResolver;
 
         $result = $resolver->resolveInventoryContainers(
@@ -168,7 +168,7 @@ final class InventoryContainerResolverTest extends ScDataTestCase
         $vehicle = new VehicleDefinition;
         $vehicle->load($vehiclePath);
 
-        // Vehicle has no container; loadout item provides one — should be included.
+        // Vehicle has no container; loadout item provides one - should be included.
         $loadout = [[
             'portName' => 'hardpoint_storage',
             'className' => 'SomeItem',
@@ -188,7 +188,7 @@ final class InventoryContainerResolverTest extends ScDataTestCase
             ],
         ]];
 
-        // No extractor injected — the resolver lazily creates one that finds no socpak files in the test temp dir
+        // No extractor injected - the resolver lazily creates one that finds no socpak files in the test temp dir
         $resolver = new InventoryContainerResolver;
 
         $result = $resolver->resolveInventoryContainers(
@@ -300,7 +300,7 @@ final class InventoryContainerResolverTest extends ScDataTestCase
             ],
         ]];
 
-        // No extractor injected — the resolver lazily creates one that finds no socpak files in the test temp dir
+        // No extractor injected - the resolver lazily creates one that finds no socpak files in the test temp dir
         $resolver = new InventoryContainerResolver;
 
         $result = $resolver->resolveInventoryContainers(

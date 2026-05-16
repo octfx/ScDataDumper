@@ -248,7 +248,7 @@ final class ItemClassifierServiceTest extends TestCase
 
     public function test_classify_ship_cargo_grid_ignores_sub_type(): void
     {
-        // CargoGrid.* classifier returns fn($t, $s) => "Ship.$t" — no sub type
+        // CargoGrid.* classifier returns fn($t, $s) => "Ship.$t" - no sub type
         self::assertSame(
             'Ship.CargoGrid',
             $this->service->classify($this->makeClassifiable('CargoGrid', 'UNDEFINED')),
@@ -627,7 +627,7 @@ final class ItemClassifierServiceTest extends TestCase
 
     public function test_clean_classification_strips_undefined_suffix(): void
     {
-        // CargoGrid classifier: fn($t, $s) => "Ship.$t" — with UNDEFINED sub-type
+        // CargoGrid classifier: fn($t, $s) => "Ship.$t" - with UNDEFINED sub-type
         // But cleanClassification strips .UNDEFINED from the result
         $result = $this->service->classify($this->makeClassifiable('CargoGrid', 'UNDEFINED'));
 

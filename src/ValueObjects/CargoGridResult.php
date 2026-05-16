@@ -48,15 +48,13 @@ final class CargoGridResult
     }
 
     /**
-     * Check if the cargo grid resolution is satisfied
+     * Check if the cargo grid resolution is satisfied.
      *
-     * When we know how many cargo grid ports to expect, resolution is
-     * considered complete once we have positive capacity AND all expected
-     * slots are filled (remainingSlots <= 0).
+     * Resolution is complete when capacity is positive and all expected slots
+     * are filled (remainingSlots <= 0).
      *
-     * If we do not know the expected slot count (common when the loadout
-     * doesn't expose cargo grid ports), we intentionally never mark the
-     * result as satisfied so that all strategies get a chance to run.
+     * Without a known expected slot count (e.g. loadout has no cargo grid ports),
+     * always returns false so all strategies run.
      */
     public function isSatisfied(): bool
     {
@@ -166,11 +164,9 @@ final class CargoGridResult
     }
 
     /**
-     * Check if we should continue searching for cargo grids
+     * Check if cargo grid search should continue.
      *
-     * Continue if:
-     * - We have no capacity yet, OR
-     * - We still have unfilled slots
+     * Returns true when capacity is still zero or slots remain unfilled.
      */
     public function shouldContinueSearching(): bool
     {

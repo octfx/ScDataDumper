@@ -84,7 +84,7 @@ final class LoadTagsCommandTest extends ScDataTestCase
 
         self::assertSame(0, $exitCode);
         $result = $this->readJsonFile('tags.json');
-        // The command does not filter empty-name tags — they pass through as-is
+        // The command does not filter empty-name tags - they pass through as-is
         self::assertSame('', $result['uuid-empty']);
         self::assertSame('ValidTag', $result['uuid-valid']);
     }

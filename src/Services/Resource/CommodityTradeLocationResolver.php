@@ -13,17 +13,17 @@ use Octfx\ScDataDumper\Services\ServiceFactory;
 final class CommodityTradeLocationResolver
 {
     /**
-     * @var array<string, list<string>> normalizedResourceTypeKey → tag UUIDs
+     * @var array<string, list<string>> normalizedResourceTypeKey -> tag UUIDs
      */
     private array $commodityTagsByNormalizedKey = [];
 
     /**
-     * @var array<string, string> normalizedResourceTypeKey → resourceType UUID
+     * @var array<string, string> normalizedResourceTypeKey -> resourceType UUID
      */
     private array $uuidByNormalizedKey = [];
 
     /**
-     * @var array<string, string> normalizedResourceTypeKey → resourceType className
+     * @var array<string, string> normalizedResourceTypeKey -> resourceType className
      */
     private array $classNameByNormalizedKey = [];
 
@@ -33,7 +33,7 @@ final class CommodityTradeLocationResolver
     private array $tradeLocations = [];
 
     /**
-     * @var array<string, string> trade location UUID → resolved starmap UUID
+     * @var array<string, string> trade location UUID -> resolved starmap UUID
      */
     private array $resolvedStarmapUuids = [];
 

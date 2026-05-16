@@ -10,7 +10,7 @@ The following breaking changes were introduced after commit `7c780b38`. Each is 
 
 All JSON output keys are now **PascalCase**. This affects every output type: Blueprint, Faction, ResourceLocation, StarMapObject, WeaponRegenPool, Manufacturers, Resources, Commodities, DriveCharacteristics, and all nested XML-sourced keys.
 
-**How to migrate:** Update any code that reads JSON keys to use the new PascalCase names. See the [detailed PascalCase reference](#what-changed) below for a complete mapping of old → new keys and search/replace patterns.
+**How to migrate:** Update any code that reads JSON keys to use the new PascalCase names. See the [detailed PascalCase reference](#what-changed) below for a complete mapping of old -> new keys and search/replace patterns.
 
 ---
 
@@ -34,7 +34,7 @@ In Blueprint stat modifier output, two keys were renamed:
 
 ---
 
-### 3. Resource Types → Commodities (`555e998`)
+### 3. Resource Types -> Commodities (`555e998`)
 
 The resource types command and output file were renamed:
 

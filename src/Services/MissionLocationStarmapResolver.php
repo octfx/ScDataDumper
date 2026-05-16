@@ -11,17 +11,17 @@ final class MissionLocationStarmapResolver
     private bool $initialized = false;
 
     /**
-     * @var array<string, string> strtolower(starmap className) → starmap UUID
+     * @var array<string, string> strtolower(starmap className) -> starmap UUID
      */
     private array $starmapByClassName = [];
 
     /**
-     * @var array<string, string> normalized translated SMO name → starmap UUID
+     * @var array<string, string> normalized translated SMO name -> starmap UUID
      */
     private array $starmapByNormalizedName = [];
 
     /**
-     * @var array<string, string> MLT UUID → resolved StarMapObject UUID
+     * @var array<string, string> MLT UUID -> resolved StarMapObject UUID
      */
     private array $resolvedStarmapUuids = [];
 

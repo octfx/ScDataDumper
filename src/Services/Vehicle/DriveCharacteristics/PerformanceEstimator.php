@@ -141,7 +141,7 @@ final readonly class PerformanceEstimator
     /**
      * Calculate speed for PhysicalWheeled vehicles
      *
-     * Physics-based wheel speed: wWheelsMax (rad/s) × RimRadius (m) = linear velocity (m/s).
+     * Physics-based wheel speed: wWheelsMax (rad/s) * RimRadius (m) = linear velocity (m/s).
      * When available, authoritative Handling.Power.TopSpeed/ReverseSpeed are also extracted.
      *
      * @param  array<string, mixed>  $physicalWheeled  PhysicalWheeled movement data

@@ -68,7 +68,7 @@ final class CargoGridResolver
             }
         }
 
-        // Always run — ore pods are independent of cargo grids
+        // Always run - ore pods are independent of cargo grids
         (new ResourceContainerCargoStrategy)->resolve($vehicle, $result);
 
         $this->finalizeCargo($result);

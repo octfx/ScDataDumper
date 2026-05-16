@@ -117,13 +117,13 @@ trait DetectsSiblingVariantGrids
      * for vehicles with no variant suffix (2-part class names).
      *
      * When the loadout already found grids and the vehicle has no variant suffix,
-     * we can't use variant-based filtering. Instead, we check if the grid's suffix
+     * variant-based filtering is not possible. Instead, check if the grid's suffix
      * (after _CargoGrid_) is a known positional/descriptive term or matches the
      * loadout-found grids. Capacity-based suffixes (like 2SCU, 4SCU) that don't
      * match the loadout grids indicate a sibling variant.
      *
      * For example:
-     * - DRAK_Cutter (loadout found 4SCU) -> DRAK_Cutter_CargoGrid_2SCU is rejected (2SCU ≠ 4SCU)
+     * - DRAK_Cutter (loadout found 4SCU) -> DRAK_Cutter_CargoGrid_2SCU is rejected (2SCU != 4SCU)
      * - ORIG_890Jump (loadout found Hangar) -> ORIG_890Jump_CargoGrid_Rear is allowed ("Rear" is positional)
      */
     private function isUnmatchedVariantCapacityGrid(
@@ -131,7 +131,7 @@ trait DetectsSiblingVariantGrids
         string $gridClassName,
         CargoGridResult $result
     ): bool {
-        // Only applies when we can't detect variants (2-part names)
+        // Only applies for vehicles without a detectable variant suffix (2-part names)
         if ($this->extractVariantSuffix($vehicleClassName) !== null) {
             return false;
         }

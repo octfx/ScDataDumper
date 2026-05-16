@@ -43,7 +43,7 @@ final class RelayNetworkTest extends ScDataTestCase
             ],
             [
                 'HardpointName' => 'hardpoint_empty_port',
-                // No ClassName/UUID/Name/Type — empty port
+                // No ClassName/UUID/Name/Type - empty port
             ],
         ];
 
@@ -73,7 +73,7 @@ final class RelayNetworkTest extends ScDataTestCase
         self::assertSame('Radar.MidRangeRadar', $radar['Type']);
         self::assertSame('radar-uuid-002', $radar['UUID']);
 
-        // Empty port — all item fields null
+        // Empty port - all item fields null
         $empty = $bridgeRelay['ConnectedHardpoints'][2];
         self::assertSame('hardpoint_empty_port', $empty['HardpointName']);
         self::assertNull($empty['ItemName']);
@@ -250,7 +250,7 @@ final class RelayNetworkTest extends ScDataTestCase
         $linkXml = '';
         foreach ($links as $link) {
             $linkXml .= sprintf(
-                '<SInternalHardpointLink port1="%s" port2="%s" />' . "\n",
+                '<SInternalHardpointLink port1="%s" port2="%s" />'."\n",
                 $link['port1'],
                 $link['port2']
             );

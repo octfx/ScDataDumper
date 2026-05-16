@@ -93,7 +93,7 @@ final class ThrusterSummaryTest extends TestCase
 
     public function test_g_rounds_to_two_decimals(): void
     {
-        // 1,000,000 N / 10,000 kg / 9.80665 = 10.19716... → 10.2
+        // 1,000,000 N / 10,000 kg / 9.80665 = 10.19716... -> 10.2
         $context = $this->makeContext(
             mass: 10_000.0,
             mainCount: 1,
@@ -135,7 +135,7 @@ final class ThrusterSummaryTest extends TestCase
         $result = $this->aggregator->calculate($context);
         $tc = $result['Propulsion']['ThrustCapacity'];
 
-        // Still a flat dict of floats — Main, Retro, Vtol, Maneuvering
+        // Still a flat dict of floats - Main, Retro, Vtol, Maneuvering
         self::assertSame(5_000_000.0, $tc['Main']);
         self::assertSame(2_000_000.0, $tc['Retro']);
         self::assertEquals(0.0, $tc['Vtol']);
