@@ -63,6 +63,43 @@ final class ItemService extends BaseService
         return $this->load($this->entityPaths[$className]);
     }
 
+    /**
+     * Find the first class name that starts with the given prefix and load it.
+     */
+    public function getFirstByClassNamePrefix(string $prefix): ?EntityClassDefinition
+    {
+        foreach ($this->entityPaths as $className => $path) {
+            if (str_starts_with($className, $prefix)) {
+                return $this->load($path);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Find the next class name after $afterClassName that starts with $prefix.
+     */
+    public function getNextByClassNamePrefix(string $prefix, string $afterClassName): ?EntityClassDefinition
+    {
+        $found = false;
+        foreach ($this->entityPaths as $className => $path) {
+            if (! $found) {
+                if ($className === $afterClassName) {
+                    $found = true;
+                }
+
+                continue;
+            }
+
+            if (str_starts_with($className, $prefix)) {
+                return $this->load($path);
+            }
+        }
+
+        return null;
+    }
+
     public function getByReference(?string $reference): ?EntityClassDefinition
     {
         $path = $this->resolvePathByReference($reference);
