@@ -8,6 +8,9 @@ use DOMDocument;
 use Octfx\ScDataDumper\Definitions\EntityClassDefinition\Components\SAttachableComponentParams\AttachDef\Localization;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
+/**
+ * @deprecated Eager hydration is deprecated. This hydrator will be removed once ECD component hydration is migrated into EntityClassDefinition.
+ */
 class VehicleComponentParams extends Localization
 {
     protected array $keys = [

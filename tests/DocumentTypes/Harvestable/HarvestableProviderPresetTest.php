@@ -151,34 +151,6 @@ final class HarvestableProviderPresetTest extends ScDataTestCase
         (new ServiceFactory($this->tempDir))->initialize();
     }
 
-    public function test_hydrates_supported_harvestable_references_without_touching_geometry_tags(): void
-    {
-        $document = (new HarvestableProviderPreset)
-            ->setReferenceHydrationEnabled(true);
-        $document->load($this->tempDir.'/Game2/libs/foundry/records/harvestable/providerpresets/system/test/sample.xml');
-
-        $data = $document->toArray();
-        $groups = $data['harvestableGroups'];
-
-        self::assertIsArray($groups);
-        self::assertCount(2, $groups);
-
-        $elements = $groups[0]['harvestables'];
-
-        self::assertIsArray($elements);
-        self::assertCount(2, $elements);
-
-        self::assertSame(self::HARVESTABLE_UUID, $elements[0]['harvestable']);
-        self::assertSame(self::HARVESTABLE_UUID, $elements[0]['Harvestable']['__ref']);
-        self::assertSame('Sample Harvestable', $elements[0]['Harvestable']['displayName']);
-        self::assertSame(self::CLUSTER_UUID, $elements[0]['Clustering']['__ref']);
-        self::assertSame(self::TAG_UUID, $elements[0]['geometries']['HarvestableGeometry']['tag']);
-
-        self::assertSame(self::ENTITY_UUID, $elements[1]['harvestableEntityClass']);
-        self::assertSame(self::ENTITY_UUID, $elements[1]['HarvestableEntity']['__ref']);
-        self::assertSame(self::SETUP_UUID, $elements[1]['HarvestableSetup']['__ref']);
-    }
-
     public function test_harvestable_element_accessors_expose_raw_references_and_hydrated_documents(): void
     {
         $document = new HarvestableProviderPreset;

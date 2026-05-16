@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes\Loot;
 
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
+use Octfx\ScDataDumper\Helper\Element;
 
 final class LootArchetypeV3Record extends RootDocument
 {

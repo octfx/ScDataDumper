@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes\Contract;
 
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
+use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
 class ContractEntry extends RootDocument

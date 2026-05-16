@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes;
 
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\Loadout\LoadoutEntry;
+use Octfx\ScDataDumper\Helper\Element;
 use RuntimeException;
 
 final class Loadout extends RootDocument

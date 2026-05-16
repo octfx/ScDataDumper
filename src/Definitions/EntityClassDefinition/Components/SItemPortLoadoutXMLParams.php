@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Definitions\EntityClassDefinition\Components;
 
 use DOMDocument;
-use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
+/**
+ * @deprecated Eager hydration is deprecated. This hydrator will be removed once ECD component hydration is migrated into EntityClassDefinition.
+ */
 class SItemPortLoadoutXMLParams extends Element
 {
     public function initialize(DOMDocument $document): void

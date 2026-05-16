@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Definitions\EntityClassDefinition\Components\SAttachableComponentParams\AttachDef;
 
 use DOMDocument;
-use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
+/**
+ * @deprecated Eager hydration is deprecated. This hydrator will be removed once ECD component hydration is migrated into EntityClassDefinition.
+ */
 class Localization extends Element
 {
     protected array $locales = [

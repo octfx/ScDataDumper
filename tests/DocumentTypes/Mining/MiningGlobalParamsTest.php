@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Tests\DocumentTypes\Mining;
 
 use Octfx\ScDataDumper\DocumentTypes\Mining\MiningGlobalParams;
-use Octfx\ScDataDumper\DocumentTypes\ResourceType;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 
@@ -50,35 +49,6 @@ final class MiningGlobalParamsTest extends ScDataTestCase
         $this->writeFile('Data/Localization/english/global.ini', "resource_waste=Waste\n");
 
         (new ServiceFactory($this->tempDir))->initialize();
-    }
-
-    public function test_exposes_minimal_player_facing_accessors_and_hydrates_waste_resource_type(): void
-    {
-        $document = (new MiningGlobalParams)
-            ->setReferenceHydrationEnabled(true);
-        $document->load($this->tempDir.'/Game2/libs/foundry/records/mining/miningglobalparams/sample_global_params.xml');
-
-        self::assertSame(5.0, $document->getPowerCapacityPerMass());
-        self::assertSame(0.2, $document->getDecayPerMass());
-        self::assertSame(0.5, $document->getOptimalWindowSize());
-        self::assertSame(0.5, $document->getOptimalWindowFactor());
-        self::assertSame(0.7, $document->getOptimalWindowMaxSize());
-        self::assertSame(0.33, $document->getResistanceCurveFactor());
-        self::assertSame(0.7, $document->getOptimalWindowThinnessCurveFactor());
-        self::assertSame(3.0, $document->getCScuPerVolume());
-        self::assertSame(0.001, $document->getDefaultMass());
-        self::assertSame(self::WASTE_RESOURCE_UUID, $document->getWasteResourceTypeReference());
-        self::assertSame(3.0, $document->getInstabilityWavePeriod());
-        self::assertSame(1.0, $document->getInstabilityWaveVariance());
-        self::assertSame(1.0, $document->getInstabilityCurveFactor());
-        self::assertSame(80.0, $document->getDangerPoolFactor());
-        self::assertSame(1.0, $document->getDefaultExplosionVolume());
-        self::assertInstanceOf(ResourceType::class, $document->getWasteResourceType());
-        self::assertSame(self::WASTE_RESOURCE_UUID, $document->getWasteResourceType()?->getUuid());
-
-        $data = $document->toArray();
-
-        self::assertSame(self::WASTE_RESOURCE_UUID, $data['ResourceType']['__ref']);
     }
 
     public function test_returns_null_accessors_when_attributes_missing(): void

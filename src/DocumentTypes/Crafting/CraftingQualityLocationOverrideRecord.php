@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes\Crafting;
 
-use Octfx\ScDataDumper\Definitions\Element;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\DocumentTypes\Starmap\StarMapObject;
+use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class CraftingQualityLocationOverrideRecord extends RootDocument

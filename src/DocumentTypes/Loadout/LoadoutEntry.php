@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes\Loadout;
 
-use Octfx\ScDataDumper\Definitions\Element;
+use DOMNode;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
+use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class LoadoutEntry extends RootDocument
@@ -14,9 +15,9 @@ final class LoadoutEntry extends RootDocument
     /**
      * @return list<self>
      */
-    public static function fromEntriesNode(Element|\DOMNode|null $entriesNode, bool $referenceHydrationEnabled = false): array
+    public static function fromEntriesNode(Element|DOMNode|null $entriesNode, bool $referenceHydrationEnabled = false): array
     {
-        if ($entriesNode instanceof \DOMNode && ! $entriesNode instanceof Element) {
+        if ($entriesNode instanceof DOMNode) {
             $entriesNode = new Element($entriesNode);
         }
 

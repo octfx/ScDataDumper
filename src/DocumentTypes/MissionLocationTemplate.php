@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes;
 
-use Octfx\ScDataDumper\Definitions\Element;
+use Octfx\ScDataDumper\Helper\Element;
 
 final class MissionLocationTemplate extends RootDocument
 {

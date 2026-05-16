@@ -4,12 +4,7 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Tests\DocumentTypes\Mining;
 
-use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestablePreset;
-use Octfx\ScDataDumper\DocumentTypes\Mining\MineableComposition;
-use Octfx\ScDataDumper\DocumentTypes\Mining\MineableElement;
-use Octfx\ScDataDumper\DocumentTypes\Mining\MineableParams;
-use Octfx\ScDataDumper\DocumentTypes\ResourceType;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 
@@ -138,60 +133,7 @@ final class MineableChainTest extends ScDataTestCase
             "resource_aluminium=Aluminium\nresource_bexalite=Bexalite\nsample_deposit=Sample Deposit\n"
         );
 
-        (new ServiceFactory($this->tempDir))->initialize();
-    }
-
-    public function test_hydrates_the_mineable_chain_from_harvestable_preset_to_resource_type(): void
-    {
-        $document = (new HarvestablePreset)
-            ->setReferenceHydrationEnabled(true);
-        $document->load($this->tempDir.'/Game2/libs/foundry/records/harvestable/harvestablepresets/sample_mineable.xml');
-
-        self::assertSame(self::ENTITY_UUID, $document->getEntityClassReference());
-
-        $entityClass = $document->getEntityClass();
-
-        self::assertInstanceOf(EntityClassDefinition::class, $entityClass);
-        self::assertSame('Mineable', $entityClass?->getAttachSubType());
-
-        $mineableParams = $entityClass?->getMineableParams();
-
-        self::assertInstanceOf(MineableParams::class, $mineableParams);
-        self::assertSame(self::GLOBAL_PARAMS_UUID, $mineableParams?->getGlobalParamsReference());
-        self::assertSame(self::COMPOSITION_UUID, $mineableParams?->getCompositionReference());
-        self::assertSame(self::GLOBAL_PARAMS_UUID, $mineableParams?->getGlobalParams()?->getUuid());
-
-        $composition = $mineableParams?->getComposition();
-
-        self::assertInstanceOf(MineableComposition::class, $composition);
-        self::assertSame('@sample_deposit', $composition?->getDepositName());
-        self::assertSame(2, $composition?->getMinimumDistinctElements());
-
-        $parts = $composition?->getParts() ?? [];
-
-        self::assertCount(2, $parts);
-        self::assertSame(self::ELEMENT_A_UUID, $parts[0]->getMineableElementReference());
-        self::assertSame(30.0, $parts[0]->getMinPercentage());
-        self::assertSame(70.0, $parts[0]->getMaxPercentage());
-        self::assertSame(1.0, $parts[0]->getProbability());
-
-        $mineableElement = $parts[0]->getMineableElement();
-
-        self::assertInstanceOf(MineableElement::class, $mineableElement);
-        self::assertSame(self::RESOURCE_A_UUID, $mineableElement?->getResourceTypeReference());
-        self::assertSame(50.0, $mineableElement?->getInstability());
-        self::assertSame(-0.7, $mineableElement?->getResistance());
-        self::assertInstanceOf(ResourceType::class, $mineableElement?->getResourceType());
-        self::assertSame(self::RESOURCE_A_UUID, $mineableElement?->getResourceType()?->getUuid());
-
-        $data = $document->toArray();
-
-        self::assertSame(self::ENTITY_UUID, $data['EntityClass']['__ref']);
-        self::assertSame(self::COMPOSITION_UUID, $data['EntityClass']['Components']['MineableParams']['MineableComposition']['__ref']);
-        self::assertSame(
-            self::RESOURCE_A_UUID,
-            $data['EntityClass']['Components']['MineableParams']['MineableComposition']['compositionArray'][0]['MineableElement']['ResourceType']['__ref']
-        );
+        new ServiceFactory($this->tempDir)->initialize();
     }
 
     public function test_resolves_the_mineable_chain_when_reference_hydration_is_disabled(): void

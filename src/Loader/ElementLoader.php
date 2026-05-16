@@ -6,6 +6,9 @@ use DOMNode;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\ElementDefinitionFactory;
 
+/**
+ * @deprecated Eager hydration is deprecated
+ */
 class ElementLoader
 {
     /**
