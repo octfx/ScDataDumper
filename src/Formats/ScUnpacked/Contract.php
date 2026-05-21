@@ -841,9 +841,8 @@ final class Contract extends BaseFormat
 
         $rep = $this->collectReputationRewards($lookup, $localization, $results->getLegacyReputationRewards());
 
-        $blueprint = $results->getBlueprintRewards();
-        $resolvedBlueprint = null;
-        if ($blueprint !== null) {
+        $resolvedBlueprints = [];
+        foreach ($results->getAllBlueprintRewards() as $blueprint) {
             $poolUuid = $blueprint['blueprintPool'] ?? null;
             $poolContents = [];
             if ($poolUuid !== null) {
@@ -861,7 +860,7 @@ final class Contract extends BaseFormat
                     }
                 }
             }
-            $resolvedBlueprint = [
+            $resolvedBlueprints[] = [
                 'chance' => $blueprint['chance'],
                 'pool_uuid' => $poolUuid,
                 'pool_contents' => $poolContents,
@@ -902,7 +901,7 @@ final class Contract extends BaseFormat
             'fixed_reward' => $results->getFixedReward(),
             'time_to_complete' => ($t = $results->getTimeToComplete()) !== null && $t > 0 ? $t : null,
             'items' => $items !== [] ? $items : null,
-            'blueprint' => $resolvedBlueprint,
+            'blueprints' => $resolvedBlueprints !== [] ? $resolvedBlueprints : null,
             'reputation_gained' => $rep['gained'] !== [] ? $rep['gained'] : null,
             'reputation_lost' => $rep['lost'] !== [] ? $rep['lost'] : null,
             'completion_tags' => $resolvedTags !== [] ? $resolvedTags : null,

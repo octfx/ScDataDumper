@@ -197,10 +197,10 @@ final class ContractGeneratorRecordTest extends ScDataTestCase
         self::assertCount(1, $completionTags);
         self::assertSame('00000000-0000-0000-0000-000000000030', $completionTags[0]);
 
-        $blueprintRewards = $results->getBlueprintRewards();
-        self::assertNotNull($blueprintRewards);
-        self::assertSame(1.0, $blueprintRewards['chance']);
-        self::assertSame(self::BLUEPRINT_POOL_UUID, $blueprintRewards['blueprintPool']);
+        $blueprintRewards = $results->getAllBlueprintRewards();
+        self::assertCount(1, $blueprintRewards);
+        self::assertSame(1.0, $blueprintRewards[0]['chance']);
+        self::assertSame(self::BLUEPRINT_POOL_UUID, $blueprintRewards[0]['blueprintPool']);
 
         $itemResults = $results->getItemResults();
         self::assertCount(1, $itemResults);

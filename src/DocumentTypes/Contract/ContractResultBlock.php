@@ -101,17 +101,25 @@ class ContractResultBlock extends RootDocument
         return $results;
     }
 
-    public function getBlueprintRewards(): ?array
+    /**
+     * @return list<array{chance: float, blueprintPool: ?string}>
+     */
+    public function getAllBlueprintRewards(): array
     {
-        $node = $this->get('contractResults/BlueprintRewards');
-        if ($node === null) {
-            return null;
+        $nodes = $this->getAll('contractResults/BlueprintRewards');
+        if ($nodes === []) {
+            return [];
         }
 
-        return [
-            'chance' => (float) ($node->get('@chance') ?? 0),
-            'blueprintPool' => $node->get('@blueprintPool'),
-        ];
+        $results = [];
+        foreach ($nodes as $node) {
+            $results[] = [
+                'chance' => (float) ($node->get('@chance') ?? 0),
+                'blueprintPool' => $node->get('@blueprintPool'),
+            ];
+        }
+
+        return $results;
     }
 
     /**
