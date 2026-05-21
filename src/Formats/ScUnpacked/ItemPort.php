@@ -34,9 +34,15 @@ class ItemPort extends BaseFormat
             ? $port->parentNode->attributes->getNamedItem('name')?->nodeValue
             : $port->get('@Name');
 
+        $transKey = $this instanceof VehiclePartPort ? $port->get('@display_name') : $port->get('@DisplayName');
+        $displayName = $this->translateLocalizationValue($transKey);
+        if (empty($displayName)) {
+            $displayName = $transKey;
+        }
+
         $stdPort = [
             'PortName' => $portName,
-            'DisplayName' => $this instanceof VehiclePartPort ? $port->get('@display_name') : $port->get('@DisplayName'),
+            'DisplayName' => $displayName,
             'Size' => $port->get('@MaxSize') ?? $port->get('@maxSize'),
             'MinSize' => $port->get('@MinSize') ?? $port->get('@minSize') ?? $port->get('@minsize'),
             'MaxSize' => $port->get('@MaxSize') ?? $port->get('@maxSize') ?? $port->get('@maxsize'),
