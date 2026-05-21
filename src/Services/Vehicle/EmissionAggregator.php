@@ -373,6 +373,12 @@ final readonly class EmissionAggregator implements VehicleDataCalculator
                 'used_segments_quantum' => round($powerSegmentsUsageQuantum, 2),
                 'generation_segments' => ($availablePowerSegments !== null && $availablePowerSegments > 0) ? $availablePowerSegments : null,
                 'used_segments_grouped' => $powerSegmentsUsage->filter(fn ($value, $key) => $value > 0)->toArray(),
+                'max_segments' => $powerSegmentsUsage
+                    ->filter(fn ($value, $key) => $value > 0)
+                    ->mapWithKeys(fn (float $value, string $key) => [
+                        $key => (int) round($value),
+                    ])
+                    ->toArray(),
             ],
 
             'power_budgeting' => $powerBudgeting,

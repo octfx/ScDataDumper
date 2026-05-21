@@ -198,22 +198,6 @@ final class VehicleDefinition extends EntityClassDefinition
     }
 
     /**
-     * Ship-level PortTags from SItemPortContainerComponentParams.
-     *
-     * @return list<string>
-     */
-    public function getPortTags(): array
-    {
-        $raw = trim((string) ($this->get('Components/SItemPortContainerComponentParams@PortTags') ?? ''));
-
-        if ($raw === '') {
-            return [];
-        }
-
-        return array_values(array_filter(explode(' ', $raw)));
-    }
-
-    /**
      * Raw cross-section parameters from SSCSignatureSystemParams.
      *
      * @return array<string, float>|null

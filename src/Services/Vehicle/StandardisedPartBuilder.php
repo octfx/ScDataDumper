@@ -25,18 +25,13 @@ final class StandardisedPartBuilder
     /** @var array<string, Element> */
     private array $entityPortDefinitions;
 
-    /** @var list<string> Ship-level PortTags inherited by all ports */
-    private readonly array $shipPortTags;
-
     public function __construct(
         private readonly ItemService $itemService,
         private readonly ItemClassifierService $classifierService,
         private readonly PortClassifierService $portClassifier,
         ?Element $entityPorts = null,
-        array $shipPortTags = [],
     ) {
         $this->entityPortDefinitions = $this->collectEntityPortDefinitions($entityPorts);
-        $this->shipPortTags = $shipPortTags;
     }
 
     /**
@@ -240,7 +235,7 @@ final class StandardisedPartBuilder
             'Types' => $types,
             'Flags' => $flags,
             'RequiredTags' => $portData['RequiredTags'] ?? [],
-            'PortTags' => $this->mergePortTags($portData['Tags'] ?? []),
+            'PortTags' => $portData['Tags'] ?? [],
             'Category' => null,
             'Loadout' => $loadoutEntry['className'] ?? null,
             'InstalledItem' => $loadoutEntry !== null ? $this->buildInstalledItem($loadoutEntry) : null,
@@ -270,7 +265,7 @@ final class StandardisedPartBuilder
             'Types' => $this->extractTypes($itemPort),
             'Flags' => $this->extractFlags($itemPort),
             'RequiredTags' => $this->extractRequiredTags($itemPort),
-            'PortTags' => $this->mergePortTags($this->extractPortTags($itemPort)),
+            'PortTags' => $this->extractPortTags($itemPort),
             'Category' => null, // Will be set by PortClassifier
             'Loadout' => $loadoutEntry['className'] ?? null,
             'InstalledItem' => null,
@@ -459,17 +454,6 @@ final class StandardisedPartBuilder
         $rawTags = trim((string) ($itemPort->get('@PortTags') ?? ''));
 
         return $rawTags === '' ? [] : array_values(array_filter(explode(' ', $rawTags)));
-    }
-
-    /**
-     * Merge per-port PortTags with the ship-level PortTags.
-     *
-     * @param  list<string>  $perPortTags
-     * @return list<string>
-     */
-    private function mergePortTags(array $perPortTags): array
-    {
-        return array_values(array_unique(array_merge($this->shipPortTags, $perPortTags)));
     }
 
     /**

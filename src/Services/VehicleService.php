@@ -308,6 +308,10 @@ final class VehicleService extends BaseService
         ];
         $implementationsPath = implode(DIRECTORY_SEPARATOR, $implementationsPath);
 
+        if (! is_dir($implementationsPath)) {
+            return;
+        }
+
         $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($implementationsPath));
 
         $implementations = [];

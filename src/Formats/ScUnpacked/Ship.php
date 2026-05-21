@@ -26,6 +26,7 @@ use Octfx\ScDataDumper\Services\Vehicle\QuantumTravelCalculator;
 use Octfx\ScDataDumper\Services\Vehicle\ResourceAggregator;
 use Octfx\ScDataDumper\Services\Vehicle\SeatingAnalyzer;
 use Octfx\ScDataDumper\Services\Vehicle\SocpakBedExtractor;
+use Octfx\ScDataDumper\Services\Vehicle\SocpakStorageExtractor;
 use Octfx\ScDataDumper\Services\Vehicle\StanceSpeedExtractor;
 use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartBuilder;
 use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartWalker;
@@ -67,7 +68,6 @@ final class Ship extends BaseFormat
             new ItemClassifierService,
             new PortClassifierService,
             $this->entityPorts,
-            $this->vehicleWrapper->entity->getPortTags(),
         );
     }
 
@@ -141,6 +141,8 @@ final class Ship extends BaseFormat
                 'Fuse' => $this->vehicleWrapper->entity->getFusePenetrationMultiplier(),
                 'Components' => $this->vehicleWrapper->entity->getComponentPenetrationMultiplier(),
             ],
+
+            'PortTags' => $this->vehicle?->getPortTags() ?? [],
         ];
 
         // Actors / ATLS
@@ -215,9 +217,17 @@ final class Ship extends BaseFormat
             entity: $this->vehicleWrapper->entity,
         );
 
+        $socpakReader = new SocpakReader(ServiceFactory::getActiveScDataPath());
+
         $calculators = [
             new EmissionAggregator($walker, $this->vehicleWrapper),
-            new ResourceAggregator($walker),
+            new ResourceAggregator(
+                walker: $walker,
+                socpakStorageExtractor: new SocpakStorageExtractor(
+                    reader: $socpakReader,
+                    itemService: ServiceFactory::getItemService(),
+                ),
+            ),
             new PropulsionSystemAggregator,
             new QuantumTravelCalculator,
             new FlightCharacteristicsCalculator,
@@ -225,7 +235,7 @@ final class Ship extends BaseFormat
             new WeaponDpsAggregator($walker),
             new WeaponSystemAnalyzer,
             new SeatingAnalyzer(
-                bedExtractor: new SocpakBedExtractor(new SocpakReader(ServiceFactory::getActiveScDataPath())),
+                bedExtractor: new SocpakBedExtractor($socpakReader),
                 itemService: ServiceFactory::getItemService(),
             ),
             new DriveCharacteristicsVehicleCalculator(
@@ -406,6 +416,7 @@ final class Ship extends BaseFormat
         $data['distortion'] = $calculatedData['distortion'] ?? [];
         $data['ammo'] = $calculatedData['ammo'] ?? [];
         $data['weapon_storage'] = $calculatedData['weapon_storage'] ?? [];
+        $data['suit_storage'] = $calculatedData['suit_storage'] ?? [];
 
         // Add calculator data to summary
         if (! empty($calculatedData['Health'])) {
@@ -535,7 +546,7 @@ final class Ship extends BaseFormat
 
         $data = $this->transformArrayKeysToPascalCase($data);
 
-        return $this->removeNullValues($data);
+        return $this->removeNullValuesPreservingEmptyArrays($data);
     }
 
     private function processArray(&$array): void

@@ -611,11 +611,11 @@ final class ShipLoadoutExportRegressionTest extends ScDataTestCase
         self::assertSame(['AEGS_Avenger_Base'], $entry['PortTags'] ?? null);
     }
 
-    public function test_loadout_entry_exports_port_tags_with_ship_and_per_port_tags_merged(): void
+    public function test_loadout_entry_exports_port_tags_with_multiple_per_port_tags(): void
     {
         $ship = $this->newShipForInternalInvocation();
 
-        // Polaris PDC port: ship-level "RSI_Polaris" + per-port "PDC"
+        // Polaris PDC port: per-port "RSI_Polaris" + "PDC"
         $port = [
             'PortName' => 'hardpoint_pdc_top_01',
             'Uneditable' => false,

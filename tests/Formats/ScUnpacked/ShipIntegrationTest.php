@@ -272,6 +272,63 @@ final class ShipIntegrationTest extends ScDataTestCase
         self::assertSame(64.0, $result['CargoGrids'][0]['SCU']);
     }
 
+    public function test_to_array_exports_vehicle_level_port_tags(): void
+    {
+        $manufacturerPath = $this->writeManufacturerFile();
+        $this->writeShipTestCacheFiles($manufacturerPath);
+        $this->configureServiceFactory();
+
+        $entity = new VehicleDefinition;
+        $entity->load($this->writeVehicleEntityFile());
+
+        $vehicle = new Vehicle;
+        $vehicle->load($this->writeVehicleImplementationFileWithPortTags('AEGS_Avenger_Base'));
+
+        $ship = new Ship(new VehicleWrapper($vehicle, $entity, $this->makeLoadout()));
+        $result = $ship->toArray();
+
+        self::assertArrayHasKey('PortTags', $result);
+        self::assertSame(['AEGS_Avenger_Base'], $result['PortTags']);
+    }
+
+    public function test_to_array_exports_empty_port_tags_when_vehicle_has_none(): void
+    {
+        $manufacturerPath = $this->writeManufacturerFile();
+        $this->writeShipTestCacheFiles($manufacturerPath);
+        $this->configureServiceFactory();
+
+        $entity = new VehicleDefinition;
+        $entity->load($this->writeVehicleEntityFile());
+
+        $vehicle = new Vehicle;
+        $vehicle->load($this->writeVehicleImplementationFile());
+
+        $ship = new Ship(new VehicleWrapper($vehicle, $entity, $this->makeLoadout()));
+        $result = $ship->toArray();
+
+        self::assertArrayHasKey('PortTags', $result);
+        self::assertSame([], $result['PortTags']);
+    }
+
+    public function test_to_array_exports_multiple_space_separated_port_tags(): void
+    {
+        $manufacturerPath = $this->writeManufacturerFile();
+        $this->writeShipTestCacheFiles($manufacturerPath);
+        $this->configureServiceFactory();
+
+        $entity = new VehicleDefinition;
+        $entity->load($this->writeVehicleEntityFile());
+
+        $vehicle = new Vehicle;
+        $vehicle->load($this->writeVehicleImplementationFileWithPortTags('ANVL_Hurricane DRAK_Cutlass_Base ANVL_Gladiator'));
+
+        $ship = new Ship(new VehicleWrapper($vehicle, $entity, $this->makeLoadout()));
+        $result = $ship->toArray();
+
+        self::assertArrayHasKey('PortTags', $result);
+        self::assertSame(['ANVL_Hurricane', 'DRAK_Cutlass_Base', 'ANVL_Gladiator'], $result['PortTags']);
+    }
+
     private function configureServiceFactory(): void
     {
         $this->writeLocalizationFile();
@@ -370,6 +427,27 @@ final class ShipIntegrationTest extends ScDataTestCase
     private function writeVehicleImplementationFile(): string
     {
         return $this->writeStandardVehicleImplementationFile();
+    }
+
+    private function writeVehicleImplementationFileWithPortTags(string $portTags): string
+    {
+        return $this->writeFile(
+            'records/vehicles/test_ship_impl.xml',
+            <<<XML
+            <?xml version="1.0" encoding="UTF-8"?>
+            <Vehicle.TEST_SHIP_IMPL itemPortTags="{$portTags}">
+                <Parts>
+                    <Part name="seat_mount" mass="100" damageMax="500">
+                        <ItemPort maxSize="1" minSize="1">
+                            <Types>
+                                <Type type="Seat" subtypes="Pilot" />
+                            </Types>
+                        </ItemPort>
+                    </Part>
+                </Parts>
+            </Vehicle.TEST_SHIP_IMPL>
+            XML
+        );
     }
 
     private function writeInventoryContainerFile(
