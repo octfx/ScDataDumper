@@ -175,6 +175,60 @@ final class ItemClassifierService
                 'Classifier' => fn ($t, $s) => "Ship.$t",
             ],
 
+            // Fuel nozzles (not internal docking tubes)
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'DockingCollar.UNDEFINED') && self::pathMatch($item, 'refueling'),
+                'Classifier' => fn ($t, $s) => 'Ship.FuelNozzle',
+            ],
+
+            // Salvage modifiers (scraper modules)
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'SalvageModifier.*'),
+                'Classifier' => fn ($t, $s) => 'Ship.Salvage.Modifier',
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'SalvageHead.*'),
+                'Classifier' => fn ($t, $s) => 'Ship.Salvage.Head',
+            ],
+
+            // Ship beams
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'TractorBeam.*'),
+                'Classifier' => fn ($t, $s) => 'Ship.Beam.Tractor',
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'TowingBeam.*'),
+                'Classifier' => fn ($t, $s) => 'Ship.Beam.Towing',
+            ],
+
+            // Bombs
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Bomb.*'),
+                'Classifier' => fn ($t, $s) => 'Ship.Bomb',
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'BombLauncher.*'),
+                'Classifier' => fn ($t, $s) => 'Ship.BombRack',
+            ],
+
+            // External fuel pods
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'ExternalFuelTank.*'),
+                'Classifier' => fn ($t, $s) => 'Ship.FuelTank',
+            ],
+
+            // Jump drives
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'JumpDrive.*'),
+                'Classifier' => fn ($t, $s) => 'Ship.JumpDrive',
+            ],
+
+            // Ground vehicle missile launchers
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'GroundVehicleMissileLauncher.*'),
+                'Classifier' => fn ($t, $s) => 'Ship.MissileLauncher',
+            ],
+
             // FPS weapons
             [
                 'Matcher' => fn ($item) => self::typeMatch($item, 'WeaponPersonal.*'),
@@ -209,6 +263,16 @@ final class ItemClassifierService
                 'Classifier' => fn ($t, $s) => 'FPS.WeaponAttachment.Light',
             ],
 
+            // FPS grenades & deployables
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Grenade.*'),
+                'Classifier' => fn ($t, $s) => 'FPS.Weapon.Grenade',
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'FPS_Deployable.*'),
+                'Classifier' => fn ($t, $s) => 'FPS.Deployable',
+            ],
+
             // FPS armor
             [
                 'Matcher' => fn ($item) => self::typeMatch($item, 'Char_Armor_Arms.*'),
@@ -235,6 +299,12 @@ final class ItemClassifierService
                 'Classifier' => fn ($t, $s) => 'FPS.Armor.Backpack',
             ],
 
+            // Jetpacks
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Suit.ThrusterPack'),
+                'Classifier' => fn ($t, $s) => 'FPS.Jetpack',
+            ],
+
             // Clothing
             [
                 'Matcher' => fn ($item) => self::typeMatch($item, 'Char_Clothing_Torso_0.*'),
@@ -243,6 +313,14 @@ final class ItemClassifierService
             [
                 'Matcher' => fn ($item) => self::typeMatch($item, 'Char_Clothing_Torso_1.*'),
                 'Classifier' => fn ($t, $s) => 'FPS.Clothing.Torso',
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Char_Clothing_Torso_2.*'),
+                'Classifier' => fn ($t, $s) => 'FPS.Clothing.Torso',
+            ],
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Char_Clothing_Backpack.*'),
+                'Classifier' => fn ($t, $s) => 'FPS.Clothing.Backpack',
             ],
             [
                 'Matcher' => fn ($item) => self::typeMatch($item, 'Char_Clothing_Hat.*'),
@@ -285,6 +363,18 @@ final class ItemClassifierService
             [
                 'Matcher' => fn ($item) => self::typeMatch($item, 'Bottle.*'),
                 'Classifier' => fn ($t, $s) => "FPS.Consumable.Food.$t",
+            ],
+
+            // FPS accessories
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'Char_Accessory_Eyes.*'),
+                'Classifier' => fn ($t, $s) => 'FPS.Accessory.Eyes',
+            ],
+
+            // MobiGlas
+            [
+                'Matcher' => fn ($item) => self::typeMatch($item, 'MobiGlas.*'),
+                'Classifier' => fn ($t, $s) => 'FPS.MobiGlas',
             ],
 
             // Mining
@@ -389,6 +479,12 @@ final class ItemClassifierService
             $isShipPath = self::pathMatch($entity, 'ships/') ? 'ship' : 'nonship';
 
             return $base.'|'.$isShipPath;
+        }
+
+        if (strcasecmp((string) $type, 'DockingCollar') === 0 && strcasecmp((string) $subType, 'UNDEFINED') === 0) {
+            $isRefueling = self::pathMatch($entity, 'refueling') ? 'refuel' : 'dock';
+
+            return $base.'|'.$isRefueling;
         }
 
         return $base;
