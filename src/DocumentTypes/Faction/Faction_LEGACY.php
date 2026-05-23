@@ -8,17 +8,17 @@ use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 
 final class Faction_LEGACY extends RootDocument
 {
-    public function getDisplayName(): string
+    public function getDisplayName(): ?string
     {
         return $this->getString('@displayName');
     }
 
-    public function getDescription(): string
+    public function getDescription(): ?string
     {
         return $this->getString('@description');
     }
 
-    public function getDefaultReaction(): string
+    public function getDefaultReaction(): ?string
     {
         return $this->getString('@defaultReaction');
 

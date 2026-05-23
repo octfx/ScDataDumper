@@ -123,7 +123,7 @@ final class VehicleDefinition extends EntityClassDefinition
     {
         $vcp = $this->getVehicleComponentParams();
 
-        $name = $vcp?->get('@vehicleName');
+        $name = $vcp?->get('@vehicleName', raw: true);
 
         if ($name !== null && $name !== '') {
             return (string) $name;
@@ -134,21 +134,21 @@ final class VehicleDefinition extends EntityClassDefinition
 
     public function getVehicleDescriptionKey(): ?string
     {
-        $desc = $this->getVehicleComponentParams()?->get('@vehicleDescription');
+        $desc = $this->getVehicleComponentParams()?->get('@vehicleDescription', raw: true);
 
         return $desc !== null && $desc !== '' ? (string) $desc : null;
     }
 
     public function getCareerKey(): ?string
     {
-        $career = $this->getVehicleComponentParams()?->get('@vehicleCareer');
+        $career = $this->getVehicleComponentParams()?->get('@vehicleCareer', raw: true);
 
         return $career !== null && $career !== '' ? (string) $career : null;
     }
 
     public function getRoleKey(): ?string
     {
-        $role = $this->getVehicleComponentParams()?->get('@vehicleRole');
+        $role = $this->getVehicleComponentParams()?->get('@vehicleRole', raw: true);
 
         return $role !== null && $role !== '' ? (string) $role : null;
     }

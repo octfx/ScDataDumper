@@ -81,27 +81,29 @@ final class Ship extends BaseFormat
         $isGravlev = $this->vehicleWrapper->entity->isGravlev();
         $dimensions = $this->vehicleWrapper->entity->getDimensions();
 
-        $vehicleName = $this->translateLocalizationValue(
-            $this->vehicleWrapper->entity->getVehicleNameKey()
-            ?? $attach?->get('Localization@Name')
-        );
-        $vehicleDescription = $this->translateLocalizationValue(
-            $this->vehicleWrapper->entity->getVehicleDescriptionKey()
-            ?? $attach?->get('Localization@Description')
-        );
-        $vehicleCareerLabel = $this->translateLocalizationValue($this->vehicleWrapper->entity->getCareerKey());
-        $vehicleRoleLabel = $this->translateLocalizationValue($this->vehicleWrapper->entity->getRoleKey());
+        $vehicleNameKey = $this->vehicleWrapper->entity->getVehicleNameKey();
+        $vehicleName = $vehicleNameKey !== null && $vehicleNameKey !== ''
+            ? $this->translateLocalizationValue($vehicleNameKey)
+            : $attach?->get('Localization@Name');
+        $vehicleDescriptionKey = $this->vehicleWrapper->entity->getVehicleDescriptionKey();
+        $vehicleDescription = $vehicleDescriptionKey !== null && $vehicleDescriptionKey !== ''
+            ? $this->translateLocalizationValue($vehicleDescriptionKey)
+            : $attach?->get('Localization@Description');
+        $vehicleCareerKey = $this->vehicleWrapper->entity->getCareerKey();
+        $vehicleCareerLabel = $vehicleCareerKey !== null && $vehicleCareerKey !== ''
+            ? $this->translateLocalizationValue($vehicleCareerKey)
+            : null;
+        $vehicleRoleKey = $this->vehicleWrapper->entity->getRoleKey();
+        $vehicleRoleLabel = $vehicleRoleKey !== null && $vehicleRoleKey !== ''
+            ? $this->translateLocalizationValue($vehicleRoleKey)
+            : null;
 
         if ($vehicleCareerLabel === '' || $vehicleCareerLabel === null) {
-            $vehicleCareerLabel = $this->translateLocalizationValue(
-                $this->item->get('StaticEntityClassData/SEntityInsuranceProperties/displayParams@career')
-            );
+            $vehicleCareerLabel = $this->item->get('StaticEntityClassData/SEntityInsuranceProperties/displayParams@career') ?? '';
         }
 
         if ($vehicleRoleLabel === '' || $vehicleRoleLabel === null) {
-            $vehicleRoleLabel = $this->translateLocalizationValue(
-                $this->item->get('StaticEntityClassData/SEntityInsuranceProperties/displayParams@role')
-            );
+            $vehicleRoleLabel = $this->item->get('StaticEntityClassData/SEntityInsuranceProperties/displayParams@role') ?? '';
         }
 
         $descriptionData = ItemDescriptionParser::parse($vehicleDescription);
@@ -122,7 +124,7 @@ final class Ship extends BaseFormat
             'Manufacturer' => $manufacturer ? [
                 'UUID' => $manufacturer->getUuid(),
                 'Code' => $manufacturer->getCode(),
-                'Name' => $this->translateLocalizationValue($manufacturer->get('Localization@Name')),
+                'Name' => $manufacturer->get('Localization@Name'),
             ] : [],
 
             'Size' => $attach?->get('@Size', 0) ?? 0,

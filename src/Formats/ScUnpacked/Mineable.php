@@ -27,7 +27,7 @@ final class Mineable extends BaseFormat
         return $this->removeNullValues([
             'GlobalParamsReference' => $mineableParams->getGlobalParamsReference(),
             'CompositionReference' => $mineableParams->getCompositionReference(),
-            'DepositName' => ServiceFactory::getLocalizationService()->translateValue($composition->getDepositName()),
+            'DepositName' => $composition->getDepositName(),
             'MinimumDistinctElements' => $composition->getMinimumDistinctElements(),
             'Composition' => array_values(array_filter(
                 array_map(fn (MineableCompositionPart $part): ?array => $this->formatCompositionPart($part), $composition->getParts())
@@ -51,7 +51,7 @@ final class Mineable extends BaseFormat
             'UUID' => $part->getMineableElementReference(),
             'ResourceTypeReference' => $mineableElement?->getResourceTypeReference(),
             'ResourceTypeClassName' => $resourceType?->getClassName(),
-            'ResourceTypeDisplayName' => ServiceFactory::getLocalizationService()->translateValue($resourceType?->get('@displayName')),
+            'ResourceTypeDisplayName' => $resourceType?->get('@displayName'),
             'MinPercentage' => $part->getMinPercentage(),
             'MaxPercentage' => $part->getMaxPercentage(),
             'Probability' => $part->getProbability(),

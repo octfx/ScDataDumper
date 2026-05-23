@@ -130,4 +130,38 @@ final class LocalizationServiceTest extends ScDataTestCase
 
         self::assertContains('english', $service->getLocales());
     }
+
+    public function test_translate_value_trims_trailing_nbsp(): void
+    {
+        $this->writeCacheFiles();
+        // \xC2\xA0 is UTF-8 non-breaking space
+        $nbsp = "\xC2\xA0";
+        $this->writeFile('Data/Localization/english/global.ini', "shield_gen=Shield Generator{$nbsp}\n");
+
+        $service = new LocalizationService($this->tempDir);
+
+        self::assertSame('Shield Generator', $service->translateValue('@shield_gen'));
+    }
+
+    public function test_translate_value_trims_leading_and_trailing_nbsp(): void
+    {
+        $this->writeCacheFiles();
+        $nbsp = "\xC2\xA0";
+        $this->writeFile('Data/Localization/english/global.ini', "item_name={$nbsp}Item Name{$nbsp}\n");
+
+        $service = new LocalizationService($this->tempDir);
+
+        self::assertSame('Item Name', $service->translateValue('@item_name'));
+    }
+
+    public function test_translate_value_trims_nbsp_from_non_prefixed_string(): void
+    {
+        $this->writeCacheFiles();
+        $nbsp = "\xC2\xA0";
+        $this->writeFile('Data/Localization/english/global.ini', "LOC_EMPTY=\n");
+
+        $service = new LocalizationService($this->tempDir);
+
+        self::assertSame('Hello', $service->translateValue("{$nbsp}Hello{$nbsp}"));
+    }
 }

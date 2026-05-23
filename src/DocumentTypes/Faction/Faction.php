@@ -9,22 +9,22 @@ use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class Faction extends RootDocument
 {
-    public function getName(): string
+    public function getName(): ?string
     {
         return $this->getString('@name');
     }
 
-    public function getDescription(): string
+    public function getDescription(): ?string
     {
         return $this->getString('@description');
     }
 
-    public function getDefaultReaction(): string
+    public function getDefaultReaction(): ?string
     {
         return $this->getString('@defaultReaction');
     }
 
-    public function getFactionType(): string
+    public function getFactionType(): ?string
     {
         return $this->getString('@factionType');
     }

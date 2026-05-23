@@ -174,7 +174,7 @@ final class HarvestableProviderPresetTest extends ScDataTestCase
         self::assertSame(self::CLUSTER_UUID, $firstElement->getClusteringReference());
         self::assertNull($firstElement->getHarvestableSetupReference());
         self::assertSame(self::HARVESTABLE_UUID, $firstElement->getHarvestable()?->getUuid());
-        self::assertSame('@sample_harvestable', $firstElement->getHarvestable()?->get('@displayName'));
+        self::assertSame('@sample_harvestable', $firstElement->getHarvestable()?->get('@displayName', raw: true));
         self::assertNull($firstElement->getHarvestableEntity());
         self::assertSame(self::CLUSTER_UUID, $firstElement->getClustering()?->getUuid());
         self::assertNull($firstElement->getHarvestableSetup());

@@ -61,6 +61,11 @@ final class ServiceFactory
         self::$initialized = true;
     }
 
+    public static function isInitialized(): bool
+    {
+        return self::$initialized;
+    }
+
     public static function getActiveScDataPath(): ?string
     {
         return self::$activeScDataPath;

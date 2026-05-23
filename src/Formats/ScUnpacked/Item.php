@@ -31,10 +31,10 @@ final class Item extends BaseFormat
             'UUID' => '00000000-0000-0000-0000-000000000000',
         ];
 
-        $hasManufacturer = $manufacturer && $manufacturer->get('Localization@__Name') !== '@LOC_PLACEHOLDER';
+        $hasManufacturer = $manufacturer && $manufacturer->get('Localization@__Name', raw: true) !== '@LOC_PLACEHOLDER';
 
-        $name = $this->translateLocalizationValue($attach->get('Localization@Name'));
-        $description = $this->translateLocalizationValue($attach->get('Localization@Description'));
+        $name = $attach->get('Localization@Name');
+        $description = $attach->get('Localization@Description') ?? '';
         $descriptionData = ItemDescriptionParser::parse($description);
 
         $entityTagsXml = $this->item->get('tags')?->children();
@@ -101,7 +101,7 @@ final class Item extends BaseFormat
                 'DescriptionText' => $descriptionData['description'] ?? null,
                 'Manufacturer' => $hasManufacturer ? [
                     'Code' => $manufacturer->getCode(),
-                    'Name' => $this->translateLocalizationValue($manufacturer->get('Localization@Name')),
+                    'Name' => $manufacturer->get('Localization@Name'),
                     'UUID' => $manufacturer->getUuid(),
                 ] : $defaultManufacturer,
                 'Tags' => $this->item->getTagList(),

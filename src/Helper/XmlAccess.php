@@ -5,6 +5,7 @@ namespace Octfx\ScDataDumper\Helper;
 use DOMDocument;
 use DOMElement;
 use DOMXPath;
+use Octfx\ScDataDumper\Services\ServiceFactory;
 
 trait XmlAccess
 {
@@ -33,6 +34,7 @@ trait XmlAccess
      *
      * @param  string  $xPath  XPath-like query relative to the current node.
      * @param  mixed  $default  Returned when the query/attribute does not match.
+     * @param  bool  $raw  When true, skip auto-translation of @-prefixed attribute values.
      * @return float|Element|string|null Element for element queries, string/float for attributes, or $default.
      *
      * @example <caption>Element Query</caption>
@@ -51,7 +53,7 @@ trait XmlAccess
      * $missing = $element->get('Does/Not/Exist', 'fallback');
      * // Returns: "fallback"
      */
-    public function get(string $xPath, $default = null): mixed
+    public function get(string $xPath, $default = null, bool $raw = false): mixed
     {
         if ($this->domXPath === null) {
             $this->initXPath();
@@ -86,6 +88,19 @@ trait XmlAccess
                     return (float) $attribute;
                 }
 
+                if (! $raw && str_starts_with($attribute, '@')) {
+                    try {
+                        if (ServiceFactory::isInitialized()) {
+                            return ServiceFactory::getLocalizationService()->translateValue($attribute)
+                                ?? $default;
+                        }
+                    } catch (\Throwable) {
+                        // Service unavailable, return raw value
+                    }
+
+                    return $attribute;
+                }
+
                 return $attribute;
             }
 
@@ -106,9 +121,10 @@ trait XmlAccess
      * are returned for every matched node that defines the attribute; missing attributes are
      * skipped. Numeric attribute values are cast to float.
      *
+     * @param  bool  $raw  When true, skip auto-translation of @-prefixed attribute values.
      * @return list<Element|float|string>
      */
-    public function getAll(string $xPath): array
+    public function getAll(string $xPath, bool $raw = false): array
     {
         if ($this->domXPath === null) {
             $this->initXPath();
@@ -141,7 +157,23 @@ trait XmlAccess
                     continue;
                 }
 
-                $results[] = is_numeric($value) ? (float) $value : $value;
+                if (is_numeric($value)) {
+                    $results[] = (float) $value;
+                } elseif (! $raw && str_starts_with($value, '@')) {
+                    try {
+                        if (ServiceFactory::isInitialized()) {
+                            $results[] = ServiceFactory::getLocalizationService()->translateValue($value)
+                                ?? $value;
+
+                            continue;
+                        }
+                    } catch (\Throwable) {
+                        // Service unavailable, fall through to raw value
+                    }
+                    $results[] = $value;
+                } else {
+                    $results[] = $value;
+                }
 
                 continue;
             }

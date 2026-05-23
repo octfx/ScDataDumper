@@ -30,7 +30,7 @@ final class StarMapObject extends BaseFormat
         $radarContactType = $object->getRadarContactType();
         $asteroidRing = $object->getAsteroidRing();
 
-        $name = ServiceFactory::getLocalizationService()->translateValue($object->getName());
+        $name = $object->getName();
         if (empty($name)) {
             $name = Str::headline($object->getClassName());
         }
@@ -43,7 +43,7 @@ final class StarMapObject extends BaseFormat
         return $this->transformArrayKeysToPascalCase([
             'uuid' => $object->getUuid(),
             'name' => $name,
-            'description' => ServiceFactory::getLocalizationService()->translateValue($object->getDescription()),
+            'description' => $object->getDescription(),
             'parentUuid' => $parentUuid,
             'navIcon' => $object->getNavIcon(),
             'respawnLocationType' => $object->getRespawnLocationType(),
@@ -118,8 +118,8 @@ final class StarMapObject extends BaseFormat
 
         return [
             'uuid' => $type->getUuid(),
-            'name' => ServiceFactory::getLocalizationService()->translateValue($type->getName()),
-            'classification' => ServiceFactory::getLocalizationService()->translateValue($type->getClassification()),
+            'name' => $type->getName(),
+            'classification' => $type->getClassification(),
             'spawnNavPoints' => $type->spawnNavPoints(),
             'validQuantumTravelDestination' => $type->validQuantumTravelDestination(),
         ];
@@ -136,7 +136,7 @@ final class StarMapObject extends BaseFormat
 
         return [
             'uuid' => $jurisdiction->getUuid(),
-            'name' => ServiceFactory::getLocalizationService()->translateValue($jurisdiction->getName()),
+            'name' => $jurisdiction->getName(),
             'baseFine' => $jurisdiction->getBaseFine(),
             'maxStolenGoodsPossessionScu' => $jurisdiction->getMaxStolenGoodsPossessionScu(),
             'isPrison' => $jurisdiction->getIsPrison(),
@@ -159,7 +159,7 @@ final class StarMapObject extends BaseFormat
 
         return [
             'uuid' => $affiliation->getUuid(),
-            'displayName' => ServiceFactory::getLocalizationService()->translateValue($displayName ?? $name),
+            'displayName' => $displayName ?? $name,
         ];
     }
 
@@ -174,8 +174,8 @@ final class StarMapObject extends BaseFormat
 
         return [
             'uuid' => $radarContactType->getUuid(),
-            'name' => ServiceFactory::getLocalizationService()->translateValue($radarContactType->getName()),
-            'displayName' => ServiceFactory::getLocalizationService()->translateValue($radarContactType->getDisplayName()),
+            'name' => $radarContactType->getName(),
+            'displayName' => $radarContactType->getDisplayName(),
             'tagUuid' => $radarContactType->getTagReference(),
             'tagName' => $radarContactType->getTagName(),
             'isObjectOfInterest' => $radarContactType->isObjectOfInterest(),
@@ -207,8 +207,8 @@ final class StarMapObject extends BaseFormat
     {
         return [
             'uuid' => $amenity->getUuid(),
-            'name' => ServiceFactory::getLocalizationService()->translateValue($amenity->getName()),
-            'displayName' => ServiceFactory::getLocalizationService()->translateValue($amenity->getDisplayName()),
+            'name' => $amenity->getName(),
+            'displayName' => $amenity->getDisplayName(),
         ];
     }
 }

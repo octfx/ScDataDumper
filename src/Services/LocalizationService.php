@@ -135,7 +135,7 @@ final class LocalizationService extends BaseService
         }
 
         if (! str_starts_with($trimmed, '@')) {
-            return $trimmed;
+            return trim($trimmed, " \t\n\r\0\x0B\xC2\xA0");
         }
 
         try {
@@ -148,7 +148,7 @@ final class LocalizationService extends BaseService
             return null;
         }
 
-        return trim($translated);
+        return trim($translated, " \t\n\r\0\x0B\xC2\xA0");
     }
 
     public function initialize(): void {}

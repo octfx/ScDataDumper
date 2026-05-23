@@ -68,7 +68,7 @@ final class MissionLocationTemplate extends RootDocument
         foreach ($this->getAll('locationData/stringVariants/variants/MissionStringVariant') as $node) {
             if ($node instanceof Element) {
                 $tag = $node->get('@tag');
-                $string = $node->get('@string');
+                $string = $node->get('@string', raw: true);
                 if (is_string($tag) && is_string($string)) {
                     $variants[] = ['tag' => $tag, 'string' => $string];
                 }

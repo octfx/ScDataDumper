@@ -97,8 +97,8 @@ final readonly class ResourceIndexBuilder
     private function extractIdentity(EntityClassDefinition|ResourceType $entity): array
     {
         $name = $entity instanceof EntityClassDefinition
-            ? $this->localizationService->translateValue($entity->getAttachDef()?->get('Localization@Name'))
-            : $this->localizationService->translateValue($entity->getDisplayName());
+            ? $entity->getAttachDef()?->get('Localization@Name')
+            : $entity->getDisplayName();
 
         return [
             'uuid' => $entity->getUuid(),

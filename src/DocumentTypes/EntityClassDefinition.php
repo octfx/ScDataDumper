@@ -278,10 +278,8 @@ class EntityClassDefinition extends RootDocument
     {
         $attachDef = $this->getAttachDef();
 
-        $name = $attachDef?->get('Localization/English@Name')
+        return $attachDef?->get('Localization/English@Name')
             ?? $attachDef?->get('Localization@Name');
-
-        return ServiceFactory::getLocalizationService()->translateValue($name);
     }
 
     public static function extractClassNameFromPath(?string $path): ?string

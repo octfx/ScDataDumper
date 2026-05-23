@@ -145,7 +145,7 @@ abstract class BaseFormat
      * $override = $formatWithKey->get('Components/OtherComponent');
      * // Explicit key overrides elementKey
      */
-    public function get(?string $key = null, $default = null, ?bool $local = false): mixed
+    public function get(?string $key = null, $default = null, ?bool $local = false, bool $raw = false): mixed
     {
         if ($key === null && $this->elementKey === null) {
             throw new RuntimeException('Either $key must be provided or $elementKey set');
@@ -159,10 +159,10 @@ abstract class BaseFormat
 
         // FIX: Handle attribute queries on RootDocument by delegating to documentElement
         if ($this->item instanceof RootDocument && str_starts_with($lookupKey, '@')) {
-            return new Element($this->item->documentElement)->get($lookupKey, $default);
+            return new Element($this->item->documentElement)->get($lookupKey, $default, $raw);
         }
 
-        return $this->item->get($lookupKey, $default);
+        return $this->item->get($lookupKey, $default, $raw);
     }
 
     /**

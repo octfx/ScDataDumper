@@ -251,10 +251,10 @@ final class WeaponAttachment extends BaseFormat
         $englishDescription = $attachDef->get('Localization/English@Description');
 
         if (is_string($englishDescription) && trim($englishDescription) !== '') {
-            return $this->translateLocalizationValue($englishDescription);
+            return $englishDescription;
         }
 
-        return $this->translateLocalizationValue($attachDef->get('Localization@Description'));
+        return $attachDef->get('Localization@Description') ?? '';
     }
 
     private function loadFlashlightModes(): array

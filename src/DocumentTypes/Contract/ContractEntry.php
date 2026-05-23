@@ -309,7 +309,8 @@ class ContractEntry extends RootDocument
         }
 
         $locIds = $template->getAll(
-            'contractDisplayInfo/ContractDisplayInfo/displayString/LocID@value'
+            'contractDisplayInfo/ContractDisplayInfo/displayString/LocID@value',
+            raw: true
         );
 
         // LocID order: [0]=Title, [1]=Title(dup), [2]=Description, [3]=Contractor, [4]=placeholder

@@ -167,10 +167,10 @@ final class StarMapObjectTest extends ScDataTestCase
             ->setReferenceHydrationEnabled(false);
         $document->load($this->tempDir.'/Game2/libs/foundry/records/starmap/pu/system/test/test_object.xml');
 
-        // getName/getDescription return the raw @-prefixed localization keys from the XML attribute,
-        // not the resolved localized string. They go through getString() which returns the attribute value as-is.
-        self::assertSame('@loc_starmap_name', $document->getName());
-        self::assertSame('@loc_starmap_desc', $document->getDescription());
+        // getName/getDescription now return auto-translated values via get().
+        // The raw @-prefixed keys are preserved when ServiceFactory is not initialized.
+        self::assertSame('Test Object', $document->getName());
+        self::assertSame('Test Description', $document->getDescription());
     }
 
     public function test_type_reference_and_nav_icon_accessors(): void
