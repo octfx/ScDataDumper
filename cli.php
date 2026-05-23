@@ -7,6 +7,7 @@ require __DIR__.'/vendor/autoload.php';
 
 use Octfx\ScDataDumper\Commands\GenerateCache;
 use Octfx\ScDataDumper\Commands\LoadBlueprints;
+use Octfx\ScDataDumper\Commands\SchemaDiffCommand;
 use Octfx\ScDataDumper\Commands\LoadCommodities;
 use Octfx\ScDataDumper\Commands\LoadCommodityTradeLocations;
 use Octfx\ScDataDumper\Commands\LoadContracts;
@@ -37,5 +38,6 @@ $application->addCommand(new LoadTranslations);
 $application->addCommand(new LoadManufacturers);
 $application->addCommand(new LoadTags);
 $application->addCommand(new LoadResources);
+$application->addCommand(new SchemaDiffCommand);
 
 $application->run();
