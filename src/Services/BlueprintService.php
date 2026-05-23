@@ -41,6 +41,16 @@ final class BlueprintService extends BaseService
     private ?int $dismantleTimeSeconds = null;
 
     /**
+     * @var array<string, true>
+     */
+    private array $dismantleBlacklistResources = [];
+
+    /**
+     * @var array<string, true>
+     */
+    private array $dismantleBlacklistEntityClasses = [];
+
+    /**
      * LRU document cache keyed by file path.     *
      *
      * @var array<string, CraftingBlueprintRecord>
@@ -67,6 +77,7 @@ final class BlueprintService extends BaseService
         $this->loadBlueprintPaths();
         $this->loadDismantleBlueprint();
         $this->loadDefaultBlueprintWhitelist();
+        $this->loadDismantleBlacklists();
         $this->loadRewardPools();
     }
 
@@ -221,25 +232,11 @@ final class BlueprintService extends BaseService
     {
         $this->defaultBlueprintWhitelist = [];
 
-        $path = sprintf(
-            '%s%sData%sLibs%sFoundry%sRecords%scrafting%sglobalparams%scraftingglobalparams.xml',
-            $this->scDataDir,
-            DIRECTORY_SEPARATOR,
-            DIRECTORY_SEPARATOR,
-            DIRECTORY_SEPARATOR,
-            DIRECTORY_SEPARATOR,
-            DIRECTORY_SEPARATOR,
-            DIRECTORY_SEPARATOR,
-            DIRECTORY_SEPARATOR,
-        );
+        $document = $this->loadCraftingGlobalParams();
 
-        if (! file_exists($path)) {
+        if ($document === null) {
             return;
         }
-
-        $document = new CraftingGlobalParams;
-        $document->load($path);
-        $document->checkValidity();
 
         foreach ($document->getDefaultBlueprintReferences() as $uuid) {
             $normalizedUuid = $this->normalizeUuid($uuid);
@@ -248,6 +245,36 @@ final class BlueprintService extends BaseService
                 $this->defaultBlueprintWhitelist[$normalizedUuid] = true;
             }
         }
+    }
+
+    private function loadDismantleBlacklists(): void
+    {
+        $this->dismantleBlacklistResources = [];
+        $this->dismantleBlacklistEntityClasses = [];
+
+        $document = $this->loadCraftingGlobalParams();
+
+        if ($document === null) {
+            return;
+        }
+
+        foreach ($document->getDismantleBlacklistResourceUuids() as $uuid) {
+            $this->dismantleBlacklistResources[$uuid] = true;
+        }
+
+        foreach ($document->getDismantleBlacklistEntityClassUuids() as $uuid) {
+            $this->dismantleBlacklistEntityClasses[$uuid] = true;
+        }
+    }
+
+    public function isDismantleBlacklistedResource(string $uuid): bool
+    {
+        return isset($this->dismantleBlacklistResources[$uuid]);
+    }
+
+    public function isDismantleBlacklistedEntityClass(string $uuid): bool
+    {
+        return isset($this->dismantleBlacklistEntityClasses[$uuid]);
     }
 
     private function loadRewardPools(): void
@@ -321,6 +348,31 @@ final class BlueprintService extends BaseService
         $normalizedPath = strtolower(str_replace('\\', '/', $path));
 
         return str_contains($normalizedPath, '/crafting/blueprints/crafting/');
+    }
+
+    private function loadCraftingGlobalParams(): ?CraftingGlobalParams
+    {
+        $path = sprintf(
+            '%s%sData%sLibs%sFoundry%sRecords%scrafting%sglobalparams%scraftingglobalparams.xml',
+            $this->scDataDir,
+            DIRECTORY_SEPARATOR,
+            DIRECTORY_SEPARATOR,
+            DIRECTORY_SEPARATOR,
+            DIRECTORY_SEPARATOR,
+            DIRECTORY_SEPARATOR,
+            DIRECTORY_SEPARATOR,
+            DIRECTORY_SEPARATOR,
+        );
+
+        if (! file_exists($path)) {
+            return null;
+        }
+
+        $document = new CraftingGlobalParams;
+        $document->load($path);
+        $document->checkValidity();
+
+        return $document;
     }
 
     private function normalizeUuid(?string $uuid): ?string

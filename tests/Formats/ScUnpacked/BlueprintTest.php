@@ -51,6 +51,12 @@ final class BlueprintTest extends ScDataTestCase
 
     private const REWARD_POOL_KEY = 'BP_MISSIONREWARD_HeadHunters_MercenaryFPS_EliminateALL_RegionAB';
 
+    private const BLACKLIST_RESOURCE_UUID = '392b4dca-449a-4d4d-8fef-beab024d9ee7';
+
+    private const BLACKLIST_ENTITY_CLASS_UUID = 'e954d75e-fb1e-487e-90a8-170f0284b502';
+
+    private const BLACKLIST_BLUEPRINT_UUID = 'aa000000-0000-0000-0000-000000000001';
+
     /**
      * @var array<string, string>
      */
@@ -128,12 +134,41 @@ final class BlueprintTest extends ScDataTestCase
             XML
         );
 
+        $janalitePath = $this->writeFile(
+            'Data/Libs/Foundry/Records/entities/scitem/carryables/1h/harvestable_mineral_1h_janalite.xml',
+            <<<XML
+            <EntityClassDefinition.Harvestable_Mineral_1H_Janalite __type="EntityClassDefinition" __ref="e954d75e-fb1e-487e-90a8-170f0284b502" __path="libs/foundry/records/entities/scitem/carryables/1h/harvestable_mineral_1h_janalite.xml">
+              <Components>
+                <SAttachableComponentParams>
+                  <AttachDef Type="Harvestable" SubType="Mineral" Grade="1">
+                    <Localization>
+                      <English Name="Janalite" />
+                    </Localization>
+                  </AttachDef>
+                </SAttachableComponentParams>
+              </Components>
+            </EntityClassDefinition.Harvestable_Mineral_1H_Janalite>
+            XML
+        );
+
         $this->writeFile(
             'Data/Game2.xml',
             <<<'XML'
             <GameData>
               <ResourceType.Hephaestanite displayName="Hephaestanite" __type="ResourceType" __ref="61189578-ed7a-4491-9774-37ae2f82b8b0" __path="libs/foundry/records/resourcetypedatabase/resourcetypedatabase.xml" />
               <ResourceType.Gold displayName="Gold" __type="ResourceType" __ref="21825507-7923-4683-9bf3-9cfe316940e3" __path="libs/foundry/records/resourcetypedatabase/resourcetypedatabase.xml" />
+              <ResourceType.Lindinium displayName="Lindinium" __type="ResourceType" __ref="392b4dca-449a-4d4d-8fef-beab024d9ee7" __path="libs/foundry/records/resourcetypedatabase/resourcetypedatabase.xml" />
+              <EntityClassDefinition.Harvestable_Mineral_1H_Janalite __type="EntityClassDefinition" __ref="e954d75e-fb1e-487e-90a8-170f0284b502" __path="libs/foundry/records/entities/scitem/carryables/1h/harvestable_mineral_1h_janalite.xml">
+                <Components>
+                  <SAttachableComponentParams>
+                    <AttachDef Type="Harvestable" SubType="Mineral" Grade="1">
+                      <Localization>
+                        <English Name="Janalite" />
+                      </Localization>
+                    </AttachDef>
+                  </SAttachableComponentParams>
+                </Components>
+              </EntityClassDefinition.Harvestable_Mineral_1H_Janalite>
               <CraftingGameplayPropertyDef.GPP_Weapon_Damage propertyName="Weapon Damage" unitFormat="Percent" __type="CraftingGameplayPropertyDef" __ref="cfc129ce-488a-46f2-92f7-9272cd0cfdfb" __path="libs/foundry/records/crafting/craftedproperties/gpp_weapon_damage.xml" />
               <CraftingGameplayPropertyDef.GPP_Weapon_FireRate propertyName="Weapon Fire Rate" unitFormat="RPM" __type="CraftingGameplayPropertyDef" __ref="551b651c-8a34-438f-9d19-93fdffe56246" __path="libs/foundry/records/crafting/craftedproperties/gpp_weapon_firerate.xml" />
             </GameData>
@@ -151,6 +186,12 @@ final class BlueprintTest extends ScDataTestCase
             'Data/Libs/Foundry/Records/crafting/globalparams/craftingglobalparams.xml',
             <<<'XML'
             <CraftingGlobalParams.CraftingGlobalParams __type="CraftingGlobalParams" __ref="f99cff9b-c0b5-4d03-83f7-c7209d92b51d" __path="libs/foundry/records/crafting/globalparams/craftingglobalparams.xml">
+              <dismantleBlacklistResources>
+                <Reference value="392b4dca-449a-4d4d-8fef-beab024d9ee7" />
+              </dismantleBlacklistResources>
+              <dismantleBlacklistEntityClasses>
+                <Reference value="e954d75e-fb1e-487e-90a8-170f0284b502" />
+              </dismantleBlacklistEntityClasses>
               <defaultBlueprintSelection>
                 <DefaultBlueprintSelection_Whitelist>
                   <blueprintRecords>
@@ -614,6 +655,53 @@ final class BlueprintTest extends ScDataTestCase
             XML
         );
 
+        $this->blueprintPaths['blacklist'] = $this->writeFile(
+            'Data/Libs/Foundry/Records/crafting/blueprints/crafting/test/bp_craft_test_blacklist_dismantle.xml',
+            <<<XML
+            <CraftingBlueprintRecord.BP_CRAFT_test_blacklist_dismantle __type="CraftingBlueprintRecord" __ref="aa000000-0000-0000-0000-000000000001" __path="libs/foundry/records/crafting/blueprints/crafting/test/bp_craft_test_blacklist_dismantle.xml">
+              <blueprint>
+                <CraftingBlueprint category="f9ccf95d-ad0e-4c33-97e0-e56c847a7e37" blueprintName="Blacklist Test">
+                  <processSpecificData>
+                    <CraftingProcess_Creation entityClass="1f3400e1-0aa3-48bf-8595-38f4f4218df9" />
+                  </processSpecificData>
+                  <tiers>
+                    <CraftingBlueprintTier>
+                      <recipe>
+                        <CraftingRecipe>
+                          <costs>
+                            <CraftingRecipeCosts>
+                              <craftTime>
+                                <TimeValue_Partitioned days="0" hours="0" minutes="0" seconds="30" />
+                              </craftTime>
+                              <mandatoryCost>
+                                <CraftingCost_Select count="1">
+                                  <options>
+                                    <CraftingCost_Resource resource="61189578-ed7a-4491-9774-37ae2f82b8b0" minQuality="0">
+                                      <quantity>
+                                        <SStandardCargoUnit standardCargoUnits="0.02" />
+                                      </quantity>
+                                    </CraftingCost_Resource>
+                                    <CraftingCost_Resource resource="392b4dca-449a-4d4d-8fef-beab024d9ee7" minQuality="0">
+                                      <quantity>
+                                        <SStandardCargoUnit standardCargoUnits="0.03" />
+                                      </quantity>
+                                    </CraftingCost_Resource>
+                                    <CraftingCost_Item entityClass="e954d75e-fb1e-487e-90a8-170f0284b502" quantity="1" minQuality="0" />
+                                  </options>
+                                </CraftingCost_Select>
+                              </mandatoryCost>
+                            </CraftingRecipeCosts>
+                          </costs>
+                        </CraftingRecipe>
+                      </recipe>
+                    </CraftingBlueprintTier>
+                  </tiers>
+                </CraftingBlueprint>
+              </blueprint>
+            </CraftingBlueprintRecord.BP_CRAFT_test_blacklist_dismantle>
+            XML
+        );
+
         $this->writeCacheFiles(
             classToPathMap: [
                 'EntityClassDefinition' => [
@@ -621,6 +709,7 @@ final class BlueprintTest extends ScDataTestCase
                     'behr_pistol_ballistic_01' => $weaponOutputPath,
                     'rsi_utility_heavy_backpack_02_01_01' => $armourOutputPath,
                     'hadanite' => $armourInputPath,
+                    'Harvestable_Mineral_1H_Janalite' => $janalitePath,
                 ],
                 'CraftingBlueprintRecord' => [
                     'BP_CRAFT_lbco_sniper_energy_01_mag' => $this->blueprintPaths['ammo'],
@@ -629,6 +718,7 @@ final class BlueprintTest extends ScDataTestCase
                     'BP_CRAFT_test_multi_resource_backpack' => $this->blueprintPaths['multi_resource'],
                     'BP_CRAFT_test_multi_tier_weapon' => $this->blueprintPaths['multi_tier'],
                     'BP_CRAFT_test_nested_select' => $this->blueprintPaths['nested_select'],
+                    'BP_CRAFT_test_blacklist_dismantle' => $this->blueprintPaths['blacklist'],
                     'GlobalGenericDismantle' => $dismantleBlueprintPath,
                 ],
             ],
@@ -637,12 +727,14 @@ final class BlueprintTest extends ScDataTestCase
                 self::WEAPON_OUTPUT_UUID => 'behr_pistol_ballistic_01',
                 self::ARMOUR_OUTPUT_UUID => 'rsi_utility_heavy_backpack_02_01_01',
                 self::ARMOUR_INPUT_UUID => 'hadanite',
+                self::BLACKLIST_ENTITY_CLASS_UUID => 'Harvestable_Mineral_1H_Janalite',
                 self::AMMO_BLUEPRINT_UUID => 'BP_CRAFT_lbco_sniper_energy_01_mag',
                 self::WEAPON_BLUEPRINT_UUID => 'BP_CRAFT_behr_pistol_ballistic_01',
                 self::ARMOUR_BLUEPRINT_UUID => 'BP_CRAFT_rsi_utility_heavy_backpack_02_01_01',
                 self::MULTI_RESOURCE_BLUEPRINT_UUID => 'BP_CRAFT_test_multi_resource_backpack',
                 self::MULTI_TIER_BLUEPRINT_UUID => 'BP_CRAFT_test_multi_tier_weapon',
                 self::NESTED_SELECT_BLUEPRINT_UUID => 'BP_CRAFT_test_nested_select',
+                self::BLACKLIST_BLUEPRINT_UUID => 'BP_CRAFT_test_blacklist_dismantle',
                 self::DISMANTLE_BLUEPRINT_UUID => self::DISMANTLE_BLUEPRINT_CLASS,
             ],
             classToUuidMap: [
@@ -650,12 +742,14 @@ final class BlueprintTest extends ScDataTestCase
                 'behr_pistol_ballistic_01' => self::WEAPON_OUTPUT_UUID,
                 'rsi_utility_heavy_backpack_02_01_01' => self::ARMOUR_OUTPUT_UUID,
                 'hadanite' => self::ARMOUR_INPUT_UUID,
+                'Harvestable_Mineral_1H_Janalite' => self::BLACKLIST_ENTITY_CLASS_UUID,
                 'BP_CRAFT_lbco_sniper_energy_01_mag' => self::AMMO_BLUEPRINT_UUID,
                 'BP_CRAFT_behr_pistol_ballistic_01' => self::WEAPON_BLUEPRINT_UUID,
                 'BP_CRAFT_rsi_utility_heavy_backpack_02_01_01' => self::ARMOUR_BLUEPRINT_UUID,
                 'BP_CRAFT_test_multi_resource_backpack' => self::MULTI_RESOURCE_BLUEPRINT_UUID,
                 'BP_CRAFT_test_multi_tier_weapon' => self::MULTI_TIER_BLUEPRINT_UUID,
                 'BP_CRAFT_test_nested_select' => self::NESTED_SELECT_BLUEPRINT_UUID,
+                'BP_CRAFT_test_blacklist_dismantle' => self::BLACKLIST_BLUEPRINT_UUID,
                 self::DISMANTLE_BLUEPRINT_CLASS => self::DISMANTLE_BLUEPRINT_UUID,
             ],
             uuidToPathMap: [
@@ -663,18 +757,21 @@ final class BlueprintTest extends ScDataTestCase
                 self::WEAPON_OUTPUT_UUID => $weaponOutputPath,
                 self::ARMOUR_OUTPUT_UUID => $armourOutputPath,
                 self::ARMOUR_INPUT_UUID => $armourInputPath,
+                self::BLACKLIST_ENTITY_CLASS_UUID => $janalitePath,
                 self::AMMO_BLUEPRINT_UUID => $this->blueprintPaths['ammo'],
                 self::WEAPON_BLUEPRINT_UUID => $this->blueprintPaths['weapon'],
                 self::ARMOUR_BLUEPRINT_UUID => $this->blueprintPaths['armour'],
                 self::MULTI_RESOURCE_BLUEPRINT_UUID => $this->blueprintPaths['multi_resource'],
                 self::MULTI_TIER_BLUEPRINT_UUID => $this->blueprintPaths['multi_tier'],
                 self::NESTED_SELECT_BLUEPRINT_UUID => $this->blueprintPaths['nested_select'],
+                self::BLACKLIST_BLUEPRINT_UUID => $this->blueprintPaths['blacklist'],
                 self::DISMANTLE_BLUEPRINT_UUID => $dismantleBlueprintPath,
             ],
         );
         $this->writeResourceTypeCache([
             self::HEPHAESTANITE_UUID => '<ResourceType.Hephaestanite displayName="Hephaestanite" __type="ResourceType" __ref="61189578-ed7a-4491-9774-37ae2f82b8b0" __path="libs/foundry/records/resourcetypedatabase/resourcetypedatabase.xml" />',
             self::GOLD_UUID => '<ResourceType.Gold displayName="Gold" __type="ResourceType" __ref="21825507-7923-4683-9bf3-9cfe316940e3" __path="libs/foundry/records/resourcetypedatabase/resourcetypedatabase.xml" />',
+            self::BLACKLIST_RESOURCE_UUID => '<ResourceType.Lindinium displayName="Lindinium" __type="ResourceType" __ref="392b4dca-449a-4d4d-8fef-beab024d9ee7" __path="libs/foundry/records/resourcetypedatabase/resourcetypedatabase.xml" />',
         ]);
         $this->writeCraftingGameplayPropertyCache([
             self::WEAPON_DAMAGE_PROPERTY_UUID => '<CraftingGameplayPropertyDef.GPP_Weapon_Damage propertyName="Weapon Damage" unitFormat="Percent" __type="CraftingGameplayPropertyDef" __ref="cfc129ce-488a-46f2-92f7-9272cd0cfdfb" __path="libs/foundry/records/crafting/craftedproperties/gpp_weapon_damage.xml" />',
@@ -1177,6 +1274,33 @@ final class BlueprintTest extends ScDataTestCase
         $formatted = (new Blueprint($blueprint))->toArray();
 
         self::assertArrayNotHasKey('Dismantle', $formatted);
+    }
+
+    public function test_dismantle_excludes_blacklisted_resources_and_entity_classes(): void
+    {
+        $blueprint = $this->loadBlueprint('blacklist');
+
+        $formatted = (new Blueprint($blueprint))->toArray();
+
+        $dismantle = $formatted['Dismantle'];
+        $returns = $dismantle['Returns'];
+
+        $returnUuids = array_column($returns, 'UUID');
+
+        // Hephaestanite is not blacklisted and should appear
+        self::assertContains(self::HEPHAESTANITE_UUID, $returnUuids);
+
+        // Lindinium is blacklisted as a resource and should be excluded
+        self::assertNotContains(self::BLACKLIST_RESOURCE_UUID, $returnUuids);
+
+        // Janalite is blacklisted as an entity class and should be excluded
+        self::assertNotContains(self::BLACKLIST_ENTITY_CLASS_UUID, $returnUuids);
+
+        self::assertCount(1, $returns);
+        self::assertSame('resource', $returns[0]['Kind']);
+        self::assertSame(self::HEPHAESTANITE_UUID, $returns[0]['UUID']);
+        self::assertSame('Hephaestanite', $returns[0]['Name']);
+        self::assertSame(0.01, $returns[0]['QuantityScu']);
     }
 
     private function loadBlueprint(string $fixture): CraftingBlueprintRecord

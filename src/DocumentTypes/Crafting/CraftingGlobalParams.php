@@ -9,7 +9,23 @@ use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 final class CraftingGlobalParams extends RootDocument
 {
     /**
-     * @return array<int, string>
+     * @return list<string>
+     */
+    public function getDismantleBlacklistResourceUuids(): array
+    {
+        return $this->readReferenceValues('dismantleBlacklistResources');
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function getDismantleBlacklistEntityClassUuids(): array
+    {
+        return $this->readReferenceValues('dismantleBlacklistEntityClasses');
+    }
+
+    /**
+     * @return list<string>
      */
     public function getDefaultBlueprintReferences(): array
     {
@@ -25,5 +41,24 @@ final class CraftingGlobalParams extends RootDocument
         }
 
         return $references;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function readReferenceValues(string $containerName): array
+    {
+        $uuids = [];
+        $container = $this->get($containerName);
+
+        foreach ($container?->children() ?? [] as $reference) {
+            $value = $reference->get('@value');
+
+            if (is_string($value) && $value !== '') {
+                $uuids[] = $value;
+            }
+        }
+
+        return $uuids;
     }
 }

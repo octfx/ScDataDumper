@@ -113,10 +113,12 @@ final class Blueprint extends BaseFormat
         }
 
         try {
-            $dismantleParams = ServiceFactory::getBlueprintService()->getDismantleParams();
+            $blueprintService = ServiceFactory::getBlueprintService();
         } catch (RuntimeException) {
             return null;
         }
+
+        $dismantleParams = $blueprintService->getDismantleParams();
 
         if ($dismantleParams === null) {
             return null;
@@ -129,12 +131,24 @@ final class Blueprint extends BaseFormat
             $kind = $leaf->getCostKind();
 
             if ($kind === 'item') {
+                $entityUuid = $leaf->getEntityClassReference();
+
+                if ($entityUuid !== null && $blueprintService->isDismantleBlacklistedEntityClass($entityUuid)) {
+                    continue;
+                }
+
                 $entry = $this->buildDismantleItemReturn($leaf, $efficiency);
 
                 if ($entry !== null) {
                     $returns[] = $entry;
                 }
             } elseif ($kind === 'resource') {
+                $resourceUuid = $leaf->getResourceReference();
+
+                if ($resourceUuid !== null && $blueprintService->isDismantleBlacklistedResource($resourceUuid)) {
+                    continue;
+                }
+
                 $returns[] = $this->buildDismantleResourceReturn($leaf, $efficiency);
             }
         }
@@ -179,7 +193,7 @@ final class Blueprint extends BaseFormat
     {
         $resourceType = $cost->getResourceType();
         $quantityScu = Item::convertToScu($cost->getQuantityElement());
-        $resourceName = ServiceFactory::getLocalizationService()->translateValue($resourceType?->getDisplayName());
+        $resourceName = $resourceType?->getDisplayName();
 
         if ($quantityScu !== null) {
             $quantityScu = round($quantityScu * $cost->getQuantityMultiplier() * $efficiency, 9);
@@ -316,7 +330,7 @@ final class Blueprint extends BaseFormat
     {
         $resourceType = $cost->getResourceType();
         $quantityScu = Item::convertToScu($cost->getQuantityElement());
-        $resourceName = ServiceFactory::getLocalizationService()->translateValue($resourceType?->getDisplayName());
+        $resourceName = $resourceType?->getDisplayName();
 
         if ($quantityScu !== null) {
             $quantityScu = round($quantityScu * $cost->getQuantityMultiplier(), 9);
