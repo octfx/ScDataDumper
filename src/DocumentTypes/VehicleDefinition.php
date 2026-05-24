@@ -169,15 +169,38 @@ final class VehicleDefinition extends EntityClassDefinition
     }
 
     /**
-     * @return array{ExpeditedCost: float, ExpeditedClaimTime: float, StandardClaimTime: float}
+     * @return array{ExpeditedCost: float, ExpeditedClaimTime: float, StandardClaimTime: float, CooldownMultiplier?: float, CostMultiplier?: float, LoadoutCooldownMultiplier?: float}
      */
     public function getInsuranceParams(): array
     {
-        return [
+        $params = [
             'ExpeditedCost' => (float) $this->get('StaticEntityClassData/SEntityInsuranceProperties/shipInsuranceParams@baseExpeditingFee', 0),
             'ExpeditedClaimTime' => (float) $this->get('StaticEntityClassData/SEntityInsuranceProperties/shipInsuranceParams@mandatoryWaitTimeMinutes', 0),
             'StandardClaimTime' => (float) $this->get('StaticEntityClassData/SEntityInsuranceProperties/shipInsuranceParams@baseWaitTimeMinutes', 0),
         ];
+
+        $recoveryConfig = ServiceFactory::getItemRecoveryConfiguration();
+
+        if ($recoveryConfig !== null) {
+            $uuid = $this->getUuid();
+
+            $cooldownMultiplier = $recoveryConfig->getCooldownMultiplierForClass($uuid);
+            if ($cooldownMultiplier !== null) {
+                $params['CooldownMultiplier'] = $cooldownMultiplier;
+            }
+
+            $costMultiplier = $recoveryConfig->getCostMultiplierForClass($uuid);
+            if ($costMultiplier !== null) {
+                $params['CostMultiplier'] = $costMultiplier;
+            }
+
+            $economy = $recoveryConfig->getEconomyParams();
+            if ($economy['defaultLoadoutCooldownMultiplier'] > 0) {
+                $params['LoadoutCooldownMultiplier'] = $economy['defaultLoadoutCooldownMultiplier'];
+            }
+        }
+
+        return $params;
     }
 
     /**

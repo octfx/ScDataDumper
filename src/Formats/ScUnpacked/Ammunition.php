@@ -23,17 +23,21 @@ final class Ammunition extends BaseFormat
         }
 
         $projectiles = $ammo->get('./projectileParams/BulletProjectileParams');
+        $tachyonProjectiles = $ammo->get('./projectileParams/TachyonProjectileParams');
 
         $ammoAttrs = new Element($ammo->documentElement)->attributesToArray();
         $physicsController = $ammo->get('./physicsControllerParams/SEntityPhysicsControllerParams/PhysType/SEntityParticlePhysicsControllerParams')
             ?? $ammo->get('./physicsControllerParams/SEntityPhysicsControllerParams/PhysType/*');
-        $penetrationParams = $projectiles?->get('penetrationParams');
-        $pierceabilityParams = $projectiles?->get('pierceabilityParams');
 
         $lifetime = $ammoAttrs['lifetime'] ? round($ammoAttrs['lifetime'], 2) : null;
         $speed = $ammoAttrs['speed'] ?? null;
         $ammoContainer = $this->item->get('Components/SAmmoContainerComponentParams')
             ?? $magazine?->get('Components/SAmmoContainerComponentParams');
+
+        // Use whichever projectile type is present; Tachyon takes precedence if both exist
+        $activeProjectiles = $tachyonProjectiles ?? $projectiles;
+        $activePenetrationParams = $activeProjectiles?->get('penetrationParams');
+        $activePierceabilityParams = $activeProjectiles?->get('pierceabilityParams');
 
         $data = [
             'UUID' => $ammo->getUuid(),
@@ -42,28 +46,28 @@ final class Ammunition extends BaseFormat
             'Lifetime' => $lifetime,
             'Range' => round(($speed ?? 0) * ($lifetime ?? 0)),
             'Size' => $ammoAttrs['size'] ?? null,
-            'ImpactDamage' => Damage::fromDamageInfo($projectiles?->get('damage/DamageInfo'))?->toArray(),
-            'DetonationDamage' => Damage::fromDamageInfo($projectiles?->get('detonationParams/ProjectileDetonationParams/explosionParams/damage/DamageInfo'))?->toArray(),
-            'ExplosionRadius' => $projectiles?->has('detonationParams/ProjectileDetonationParams/explosionParams') ? [
-                'Minimum' => $projectiles?->get('detonationParams/ProjectileDetonationParams/explosionParams@minRadius'),
-                'Maximum' => $projectiles?->get('detonationParams/ProjectileDetonationParams/explosionParams@maxRadius'),
+            'ImpactDamage' => Damage::fromDamageInfo($activeProjectiles?->get('damage/DamageInfo'))?->toArray(),
+            'DetonationDamage' => Damage::fromDamageInfo($activeProjectiles?->get('detonationParams/ProjectileDetonationParams/explosionParams/damage/DamageInfo'))?->toArray(),
+            'ExplosionRadius' => $activeProjectiles?->has('detonationParams/ProjectileDetonationParams/explosionParams') ? [
+                'Minimum' => $activeProjectiles?->get('detonationParams/ProjectileDetonationParams/explosionParams@minRadius'),
+                'Maximum' => $activeProjectiles?->get('detonationParams/ProjectileDetonationParams/explosionParams@maxRadius'),
             ] : null,
             'InitialCapacity' => $ammoContainer?->get('@initialAmmoCount'),
             'Capacity' => $ammoContainer?->get('@maxAmmoCount') ?? $ammoContainer?->get('@maxRestockCount'),
-            'BulletImpulseFalloff' => new BulletImpulseFalloff($projectiles)->toArray(),
-            'BulletPierceability' => new BulletPierceability($projectiles)->toArray(),
-            'BulletElectron' => new BulletElectron($projectiles)->toArray(),
-            'DamageDropMinDistance' => Damage::fromDamageInfo($projectiles?->get('damageDropParams/BulletDamageDropParams/damageDropMinDistance/DamageInfo')),
-            'DamageDropPerMeter' => Damage::fromDamageInfo($projectiles?->get('damageDropParams/BulletDamageDropParams/damageDropPerMeter/DamageInfo')),
-            'DamageDropMinDamage' => Damage::fromDamageInfo($projectiles?->get('damageDropParams/BulletDamageDropParams/damageDropMinDamage/DamageInfo')),
+            'BulletImpulseFalloff' => new BulletImpulseFalloff($activeProjectiles)->toArray(),
+            'BulletPierceability' => new BulletPierceability($activeProjectiles)->toArray(),
+            'BulletElectron' => new BulletElectron($activeProjectiles)->toArray(),
+            'DamageDropMinDistance' => Damage::fromDamageInfo($activeProjectiles?->get('damageDropParams/BulletDamageDropParams/damageDropMinDistance/DamageInfo')),
+            'DamageDropPerMeter' => Damage::fromDamageInfo($activeProjectiles?->get('damageDropParams/BulletDamageDropParams/damageDropPerMeter/DamageInfo')),
+            'DamageDropMinDamage' => Damage::fromDamageInfo($activeProjectiles?->get('damageDropParams/BulletDamageDropParams/damageDropMinDamage/DamageInfo')),
             'Pierceability' => $physicsController?->get('@pierceability'),
             'Mass' => $physicsController?->get('@Mass') ?? $physicsController?->get('@mass'),
             'ImpulseScale' => $ammoAttrs['impulseScale'] ?? null,
             'BulletType' => $ammoAttrs['bulletType'] ?? null,
-            'DamageFalloffLevel1' => $pierceabilityParams?->get('@damageFalloffLevel1'),
-            'DamageFalloffLevel2' => $pierceabilityParams?->get('@damageFalloffLevel2'),
-            'DamageFalloffLevel3' => $pierceabilityParams?->get('@damageFalloffLevel3'),
-            'MaxPenetrationThickness' => $pierceabilityParams?->get('@maxPenetrationThickness'),
+            'DamageFalloffLevel1' => $activePierceabilityParams?->get('@damageFalloffLevel1'),
+            'DamageFalloffLevel2' => $activePierceabilityParams?->get('@damageFalloffLevel2'),
+            'DamageFalloffLevel3' => $activePierceabilityParams?->get('@damageFalloffLevel3'),
+            'MaxPenetrationThickness' => $activePierceabilityParams?->get('@maxPenetrationThickness'),
             'PhysicalDimensions' => [
                 'Radius' => $physicsController?->get('@radius'),
                 'Thickness' => $physicsController?->get('@thickness'),
@@ -74,12 +78,19 @@ final class Ammunition extends BaseFormat
                 'DisableGravity' => $this->castBool($physicsController?->get('@disableGravity')),
             ],
             'Penetration' => [
-                'BasePenetrationDistance' => $penetrationParams?->get('@basePenetrationDistance'),
-                'NearRadius' => $penetrationParams?->get('@nearRadius'),
-                'FarRadius' => $penetrationParams?->get('@farRadius'),
-                'Angle' => $penetrationParams?->get('@angle'),
+                'BasePenetrationDistance' => $activePenetrationParams?->get('@basePenetrationDistance'),
+                'NearRadius' => $activePenetrationParams?->get('@nearRadius'),
+                'FarRadius' => $activePenetrationParams?->get('@farRadius'),
+                'Angle' => $activePenetrationParams?->get('@angle'),
             ],
         ];
+
+        // Tachyon-specific: range-based damage falloff parameters
+        if ($tachyonProjectiles !== null) {
+            $data['ProjectileType'] = 'Tachyon';
+            $data['FullDamageRange'] = $tachyonProjectiles->get('@fullDamageRange');
+            $data['ZeroDamageRange'] = $tachyonProjectiles->get('@zeroDamageRange');
+        }
 
         return $this->removeNullValues($data);
     }

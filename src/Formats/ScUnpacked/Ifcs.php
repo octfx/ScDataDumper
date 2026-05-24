@@ -28,6 +28,19 @@ final class Ifcs extends BaseFormat
 
         $afterburner = new Afterburner($this->item)->toArray();
 
+        $noFuel = $ifcs->get('noFuelParams');
+        $noFuelLegacy = $ifcs->get('noFuelParamsLegacy');
+
+        $noFuelData = null;
+        if ($noFuel !== null || $noFuelLegacy !== null) {
+            $noFuelData = array_filter([
+                'LinearAccelerationModifier' => $noFuel?->get('@linearAccelerationModifier') ?? $noFuelLegacy?->get('@linearAccelerationModifier'),
+                'AngularAccelerationModifier' => $noFuel?->get('@angularAccelerationModifier') ?? $noFuelLegacy?->get('@angularAccelerationModifier'),
+                'AngularVelocityModifier' => $noFuel?->get('@angularVelocityModifier') ?? $noFuelLegacy?->get('@angularVelocityModifier'),
+                'LegacyMaxSpeed' => $noFuelLegacy?->get('@linearMaxSpeed'),
+            ], static fn ($v) => $v !== null);
+        }
+
         return $attributes + [
             'Pitch' => $ifcs->get('maxAngularVelocity@x'),
             'Yaw' => $ifcs->get('maxAngularVelocity@z'),
@@ -39,6 +52,7 @@ final class Ifcs extends BaseFormat
             'Afterburner' => $afterburner,
             'AfterburnerNew' => new AfterburnerNew($this->item),
             'Gravlev' => new GravlevParams($this->item),
+            'NoFuelParams' => $noFuelData,
         ];
     }
 }

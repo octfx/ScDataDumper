@@ -3,6 +3,7 @@
 namespace Octfx\ScDataDumper\Services;
 
 use JsonException;
+use Octfx\ScDataDumper\DocumentTypes\Recovery\ItemRecoveryConfigurationParams;
 use Octfx\ScDataDumper\Services\Resource\ResourceService;
 use RuntimeException;
 
@@ -166,6 +167,11 @@ final class ServiceFactory
     public static function getMissionLocationStarmapResolver(): MissionLocationStarmapResolver
     {
         return self::getService('MissionLocationStarmapResolver');
+    }
+
+    public static function getItemRecoveryConfiguration(): ?ItemRecoveryConfigurationParams
+    {
+        return self::getFoundryLookupService()->getItemRecoveryConfiguration();
     }
 
     private static function getService(string $serviceName): mixed

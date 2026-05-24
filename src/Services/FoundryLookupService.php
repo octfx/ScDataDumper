@@ -38,6 +38,7 @@ use Octfx\ScDataDumper\DocumentTypes\Mission\MissionBrokerEntry;
 use Octfx\ScDataDumper\DocumentTypes\Mission\MissionLocality;
 use Octfx\ScDataDumper\DocumentTypes\MissionLocationTemplate;
 use Octfx\ScDataDumper\DocumentTypes\Radar\RadarContactTypeEntry;
+use Octfx\ScDataDumper\DocumentTypes\Recovery\ItemRecoveryConfigurationParams;
 use Octfx\ScDataDumper\DocumentTypes\RadarSystemSharedParams;
 use Octfx\ScDataDumper\DocumentTypes\Reputation\SReputationContextUI;
 use Octfx\ScDataDumper\DocumentTypes\Reputation\SReputationScopeParams;
@@ -363,6 +364,23 @@ final class FoundryLookupService extends BaseService
     public function getContractGeneratorByReference(?string $uuid): ?ContractGeneratorRecord
     {
         return $this->getByReference($uuid, ['/records/contracts/contractgenerator/'], ContractGeneratorRecord::class);
+    }
+
+    /**
+     * The global item recovery configuration record.
+     * Loaded from the classToPathMap key 'ItemRecoveryConfigurationParams'.
+     */
+    public function getItemRecoveryConfiguration(): ?ItemRecoveryConfigurationParams
+    {
+        $paths = self::$classToPathMap['ItemRecoveryConfigurationParams'] ?? [];
+
+        if ($paths === []) {
+            return null;
+        }
+
+        $path = reset($paths);
+
+        return $this->load($path, ItemRecoveryConfigurationParams::class);
     }
 
     public function getAreaServicesByReference(?string $uuid): ?AreaServices
