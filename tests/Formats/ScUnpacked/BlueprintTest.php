@@ -57,6 +57,16 @@ final class BlueprintTest extends ScDataTestCase
 
     private const BLACKLIST_BLUEPRINT_UUID = 'aa000000-0000-0000-0000-000000000001';
 
+    private const MULTI_SEGMENT_BLUEPRINT_UUID = 'cc000000-0000-0000-0000-000000000001';
+
+    private const INTEGER_ADDITIVE_BLUEPRINT_UUID = 'dd000000-0000-0000-0000-000000000001';
+
+    private const POWER_GENERATION_PROPERTY_UUID = 'd01a2751-f605-42a7-97b2-ce0b8322e172';
+
+    private const HEALTH_PROPERTY_UUID = '93a49e68-01cf-4d7e-b995-8224466a9982';
+
+    private const QUANTUM_SPEED_PROPERTY_UUID = '7ab22dc9-6687-41ab-aebd-4dd5486be458';
+
     /**
      * @var array<string, string>
      */
@@ -171,6 +181,13 @@ final class BlueprintTest extends ScDataTestCase
               </EntityClassDefinition.Harvestable_Mineral_1H_Janalite>
               <CraftingGameplayPropertyDef.GPP_Weapon_Damage propertyName="Weapon Damage" unitFormat="Percent" __type="CraftingGameplayPropertyDef" __ref="cfc129ce-488a-46f2-92f7-9272cd0cfdfb" __path="libs/foundry/records/crafting/craftedproperties/gpp_weapon_damage.xml" />
               <CraftingGameplayPropertyDef.GPP_Weapon_FireRate propertyName="Weapon Fire Rate" unitFormat="RPM" __type="CraftingGameplayPropertyDef" __ref="551b651c-8a34-438f-9d19-93fdffe56246" __path="libs/foundry/records/crafting/craftedproperties/gpp_weapon_firerate.xml" />
+              <CraftingGameplayPropertyDef.GPP_ItemResource_PowerGeneration propertyName="Power Generation" unitFormat="@LOC_EMPTY" __type="CraftingGameplayPropertyDef" __ref="d01a2751-f605-42a7-97b2-ce0b8322e172" __path="libs/foundry/records/crafting/craftedproperties/gpp_itemresource_powergeneration.xml" />
+              <CraftingGameplayPropertyDef.GPP_Health_MaxHealth propertyName="Health" unitFormat="@LOC_EMPTY" __type="CraftingGameplayPropertyDef" __ref="93a49e68-01cf-4d7e-b995-8224466a9982" __path="libs/foundry/records/crafting/craftedproperties/gpp_health_maxhealth.xml" />
+              <CraftingGameplayPropertyDef.GPP_Quantum_Speed propertyName="@StatName_GPP_Quantum_Speed" unitFormat="@StatUnit_MmPerSec" __type="CraftingGameplayPropertyDef" __ref="7ab22dc9-6687-41ab-aebd-4dd5486be458" __path="libs/foundry/records/crafting/craftedproperties/gpp_quantum_speed.xml">
+                <displayTransformation>
+                  <CraftingDisplayTransformation_Scale scale="1E-06" />
+                </displayTransformation>
+              </CraftingGameplayPropertyDef.GPP_Quantum_Speed>
             </GameData>
             XML
         );
@@ -702,6 +719,131 @@ final class BlueprintTest extends ScDataTestCase
             XML
         );
 
+        $this->blueprintPaths['multi_segment'] = $this->writeFile(
+            'Data/Libs/Foundry/Records/crafting/blueprints/crafting/test/bp_craft_test_multi_segment_linear.xml',
+            <<<'XML'
+            <CraftingBlueprintRecord.BP_CRAFT_test_multi_segment_linear __type="CraftingBlueprintRecord" __ref="cc000000-0000-0000-0000-000000000001" __path="libs/foundry/records/crafting/blueprints/crafting/test/bp_craft_test_multi_segment_linear.xml">
+              <blueprint>
+                <CraftingBlueprint category="f9ccf95d-ad0e-4c33-97e0-e56c847a7e37" blueprintName="Multi Segment Test">
+                  <processSpecificData>
+                    <CraftingProcess_Creation entityClass="1f3400e1-0aa3-48bf-8595-38f4f4218df9" />
+                  </processSpecificData>
+                  <tiers>
+                    <CraftingBlueprintTier>
+                      <recipe>
+                        <CraftingRecipe>
+                          <costs>
+                            <CraftingRecipeCosts>
+                              <craftTime>
+                                <TimeValue_Partitioned days="0" hours="0" minutes="1" seconds="0" />
+                              </craftTime>
+                              <mandatoryCost>
+                                <CraftingCost_Select count="1">
+                                  <options>
+                                    <CraftingCost_Select count="1">
+                                      <nameInfo debugName="SHELL" displayName="Shell" />
+                                      <context>
+                                        <CraftingCostContext_ResultGameplayPropertyModifiers>
+                                          <gameplayPropertyModifiers>
+                                            <CraftingGameplayPropertyModifiers_List>
+                                              <gameplayPropertyModifiers>
+                                                <CraftingGameplayPropertyModifierCommon gameplayPropertyRecord="93a49e68-01cf-4d7e-b995-8224466a9982">
+                                                  <valueRanges>
+                                                    <CraftingGameplayPropertyModifierValueRange_Linear startQuality="0" endQuality="500" modifierAtStart="0.8" modifierAtEnd="1" />
+                                                    <CraftingGameplayPropertyModifierValueRange_Linear startQuality="501" endQuality="1000" modifierAtStart="1" modifierAtEnd="1.2" />
+                                                  </valueRanges>
+                                                </CraftingGameplayPropertyModifierCommon>
+                                              </gameplayPropertyModifiers>
+                                            </CraftingGameplayPropertyModifiers_List>
+                                          </gameplayPropertyModifiers>
+                                        </CraftingCostContext_ResultGameplayPropertyModifiers>
+                                      </context>
+                                      <options>
+                                        <CraftingCost_Resource resource="61189578-ed7a-4491-9774-37ae2f82b8b0" minQuality="0">
+                                          <quantity>
+                                            <SStandardCargoUnit standardCargoUnits="0.05" />
+                                          </quantity>
+                                        </CraftingCost_Resource>
+                                      </options>
+                                    </CraftingCost_Select>
+                                  </options>
+                                </CraftingCost_Select>
+                              </mandatoryCost>
+                            </CraftingRecipeCosts>
+                          </costs>
+                        </CraftingRecipe>
+                      </recipe>
+                    </CraftingBlueprintTier>
+                  </tiers>
+                </CraftingBlueprint>
+              </blueprint>
+            </CraftingBlueprintRecord.BP_CRAFT_test_multi_segment_linear>
+            XML
+        );
+
+        $this->blueprintPaths['integer_additive'] = $this->writeFile(
+            'Data/Libs/Foundry/Records/crafting/blueprints/crafting/test/bp_craft_test_integer_additive.xml',
+            <<<'XML'
+            <CraftingBlueprintRecord.BP_CRAFT_test_integer_additive __type="CraftingBlueprintRecord" __ref="dd000000-0000-0000-0000-000000000001" __path="libs/foundry/records/crafting/blueprints/crafting/test/bp_craft_test_integer_additive.xml">
+              <blueprint>
+                <CraftingBlueprint category="f9ccf95d-ad0e-4c33-97e0-e56c847a7e37" blueprintName="Integer Additive Test">
+                  <processSpecificData>
+                    <CraftingProcess_Creation entityClass="1f3400e1-0aa3-48bf-8595-38f4f4218df9" />
+                  </processSpecificData>
+                  <tiers>
+                    <CraftingBlueprintTier>
+                      <recipe>
+                        <CraftingRecipe>
+                          <costs>
+                            <CraftingRecipeCosts>
+                              <craftTime>
+                                <TimeValue_Partitioned days="0" hours="0" minutes="5" seconds="0" />
+                              </craftTime>
+                              <mandatoryCost>
+                                <CraftingCost_Select count="1">
+                                  <options>
+                                    <CraftingCost_Select count="1">
+                                      <nameInfo debugName="CORE" displayName="Core" />
+                                      <context>
+                                        <CraftingCostContext_ResultGameplayPropertyModifiers>
+                                          <gameplayPropertyModifiers>
+                                            <CraftingGameplayPropertyModifiers_List>
+                                              <gameplayPropertyModifiers>
+                                                <CraftingGameplayPropertyModifierCommon gameplayPropertyRecord="d01a2751-f605-42a7-97b2-ce0b8322e172">
+                                                  <valueRanges>
+                                                    <CraftingGameplayPropertyModifierValueRange_LinearIntegerAdditive startQuality="0" endQuality="399" additiveModifierAtStart="-1" additiveModifierAtEnd="-1" />
+                                                    <CraftingGameplayPropertyModifierValueRange_LinearIntegerAdditive startQuality="400" endQuality="899" additiveModifierAtStart="0" additiveModifierAtEnd="0" />
+                                                    <CraftingGameplayPropertyModifierValueRange_LinearIntegerAdditive startQuality="900" endQuality="1000" additiveModifierAtStart="1" additiveModifierAtEnd="1" />
+                                                  </valueRanges>
+                                                </CraftingGameplayPropertyModifierCommon>
+                                              </gameplayPropertyModifiers>
+                                            </CraftingGameplayPropertyModifiers_List>
+                                          </gameplayPropertyModifiers>
+                                        </CraftingCostContext_ResultGameplayPropertyModifiers>
+                                      </context>
+                                      <options>
+                                        <CraftingCost_Resource resource="61189578-ed7a-4491-9774-37ae2f82b8b0" minQuality="0">
+                                          <quantity>
+                                            <SStandardCargoUnit standardCargoUnits="0.1" />
+                                          </quantity>
+                                        </CraftingCost_Resource>
+                                      </options>
+                                    </CraftingCost_Select>
+                                  </options>
+                                </CraftingCost_Select>
+                              </mandatoryCost>
+                            </CraftingRecipeCosts>
+                          </costs>
+                        </CraftingRecipe>
+                      </recipe>
+                    </CraftingBlueprintTier>
+                  </tiers>
+                </CraftingBlueprint>
+              </blueprint>
+            </CraftingBlueprintRecord.BP_CRAFT_test_integer_additive>
+            XML
+        );
+
         $this->writeCacheFiles(
             classToPathMap: [
                 'EntityClassDefinition' => [
@@ -719,6 +861,8 @@ final class BlueprintTest extends ScDataTestCase
                     'BP_CRAFT_test_multi_tier_weapon' => $this->blueprintPaths['multi_tier'],
                     'BP_CRAFT_test_nested_select' => $this->blueprintPaths['nested_select'],
                     'BP_CRAFT_test_blacklist_dismantle' => $this->blueprintPaths['blacklist'],
+                    'BP_CRAFT_test_multi_segment_linear' => $this->blueprintPaths['multi_segment'],
+                    'BP_CRAFT_test_integer_additive' => $this->blueprintPaths['integer_additive'],
                     'GlobalGenericDismantle' => $dismantleBlueprintPath,
                 ],
             ],
@@ -735,6 +879,8 @@ final class BlueprintTest extends ScDataTestCase
                 self::MULTI_TIER_BLUEPRINT_UUID => 'BP_CRAFT_test_multi_tier_weapon',
                 self::NESTED_SELECT_BLUEPRINT_UUID => 'BP_CRAFT_test_nested_select',
                 self::BLACKLIST_BLUEPRINT_UUID => 'BP_CRAFT_test_blacklist_dismantle',
+                self::MULTI_SEGMENT_BLUEPRINT_UUID => 'BP_CRAFT_test_multi_segment_linear',
+                self::INTEGER_ADDITIVE_BLUEPRINT_UUID => 'BP_CRAFT_test_integer_additive',
                 self::DISMANTLE_BLUEPRINT_UUID => self::DISMANTLE_BLUEPRINT_CLASS,
             ],
             classToUuidMap: [
@@ -750,6 +896,8 @@ final class BlueprintTest extends ScDataTestCase
                 'BP_CRAFT_test_multi_tier_weapon' => self::MULTI_TIER_BLUEPRINT_UUID,
                 'BP_CRAFT_test_nested_select' => self::NESTED_SELECT_BLUEPRINT_UUID,
                 'BP_CRAFT_test_blacklist_dismantle' => self::BLACKLIST_BLUEPRINT_UUID,
+                'BP_CRAFT_test_multi_segment_linear' => self::MULTI_SEGMENT_BLUEPRINT_UUID,
+                'BP_CRAFT_test_integer_additive' => self::INTEGER_ADDITIVE_BLUEPRINT_UUID,
                 self::DISMANTLE_BLUEPRINT_CLASS => self::DISMANTLE_BLUEPRINT_UUID,
             ],
             uuidToPathMap: [
@@ -765,6 +913,8 @@ final class BlueprintTest extends ScDataTestCase
                 self::MULTI_TIER_BLUEPRINT_UUID => $this->blueprintPaths['multi_tier'],
                 self::NESTED_SELECT_BLUEPRINT_UUID => $this->blueprintPaths['nested_select'],
                 self::BLACKLIST_BLUEPRINT_UUID => $this->blueprintPaths['blacklist'],
+                self::MULTI_SEGMENT_BLUEPRINT_UUID => $this->blueprintPaths['multi_segment'],
+                self::INTEGER_ADDITIVE_BLUEPRINT_UUID => $this->blueprintPaths['integer_additive'],
                 self::DISMANTLE_BLUEPRINT_UUID => $dismantleBlueprintPath,
             ],
         );
@@ -776,6 +926,9 @@ final class BlueprintTest extends ScDataTestCase
         $this->writeCraftingGameplayPropertyCache([
             self::WEAPON_DAMAGE_PROPERTY_UUID => '<CraftingGameplayPropertyDef.GPP_Weapon_Damage propertyName="Weapon Damage" unitFormat="Percent" __type="CraftingGameplayPropertyDef" __ref="cfc129ce-488a-46f2-92f7-9272cd0cfdfb" __path="libs/foundry/records/crafting/craftedproperties/gpp_weapon_damage.xml" />',
             self::WEAPON_FIRERATE_PROPERTY_UUID => '<CraftingGameplayPropertyDef.GPP_Weapon_FireRate propertyName="Weapon Fire Rate" unitFormat="RPM" __type="CraftingGameplayPropertyDef" __ref="551b651c-8a34-438f-9d19-93fdffe56246" __path="libs/foundry/records/crafting/craftedproperties/gpp_weapon_firerate.xml" />',
+            self::POWER_GENERATION_PROPERTY_UUID => '<CraftingGameplayPropertyDef.GPP_ItemResource_PowerGeneration propertyName="Power Generation" unitFormat="@LOC_EMPTY" __type="CraftingGameplayPropertyDef" __ref="d01a2751-f605-42a7-97b2-ce0b8322e172" __path="libs/foundry/records/crafting/craftedproperties/gpp_itemresource_powergeneration.xml" />',
+            self::HEALTH_PROPERTY_UUID => '<CraftingGameplayPropertyDef.GPP_Health_MaxHealth propertyName="Health" unitFormat="@LOC_EMPTY" __type="CraftingGameplayPropertyDef" __ref="93a49e68-01cf-4d7e-b995-8224466a9982" __path="libs/foundry/records/crafting/craftedproperties/gpp_health_maxhealth.xml" />',
+            self::QUANTUM_SPEED_PROPERTY_UUID => '<CraftingGameplayPropertyDef.GPP_Quantum_Speed propertyName="@StatName_GPP_Quantum_Speed" unitFormat="@StatUnit_MmPerSec" __type="CraftingGameplayPropertyDef" __ref="7ab22dc9-6687-41ab-aebd-4dd5486be458" __path="libs/foundry/records/crafting/craftedproperties/gpp_quantum_speed.xml"><displayTransformation><CraftingDisplayTransformation_Scale scale="1E-06" /></displayTransformation></CraftingGameplayPropertyDef.GPP_Quantum_Speed>',
         ]);
 
         $this->initializeBlueprintFormattingServices();
@@ -785,7 +938,7 @@ final class BlueprintTest extends ScDataTestCase
     {
         $blueprint = $this->loadBlueprint('ammo');
 
-        $formatted = (new Blueprint($blueprint))->toArray();
+        $formatted = new Blueprint($blueprint)->toArray();
 
         self::assertSame([
             'UUID' => self::AMMO_BLUEPRINT_UUID,
@@ -858,7 +1011,7 @@ final class BlueprintTest extends ScDataTestCase
         $blueprint = $this->loadBlueprint('ammo');
         $blueprint->setReferenceHydrationEnabled(false);
 
-        $formatted = (new Blueprint($blueprint))->toArray();
+        $formatted = new Blueprint($blueprint)->toArray();
 
         self::assertSame(self::AMMO_OUTPUT_UUID, $formatted['Output']['UUID']);
         self::assertSame('Atzkav Sniper Rifle Battery (8 cap)', $formatted['Output']['Name']);
@@ -870,7 +1023,7 @@ final class BlueprintTest extends ScDataTestCase
     {
         $blueprint = $this->loadBlueprint('multi_resource');
 
-        $formatted = (new Blueprint($blueprint))->toArray();
+        $formatted = new Blueprint($blueprint)->toArray();
         $slot = $formatted['Tiers'][0]['Requirements']['Children'][0];
         $hephaestanite = $slot['Children'][0];
         $gold = $slot['Children'][1];
@@ -1042,7 +1195,7 @@ final class BlueprintTest extends ScDataTestCase
     {
         $blueprint = $this->loadBlueprint('multi_tier');
 
-        $formatted = (new Blueprint($blueprint))->toArray();
+        $formatted = new Blueprint($blueprint)->toArray();
 
         self::assertCount(2, $formatted['Tiers']);
         self::assertSame(45, $formatted['Tiers'][0]['CraftTimeSeconds']);
@@ -1073,7 +1226,7 @@ final class BlueprintTest extends ScDataTestCase
     {
         $blueprint = $this->loadBlueprint('nested_select');
 
-        $formatted = (new Blueprint($blueprint))->toArray();
+        $formatted = new Blueprint($blueprint)->toArray();
 
         $frameNode = $formatted['Tiers'][0]['Requirements']['Children'][0];
         self::assertSame('group', $frameNode['Kind']);
@@ -1185,7 +1338,7 @@ final class BlueprintTest extends ScDataTestCase
     {
         $blueprint = $this->loadBlueprint('weapon');
 
-        $formatted = (new Blueprint($blueprint))->toArray();
+        $formatted = new Blueprint($blueprint)->toArray();
         $groups = $formatted['Tiers'][0]['Requirements']['Children'];
 
         self::assertCount(2, $groups);
@@ -1199,7 +1352,7 @@ final class BlueprintTest extends ScDataTestCase
     {
         $blueprint = $this->loadBlueprint('multi_resource');
 
-        $formatted = (new Blueprint($blueprint))->toArray();
+        $formatted = new Blueprint($blueprint)->toArray();
 
         $dismantle = $formatted['Dismantle'];
         self::assertSame(15, $dismantle['TimeSeconds']);
@@ -1223,7 +1376,7 @@ final class BlueprintTest extends ScDataTestCase
     {
         $blueprint = $this->loadBlueprint('armour');
 
-        $formatted = (new Blueprint($blueprint))->toArray();
+        $formatted = new Blueprint($blueprint)->toArray();
 
         $dismantle = $formatted['Dismantle'];
         $returns = $dismantle['Returns'];
@@ -1241,7 +1394,7 @@ final class BlueprintTest extends ScDataTestCase
     {
         $blueprint = $this->loadBlueprint('multi_tier');
 
-        $formatted = (new Blueprint($blueprint))->toArray();
+        $formatted = new Blueprint($blueprint)->toArray();
 
         $dismantle = $formatted['Dismantle'];
         $returns = $dismantle['Returns'];
@@ -1271,7 +1424,7 @@ final class BlueprintTest extends ScDataTestCase
 
         $blueprint = $this->loadBlueprint('ammo');
 
-        $formatted = (new Blueprint($blueprint))->toArray();
+        $formatted = new Blueprint($blueprint)->toArray();
 
         self::assertArrayNotHasKey('Dismantle', $formatted);
     }
@@ -1280,7 +1433,7 @@ final class BlueprintTest extends ScDataTestCase
     {
         $blueprint = $this->loadBlueprint('blacklist');
 
-        $formatted = (new Blueprint($blueprint))->toArray();
+        $formatted = new Blueprint($blueprint)->toArray();
 
         $dismantle = $formatted['Dismantle'];
         $returns = $dismantle['Returns'];
@@ -1301,6 +1454,119 @@ final class BlueprintTest extends ScDataTestCase
         self::assertSame(self::HEPHAESTANITE_UUID, $returns[0]['UUID']);
         self::assertSame('Hephaestanite', $returns[0]['Name']);
         self::assertSame(0.01, $returns[0]['QuantityScu']);
+    }
+
+    public function test_to_array_outputs_value_range_type_for_single_segment_linear(): void
+    {
+        $blueprint = $this->loadBlueprint('weapon');
+
+        $formatted = new Blueprint($blueprint)->toArray();
+        $barrel = $formatted['Tiers'][0]['Requirements']['Children'][0];
+        $modifier = $barrel['Modifiers'][0];
+
+        self::assertSame('linear', $modifier['ValueRangeType']);
+        self::assertArrayNotHasKey('ValueSegments', $modifier);
+        self::assertSame(self::WEAPON_DAMAGE_PROPERTY_UUID, $modifier['UUID']);
+        self::assertSame('weapon_damage', $modifier['Key']);
+    }
+
+    public function test_to_array_outputs_multi_segment_linear_value_segments(): void
+    {
+        $blueprint = $this->loadBlueprint('multi_segment');
+
+        $formatted = new Blueprint($blueprint)->toArray();
+        $shell = $formatted['Tiers'][0]['Requirements']['Children'][0];
+        $modifier = $shell['Modifiers'][0];
+
+        // Basic fields
+        self::assertSame('linear', $modifier['ValueRangeType']);
+        self::assertSame(self::HEALTH_PROPERTY_UUID, $modifier['UUID']);
+        self::assertSame('health_maxhealth', $modifier['Key']);
+
+        // Backwards compat: QualityRange/ModifierRange from first segment
+        self::assertSame(0, $modifier['QualityRange']['Min']);
+        self::assertSame(500, $modifier['QualityRange']['Max']);
+        self::assertSame(0.8, $modifier['ModifierRange']['AtMinQuality']);
+        self::assertSame(1, $modifier['ModifierRange']['AtMaxQuality']);
+
+        // Full multi-segment data
+        self::assertCount(2, $modifier['ValueSegments']);
+
+        self::assertSame(0, $modifier['ValueSegments'][0]['QualityMin']);
+        self::assertSame(500, $modifier['ValueSegments'][0]['QualityMax']);
+        self::assertSame(0.8, $modifier['ValueSegments'][0]['ModifierAtStart']);
+        self::assertSame(1, $modifier['ValueSegments'][0]['ModifierAtEnd']);
+
+        self::assertSame(501, $modifier['ValueSegments'][1]['QualityMin']);
+        self::assertSame(1000, $modifier['ValueSegments'][1]['QualityMax']);
+        self::assertSame(1, $modifier['ValueSegments'][1]['ModifierAtStart']);
+        self::assertSame(1.2, $modifier['ValueSegments'][1]['ModifierAtEnd']);
+    }
+
+    public function test_to_array_outputs_integer_additive_segments(): void
+    {
+        $blueprint = $this->loadBlueprint('integer_additive');
+
+        $formatted = new Blueprint($blueprint)->toArray();
+        $core = $formatted['Tiers'][0]['Requirements']['Children'][0];
+        $modifier = $core['Modifiers'][0];
+
+        self::assertSame('linear_integer_additive', $modifier['ValueRangeType']);
+        self::assertSame(self::POWER_GENERATION_PROPERTY_UUID, $modifier['UUID']);
+        self::assertSame('itemresource_powergeneration', $modifier['Key']);
+
+        // QualityRange populated from first segment (was empty before)
+        self::assertSame(0, $modifier['QualityRange']['Min']);
+        self::assertSame(399, $modifier['QualityRange']['Max']);
+
+        self::assertSame([], $modifier['ModifierRange']);
+
+        // Full segment data with additive keys
+        self::assertCount(3, $modifier['ValueSegments']);
+
+        self::assertSame(-1, $modifier['ValueSegments'][0]['AdditiveAtStart']);
+        self::assertSame(-1, $modifier['ValueSegments'][0]['AdditiveAtEnd']);
+        self::assertArrayNotHasKey('ModifierAtStart', $modifier['ValueSegments'][0]);
+
+        self::assertSame(0, $modifier['ValueSegments'][1]['AdditiveAtStart']);
+        self::assertSame(0, $modifier['ValueSegments'][1]['AdditiveAtEnd']);
+
+        self::assertSame(1, $modifier['ValueSegments'][2]['AdditiveAtStart']);
+        self::assertSame(1, $modifier['ValueSegments'][2]['AdditiveAtEnd']);
+    }
+
+    public function test_to_array_outputs_gpp_unit_format_and_display_scale(): void
+    {
+        $blueprint = $this->loadBlueprint('multi_segment');
+
+        $formatted = new Blueprint($blueprint)->toArray();
+        $shell = $formatted['Tiers'][0]['Requirements']['Children'][0];
+        $modifier = $shell['Modifiers'][0];
+
+        // GPP_HEALTH_MAXHEALTH has unitFormat="@LOC_EMPTY" > null > stripped
+        self::assertArrayNotHasKey('UnitFormat', $modifier);
+        self::assertArrayNotHasKey('DisplayScale', $modifier);
+        // Name is resolved from propertyName (plain text "Health")
+        self::assertSame('Health', $modifier['Name']);
+    }
+
+    public function test_to_array_outputs_gpp_unit_format_when_present(): void
+    {
+        $blueprint = $this->loadBlueprint('weapon');
+
+        $formatted = new Blueprint($blueprint)->toArray();
+        $barrel = $formatted['Tiers'][0]['Requirements']['Children'][0];
+        $damageMod = $barrel['Modifiers'][0];
+
+        // GPP_WEAPON_DAMAGE has unitFormat="Percent" and propertyName="Weapon Damage"
+        self::assertSame('Percent', $damageMod['UnitFormat']);
+        self::assertSame('Weapon Damage', $damageMod['Name']);
+        self::assertArrayNotHasKey('DisplayScale', $damageMod);
+
+        // FireRate has unitFormat="RPM"
+        $fireRateMod = $barrel['Modifiers'][1];
+        self::assertSame('RPM', $fireRateMod['UnitFormat']);
+        self::assertSame('Weapon Fire Rate', $fireRateMod['Name']);
     }
 
     private function loadBlueprint(string $fixture): CraftingBlueprintRecord

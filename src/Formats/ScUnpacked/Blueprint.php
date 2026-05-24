@@ -16,6 +16,9 @@ final class Blueprint extends BaseFormat
 {
     protected ?string $elementKey = 'blueprint/CraftingBlueprint';
 
+    /** The attach type of the blueprint's output entity, used to resolve name overrides on modifiers. */
+    private ?string $outputItemType = null;
+
     public function toArray(): ?array
     {
         if (! $this->canTransform()) {
@@ -26,12 +29,15 @@ final class Blueprint extends BaseFormat
 
         $record = $this->item instanceof CraftingBlueprintRecord ? $this->item : null;
 
+        $outputEntity = $record?->getOutputEntity();
+        $this->outputItemType = $outputEntity?->getAttachType();
+
         return $this->transformArrayKeysToPascalCase($this->removeNullValuesPreservingEmptyArrays([
             'uuid' => $uuid,
             'key' => $this->item?->getClassName(),
             'kind' => 'creation',
             'category_uuid' => $record?->getCategoryUuid(),
-            'output' => $this->buildOutput($record?->getOutputEntity()),
+            'output' => $this->buildOutput($outputEntity),
             'availability' => $this->buildAvailability($uuid),
             'tiers' => $this->buildTiers($record),
             'dismantle' => $this->buildDismantle($record),
@@ -368,6 +374,30 @@ final class Blueprint extends BaseFormat
     private function buildStatModifier(CraftingGameplayPropertyModifier $modifier): ?array
     {
         $property = $modifier->getResolvedProperty();
+        $segments = $modifier->getValueSegments();
+        $rangeType = $modifier->getValueRangeType();
+
+        $valueSegments = null;
+        if (count($segments) > 1 || $rangeType === 'linear_integer_additive') {
+            $valueSegments = array_map(function (array $seg): array {
+                $entry = [
+                    'quality_min' => $this->normalizeNumber($seg['quality_min']),
+                    'quality_max' => $this->normalizeNumber($seg['quality_max']),
+                ];
+
+                if (isset($seg['modifier_at_start'])) {
+                    $entry['modifier_at_start'] = $this->normalizeNumber($seg['modifier_at_start']);
+                    $entry['modifier_at_end'] = $this->normalizeNumber($seg['modifier_at_end']);
+                }
+
+                if (isset($seg['additive_at_start'])) {
+                    $entry['additive_at_start'] = $this->normalizeNumber($seg['additive_at_start']);
+                    $entry['additive_at_end'] = $this->normalizeNumber($seg['additive_at_end']);
+                }
+
+                return $entry;
+            }, $segments);
+        }
 
         $formatted = $this->removeNullValuesPreservingEmptyArrays([
             'uuid' => $property?->getUuid() ?? $modifier->getPropertyReference(),
@@ -380,6 +410,11 @@ final class Blueprint extends BaseFormat
                 'at_min_quality' => $this->normalizeNumber($modifier->getModifierAtMinQuality()),
                 'at_max_quality' => $this->normalizeNumber($modifier->getModifierAtMaxQuality()),
             ]),
+            'value_range_type' => $rangeType === 'unknown' ? null : $rangeType,
+            'value_segments' => $valueSegments,
+            'name' => $property?->getResolvedPropertyName($this->outputItemType),
+            'unit_format' => $property?->getUnitFormat(),
+            'display_scale' => $property?->getDisplayScale(),
         ]);
 
         return $formatted === [] ? null : $formatted;
