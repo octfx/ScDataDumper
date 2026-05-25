@@ -4,7 +4,6 @@ namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\Formats\BaseFormat;
-use Octfx\ScDataDumper\Helper\Element;
 
 /**
  * @extends BaseFormat<EntityClassDefinition>
@@ -20,10 +19,11 @@ final class MissileRack extends BaseFormat
         }
 
         $rack = $this->get();
+        $ports = $rack->getAll('Ports/SItemPortDef');
 
         return [
-            'MissileCount' => count($rack->childNodes),
-            'MissileSize' => new Element($rack->getNode()->firstChild)->get('@MaxSize'),
+            'MissileCount' => count($ports),
+            'MissileSize' => ! empty($ports) ? $ports[0]->get('@MaxSize') : null,
         ];
     }
 
