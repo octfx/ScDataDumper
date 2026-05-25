@@ -35,6 +35,9 @@ class LoadBlueprints extends AbstractDataCommand
         $this->prepareServices($input, $output);
 
         $overwrite = ($input->getOption('overwrite') ?? false) === true;
+        $nameFilter = $input->getOption('filter');
+        $nameFilter = is_string($nameFilter) && $nameFilter !== '' ? strtolower($nameFilter) : null;
+        $overwrite = $overwrite || $nameFilter !== null;
         $io->progressStart($this->getBlueprintExportCount());
 
         $outDir = sprintf('%s%sblueprints', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
@@ -52,9 +55,6 @@ class LoadBlueprints extends AbstractDataCommand
         $jsonFlags = JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES;
 
         $start = microtime(true);
-
-        $nameFilter = $input->getOption('filter');
-        $nameFilter = is_string($nameFilter) && $nameFilter !== '' ? strtolower($nameFilter) : null;
 
         $this->withLazyReferenceHydration([
             ServiceFactory::getItemService(),

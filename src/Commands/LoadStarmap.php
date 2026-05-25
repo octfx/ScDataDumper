@@ -40,6 +40,7 @@ final class LoadStarmap extends AbstractDataCommand
         $service = ServiceFactory::getFoundryLookupService();
         $filter = $this->normalizeFilter($input->getOption('filter'));
         $overwrite = ($input->getOption('overwrite') ?? false) === true;
+        $overwrite = $overwrite || $filter !== null;
         $outDir = rtrim((string) $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
 
         $starmapResult = $this->exportStarmap($service, $filter, $overwrite, $outDir, $io);

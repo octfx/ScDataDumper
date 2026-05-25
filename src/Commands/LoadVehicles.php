@@ -35,6 +35,8 @@ class LoadVehicles extends AbstractDataCommand
         $this->prepareServices($input, $output);
 
         $overwrite = ($input->getOption('overwrite') ?? false) === true;
+        $nameFilter = $this->normalizeFilter($input->getOption('filter'));
+        $overwrite = $overwrite || $nameFilter !== null;
         $withRaw = ($input->getOption('with-raw') ?? false) === true;
         $io->progressStart($this->getVehicleExportCount());
 
@@ -53,8 +55,6 @@ class LoadVehicles extends AbstractDataCommand
         $jsonFlags = JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT;
 
         $start = microtime(true);
-
-        $nameFilter = $this->normalizeFilter($input->getOption('filter'));
 
         foreach ($this->iterateVehicleExports($nameFilter) as $vehicleExport) {
             $out = [
