@@ -23,6 +23,7 @@ use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestableClusterPreset;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestablePreset;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestableSetup;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\SubHarvestableMultiConfigRecord;
+use Octfx\ScDataDumper\DocumentTypes\JumpPointPermanent;
 use Octfx\ScDataDumper\DocumentTypes\Loot\LootArchetypeV3Record;
 use Octfx\ScDataDumper\DocumentTypes\Loot\LootGenerationGlobalParams;
 use Octfx\ScDataDumper\DocumentTypes\Loot\LootTableV3Record;
@@ -38,8 +39,8 @@ use Octfx\ScDataDumper\DocumentTypes\Mission\MissionBrokerEntry;
 use Octfx\ScDataDumper\DocumentTypes\Mission\MissionLocality;
 use Octfx\ScDataDumper\DocumentTypes\MissionLocationTemplate;
 use Octfx\ScDataDumper\DocumentTypes\Radar\RadarContactTypeEntry;
-use Octfx\ScDataDumper\DocumentTypes\Recovery\ItemRecoveryConfigurationParams;
 use Octfx\ScDataDumper\DocumentTypes\RadarSystemSharedParams;
+use Octfx\ScDataDumper\DocumentTypes\Recovery\ItemRecoveryConfigurationParams;
 use Octfx\ScDataDumper\DocumentTypes\Reputation\SReputationContextUI;
 use Octfx\ScDataDumper\DocumentTypes\Reputation\SReputationScopeParams;
 use Octfx\ScDataDumper\DocumentTypes\Reputation\SReputationStandingParams;
@@ -381,6 +382,17 @@ final class FoundryLookupService extends BaseService
         $path = reset($paths);
 
         return $this->load($path, ItemRecoveryConfigurationParams::class);
+    }
+
+    public function getJumpPointParams(): ?JumpPointPermanent
+    {
+        $path = self::$classToPathMap['EntityClassDefinition']['JumpPoint_Permanent'] ?? null;
+
+        if ($path === null) {
+            return null;
+        }
+
+        return $this->loadDocument($path, JumpPointPermanent::class, checkValidity: false);
     }
 
     public function getAreaServicesByReference(?string $uuid): ?AreaServices

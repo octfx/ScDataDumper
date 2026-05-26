@@ -7,6 +7,7 @@ namespace Octfx\ScDataDumper\Tests\Commands;
 use Octfx\ScDataDumper\Commands\LoadStarmap;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
+use ZipArchive;
 
 final class LoadStarmapCommandTest extends ScDataTestCase
 {
@@ -129,5 +130,99 @@ final class LoadStarmapCommandTest extends ScDataTestCase
         self::assertSame('tag-radar', $export[0]['RadarContactType']['TagUUID']);
         self::assertSame('Refuel Display', $export[0]['Amenities'][0]['DisplayName']);
         self::assertSame('tag-location', $export[0]['LocationHierarchyTag']['Name']);
+    }
+
+    public function test_execute_writes_starmap_positions_export(): void
+    {
+        $planetPath = $this->writeFile(
+            'Game2/libs/foundry/records/starmap/pu/system/stanton/test_planet.xml',
+            <<<'XML'
+            <StarMapObject.TestPlanet name="Test Planet" __type="StarMapObject" __ref="31000000-0000-0000-0000-000000000001" __path="libs/foundry/records/starmap/pu/system/stanton/test_planet.xml" />
+            XML
+        );
+        $moonPath = $this->writeFile(
+            'Game2/libs/foundry/records/starmap/pu/system/stanton/test_moon.xml',
+            <<<'XML'
+            <StarMapObject.TestMoon name="Test Moon" __type="StarMapObject" __ref="31000000-0000-0000-0000-000000000002" __path="libs/foundry/records/starmap/pu/system/stanton/test_moon.xml" />
+            XML
+        );
+
+        $this->writeCacheFiles(
+            classToPathMap: [
+                'StarMapObject' => [
+                    'TestPlanet' => $planetPath,
+                    'TestMoon' => $moonPath,
+                ],
+            ],
+            uuidToClassMap: [
+                '31000000-0000-0000-0000-000000000001' => 'TestPlanet',
+                '31000000-0000-0000-0000-000000000002' => 'TestMoon',
+            ],
+            classToUuidMap: [
+                'TestPlanet' => '31000000-0000-0000-0000-000000000001',
+                'TestMoon' => '31000000-0000-0000-0000-000000000002',
+            ],
+            uuidToPathMap: [
+                '31000000-0000-0000-0000-000000000001' => $planetPath,
+                '31000000-0000-0000-0000-000000000002' => $moonPath,
+            ],
+        );
+
+        $this->writeSocpak(
+            'Data/ObjectContainers/PU/system/stanton/stantonsystem.socpak',
+            'stantonsystem.xml',
+            <<<'XML'
+            <ObjectContainer>
+              <ChildObjectContainers>
+                <Child pos="10,20,30" starMapRecord="31000000-0000-0000-0000-000000000001" entityName="planet_test">
+                  <ChildObjectContainers>
+                    <Child pos="1,2,3" starMapRecord="31000000-0000-0000-0000-000000000002" entityName="moon_test" />
+                  </ChildObjectContainers>
+                </Child>
+              </ChildObjectContainers>
+            </ObjectContainer>
+            XML
+        );
+
+        $tester = new CommandTester(new LoadStarmap);
+        $exitCode = $tester->execute([
+            'scDataPath' => $this->tempDir,
+            'jsonOutPath' => $this->tempDir,
+            '--overwrite' => true,
+        ]);
+
+        self::assertSame(0, $exitCode);
+
+        $positions = $this->readJsonFile('starmap_positions.json');
+
+        self::assertCount(2, $positions['entities']);
+        self::assertSame([], $positions['connections']);
+        self::assertSame('Test Planet', $positions['entities'][0]['name']);
+        self::assertSame([10, 20, 30], [
+            $positions['entities'][0]['x'],
+            $positions['entities'][0]['y'],
+            $positions['entities'][0]['z'],
+        ]);
+        self::assertSame('Test Moon', $positions['entities'][1]['name']);
+        self::assertSame([11, 22, 33], [
+            $positions['entities'][1]['x'],
+            $positions['entities'][1]['y'],
+            $positions['entities'][1]['z'],
+        ]);
+    }
+
+    private function writeSocpak(string $relativePath, string $entryName, string $xml): void
+    {
+        $path = $this->tempDir.DIRECTORY_SEPARATOR.$relativePath;
+        $directory = dirname($path);
+
+        if (! is_dir($directory)) {
+            self::assertTrue(mkdir($directory, 0777, true));
+        }
+
+        $zip = new ZipArchive;
+        self::assertTrue($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE));
+        self::assertTrue($zip->addFromString($entryName, trim($xml).PHP_EOL));
+        self::assertTrue($zip->close());
     }
 }

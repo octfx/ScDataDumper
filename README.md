@@ -119,7 +119,7 @@ php cli.php load:factions <scDataPath> <jsonOutPath> [--overwrite]
 
 ### `load:starmap`
 
-Dumps starmap objects (`starmap.json`) and trade locations (`trade_locations.json`).
+Dumps starmap objects (`starmap.json`), trade locations (`trade_locations.json`), and world positions / jump point connections (`starmap_positions.json`).
 
 ```shell
 php cli.php load:starmap <scDataPath> <jsonOutPath> [--overwrite] [-f|--filter FILTER]
