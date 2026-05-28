@@ -4,6 +4,9 @@ namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\Formats\BaseFormat;
 
+/**
+ * @deprecated EntityComponentHeatConnection has been removed from game data
+ */
 final class HeatConnection extends BaseFormat
 {
     protected ?string $elementKey = 'Components/EntityComponentHeatConnection';
