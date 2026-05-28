@@ -3,8 +3,8 @@
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
+use Octfx\ScDataDumper\DocumentTypes\TriggerableDevice;
 use Octfx\ScDataDumper\Formats\BaseFormat;
-use Octfx\ScDataDumper\Helper\Element;
 
 /**
  * @extends BaseFormat<EntityClassDefinition>
@@ -17,7 +17,23 @@ class Grenade extends BaseFormat
             return null;
         }
 
-        $explosion = $this->findExplosionParams();
+        $device = $this->asTriggerableDevice();
+
+        // IF Grenade has a hazard zone, use it as primary damage
+        $hazardZone = $device?->getSpawnedHazardZone();
+        if ($hazardZone !== null) {
+            return $this->removeNullValues([
+                'AreaOfEffect' => $hazardZone->getRadius(),
+                'DamageType' => $hazardZone->getDamageType(),
+                'Damage' => $hazardZone->getTotalDamage(),
+                'DamagePerTick' => $hazardZone->getDamagePerTick(),
+                'DamagePeriod' => $hazardZone->getDamagePeriod(),
+                'Duration' => $hazardZone->getDuration(),
+                'IgnoreShields' => $hazardZone->getIgnoreShields(),
+            ]);
+        }
+
+        $explosion = $device?->getFirstExplosion() ?? $device?->getDeathExplosion();
 
         if ($explosion === null) {
             return null;
@@ -69,61 +85,17 @@ class Grenade extends BaseFormat
 
     public function canTransform(): bool
     {
-        return $this->item?->getAttachSubType() === 'Grenade' && $this->findExplosionParams() !== null;
+        return $this->item?->getAttachSubType() === 'Grenade' && $this->asTriggerableDevice()?->getFirstExplosion() !== null;
     }
 
-    private function findExplosionParams(): ?Element
+    private function asTriggerableDevice(): ?TriggerableDevice
     {
-        $triggerable = $this->get('Components/EntityComponentTriggerableDevicesParams');
-
-        if ($triggerable instanceof Element) {
-            $explosions = $this->extractExplosions($triggerable->get('triggers'));
-            if ($explosions !== []) {
-                return $explosions[0];
-            }
-
-            $explosions = $this->extractExplosions($triggerable->get('aiTriggers'));
-            if ($explosions !== []) {
-                return $explosions[0];
-            }
+        if (! $this->item instanceof EntityClassDefinition) {
+            return null;
         }
 
-        $fallback = $this->get('Components/SHealthComponentParams/DeathExplosionParams/ExplosionParams');
+        $device = TriggerableDevice::fromNode($this->item->documentElement);
 
-        return $fallback instanceof Element ? $fallback : null;
-    }
-
-    /**
-     * Collect explosion params from a trigger list element.
-     */
-    private function extractExplosions($section): array
-    {
-        if (! $section instanceof Element) {
-            return [];
-        }
-
-        $explosions = [];
-
-        foreach ($section->children() as $trigger) {
-            $behavior = $trigger->get('behavior');
-
-            if (! $behavior instanceof Element) {
-                continue;
-            }
-
-            foreach ($behavior->children() as $behaviorChild) {
-                if ($behaviorChild->nodeName !== 'STriggerableDevicesBehaviorExplosionParams') {
-                    continue;
-                }
-
-                $explosion = $behaviorChild->get('explosionParams');
-
-                if ($explosion instanceof Element) {
-                    $explosions[] = $explosion;
-                }
-            }
-        }
-
-        return $explosions;
+        return $device instanceof TriggerableDevice ? $device : null;
     }
 }
