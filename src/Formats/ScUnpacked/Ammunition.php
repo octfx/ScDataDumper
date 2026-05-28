@@ -83,6 +83,7 @@ final class Ammunition extends BaseFormat
                 'FarRadius' => $activePenetrationParams?->get('@farRadius'),
                 'Angle' => $activePenetrationParams?->get('@angle'),
             ],
+            'ConversionRateMicroScu' => $ammo->get('./conversionRate/SMicroCargoUnit@microSCU') ?? ($ammo->get('./conversionRate/SCenteCargoUnit@centiSCU') !== null ? (int) $ammo->get('./conversionRate/SCenteCargoUnit@centiSCU') * 100 : null),
         ];
 
         // Tachyon-specific: range-based damage falloff parameters
