@@ -34,6 +34,10 @@ final class PortSummaryBuilder
                 'category' => 'Mining hardpoints',
                 'excludeChildren' => ['Manned turrets', 'Remote turrets', 'Mining turrets', 'Utility turrets'],
             ],
+            'salvageHardpoints' => [
+                'category' => 'Salvage hardpoints',
+                'excludeChildren' => [],
+            ],
             'utilityHardpoints' => [
                 'category' => 'Utility hardpoints',
                 'excludeChildren' => ['Manned turrets', 'Remote turrets', 'Mining turrets', 'Utility turrets'],
@@ -60,6 +64,14 @@ final class PortSummaryBuilder
             ],
             'interdictionHardpoints' => [
                 'categories' => ['EMP hardpoints', 'QIG hardpoints'],
+                'excludeChildren' => [],
+            ],
+            'empHardpoints' => [
+                'category' => 'EMP hardpoints',
+                'excludeChildren' => [],
+            ],
+            'qedHardpoints' => [
+                'category' => 'QIG hardpoints',
                 'excludeChildren' => [],
             ],
             'missileRacks' => [
@@ -138,6 +150,22 @@ final class PortSummaryBuilder
             'seats' => ['categories' => ['Seats'/* , 'Seat access' */]],
             'avionics' => [
                 'categories' => ['Scanners', 'Pings', 'Transponders'],
+                'excludeChildren' => [],
+            ],
+            'tractorBeams' => [
+                'category' => 'Tractor beams',
+                'excludeChildren' => [],
+            ],
+            'weaponLockers' => [
+                'categories' => ['Weapon lockers', 'Weapon racks'],
+                'excludeChildren' => [],
+            ],
+            'paints' => [
+                'category' => 'Paint',
+                'excludeChildren' => [],
+            ],
+            'aiModules' => [
+                'category' => 'AI modules',
                 'excludeChildren' => [],
             ],
         ];
