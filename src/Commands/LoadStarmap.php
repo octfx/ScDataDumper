@@ -244,7 +244,8 @@ final class LoadStarmap extends AbstractDataCommand
                 $systemName,
                 $starmapLookup,
                 $entities,
-                $jumpPoints
+                $jumpPoints,
+                $socpakReader,
             );
         }
 
@@ -302,6 +303,8 @@ final class LoadStarmap extends AbstractDataCommand
                 'name' => $entry['Name'] ?? '',
                 'type' => $entry['Type']['Name'] ?? ($entry['Type']['Classification'] ?? 'unknown'),
                 'parent_uuid' => $entry['ParentUUID'] ?? null,
+                'hidden' => ($entry['HideInStarmap'] ?? false) === true,
+                'qt_valid' => ($entry['Type']['ValidQuantumTravelDestination'] ?? false) === true,
             ];
         }
 
@@ -353,10 +356,17 @@ final class LoadStarmap extends AbstractDataCommand
     /**
      * Recursively extract entities from the XML hierarchy, accumulating world positions.
      *
+     * When a <Child external="1"> references a sub-socpak, the sub-socpak is opened
+     * and its entities are extracted with world positions offset by the parent's
+     * accumulated position.
+     * Finds stations inside planet and lagrange-point
+     *
      * @param  array<float>  $parentWorld  [x, y, z] accumulated world position
      * @param  array<string, mixed>  $starmapLookup  {name, type, parent_uuid}
      * @param  list<array<string, mixed>>  $entities  Collected entity records
      * @param  list<array<string, mixed>>  $jumpPoints  Collected jump point records
+     * @param  SocpakReader|null  $socpakReader  Reader for resolving external socpak references
+     * @param  int  $depth  Current recursion depth for external socpak resolution
      */
     private function extractEntities(
         DOMElement $node,
@@ -365,6 +375,8 @@ final class LoadStarmap extends AbstractDataCommand
         array $starmapLookup,
         array &$entities,
         array &$jumpPoints,
+        ?SocpakReader $socpakReader = null,
+        int $depth = 0,
     ): void {
         $childObjectContainers = $node->getElementsByTagName('ChildObjectContainers');
         if ($childObjectContainers->length === 0) {
@@ -387,9 +399,23 @@ final class LoadStarmap extends AbstractDataCommand
 
             $starMapUuid = $child->getAttribute('starMapRecord');
             $entityName = $child->getAttribute('entityName');
+            $externalName = $child->getAttribute('name');
+
+            if ($socpakReader !== null && $depth < 3 && $externalName !== '' && $child->getAttribute('external') === '1') {
+                $this->extractExternalSocpak(
+                    $externalName,
+                    [$worldX, $worldY, $worldZ],
+                    $system,
+                    $starmapLookup,
+                    $entities,
+                    $jumpPoints,
+                    $socpakReader,
+                    $depth,
+                );
+            }
 
             if ($starMapUuid === '' && preg_match('/^SD_|^ab_/', $entityName)) {
-                $this->extractEntities($child, [$worldX, $worldY, $worldZ], $system, $starmapLookup, $entities, $jumpPoints);
+                $this->extractEntities($child, [$worldX, $worldY, $worldZ], $system, $starmapLookup, $entities, $jumpPoints, $socpakReader, $depth);
 
                 continue;
             }
@@ -405,15 +431,66 @@ final class LoadStarmap extends AbstractDataCommand
                 $entities[] = $this->buildEntityRecord($starMapUuid, $entityName, $system, $starmapLookup, $worldX, $worldY, $worldZ);
             }
 
-            $this->extractEntities($child, [$worldX, $worldY, $worldZ], $system, $starmapLookup, $entities, $jumpPoints);
+            $this->extractEntities($child, [$worldX, $worldY, $worldZ], $system, $starmapLookup, $entities, $jumpPoints, $socpakReader, $depth);
         }
+    }
+
+    /**
+     * Extract entities from an external sub-socpak referenced by a <Child external="1"> element.
+     *
+     * Opens the socpak zip, parses its XML, and extracts all entities whose positions
+     * are relative to the parent's accumulated world position.
+     *
+     * @param  string  $socpakRelativePath  Relative path from the game data root (e.g. "Data/objectcontainers/pu/system/stanton/stanton4.socpak")
+     * @param  array<float>  $parentWorld  [x, y, z] accumulated world position to offset
+     * @param  list<array<string, mixed>>  $entities
+     * @param  list<array<string, mixed>>  $jumpPoints
+     */
+    private function extractExternalSocpak(
+        string $socpakRelativePath,
+        array $parentWorld,
+        string $system,
+        array $starmapLookup,
+        array &$entities,
+        array &$jumpPoints,
+        SocpakReader $socpakReader,
+        int $depth,
+    ): void {
+        $normalizedPath = ltrim(str_replace('\\', '/', $socpakRelativePath), '/');
+        $normalizedPath = preg_replace('#^Data/#i', '', $normalizedPath);
+
+        $resolvedPath = $socpakReader->resolveSocpakPath($normalizedPath);
+
+        if ($resolvedPath === null || ! file_exists($resolvedPath)) {
+            return;
+        }
+
+        $xml = $socpakReader->extractXml($resolvedPath);
+
+        if ($xml === null) {
+            return;
+        }
+
+        $dom = new DOMDocument;
+        $dom->loadXML($xml, LIBXML_NOCDATA | LIBXML_NOBLANKS | LIBXML_COMPACT);
+
+        $this->extractEntities(
+            $dom->documentElement,
+            $parentWorld,
+            $system,
+            $starmapLookup,
+            $entities,
+            $jumpPoints,
+            $socpakReader,
+            $depth + 1,
+        );
     }
 
     /**
      * Build a single entity record.
      *
-     * @param  array<string, array{name: string, type: string, parent_uuid: string|null}>  $starmapLookup
-     * @return array{uuid: string, name: string, type: string, system: string, parent_uuid: string|null, x: float, y: float, z: float}
+     * @param  array<string, array{name: string, type: string, parent_uuid: string|null, hidden: bool, qt_valid: bool}>  $starmapLookup
+     * @return array{uuid: string, name: string, type: string, system: string, parent_uuid: string|null, hidden: bool, qt_valid: bool, x: float, y: float, z: float}
      */
     private function buildEntityRecord(
         string $starMapUuid,
@@ -432,6 +509,8 @@ final class LoadStarmap extends AbstractDataCommand
             'type' => $lookup['type'] ?? 'unknown',
             'system' => $system,
             'parent_uuid' => $lookup['parent_uuid'] ?? null,
+            'hidden' => $lookup['hidden'] ?? false,
+            'qt_valid' => $lookup['qt_valid'] ?? true,
             'x' => $x,
             'y' => $y,
             'z' => $z,

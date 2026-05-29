@@ -211,6 +211,108 @@ final class LoadStarmapCommandTest extends ScDataTestCase
         ]);
     }
 
+    public function test_execute_extracts_entities_from_external_sub_socpak(): void
+    {
+        $planetPath = $this->writeFile(
+            'Game2/libs/foundry/records/starmap/pu/system/stanton/test_planet.xml',
+            <<<'XML'
+            <StarMapObject.TestPlanet name="Test Planet" __type="StarMapObject" __ref="31000000-0000-0000-0000-000000000001" __path="libs/foundry/records/starmap/pu/system/stanton/test_planet.xml" />
+            XML
+        );
+        $stationPath = $this->writeFile(
+            'Game2/libs/foundry/records/starmap/pu/system/stanton/test_station.xml',
+            <<<'XML'
+            <StarMapObject.TestStation name="Test Station" __type="StarMapObject" __ref="31000000-0000-0000-0000-000000000003" __path="libs/foundry/records/starmap/pu/system/stanton/test_station.xml" />
+            XML
+        );
+
+        $this->writeCacheFiles(
+            classToPathMap: [
+                'StarMapObject' => [
+                    'TestPlanet' => $planetPath,
+                    'TestStation' => $stationPath,
+                ],
+            ],
+            uuidToClassMap: [
+                '31000000-0000-0000-0000-000000000001' => 'TestPlanet',
+                '31000000-0000-0000-0000-000000000003' => 'TestStation',
+            ],
+            classToUuidMap: [
+                'TestPlanet' => '31000000-0000-0000-0000-000000000001',
+                'TestStation' => '31000000-0000-0000-0000-000000000003',
+            ],
+            uuidToPathMap: [
+                '31000000-0000-0000-0000-000000000001' => $planetPath,
+                '31000000-0000-0000-0000-000000000003' => $stationPath,
+            ],
+        );
+
+        // System socpak references an external planet socpak
+        $this->writeSocpak(
+            'Data/ObjectContainers/PU/system/stanton/stantonsystem.socpak',
+            'stantonsystem.xml',
+            <<<'XML'
+            <ObjectContainer>
+              <ChildObjectContainers>
+                <Child external="1" name="Data/objectcontainers/pu/system/stanton/stanton1.socpak" pos="1000,2000,3000" starMapRecord="31000000-0000-0000-0000-000000000001" entityName="planet_test">
+                  <ChildObjectContainers />
+                </Child>
+              </ChildObjectContainers>
+            </ObjectContainer>
+            XML
+        );
+
+        // Planet sub-socpak contains a station with position relative to the planet
+        $this->writeSocpak(
+            'Data/ObjectContainers/PU/system/stanton/stanton1.socpak',
+            'stanton1.xml',
+            <<<'XML'
+            <ObjectContainer>
+              <ChildObjectContainers>
+                <Child external="1" name="" pos="500,600,700" starMapRecord="31000000-0000-0000-0000-000000000003" entityName="station_test">
+                  <ChildObjectContainers />
+                </Child>
+              </ChildObjectContainers>
+            </ObjectContainer>
+            XML
+        );
+
+        $tester = new CommandTester(new LoadStarmap);
+        $exitCode = $tester->execute([
+            'scDataPath' => $this->tempDir,
+            'jsonOutPath' => $this->tempDir,
+            '--overwrite' => true,
+        ]);
+
+        self::assertSame(0, $exitCode);
+
+        $positions = $this->readJsonFile('starmap_positions.json');
+
+        // Planet from inline system XML + Station from external planet socpak
+        self::assertCount(2, $positions['entities']);
+
+        // Build a name-keyed map for order-independent assertions
+        $byName = [];
+        foreach ($positions['entities'] as $entity) {
+            $byName[$entity['name']] = $entity;
+        }
+
+        self::assertArrayHasKey('Test Planet', $byName);
+        self::assertSame([1000, 2000, 3000], [
+            $byName['Test Planet']['x'],
+            $byName['Test Planet']['y'],
+            $byName['Test Planet']['z'],
+        ]);
+
+        // Station: planet pos (1000,2000,3000) + station local pos (500,600,700)
+        self::assertArrayHasKey('Test Station', $byName);
+        self::assertSame([1500, 2600, 3700], [
+            $byName['Test Station']['x'],
+            $byName['Test Station']['y'],
+            $byName['Test Station']['z'],
+        ]);
+    }
+
     private function writeSocpak(string $relativePath, string $entryName, string $xml): void
     {
         $path = $this->tempDir.DIRECTORY_SEPARATOR.$relativePath;
