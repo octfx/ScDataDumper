@@ -9,7 +9,9 @@ use Octfx\ScDataDumper\DocumentTypes\Contract\ContractEntry;
 use Octfx\ScDataDumper\DocumentTypes\Contract\ContractGeneratorRecord;
 use Octfx\ScDataDumper\DocumentTypes\Contract\ContractHandler;
 use Octfx\ScDataDumper\Formats\ScUnpacked\Contract as ContractFormat;
+use Octfx\ScDataDumper\Formats\ScUnpacked\MissionBroker as MissionBrokerFormat;
 use Octfx\ScDataDumper\Services\ContractGeneratorService;
+use Octfx\ScDataDumper\Services\MissionBrokerService;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -47,9 +49,11 @@ class LoadContracts extends AbstractDataCommand
 
         $overwrite = ($input->getOption('overwrite') ?? false) === true;
         $service = ServiceFactory::getContractGeneratorService();
+        $missionBrokerService = ServiceFactory::getMissionBrokerService();
 
         $io->text('Building mission chain index...');
         ['index' => $chainIndex, 'count' => $total] = $this->buildChainIndex($service);
+        $total += $missionBrokerService->count();
 
         $outDir = sprintf('%s%scontracts', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
         $this->ensureDirectory($outDir);
@@ -57,11 +61,14 @@ class LoadContracts extends AbstractDataCommand
         $io->progressStart($total);
 
         $start = microtime(true);
+        $phase1Files = [];
 
-        $this->withLazyReferenceHydration([$service], function () use ($service, $chainIndex, $overwrite, $io, $outDir): void {
+        $this->withLazyReferenceHydration([$service, $missionBrokerService], function () use ($service, $missionBrokerService, $chainIndex, $overwrite, $io, $outDir, &$phase1Files): void {
             foreach ($service->iterator() as $record) {
-                $this->processRecord($record, $chainIndex, $overwrite, $io, $outDir);
+                $this->processRecord($record, $chainIndex, $overwrite, $io, $outDir, $phase1Files);
             }
+
+            $this->exportUnreferencedMBEs($missionBrokerService, $phase1Files, $io, $outDir);
         });
 
         $end = microtime(true);
@@ -128,6 +135,7 @@ class LoadContracts extends AbstractDataCommand
         bool $overwrite,
         SymfonyStyle $io,
         string $outDir,
+        array &$phase1Files,
     ): void {
         foreach ($record->getHandlers() as $handler) {
             $entrySets = [
@@ -139,6 +147,7 @@ class LoadContracts extends AbstractDataCommand
 
             foreach ($entrySets as $type => $entries) {
                 foreach ($entries as $entry) {
+                    $phase1Files[$this->fileNameForContractEntry($entry)] = true;
                     $this->writeEntry($entry, $handler, $record, $type, $chainIndex, $overwrite, $io, $outDir);
                     $io->progressAdvance();
                 }
@@ -156,11 +165,7 @@ class LoadContracts extends AbstractDataCommand
         SymfonyStyle $io,
         string $outDir,
     ): void {
-        $debugName = $entry->getDebugName();
-        $id = $debugName !== null
-            ? preg_replace('/[^a-zA-Z0-9_\-]/', '_', $debugName)
-            : $entry->getId() ?? 'unknown';
-        $fileName = strtolower((string) $id);
+        $fileName = $this->fileNameForContractEntry($entry);
         $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
 
         if (! $overwrite && file_exists($filePath)) {
@@ -180,6 +185,62 @@ class LoadContracts extends AbstractDataCommand
         } catch (JsonException $e) {
             $io->warning(sprintf('Failed to encode JSON for contract %s: %s', $fileName, $e->getMessage()));
         }
+    }
+
+    private function exportUnreferencedMBEs(
+        MissionBrokerService $service,
+        array $phase1Files,
+        SymfonyStyle $io,
+        string $outDir,
+    ): void {
+        $allEntries = iterator_to_array($service->iterator());
+
+        $mbeChainIndex = [];
+
+        foreach ($allEntries as $className => $mbe) {
+            $uuid = $mbe->getUuid();
+            if ($uuid !== '') {
+                $mbeChainIndex[strtolower($uuid)] = $className;
+            }
+        }
+
+        foreach ($allEntries as $className => $mbe) {
+            $fileName = $this->normalizeContractFileName($className);
+
+            if (isset($phase1Files[$fileName])) {
+                $io->progressAdvance();
+
+                continue;
+            }
+
+            $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
+
+            try {
+                $format = new MissionBrokerFormat($mbe, $mbeChainIndex);
+                $data = $format->toArray();
+                $data['entry_type'] = 'mission_broker';
+
+                $json = json_encode($data, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+                if (! $this->writeJsonFile($filePath, $json, $io)) {
+                    $io->warning(sprintf('Skipping mission broker entry %s due to write failure', $fileName));
+                }
+            } catch (JsonException $e) {
+                $io->warning(sprintf('Failed to encode JSON for mission broker entry %s: %s', $fileName, $e->getMessage()));
+            }
+
+            $io->progressAdvance();
+        }
+    }
+
+    private function fileNameForContractEntry(ContractEntry $entry): string
+    {
+        return $this->normalizeContractFileName($entry->getDebugName() ?? $entry->getId() ?? 'unknown');
+    }
+
+    private function normalizeContractFileName(string $value): string
+    {
+        return strtolower(preg_replace('/[^a-zA-Z0-9_\-]/', '_', $value));
     }
 
     /**

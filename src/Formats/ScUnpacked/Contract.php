@@ -23,7 +23,9 @@ use Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride\NPCSpawnDescripti
 use Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride\RewardValue;
 use Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride\ShipSpawnDescriptionsValue;
 use Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride\TimeTrialRaceValue;
+use Octfx\ScDataDumper\DocumentTypes\Mission\MissionBrokerEntry;
 use Octfx\ScDataDumper\Formats\BaseFormat;
+use Octfx\ScDataDumper\Formats\ScUnpacked\Concerns\FormatsMissionBrokerEntries;
 use Octfx\ScDataDumper\Services\FoundryLookupService;
 use Octfx\ScDataDumper\Services\ItemService;
 use Octfx\ScDataDumper\Services\LocalizationService;
@@ -31,6 +33,7 @@ use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class Contract extends BaseFormat
 {
+    use FormatsMissionBrokerEntries;
     /**
      * @param  array<string, list<array{uuid: string, title: ?string, debug_name: ?string}>>  $chainIndex
      */
@@ -54,8 +57,10 @@ final class Contract extends BaseFormat
         );
 
         $flat = [];
+
         foreach ($raw as $override) {
             $value = $override->getValue();
+
             if ($value instanceof CombinedDataSetEntriesValue) {
                 array_push($flat, ...$value->getProperties());
             } else {
@@ -77,6 +82,7 @@ final class Contract extends BaseFormat
         $mergedRewards = array_merge($resolvedRewards, array_filter($brokerRewards, static fn ($v) => $v !== null));
 
         $rewardOverride = $this->buildRewardOverride();
+
         if ($rewardOverride !== null && ! isset($mergedRewards['fixed_reward'])) {
             $mergedRewards['fixed_reward'] = $rewardOverride;
         }
@@ -86,19 +92,57 @@ final class Contract extends BaseFormat
         $title = $this->translateLocalizationValue($this->entry->getTitle());
         $description = $this->translateLocalizationValue($this->entry->getDescription());
         $locationPools = $this->buildLocationPools();
+        $haulingOrders = $this->buildHaulingOrders();
+        $missionType = $this->buildMissionType();
+        $missionGiver = $meta['mission_giver'] ?? null;
+        $missionTokens = $this->buildMissionTokens($title, $description, $locationPools);
+
+        $mbe = $this->getMissionBrokerEntry();
+
+        if ($mbe !== null) {
+            if ($title === '') {
+                $title = $this->translateMbeText($mbe->getTitle());
+            }
+
+            if ($description === '') {
+                $description = $this->translateMbeText($mbe->getDescription());
+            }
+
+            if ($locationPools === []) {
+                $locationPools = $this->buildMbeLocationPools($mbe);
+            }
+
+            if ($haulingOrders === []) {
+                $haulingOrders = $this->buildMbeHaulingOrders($mbe);
+            }
+
+            if ($missionType === null) {
+                $missionType = $this->resolveMbeMissionTypeInfo($mbe->getMissionTypeUuid());
+            }
+
+            if ($missionGiver === null || $missionGiver === '') {
+                $missionGiver = $this->resolveMbeMissionGiver($mbe);
+            }
+
+            if ($missionTokens === null) {
+                $missionTokens = $this->buildMbeMissionTokens($mbe, $title, $description, $locationPools);
+            }
+        }
 
         return $this->transformArrayKeysToPascalCase($this->removeNullValuesPreservingEmptyArrays([
             'uuid' => $this->entry->getId(),
             'debug_name' => $this->entry->getDebugName(),
             'type' => $this->handler->getHandlerType(),
-            'mission_type' => $this->buildMissionType(),
-            'mission_giver' => $meta['mission_giver'] ?? null,
+            'mission_type' => $missionType,
+            'mission_giver' => $missionGiver,
             'title' => $title,
+            'display_title' => $this->buildDisplayTextFromMissionTokens($title, $missionTokens),
             'description' => $description,
+            'display_description' => $this->buildDisplayTextFromMissionTokens($description, $missionTokens),
             'location_pools' => $locationPools,
-            'mission_tokens' => $this->buildMissionTokens($title, $description, $locationPools),
+            'mission_tokens' => $missionTokens,
             ...$mergedRewards,
-            'hauling_orders' => $this->buildHaulingOrders(),
+            'hauling_orders' => $haulingOrders,
             ...$this->buildRequirements(),
             ...$this->buildProperties(),
             'generator_class' => $meta['generator_class'] ?? null,
@@ -135,6 +179,7 @@ final class Contract extends BaseFormat
         foreach ($overrideSources as $overrides) {
             foreach ($overrides as $override) {
                 $value = $override->getValue();
+
                 if (! ($value instanceof LocationValue || $value instanceof LocationsValue)) {
                     continue;
                 }
@@ -184,6 +229,7 @@ final class Contract extends BaseFormat
     {
         foreach ($overrides as $override) {
             $value = $override->getValue();
+
             if ($value instanceof LocationValue || $value instanceof LocationsValue) {
                 return true;
             }
@@ -240,11 +286,14 @@ final class Contract extends BaseFormat
 
         $rankIndex = null;
         $scopeUuid = $this->handler->getReputationScopeReference();
+
         if ($scopeUuid !== null && $minRef !== null) {
             $scope = $lookup->getReputationScopeByReference($scopeUuid);
+
             if ($scope !== null) {
                 $refs = $scope->getStandingReferences();
                 $position = array_search(strtolower($minRef), array_map('strtolower', $refs), true);
+
                 if ($position !== false) {
                     $firstStanding = $lookup->getReputationStandingByReference($refs[0]);
                     $offset = ($firstStanding !== null && ($firstStanding->getMinReputation() ?? 0) < 0) ? 1 : 0;
@@ -264,10 +313,13 @@ final class Contract extends BaseFormat
     private function buildTagPrerequisites($tagService): array
     {
         $prerequisites = [];
+
         foreach ($this->entry->getCompletedContractTagPrerequisites() as $prereq) {
             $requiredMissions = [];
+
             foreach ($prereq['requiredTags'] as $tag) {
                 $awardedBy = $this->chainIndex['awarded'][$tag] ?? [];
+
                 foreach ($awardedBy as $entry) {
                     $requiredMissions[] = $entry;
                 }
@@ -305,12 +357,14 @@ final class Contract extends BaseFormat
                 $faction = null;
                 $factionUuid = null;
                 $factionRecord = $lookup->getFactionByFactionReputationUuid($prereq['factionReputation']);
+
                 if ($factionRecord !== null) {
                     $faction = ServiceFactory::getLocalizationService()->translateValue($factionRecord->getName(), true);
                     $factionUuid = $factionRecord->getUuid();
                 }
 
                 $scopeName = null;
+
                 if ($prereq['scope'] !== null) {
                     $scope = $lookup->getReputationScopeByReference($prereq['scope']);
                     $scopeName = $scope?->getScopeName();
@@ -349,11 +403,13 @@ final class Contract extends BaseFormat
         $localities = [];
         foreach (array_keys($localityUuids) as $uuid) {
             $locality = $lookup->getMissionLocalityByReference($uuid);
+
             if ($locality === null) {
                 continue;
             }
 
             $resolvedLocations = [];
+
             foreach ($locality->getAvailableLocationReferences() as $locationUuid) {
                 $smo = $lookup->getStarMapObjectByReference($locationUuid);
                 $resolvedLocations[] = [
@@ -420,13 +476,16 @@ final class Contract extends BaseFormat
         foreach ($overrides as $override) {
             if ($override->getExtendedTextToken() === 'Contractor' || $override->getMissionVariableName() === 'Contractor') {
                 $value = $override->getValue();
+
                 if ($value === null) {
                     continue;
                 }
 
                 $typeName = $override->getValueTypeName();
+
                 if ($typeName === 'Organization') {
                     $orgs = method_exists($value, 'getOrganizations') ? $value->getOrganizations() : [];
+
                     if ($orgs !== []) {
                         return $this->resolveOrgName($orgs[0]);
                     }
@@ -440,13 +499,16 @@ final class Contract extends BaseFormat
     private function resolveOrgName(string $orgUuid): ?string
     {
         $org = ServiceFactory::getFoundryLookupService()->getMissionOrganizationByReference($orgUuid);
+
         if ($org === null) {
             return $orgUuid;
         }
 
         $displayName = $org->getStringValue('stringVariants/MissionStringVariant[last()]/@string');
+
         if ($displayName !== null && $displayName !== '') {
             $translated = ServiceFactory::getLocalizationService()->translateValue($displayName, true);
+
             if ($translated !== '') {
                 return $translated;
             }
@@ -462,9 +524,11 @@ final class Contract extends BaseFormat
 
         foreach ($entries as $entry) {
             $key = $entry['uuid'] ?? $entry['debug_name'];
+
             if (isset($seen[$key])) {
                 continue;
             }
+
             $seen[$key] = true;
             $result[] = $entry;
         }
@@ -522,6 +586,7 @@ final class Contract extends BaseFormat
         }
 
         $groups = [];
+
         foreach ($combatRows as $row) {
             $groupName = $row['group_name'] ?? 'default';
             $amount = $row['concurrent_amount'] ?? 1;
@@ -537,6 +602,7 @@ final class Contract extends BaseFormat
         $totalMin = 0;
         $totalMax = 0;
         $byGroup = [];
+
         foreach ($groups as $name => $range) {
             $totalMin += $range['min'];
             $totalMax += $range['max'];
@@ -559,6 +625,7 @@ final class Contract extends BaseFormat
         $profileUuid = $diff['difficultyProfile'];
 
         $profileName = null;
+
         if ($profileUuid !== null) {
             $profile = ServiceFactory::getFoundryLookupService()
                 ->getContractDifficultyProfileByReference($profileUuid);
@@ -584,6 +651,7 @@ final class Contract extends BaseFormat
 
         foreach ($handlerProperties as $override) {
             $value = $override->getValue();
+
             if (! ($value instanceof HaulingOrdersValue)) {
                 continue;
             }
@@ -604,8 +672,10 @@ final class Contract extends BaseFormat
     private function computeHandlerPropertyBaseOffset(array $handlerProperties): ?int
     {
         $refs = [];
+
         foreach ($handlerProperties as $override) {
             $value = $override->getValue();
+
             if ($value instanceof HaulingOrdersValue) {
                 foreach ($value->getOrders() as $order) {
                     if ($order['missionItem'] !== null) {
@@ -629,6 +699,7 @@ final class Contract extends BaseFormat
 
         $minHex = min($hexValues);
         $missionItemIndices = [];
+
         foreach ($handlerProperties as $i => $prop) {
             if ($prop->getValueTypeName() === 'MissionPropertyValue_MissionItem') {
                 $missionItemIndices[] = $i;
@@ -639,12 +710,15 @@ final class Contract extends BaseFormat
             $baseOffset = $minHex - $candidateIndex;
 
             $valid = true;
+
             foreach ($hexValues as $hex) {
                 $localIndex = $hex - $baseOffset;
+
                 if ($localIndex < 0 || $localIndex >= $propCount) {
                     $valid = false;
                     break;
                 }
+
                 if ($handlerProperties[$localIndex]->getValueTypeName() !== 'MissionPropertyValue_MissionItem') {
                     $valid = false;
                     break;
@@ -666,6 +740,7 @@ final class Contract extends BaseFormat
     private function resolveMissionItemRef(array $order, array $fileProperties, ?int $baseOffset): array
     {
         $ref = $order['mission_item_ref'] ?? null;
+
         if ($ref === null || ! preg_match('/^MissionProperty\[([0-9A-Fa-f]+)\]$/', $ref, $matches)) {
             return [$order];
         }
@@ -677,16 +752,19 @@ final class Contract extends BaseFormat
         }
 
         $localIndex = hexdec($matches[1]) - $baseOffset;
+
         if ($localIndex < 0 || ! isset($fileProperties[$localIndex])) {
             return [$order];
         }
 
         $value = $fileProperties[$localIndex]->getValue();
+
         if (! ($value instanceof MissionItemValue)) {
             return [$order];
         }
 
         $itemUuids = $value->getSpecificItems();
+
         if ($itemUuids === []) {
             return [$order];
         }
@@ -703,6 +781,7 @@ final class Contract extends BaseFormat
         }
 
         $results = [];
+
         foreach ($itemUuids as $uuid) {
             $resolvedUuid = $lookup->resolveMissionItemEntityClass($uuid) ?? $uuid;
             $entry = $order;
@@ -743,8 +822,10 @@ final class Contract extends BaseFormat
 
             $amount = null;
             $tier = null;
+
             if ($rep['reward'] !== null) {
                 $rewardRecord = $lookup->getReputationRewardByReference($rep['reward']);
+
                 if ($rewardRecord !== null) {
                     $amount = $rewardRecord->getIntValue('@reputationAmount');
                     $tier = $rewardRecord->getStringValue('@editorName');
@@ -771,37 +852,31 @@ final class Contract extends BaseFormat
 
     private function buildBrokerRewards(): array
     {
-        $mbeRef = $this->entry->getMissionBrokerEntryReference();
-        if ($mbeRef === null) {
-            return [];
-        }
+        $mbe = $this->getMissionBrokerEntry();
 
-        $lookup = ServiceFactory::getFoundryLookupService();
-        $mbe = $lookup->getMissionBrokerEntryByReference($mbeRef);
         if ($mbe === null) {
             return [];
         }
 
-        $rep = $this->collectReputationRewards($lookup, ServiceFactory::getLocalizationService(), $mbe->getReputationRewards());
+        return $this->buildMbeRewardFields($mbe);
+    }
 
-        $buyIn = $mbe->getBuyInAmount();
+    private function getMissionBrokerEntry(): ?MissionBrokerEntry
+    {
+        $mbeRef = $this->entry->getMissionBrokerEntryReference();
 
-        return array_filter([
-            'fixed_reward' => $mbe->getReward(),
-            'cost' => $buyIn > 0 ? $buyIn : null,
-            'reputation_gained' => $rep['gained'] !== [] ? $rep['gained'] : null,
-            'reputation_lost' => $rep['lost'] !== [] ? $rep['lost'] : null,
-            'refund_buy_in_on_withdraw' => $mbe->shouldRefundBuyInOnWithdraw() ?: null,
-            'deadline' => $mbe->getDeadline(),
-            'broker_reputation_prerequisites' => $mbe->getReputationPrerequisites(),
-            'broker_reputation_requirements' => ($reqs = $mbe->getReputationRequirements()) !== [] ? $reqs : null,
-        ], static fn ($v) => $v !== null);
+        if ($mbeRef === null) {
+            return null;
+        }
+
+        return ServiceFactory::getFoundryLookupService()->getMissionBrokerEntryByReference($mbeRef);
     }
 
     private function buildRewardOverride(): ?array
     {
         foreach ($this->getAllOverrides() as $override) {
             $value = $override->getValue();
+
             if ($value instanceof RewardValue) {
                 return array_filter([
                     'reward' => $value->getReward(),
@@ -819,6 +894,7 @@ final class Contract extends BaseFormat
     {
         foreach ($this->getAllOverrides() as $override) {
             $value = $override->getValue();
+
             if ($value instanceof TimeTrialRaceValue) {
                 $splits = $value->getTargetSplits();
 
@@ -842,11 +918,14 @@ final class Contract extends BaseFormat
         $rep = $this->collectReputationRewards($lookup, $localization, $results->getLegacyReputationRewards());
 
         $resolvedBlueprints = [];
+
         foreach ($results->getAllBlueprintRewards() as $blueprint) {
             $poolUuid = $blueprint['blueprintPool'] ?? null;
             $poolContents = [];
+
             if ($poolUuid !== null) {
                 $poolRecord = $lookup->getBlueprintPoolByReference($poolUuid);
+
                 if ($poolRecord !== null) {
                     foreach ($poolRecord->getBlueprintRewardReferences() as $bpUuid) {
                         $bpRecord = $blueprintService->getByReference($bpUuid);
@@ -860,6 +939,7 @@ final class Contract extends BaseFormat
                     }
                 }
             }
+
             $resolvedBlueprints[] = [
                 'chance' => $blueprint['chance'],
                 'pool_uuid' => $poolUuid,
@@ -868,10 +948,12 @@ final class Contract extends BaseFormat
         }
 
         $items = [];
+
         foreach ($results->getItemResults() as $item) {
             $entity = $item['entityClass'] !== null
                 ? $itemService->getByReference($item['entityClass'])
                 : null;
+
             $items[] = [
                 'name' => $entity?->getDisplayName(),
                 'uuid' => $item['entityClass'],
@@ -935,14 +1017,17 @@ final class Contract extends BaseFormat
     private function buildMissionType(): ?array
     {
         $typeOverrideUuid = $this->entry->getMissionTypeOverride() ?? $this->handler->getMissionTypeOverride();
+
         if ($typeOverrideUuid !== null) {
             return $this->resolveMissionTypeInfo($typeOverrideUuid);
         }
 
         $templateRef = $this->entry->getTemplateReference();
+
         if ($templateRef !== null) {
             $template = ServiceFactory::getFoundryLookupService()->getContractTemplateByReference($templateRef);
             $templateTypeUuid = $template?->getStringValue('contractDisplayInfo/ContractDisplayInfo@type');
+
             if ($templateTypeUuid !== null) {
                 return $this->resolveMissionTypeInfo($templateTypeUuid);
             }
@@ -958,8 +1043,10 @@ final class Contract extends BaseFormat
 
         if ($factionRepUuid === null && $scopeUuid === null) {
             $results = $this->entry->getResults();
+
             if ($results !== null) {
                 $legacy = $results->getLegacyReputationRewards();
+
                 if ($legacy !== []) {
                     $factionRepUuid = $legacy[0]['factionReputation'];
                     $scopeUuid = $legacy[0]['reputationScope'];
@@ -967,6 +1054,7 @@ final class Contract extends BaseFormat
 
                 if ($factionRepUuid === null && $scopeUuid === null) {
                     $calcRep = $results->getCalculatedReputation();
+
                     if ($calcRep !== null) {
                         $factionRepUuid = $calcRep['factionReputation'] ?? null;
                         $scopeUuid = $calcRep['reputationScope'] ?? null;
@@ -983,6 +1071,7 @@ final class Contract extends BaseFormat
         $localization = ServiceFactory::getLocalizationService();
 
         $factionData = null;
+
         if ($factionRepUuid !== null) {
             $faction = $lookup->getFactionByFactionReputationUuid($factionRepUuid);
             $name = $faction !== null
@@ -1003,6 +1092,7 @@ final class Contract extends BaseFormat
         }
 
         $reputationScope = null;
+
         if ($scopeUuid !== null) {
             $scope = $lookup->getReputationScopeByReference($scopeUuid);
             $reputationScope = [
@@ -1033,6 +1123,7 @@ final class Contract extends BaseFormat
     ): array {
         $faction = null;
         $factionUuid = null;
+
         if ($factionRepUuid !== null) {
             $factionRecord = $lookup->getFactionByFactionReputationUuid($factionRepUuid);
             $faction = $factionRecord !== null
@@ -1043,6 +1134,7 @@ final class Contract extends BaseFormat
 
         $scope = null;
         $resolvedScopeUuid = null;
+
         if ($scopeRefUuid !== null) {
             $scopeRecord = $lookup->getReputationScopeByReference($scopeRefUuid);
             $scope = $scopeRecord?->getScopeName();
@@ -1062,6 +1154,7 @@ final class Contract extends BaseFormat
         $faction = null;
         $factionRepUuid = $calcRep['factionReputation'] ?? null;
         $factionUuid = null;
+
         if ($factionRepUuid !== null) {
             $factionRecord = $lookup->getFactionByFactionReputationUuid($factionRepUuid);
             $faction = $factionRecord !== null
@@ -1072,6 +1165,7 @@ final class Contract extends BaseFormat
 
         $scope = null;
         $scopeUuid = $calcRep['reputationScope'] ?? null;
+
         if ($scopeUuid !== null) {
             $scopeRecord = $lookup->getReputationScopeByReference($scopeUuid);
             $scope = $scopeRecord?->getScopeName();
@@ -1088,9 +1182,11 @@ final class Contract extends BaseFormat
     private function buildPropertyOverrides(): ?array
     {
         $properties = [];
+
         foreach ($this->getAllOverrides() as $override) {
             $value = $override->getValue();
             $name = $override->getMissionVariableName();
+
             if ($name === null) {
                 continue;
             }
@@ -1123,6 +1219,7 @@ final class Contract extends BaseFormat
     {
         foreach ($this->getAllOverrides() as $override) {
             $value = $override->getValue();
+
             if ($value instanceof AINameValue) {
                 return array_filter([
                     'given_name' => $value->getCharacterGivenName(),
@@ -1139,9 +1236,11 @@ final class Contract extends BaseFormat
     {
         foreach ($this->getAllOverrides() as $override) {
             $value = $override->getValue();
+
             if ($value instanceof MissionItemValue) {
                 $min = $value->getMinItemsToFind();
                 $max = $value->getMaxItemsToFind();
+
                 if ($min > 0 || $max > 0) {
                     return array_filter([
                         'min_items' => $min > 0 ? $min : null,
@@ -1162,45 +1261,12 @@ final class Contract extends BaseFormat
             return null;
         }
 
-        $tokens = [];
+        $requestedTokens = [];
         foreach ($matches[1] as $tokenContent) {
-            $parts = explode('|', $tokenContent);
-            $tokens[$parts[0]] = true;
+            $requestedTokens[$this->missionTokenKey($tokenContent)] = true;
         }
 
-        $purposeToNames = [];
-        foreach ($locationPools as $pool) {
-            $purpose = $pool['purpose'] ?? null;
-            if ($purpose === null) {
-                continue;
-            }
-
-            $names = [];
-            foreach ($pool['resolved_locations'] ?? [] as $loc) {
-                if ($loc['name'] !== null && $loc['name'] !== '') {
-                    $names[] = $loc['name'];
-                }
-            }
-
-            if ($names !== []) {
-                $purposeToNames[$purpose] = $names;
-            }
-        }
-
-        $tokenMap = [];
-        foreach (array_keys($tokens) as $token) {
-            $resolved = match ($token) {
-                'Location' => $purposeToNames['Location'] ?? null,
-                'Destination' => $purposeToNames['Destination'] ?? null,
-                'GoToLocation' => $purposeToNames['GoToLocation'] ?? null,
-                'Address' => $purposeToNames['Location'] ?? $purposeToNames['Destination'] ?? null,
-                default => null,
-            };
-
-            if ($resolved !== null) {
-                $tokenMap[$token] = $resolved;
-            }
-        }
+        $tokenMap = $this->resolveLocationBasedTokens($locationPools, $requestedTokens);
 
         $tokenMap = collect($tokenMap)
             ->mapWithKeys(fn ($value, $key) => [$key => collect($value)->unique()->values()])->toArray();

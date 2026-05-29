@@ -37,6 +37,11 @@ final class TagDatabaseService extends BaseService
         return $this->tagByUuid[$key]['name'] ?? null;
     }
 
+    public function getTagUuidByName(string $name): ?string
+    {
+        return array_find_key($this->tagByUuid, fn($tag) => strcasecmp($tag['name'], $name) === 0);
+    }
+
     /**
      * @return array{name: string, legacyGUID: string}|null
      */
@@ -123,7 +128,7 @@ final class TagDatabaseService extends BaseService
 
         $children = $this->tagByUuid[$key]['children'] ?? [];
         foreach ($children as $childUuid) {
-            $descendants = array_merge($descendants, $this->getAllDescendantUuids($childUuid));
+            $descendants = [...$descendants, ...$this->getAllDescendantUuids($childUuid)];
         }
 
         return $descendants;

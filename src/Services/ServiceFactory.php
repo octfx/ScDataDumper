@@ -82,6 +82,7 @@ final class ServiceFactory
         BaseService::resetSharedState();
         BlueprintService::resetDocumentCache();
         ContractGeneratorService::resetDocumentCache();
+        MissionBrokerService::resetDocumentCache();
         ItemService::resetDocumentCache();
         VehicleService::resetDocumentCache();
         LoadoutFileService::resetDocumentCache();
@@ -137,6 +138,11 @@ final class ServiceFactory
     public static function getContractGeneratorService(): ContractGeneratorService
     {
         return self::getService('ContractGeneratorService');
+    }
+
+    public static function getMissionBrokerService(): MissionBrokerService
+    {
+        return self::getService('MissionBrokerService');
     }
 
     public static function getFoundryLookupService(): FoundryLookupService
@@ -201,6 +207,7 @@ final class ServiceFactory
             'ItemService' => new ItemService(self::$activeScDataPath),
             'BlueprintService' => new BlueprintService(self::$activeScDataPath),
             'ContractGeneratorService' => new ContractGeneratorService(self::$activeScDataPath),
+            'MissionBrokerService' => new MissionBrokerService(self::$activeScDataPath),
             'LocalizationService' => new LocalizationService(self::$activeScDataPath),
             'ItemClassifierService' => new ItemClassifierService,
             'TagDatabaseService' => new TagDatabaseService(self::$activeScDataPath),
