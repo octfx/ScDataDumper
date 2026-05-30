@@ -39,7 +39,7 @@ final class TagDatabaseService extends BaseService
 
     public function getTagUuidByName(string $name): ?string
     {
-        return array_find_key($this->tagByUuid, fn($tag) => strcasecmp($tag['name'], $name) === 0);
+        return array_find_key($this->tagByUuid, fn ($tag) => strcasecmp($tag['name'], $name) === 0);
     }
 
     /**

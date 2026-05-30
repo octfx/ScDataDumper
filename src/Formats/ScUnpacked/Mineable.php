@@ -7,7 +7,6 @@ namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\DocumentTypes\Mining\MineableCompositionPart;
 use Octfx\ScDataDumper\Formats\BaseFormat;
-use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class Mineable extends BaseFormat
 {

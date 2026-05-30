@@ -7,7 +7,6 @@ namespace Octfx\ScDataDumper\Services\Vehicle;
 use DOMDocument;
 use DOMElement;
 use DOMXPath;
-use Illuminate\Support\Arr;
 use Octfx\ScDataDumper\DocumentTypes\VehicleDefinition;
 use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Services\DataDumper\SocpakReader;

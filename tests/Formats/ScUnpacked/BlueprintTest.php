@@ -146,7 +146,7 @@ final class BlueprintTest extends ScDataTestCase
 
         $janalitePath = $this->writeFile(
             'Data/Libs/Foundry/Records/entities/scitem/carryables/1h/harvestable_mineral_1h_janalite.xml',
-            <<<XML
+            <<<'XML'
             <EntityClassDefinition.Harvestable_Mineral_1H_Janalite __type="EntityClassDefinition" __ref="e954d75e-fb1e-487e-90a8-170f0284b502" __path="libs/foundry/records/entities/scitem/carryables/1h/harvestable_mineral_1h_janalite.xml">
               <Components>
                 <SAttachableComponentParams>
@@ -674,7 +674,7 @@ final class BlueprintTest extends ScDataTestCase
 
         $this->blueprintPaths['blacklist'] = $this->writeFile(
             'Data/Libs/Foundry/Records/crafting/blueprints/crafting/test/bp_craft_test_blacklist_dismantle.xml',
-            <<<XML
+            <<<'XML'
             <CraftingBlueprintRecord.BP_CRAFT_test_blacklist_dismantle __type="CraftingBlueprintRecord" __ref="aa000000-0000-0000-0000-000000000001" __path="libs/foundry/records/crafting/blueprints/crafting/test/bp_craft_test_blacklist_dismantle.xml">
               <blueprint>
                 <CraftingBlueprint category="f9ccf95d-ad0e-4c33-97e0-e56c847a7e37" blueprintName="Blacklist Test">

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes;
 
-use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityDistributionRecord;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityLocationOverrideRecord;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityQuantizationRecord;
+use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class ResourceType extends RootDocument

@@ -142,7 +142,7 @@ final class SchemaSnapshotService
     {
         // Normalize the element tag: strip namespace-like prefixes, keep local name
         $tagName = $element->localName ?? $element->nodeName;
-        $path = $parentPath !== '' ? $parentPath . '/' . $tagName : $tagName;
+        $path = $parentPath !== '' ? $parentPath.'/'.$tagName : $tagName;
 
         // Initialize fingerprint for this path if needed
         if (! isset($fingerprints[$path])) {

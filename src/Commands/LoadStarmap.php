@@ -278,6 +278,7 @@ final class LoadStarmap extends AbstractDataCommand
      * Load starmap.json into a UUID-keyed lookup for enrichment.
      *
      * @return array<string, array{name: string, type: string, parent_uuid: string|null}>
+     *
      * @throws JsonException
      */
     private function loadStarmapLookup(string $starmapPath, SymfonyStyle $io): array

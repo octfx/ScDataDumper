@@ -4,7 +4,6 @@ namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Exception;
 use Octfx\ScDataDumper\Formats\BaseFormat;
-use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
 
 final class WeaponMode extends BaseFormat
