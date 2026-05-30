@@ -20,8 +20,10 @@ use Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride\LocationsValue;
 use Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride\LocationValue;
 use Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride\MissionItemValue;
 use Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride\NPCSpawnDescriptionsValue;
+use Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride\OrganizationValue;
 use Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride\RewardValue;
 use Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride\ShipSpawnDescriptionsValue;
+use Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride\StringHashValue;
 use Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride\TimeTrialRaceValue;
 use Octfx\ScDataDumper\DocumentTypes\Mission\MissionBrokerEntry;
 use Octfx\ScDataDumper\Formats\BaseFormat;
@@ -34,6 +36,7 @@ use Octfx\ScDataDumper\Services\ServiceFactory;
 final class Contract extends BaseFormat
 {
     use FormatsMissionBrokerEntries;
+
     /**
      * @param  array<string, list<array{uuid: string, title: ?string, debug_name: ?string}>>  $chainIndex
      */
@@ -53,6 +56,7 @@ final class Contract extends BaseFormat
     {
         $raw = array_merge(
             $this->handler->getContractParamPropertyOverrides(),
+            $this->getTemplatePropertyOverrides(),
             $this->entry->getPropertyOverrides(),
         );
 
@@ -69,6 +73,38 @@ final class Contract extends BaseFormat
         }
 
         return $flat;
+    }
+
+    /**
+     * Load property overrides from the entry's referenced ContractTemplate.
+     * These provide defaults for tokens like SingleToMultiToken / MultiToSingleToken
+     * that are defined at the template level but not overridden by handler or entry.
+     *
+     * @return list<MissionPropertyOverride>
+     */
+    private function getTemplatePropertyOverrides(): array
+    {
+        $templateRef = $this->entry->getTemplateReference();
+        if ($templateRef === null) {
+            return [];
+        }
+
+        $template = ServiceFactory::getFoundryLookupService()->getContractTemplateByReference($templateRef);
+        if ($template === null) {
+            return [];
+        }
+
+        $results = [];
+        $nodes = $template->getAll('contractProperties/MissionProperty');
+
+        foreach ($nodes as $node) {
+            $doc = MissionPropertyOverride::fromNode($node->getNode(), $this->entry->isReferenceHydrationEnabled());
+            if ($doc instanceof MissionPropertyOverride) {
+                $results[] = $doc;
+            }
+        }
+
+        return $results;
     }
 
     public function toArray(): ?array
@@ -129,6 +165,10 @@ final class Contract extends BaseFormat
             }
         }
 
+        $displayTitle = $this->buildDisplayTextFromMissionTokens($title, $missionTokens);
+        $displayDescription = $this->buildDisplayTextFromMissionTokens($description, $missionTokens);
+        $missionTokens = $this->resolveTokenValueReferences($missionTokens ?? []);
+
         return $this->transformArrayKeysToPascalCase($this->removeNullValuesPreservingEmptyArrays([
             'uuid' => $this->entry->getId(),
             'debug_name' => $this->entry->getDebugName(),
@@ -136,9 +176,9 @@ final class Contract extends BaseFormat
             'mission_type' => $missionType,
             'mission_giver' => $missionGiver,
             'title' => $title,
-            'display_title' => $this->buildDisplayTextFromMissionTokens($title, $missionTokens),
+            'display_title' => $displayTitle,
             'description' => $description,
-            'display_description' => $this->buildDisplayTextFromMissionTokens($description, $missionTokens),
+            'display_description' => $displayDescription,
             'location_pools' => $locationPools,
             'mission_tokens' => $missionTokens,
             ...$mergedRewards,
@@ -1253,23 +1293,251 @@ final class Contract extends BaseFormat
         return null;
     }
 
-    private function buildMissionTokens(string $title, string $description, array $locationPools): ?array
+    /**
+     * Check whether a token base key is runtime-only and must remain unresolved.
+     * These tokens are filled at mission instantiation by subsumption.
+     */
+    private function isDenylistedToken(string $token): bool
     {
-        $text = $title.' '.$description;
+        $normalized = strtolower($token);
 
-        if (! preg_match_all('/~mission\(([^)]+)\)/', $text, $matches)) {
+        if (str_starts_with($normalized, 'item')) {
+            return true;
+        }
+
+        return in_array($normalized, [
+            'targetname', 'targetname2',
+            'target1', 'target2', 'target3',
+            'nearbylocation',
+            'namekill1',
+            'namesave1', 'namesave2', 'namesave3',
+            'achievedfinish', 'prevcheckpointnumber', 'checkpointwinningplayer',
+            'creature',
+            'missingpersonlist',
+            'itemstorecover',
+            'distractionkilldescription',
+        ], true);
+    }
+
+    /**
+     * Find the last override matching an extended text token.
+     * getAllOverrides() merges handler first, then entry, so the last match implements entry-wins-over-handler precedence.
+     */
+    private function findLastOverride(string $extendedTextToken): ?MissionPropertyOverride
+    {
+        $last = null;
+
+        foreach ($this->getAllOverrides() as $override) {
+            if ($override->getExtendedTextToken() === $extendedTextToken) {
+                $last = $override;
+            }
+        }
+
+        return $last;
+    }
+
+    /**
+     * Resolve StringHash override values for a contract property.
+     *
+     * @return list<string>|null Resolved display strings, or null.
+     */
+    private function resolveContractStringHashValues(MissionPropertyOverride $override): ?array
+    {
+        $value = $override->getValue();
+
+        if (! ($value instanceof StringHashValue)) {
             return null;
         }
 
-        $requestedTokens = [];
-        foreach ($matches[1] as $tokenContent) {
-            $requestedTokens[$this->missionTokenKey($tokenContent)] = true;
+        $values = [];
+
+        foreach ($value->getOptions() as $option) {
+            $raw = $option['textId'] ?? $option['value'] ?? null;
+
+            if (! is_string($raw) || $raw === '' || $raw === '@LOC_UNINITIALIZED' || $raw === '@LOC_EMPTY') {
+                continue;
+            }
+
+            $translated = str_starts_with($raw, '@')
+                ? ServiceFactory::getLocalizationService()->translateValue($raw, true)
+                : $raw;
+
+            if ($translated !== null && $translated !== '') {
+                $values[] = $translated;
+            }
         }
 
-        $tokenMap = $this->resolveLocationBasedTokens($locationPools, $requestedTokens);
+        return $values !== [] ? $values : null;
+    }
 
-        $tokenMap = collect($tokenMap)
-            ->mapWithKeys(fn ($value, $key) => [$key => collect($value)->unique()->values()])->toArray();
+    /**
+     * @return list<string>|null Resolved org display strings, or null.
+     */
+    private function resolveContractOrgValues(MissionPropertyOverride $override, ?string $variant): ?array
+    {
+        $value = $override->getValue();
+
+        if (! ($value instanceof OrganizationValue)) {
+            return null;
+        }
+
+        $organizationUuids = $value->getOrganizations();
+
+        if ($organizationUuids === []) {
+            return null;
+        }
+
+        $variantTagUuid = $variant !== null ? $this->resolveTagUuidByName($variant) : null;
+
+        if ($variant !== null && $variantTagUuid === null) {
+            return null;
+        }
+
+        $values = [];
+
+        foreach ($organizationUuids as $organizationUuid) {
+            $organization = ServiceFactory::getFoundryLookupService()
+                ->getMissionOrganizationByReference($organizationUuid);
+
+            if ($organization === null) {
+                continue;
+            }
+
+            if ($variantTagUuid !== null) {
+                foreach ($organization->getAll(
+                    sprintf('stringVariants/variants/MissionStringVariant[@tag="%s"]@string', $variantTagUuid),
+                    raw: true,
+                ) as $raw) {
+                    if (! is_string($raw) || $raw === '') {
+                        continue;
+                    }
+
+                    $translated = str_starts_with($raw, '@')
+                        ? ServiceFactory::getLocalizationService()->translateValue($raw, true)
+                        : $raw;
+
+                    if ($translated !== null && $translated !== '') {
+                        $values[] = $translated;
+                    }
+                }
+
+                continue;
+            }
+
+            $raw = $organization->getStringValue('stringVariants/variants/MissionStringVariant@string');
+
+            if ($raw !== null && $raw !== '') {
+                $translated = str_starts_with($raw, '@')
+                    ? ServiceFactory::getLocalizationService()->translateValue($raw, true)
+                    : $raw;
+
+                if ($translated !== null && $translated !== '') {
+                    $values[] = $translated;
+                }
+            }
+        }
+
+        return $values !== [] ? $values : null;
+    }
+
+    /**
+     * Dispatch contract property token resolution by override value type.
+     *
+     * @return list<string>|null Resolved display strings, or null.
+     */
+    private function resolveContractPropertyTokenValues(MissionPropertyOverride $override, ?string $variant): ?array
+    {
+        $typeName = $override->getValueTypeName();
+
+        return match ($typeName) {
+            'MissionPropertyValue_Organization' => $this->resolveContractOrgValues($override, $variant),
+            'MissionPropertyValue_StringHash' => $this->resolveContractStringHashValues($override),
+            default => null,
+        };
+    }
+
+    private function buildMissionTokens(string $title, string $description, array $locationPools): ?array
+    {
+        $tokenMap = [];
+        $requestedTokens = $this->collectMissionTokenReferences($title, $description);
+        $resolvePropertyToken = function (string $tokenContent): ?array {
+            $key = $this->missionTokenKey($tokenContent);
+
+            if ($this->isDenylistedToken($key)) {
+                return null;
+            }
+
+            $override = $this->findLastOverride($key);
+
+            if ($override === null) {
+                return null;
+            }
+
+            $values = $this->resolveContractPropertyTokenValues($override, $this->missionTokenVariant($tokenContent));
+
+            if ($values === null || $values === []) {
+                return null;
+            }
+
+            return [
+                'map_key' => $this->missionTokenMapKey($tokenContent, $override->getValueTypeName()),
+                'values' => $values,
+            ];
+        };
+
+        if ($requestedTokens !== []) {
+            $tokenMap = $this->resolveLocationBasedTokens($locationPools, $requestedTokens);
+
+            foreach (array_keys($requestedTokens) as $tokenContent) {
+                $key = $this->missionTokenKey($tokenContent);
+
+                if (isset($tokenMap[$key]) || isset($tokenMap[$tokenContent])) {
+                    continue;
+                }
+
+                $resolved = $resolvePropertyToken($tokenContent);
+
+                if ($resolved === null) {
+                    continue;
+                }
+
+                $tokenMap[$resolved['map_key']] = $resolved['values'];
+            }
+        }
+
+        $tokenMap = $this->expandNestedMissionTokens($tokenMap, $locationPools, $resolvePropertyToken);
+
+        $seenTokens = [];
+
+        foreach ($this->getAllOverrides() as $override) {
+            $token = $override->getExtendedTextToken();
+
+            if ($token === null || isset($tokenMap[$token]) || isset($seenTokens[$token])) {
+                continue;
+            }
+
+            $seenTokens[$token] = true;
+
+            if ($this->isDenylistedToken($token)) {
+                continue;
+            }
+
+            $matched = $this->findLastOverride($token);
+
+            if ($matched === null) {
+                continue;
+            }
+
+            $values = $this->resolveContractPropertyTokenValues($matched, null);
+
+            if ($values === null || $values === []) {
+                continue;
+            }
+
+            $tokenMap[$token] = $values;
+        }
+
+        $tokenMap = $this->normalizeMissionTokenMap($tokenMap);
 
         return $tokenMap !== [] ? $tokenMap : null;
     }

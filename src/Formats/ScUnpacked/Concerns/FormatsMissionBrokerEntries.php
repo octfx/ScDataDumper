@@ -11,6 +11,26 @@ use Octfx\ScDataDumper\Services\ServiceFactory;
 
 trait FormatsMissionBrokerEntries
 {
+    /**
+     * Location-token aliases ordered by specificity, then fallback.
+     *
+     * @var array<string, list<string>>
+     */
+    private const LOCATION_TOKEN_CANDIDATES = [
+        'location' => ['Location'],
+        'destination' => ['Destination'],
+        'gotolocation' => ['GoToLocation'],
+        'address' => ['Location', 'Destination'],
+        'dropofflocation' => ['DropOffLocation', 'DropoffLocation', 'Destination'],
+        'drop1' => ['Drop1', 'Destination'],
+        'defendlocationwrapperlocation' => ['DefendLocationWrapperLocation', 'Location'],
+        'lagrangelocation' => ['LagrangeLocation', 'Location'],
+        'missioncluster' => ['MissionCluster', 'Location'],
+        'initiatorlocation' => ['InitiatorLocation', 'Location'],
+        'startlocation' => ['StartLocation', 'Destination'],
+        'selecteddestination' => ['SelectedDestination', 'Destination'],
+    ];
+
     protected function translateMbeText(?string $value): string
     {
         return $value !== null ? $this->translateLocalizationValue($value) : '';
@@ -150,60 +170,233 @@ trait FormatsMissionBrokerEntries
 
     protected function buildMbeMissionTokens(MissionBrokerEntry $mbe, string $title, string $description, array $locationPools): ?array
     {
-        $text = $title.' '.$description;
+        $requestedTokenReferences = $this->collectMissionTokenReferences($title, $description);
 
-        if (! preg_match_all('/~mission\(([^)]+)\)/', $text, $matches)) {
+        if ($requestedTokenReferences === []) {
             return null;
         }
 
-        $requestedTokens = [];
-        $locationRequestedTokens = [];
+        $resolvePropertyToken = function (string $tokenContent) use ($mbe): ?array {
+            $property = $mbe->getPropertyByToken($this->missionTokenKey($tokenContent));
+            $values = $this->resolveMbePropertyTokenValues($mbe, $tokenContent);
 
-        foreach ($matches[1] as $tokenContent) {
-            $requestedTokens[$this->missionTokenOutputKey($mbe, $tokenContent)] = $tokenContent;
-            $locationRequestedTokens[$this->missionTokenKey($tokenContent)] = true;
-        }
+            if ($values === null || $values === []) {
+                return null;
+            }
 
-        $tokenMap = $this->resolveLocationBasedTokens($locationPools, $locationRequestedTokens);
+            return [
+                'map_key' => $this->missionTokenMapKey($tokenContent, $property['valueTypeName'] ?? null),
+                'values' => $values,
+            ];
+        };
 
-        foreach ($requestedTokens as $outputKey => $tokenContent) {
+        $tokenMap = $this->resolveLocationBasedTokens($locationPools, $requestedTokenReferences);
+
+        foreach (array_keys($requestedTokenReferences) as $tokenContent) {
             $token = $this->missionTokenKey($tokenContent);
+            $resolved = $resolvePropertyToken($tokenContent);
 
-            if (isset($tokenMap[$outputKey]) || isset($tokenMap[$token])) {
+            if ($resolved === null || isset($tokenMap[$resolved['map_key']]) || isset($tokenMap[$token])) {
                 continue;
             }
 
-            $resolved = $this->resolveMbePropertyTokenValues($mbe, $tokenContent);
-
-            if ($resolved !== null && $resolved !== []) {
-                $tokenMap[$outputKey] = $resolved;
-            }
+            $tokenMap[$resolved['map_key']] = $resolved['values'];
         }
 
         foreach ($mbe->getProperties() as $property) {
             $token = $property['extendedTextToken'];
 
-            if ($token === null || isset($tokenMap[$token])) {
+            if ($token === null) {
+                continue;
+            }
+
+            $mapKey = $this->missionTokenMapKey($token, $property['valueTypeName'] ?? null);
+
+            if (isset($tokenMap[$mapKey])) {
                 continue;
             }
 
             $resolved = $this->resolveMbePropertyTokenValues($mbe, $token);
 
             if ($resolved !== null && $resolved !== []) {
-                $tokenMap[$token] = $resolved;
+                $tokenMap[$mapKey] = $resolved;
             }
         }
 
-        $tokenMap = collect($tokenMap)
-            ->mapWithKeys(fn ($value, $key) => [$key => collect((array) $value)->unique()->values()])
-            ->toArray();
+        $tokenMap = $this->expandNestedMissionTokens($tokenMap, $locationPools, $resolvePropertyToken);
+
+        $tokenMap = $this->normalizeMissionTokenMap($tokenMap);
 
         return $tokenMap !== [] ? $tokenMap : null;
     }
 
+    /**
+     * @param  array<string, mixed>  $tokenMap
+     * @return array<string, list<string>>
+     */
+    private function normalizeMissionTokenMap(array $tokenMap): array
+    {
+        $normalized = [];
+
+        foreach ($tokenMap as $key => $value) {
+            if (! is_string($key) || ! is_array($value)) {
+                continue;
+            }
+
+            $values = $this->missionTokenValues($value);
+
+            if ($values !== []) {
+                $normalized[$key] = $values;
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private function collectMissionTokenReferences(string ...$texts): array
+    {
+        $references = [];
+
+        foreach ($texts as $text) {
+            if (! preg_match_all('/~mission\(([^)]+)\)/', $text, $matches)) {
+                continue;
+            }
+
+            foreach ($matches[1] as $tokenContent) {
+                $references[$tokenContent] = true;
+            }
+        }
+
+        return $references;
+    }
+
+    /**
+     * Resolve nested ~mission() references found inside already resolved token values.
+     *
+     * @param  array<string, mixed>  $tokenMap
+     * @param  callable(string): ?array{map_key: string, values: array}  $resolvePropertyToken
+     * @return array<string, mixed>
+     */
+    private function expandNestedMissionTokens(array $tokenMap, array $locationPools, callable $resolvePropertyToken): array
+    {
+        for ($depth = 0; $depth < 3; $depth++) {
+            $nestedTokens = $this->collectNestedMissionTokenReferences($tokenMap);
+
+            if ($nestedTokens === []) {
+                break;
+            }
+
+            foreach ($this->resolveLocationBasedTokens($locationPools, $nestedTokens) as $key => $values) {
+                $tokenMap[$key] = $values;
+            }
+
+            foreach (array_keys($nestedTokens) as $tokenContent) {
+                $token = $this->missionTokenKey($tokenContent);
+
+                if (isset($tokenMap[$tokenContent]) || isset($tokenMap[$token])) {
+                    continue;
+                }
+
+                $resolved = $resolvePropertyToken($tokenContent);
+
+                if ($resolved === null || $resolved['values'] === []) {
+                    continue;
+                }
+
+                $tokenMap[$resolved['map_key']] = $resolved['values'];
+            }
+        }
+
+        return $tokenMap;
+    }
+
+    /**
+     * @param  array<string, mixed>  $tokenMap
+     * @return array<string, true>
+     */
+    private function collectNestedMissionTokenReferences(array $tokenMap): array
+    {
+        $references = [];
+
+        foreach ($tokenMap as $values) {
+            foreach ((array) $values as $value) {
+                if (! is_string($value)) {
+                    continue;
+                }
+
+                foreach (array_keys($this->collectMissionTokenReferences($value)) as $tokenContent) {
+                    $token = $this->missionTokenKey($tokenContent);
+
+                    if (! isset($tokenMap[$tokenContent]) && ! isset($tokenMap[$token])) {
+                        $references[$tokenContent] = true;
+                    }
+                }
+            }
+        }
+
+        return $references;
+    }
+
+    /**
+     * Resolve ~mission() references inside token values.
+     *
+     * @param  array<string, list<string>>  $tokenMap
+     * @return array<string, list<string>>
+     */
+    private function resolveTokenValueReferences(array $tokenMap): array
+    {
+        $needsResolution = false;
+
+        foreach ($tokenMap as $values) {
+            foreach ($values as $v) {
+                if (is_string($v) && str_contains($v, '~mission(')) {
+                    $needsResolution = true;
+                    break 2;
+                }
+            }
+        }
+
+        if (! $needsResolution) {
+            return $tokenMap;
+        }
+
+        return array_map(function ($values) use ($tokenMap) {
+            return array_map(
+                fn ($v) => is_string($v) ? $this->resolveTokenValue($v, $tokenMap) : $v,
+                $values,
+            );
+        }, $tokenMap);
+    }
+
+    /**
+     * Resolve ~mission() references in a single token value string.
+     * <EM4> tags are preserved for the API to style.
+     */
+    private function resolveTokenValue(string $value, array $tokenMap): string
+    {
+        for ($i = 0; $i < 5 && str_contains($value, '~mission('); $i++) {
+            $next = preg_replace_callback(
+                '/~mission\(([^)]+)\)/',
+                fn (array $matches): string => $this->renderMissionTokenReference($matches[1], $tokenMap),
+                $value,
+            );
+
+            if ($next === null || $next === $value) {
+                break;
+            }
+
+            $value = $next;
+        }
+
+        return $value;
+    }
+
     protected function buildDisplayTextFromMissionTokens(string $text, ?array $missionTokens): ?string
     {
-        if ($missionTokens === null || ! str_contains($text, '~mission(')) {
+        if (! str_contains($text, '~mission(')) {
             return null;
         }
 
@@ -211,28 +404,13 @@ trait FormatsMissionBrokerEntries
         $replaced = false;
 
         for ($i = 0; $i < 5 && str_contains($displayText, '~mission('); $i++) {
-            $passReplaced = false;
             $next = preg_replace_callback(
                 '/~mission\(([^)]+)\)/',
-                function (array $matches) use ($missionTokens, &$passReplaced): string {
-                    $tokenContent = $matches[1];
-                    $token = $this->missionTokenKey($tokenContent);
-                    $replacement = $this->missionTokenVariant($tokenContent) !== null
-                        ? $this->singleMissionTokenValue($missionTokens[$tokenContent] ?? null)
-                        : $this->singleMissionTokenValue($missionTokens[$token] ?? null);
-
-                    if ($replacement === null) {
-                        return $matches[0];
-                    }
-
-                    $passReplaced = true;
-
-                    return $replacement;
-                },
+                fn (array $matches): string => $this->renderMissionTokenReference($matches[1], $missionTokens),
                 $displayText,
             );
 
-            if (! $passReplaced || $next === null || $next === $displayText) {
+            if ($next === null || $next === $displayText) {
                 break;
             }
 
@@ -241,6 +419,16 @@ trait FormatsMissionBrokerEntries
         }
 
         return $replaced && $displayText !== $text ? $displayText : null;
+    }
+
+    private function renderMissionTokenReference(string $tokenContent, ?array $missionTokens): string
+    {
+        $lookupKey = $this->missionTokenLookupKey($tokenContent, $missionTokens ?? []);
+        $values = $missionTokens !== null
+            ? $this->missionTokenValues($missionTokens[$lookupKey] ?? null)
+            : [];
+
+        return count($values) === 1 ? $values[0] : $this->tokenBracket($lookupKey);
     }
 
     protected function missionTokenKey(string $tokenContent): string
@@ -255,24 +443,54 @@ trait FormatsMissionBrokerEntries
         return isset($parts[1]) && $parts[1] !== '' ? $parts[1] : null;
     }
 
-    protected function missionTokenOutputKey(MissionBrokerEntry $mbe, string $tokenContent): string
+    protected function missionTokenMapKey(string $tokenContent, ?string $valueTypeName = null): string
     {
-        $token = $this->missionTokenKey($tokenContent);
         $variant = $this->missionTokenVariant($tokenContent);
-        $property = $mbe->getPropertyByToken($token);
 
-        return $variant !== null && ($property['valueTypeName'] ?? null) === 'MissionPropertyValue_Organization'
-            ? $tokenContent
-            : $token;
+        if ($this->locationTokenCandidates($this->missionTokenKey($tokenContent)) !== null) {
+            return $tokenContent;
+        }
+
+        if ($variant !== null && $valueTypeName === 'MissionPropertyValue_Organization') {
+            return $tokenContent;
+        }
+
+        return $this->missionTokenKey($tokenContent);
     }
 
     /**
-     * @param  mixed  $value
+     * Return ordered candidate pool purposes for a location token base key, or null if the token is not a location token.
      */
-    protected function singleMissionTokenValue(mixed $value): ?string
+    private function locationTokenCandidates(string $baseKey): ?array
+    {
+        $normalized = strtolower($baseKey);
+
+        if (preg_match('/^pickup(\d)$/', $normalized, $m)) {
+            return ['Pickup'.$m[1], 'Location'];
+        }
+
+        if (preg_match('/^dropoff(\d)$/', $normalized, $m)) {
+            return ['DropOff'.$m[1], 'Dropoff'.$m[1], 'Destination'];
+        }
+
+        if (preg_match('/^location(\d+)$/', $normalized, $m)) {
+            return ['Location'.$m[1], 'Location'];
+        }
+
+        if (preg_match('/^destination(\d)$/', $normalized, $m)) {
+            return ['Destination'.$m[1], 'Destination'];
+        }
+
+        return self::LOCATION_TOKEN_CANDIDATES[$normalized] ?? null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function missionTokenValues(mixed $value): array
     {
         if (! is_array($value)) {
-            return null;
+            return [];
         }
 
         $values = [];
@@ -284,24 +502,42 @@ trait FormatsMissionBrokerEntries
 
             $candidate = trim((string) $candidate);
 
-            if ($candidate !== '') {
+            if ($candidate !== '' && ! str_contains($candidate, 'UNINITIALIZED')) {
                 $values[$candidate] = true;
             }
         }
 
-        if (count($values) !== 1) {
-            return null;
-        }
-
-        return array_key_first($values);
+        return array_keys($values);
     }
 
     /**
-     * Resolve location-based mission tokens (Location, Destination, GoToLocation, Address)
-     * from location pools. Shared between Contract and MissionBroker token resolution.
+     * @param  array<string, mixed>  $missionTokens
+     */
+    private function missionTokenLookupKey(string $tokenContent, array $missionTokens): string
+    {
+        $token = $this->missionTokenKey($tokenContent);
+
+        if ($this->missionTokenVariant($tokenContent) !== null && array_key_exists($tokenContent, $missionTokens)) {
+            return $tokenContent;
+        }
+
+        if (array_key_exists($token, $missionTokens)) {
+            return $token;
+        }
+
+        return $tokenContent;
+    }
+
+    private function tokenBracket(string $lookupKey): string
+    {
+        return '['.$lookupKey.']';
+    }
+
+    /**
+     * Resolve location-based mission tokens from location pools using unified candidate-based matching.
      *
-     * @param  array<string, true>  $requestedTokens  Token names that appeared in the text.
-     * @return array<string, array>  Resolved token values keyed by token name.
+     * @param  array<string, true>  $requestedTokens  Full token content that appeared in the text.
+     * @return array<string, array> Resolved token values keyed by full token content.
      */
     private function resolveLocationBasedTokens(array $locationPools, array $requestedTokens): array
     {
@@ -314,6 +550,7 @@ trait FormatsMissionBrokerEntries
                 continue;
             }
 
+            $purpose = strtolower((string) $purpose);
             $names = [];
 
             foreach ($pool['resolved_locations'] ?? [] as $loc) {
@@ -327,23 +564,81 @@ trait FormatsMissionBrokerEntries
             }
         }
 
+        $shiftedDestinationAliases = $this->shiftedDestinationAliases($purposeToNames, $requestedTokens);
         $tokenMap = [];
 
-        foreach (array_keys($requestedTokens) as $token) {
-            $resolved = match ($token) {
-                'Location' => $purposeToNames['Location'] ?? null,
-                'Destination' => $purposeToNames['Destination'] ?? null,
-                'GoToLocation' => $purposeToNames['GoToLocation'] ?? null,
-                'Address' => $purposeToNames['Location'] ?? $purposeToNames['Destination'] ?? null,
-                default => null,
-            };
+        foreach (array_keys($requestedTokens) as $tokenContent) {
+            $baseKey = $this->missionTokenKey($tokenContent);
+            $candidates = $this->locationTokenCandidates($baseKey);
+
+            if ($candidates === null) {
+                continue;
+            }
+
+            $resolved = null;
+
+            foreach ($candidates as $candidate) {
+                $purposeKey = strtolower($candidate);
+                $resolved = $shiftedDestinationAliases[$purposeKey]
+                    ?? $purposeToNames[$purposeKey]
+                    ?? null;
+
+                if ($resolved !== null) {
+                    break;
+                }
+            }
 
             if ($resolved !== null && $resolved !== []) {
-                $tokenMap[$token] = $resolved;
+                $tokenMap[$tokenContent] = $resolved;
             }
         }
 
         return $tokenMap;
+    }
+
+    /**
+     * Some mission texts use Destination/Destination1 while their pools are
+     * numbered Destination1/Destination2. When there is no exact unnumbered or
+     * zero-indexed destination pool, expose a small shifted lookup for this
+     * mission only while preserving the original token keys.
+     *
+     * @param  array<string, list<string>>  $purposeToNames
+     * @param  array<string, true>  $requestedTokens
+     * @return array<string, list<string>>
+     */
+    private function shiftedDestinationAliases(array $purposeToNames, array $requestedTokens): array
+    {
+        $requestedDestination = false;
+
+        foreach (array_keys($requestedTokens) as $tokenContent) {
+            if (strtolower($this->missionTokenKey($tokenContent)) === 'destination') {
+                $requestedDestination = true;
+                break;
+            }
+        }
+
+        if (! $requestedDestination
+            || isset($purposeToNames['destination'])
+            || isset($purposeToNames['destination0'])
+            || ! isset($purposeToNames['destination1'])) {
+            return [];
+        }
+
+        $aliases = [
+            'destination' => $purposeToNames['destination1'],
+        ];
+
+        for ($i = 1; $i < 9; $i++) {
+            $nextKey = 'destination'.($i + 1);
+
+            if (! isset($purposeToNames[$nextKey])) {
+                continue;
+            }
+
+            $aliases['destination'.$i] = $purposeToNames[$nextKey];
+        }
+
+        return $aliases;
     }
 
     protected function resolveMbePropertyTokenValues(MissionBrokerEntry $mbe, string $tokenContent): ?array

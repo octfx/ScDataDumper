@@ -66,6 +66,10 @@ trait NormalizesValues
             return '';
         }
 
+        if (str_contains($value, '|')) {
+            return $value;
+        }
+
         if (ctype_upper($value[0]) && ! str_contains($value, '_') && ! str_contains($value, '-')) {
             return self::$pascalCaseAcronyms[$value] ?? $value;
         }

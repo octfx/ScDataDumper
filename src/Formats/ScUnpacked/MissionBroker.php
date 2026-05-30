@@ -14,7 +14,7 @@ final class MissionBroker extends BaseFormat
     use FormatsMissionBrokerEntries;
 
     /**
-     * @param  array<string, string>  $mbeChainIndex Maps lowercased MBE UUID to debug/class name.
+     * @param  array<string, string>  $mbeChainIndex  Maps lowercased MBE UUID to debug/class name.
      */
     public function __construct(
         protected MissionBrokerEntry $entry,
@@ -32,6 +32,9 @@ final class MissionBroker extends BaseFormat
         $standingReqs = $this->buildMbeStandingRequirements($this->entry);
         $resolvedReputation = $this->buildMbeFaction($this->entry);
         $crimeStat = $this->buildCrimeStat();
+        $displayTitle = $this->buildDisplayTextFromMissionTokens($title, $missionTokens);
+        $displayDescription = $this->buildDisplayTextFromMissionTokens($description, $missionTokens);
+        $missionTokens = $this->resolveTokenValueReferences($missionTokens ?? []);
 
         $data = $this->transformArrayKeysToPascalCase($this->removeNullValuesPreservingEmptyArrays([
             'uuid' => $this->entry->getUuid(),
@@ -40,9 +43,9 @@ final class MissionBroker extends BaseFormat
             'mission_type' => $this->resolveMbeMissionTypeInfo($this->entry->getMissionTypeUuid()),
             'mission_giver' => $this->resolveMbeMissionGiver($this->entry),
             'title' => $title,
-            'display_title' => $this->buildDisplayTextFromMissionTokens($title, $missionTokens),
+            'display_title' => $displayTitle,
             'description' => $description,
-            'display_description' => $this->buildDisplayTextFromMissionTokens($description, $missionTokens),
+            'display_description' => $displayDescription,
             'location_pools' => $locationPools,
             'mission_tokens' => $missionTokens,
             ...$this->buildMbeRewardFields($this->entry),

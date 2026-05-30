@@ -378,11 +378,12 @@ abstract class ScDataTestCase extends TestCase
         $this->mergeCacheFile('uuidToPathMap', [$normalizedUuid => $path]);
     }
 
+    /**
+     * @throws \ReflectionException
+     */
     protected function invokeMethod(object $object, string $methodName, mixed ...$args): mixed
     {
-        $method = new ReflectionMethod($object::class, $methodName);
-
-        return $method->invoke($object, ...$args);
+        return new ReflectionMethod($object::class, $methodName)->invoke($object, ...$args);
     }
 
     protected function addServiceToFactory(string $key, object $service): void
