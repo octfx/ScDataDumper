@@ -267,6 +267,83 @@ final class LoadCommoditiesCommandTest extends ScDataTestCase
 
         self::fail(sprintf('Missing resource type with key %s', $key));
     }
+
+    public function test_resource_type_export_includes_commodity_group_path(): void
+    {
+        $processedGoodsUuid = 'a0000000-0000-0000-0000-000000000001';
+        $viceUuid = 'a0000000-0000-0000-0000-000000000002';
+        $widowUuid = 'a0000000-0000-0000-0000-000000000003';
+        $metalUuid = 'a0000000-0000-0000-0000-000000000004';
+
+        $this->writeCacheFiles();
+
+        $this->writeResourceTypeCache([
+            $widowUuid => sprintf(
+                <<<'XML'
+                <ResourceType.Widow displayName="@items_widow" description="@LOC_EMPTY" validateDefaultCargoBox="0" __type="ResourceType" __ref="%1$s" __path="libs/foundry/records/resourcetypedatabase/resourcetypedatabase.xml" />
+                XML,
+                $widowUuid,
+            ),
+            $metalUuid => sprintf(
+                <<<'XML'
+                <ResourceType.Iron displayName="@items_iron" description="@LOC_EMPTY" validateDefaultCargoBox="0" __type="ResourceType" __ref="%1$s" __path="libs/foundry/records/resourcetypedatabase/resourcetypedatabase.xml" />
+                XML,
+                $metalUuid,
+            ),
+        ]);
+
+        $this->writeResourceTypeGroupCache([
+            $processedGoodsUuid => sprintf(
+                <<<'XML'
+                <ResourceTypeGroup.ProcessedGoods displayName="@items_type_processed" description="@LOC_EMPTY" __type="ResourceTypeGroup" __ref="%1$s" __path="libs/foundry/records/resourcetypedatabase/resourcetypedatabase.xml">
+                  <groups>
+                    <Reference value="%2$s" />
+                  </groups>
+                  <resources>
+                  </resources>
+                </ResourceTypeGroup.ProcessedGoods>
+                XML,
+                $processedGoodsUuid,
+                $viceUuid,
+            ),
+            $viceUuid => sprintf(
+                <<<'XML'
+                <ResourceTypeGroup.Vice displayName="@items_type_vice" description="@LOC_EMPTY" __type="ResourceTypeGroup" __ref="%1$s" __path="libs/foundry/records/resourcetypedatabase/resourcetypedatabase.xml">
+                  <resources>
+                    <Reference value="%2$s" />
+                  </resources>
+                </ResourceTypeGroup.Vice>
+                XML,
+                $viceUuid,
+                $widowUuid,
+            ),
+        ]);
+
+        $this->writeFile(
+            'Data/Localization/english/global.ini',
+            <<<'INI'
+            LOC_EMPTY=
+            items_widow=Widow
+            items_iron=Iron
+            INI
+        );
+
+        $tester = new CommandTester(new TestLoadCommoditiesCommand);
+        $exitCode = $tester->execute([
+            'scDataPath' => $this->tempDir,
+            'jsonOutPath' => $this->tempDir,
+        ]);
+
+        self::assertSame(0, $exitCode);
+
+        $resourceTypes = $this->readJsonFile('resources/commodities.json');
+
+        $widow = $this->findResourceType($resourceTypes, 'Widow');
+        self::assertSame(['ProcessedGoods', 'Vice'], $widow['CommodityGroups']);
+
+        $iron = $this->findResourceType($resourceTypes, 'Iron');
+        self::assertSame([], $iron['CommodityGroups']);
+    }
 }
 
 final class TestLoadCommoditiesCommand extends LoadCommodities

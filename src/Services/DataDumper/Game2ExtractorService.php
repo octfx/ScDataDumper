@@ -28,6 +28,7 @@ final readonly class Game2ExtractorService
             'ConsumableSubtype.',
             'RadarContactTypeEntry.',
             'ResourceType.',
+            'ResourceTypeGroup.',
             'StarMapAmenityTypeEntry.',
         ];
 

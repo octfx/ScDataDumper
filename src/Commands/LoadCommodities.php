@@ -10,6 +10,7 @@ use Octfx\ScDataDumper\DocumentTypes\Mining\MineableElement;
 use Octfx\ScDataDumper\DocumentTypes\ResourceType;
 use Octfx\ScDataDumper\Services\FoundryLookupService;
 use Octfx\ScDataDumper\Services\Resource\QualityTierResolver;
+use Octfx\ScDataDumper\Services\Resource\ResourceTypeGroupResolver;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -60,10 +61,11 @@ class LoadCommodities extends AbstractDataCommand
         $start = microtime(true);
 
         $mineableElementIndex = $this->buildMineableElementIndex($service);
+        $groupResolver = new ResourceTypeGroupResolver($service);
 
         $resourceTypes = [];
         foreach ($service->getDocumentType('ResourceType', ResourceType::class) as $resourceType) {
-            $resourceTypes[] = $this->buildResourceTypeExportEntry($resourceType, $mineableElementIndex);
+            $resourceTypes[] = $this->buildResourceTypeExportEntry($resourceType, $mineableElementIndex, $groupResolver);
             $io->progressAdvance();
         }
 
@@ -110,10 +112,11 @@ class LoadCommodities extends AbstractDataCommand
      *     tier: ?string,
      *     density_g_per_cc: ?float,
      *     instability: ?float,
-     *     resistance: ?float
+     *     resistance: ?float,
+     *     commodity_groups: list<string>
      * }
      */
-    protected function buildResourceTypeExportEntry(ResourceType $resourceType, array $mineableElementIndex = []): array
+    protected function buildResourceTypeExportEntry(ResourceType $resourceType, array $mineableElementIndex, ResourceTypeGroupResolver $groupResolver): array
     {
         $resourceTypeData = $resourceType->toArray();
         $refinedVersionUuid = $this->normalizeString($resourceTypeData['refinedVersion'] ?? null);
@@ -149,6 +152,7 @@ class LoadCommodities extends AbstractDataCommand
             'density_g_per_cc' => $resourceType->getDensityGramsPerCubicCentimeter(),
             'instability' => $mineableProps['instability'] ?? null,
             'resistance' => $mineableProps['resistance'] ?? null,
+            'commodity_groups' => $groupResolver->getGroupsForResource($uuid),
         ];
 
         return $this->transformArrayKeysToPascalCase($data);
