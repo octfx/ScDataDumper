@@ -973,6 +973,14 @@ trait FormatsMissionBrokerEntries
             $faction = $factionRecord !== null
                 ? $localization->translateValue($factionRecord->getName(), true)
                 : null;
+
+            if ($faction === null) {
+                $factionRep = $lookup->getFactionReputationByReference($factionRepUuid);
+                $faction = $factionRep !== null
+                    ? $localization->translateValue($factionRep->getDisplayName(), true)
+                    : null;
+            }
+
             $factionUuid = $factionRecord !== null ? $factionRecord->getUuid() : $factionRepUuid;
         }
 

@@ -17,10 +17,19 @@ final class Faction extends BaseFormat
 {
     public function toArray(): ?array
     {
-        if (! $this->item instanceof FactionDocument) {
-            return null;
+        if ($this->item instanceof FactionDocument) {
+            return $this->fromFactionDocument();
         }
 
+        if ($this->item instanceof FactionReputation) {
+            return $this->fromOrphanReputation();
+        }
+
+        return null;
+    }
+
+    private function fromFactionDocument(): ?array
+    {
         return $this->transformArrayKeysToPascalCase($this->removeNullValuesPreservingEmptyArrays([
             'uuid' => $this->item->getUuid(),
             'name' => ServiceFactory::getLocalizationService()->translateValue($this->item->getName(), true)
@@ -34,6 +43,49 @@ final class Faction extends BaseFormat
             'noLegalRights' => $this->item->getNoLegalRight(),
             'reputation' => $this->buildReputation($this->item->getFactionReputation()),
         ]));
+    }
+
+    private function fromOrphanReputation(): ?array
+    {
+        $reputation = $this->item;
+        assert($reputation instanceof FactionReputation);
+
+        $localization = ServiceFactory::getLocalizationService();
+
+        $name = $localization->translateValue($reputation->getDisplayName(), true);
+        $properties = $this->buildProperties($reputation);
+        $factionType = $this->resolveFactionType($reputation, $properties);
+
+        return $this->transformArrayKeysToPascalCase($this->removeNullValuesPreservingEmptyArrays([
+            'uuid' => $reputation->getUuid(),
+            'name' => $name,
+            'description' => $properties['description'] ?? null,
+            'defaultReaction' => 'Neutral',
+            'factionType' => $factionType,
+            'ableToArrest' => false,
+            'policesLawfulTrespass' => false,
+            'policesCriminality' => false,
+            'noLegalRights' => ($properties['lawful'] ?? true) === false,
+            'reputation' => $this->buildReputation($reputation),
+        ]));
+    }
+
+    /**
+     * @param  array<string, bool|string>  $properties
+     */
+    private function resolveFactionType(FactionReputation $reputation, array $properties): ?string
+    {
+        if (isset($properties['lawful']) && is_bool($properties['lawful'])) {
+            return $properties['lawful'] ? 'Lawful' : 'Unlawful';
+        }
+
+        $className = $reputation->getClassName();
+
+        if (str_contains($className, '_Unlawful_')) {
+            return 'Unlawful';
+        }
+
+        return str_contains($className, '_Lawful_') ? 'Lawful' : null;
     }
 
     private function buildReputation(?FactionReputation $reputation): ?array

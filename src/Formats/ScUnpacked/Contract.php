@@ -1110,26 +1110,9 @@ final class Contract extends BaseFormat
         $lookup = ServiceFactory::getFoundryLookupService();
         $localization = ServiceFactory::getLocalizationService();
 
-        $factionData = null;
-
-        if ($factionRepUuid !== null) {
-            $faction = $lookup->getFactionByFactionReputationUuid($factionRepUuid);
-            $name = $faction !== null
-                ? $localization->translateValue($faction->getName(), true)
-                : null;
-
-            if ($name === null) {
-                $factionRep = $lookup->getFactionReputationByReference($factionRepUuid);
-                $name = $factionRep !== null
-                    ? $localization->translateValue($factionRep->getDisplayName(), true)
-                    : null;
-            }
-
-            $factionData = [
-                'uuid' => $faction !== null ? $faction->getUuid() : $factionRepUuid,
-                'name' => $name,
-            ];
-        }
+        $factionData = $factionRepUuid !== null
+            ? $this->resolveFactionReputationSummary($lookup, $localization, $factionRepUuid)
+            : null;
 
         $reputationScope = null;
 
@@ -1165,11 +1148,9 @@ final class Contract extends BaseFormat
         $factionUuid = null;
 
         if ($factionRepUuid !== null) {
-            $factionRecord = $lookup->getFactionByFactionReputationUuid($factionRepUuid);
-            $faction = $factionRecord !== null
-                ? $localization->translateValue($factionRecord->getName(), true)
-                : null;
-            $factionUuid = $factionRecord !== null ? $factionRecord->getUuid() : $factionRepUuid;
+            $factionData = $this->resolveFactionReputationSummary($lookup, $localization, $factionRepUuid);
+            $faction = $factionData['name'];
+            $factionUuid = $factionData['uuid'];
         }
 
         $scope = null;
@@ -1189,6 +1170,32 @@ final class Contract extends BaseFormat
         ], static fn ($v) => $v !== null);
     }
 
+    /**
+     * @return array{uuid: string, name: ?string}
+     */
+    private function resolveFactionReputationSummary(
+        FoundryLookupService $lookup,
+        LocalizationService $localization,
+        string $factionRepUuid,
+    ): array {
+        $faction = $lookup->getFactionByFactionReputationUuid($factionRepUuid);
+        $name = $faction !== null
+            ? $localization->translateValue($faction->getName(), true)
+            : null;
+
+        if ($name === null) {
+            $factionRep = $lookup->getFactionReputationByReference($factionRepUuid);
+            $name = $factionRep !== null
+                ? $localization->translateValue($factionRep->getDisplayName(), true)
+                : null;
+        }
+
+        return [
+            'uuid' => $faction !== null ? $faction->getUuid() : $factionRepUuid,
+            'name' => $name,
+        ];
+    }
+
     private function resolveCalculatedReputation(FoundryLookupService $lookup, array $calcRep): ?array
     {
         $faction = null;
@@ -1196,11 +1203,13 @@ final class Contract extends BaseFormat
         $factionUuid = null;
 
         if ($factionRepUuid !== null) {
-            $factionRecord = $lookup->getFactionByFactionReputationUuid($factionRepUuid);
-            $faction = $factionRecord !== null
-                ? ServiceFactory::getLocalizationService()->translateValue($factionRecord->getName(), true)
-                : null;
-            $factionUuid = $factionRecord !== null ? $factionRecord->getUuid() : $factionRepUuid;
+            $factionData = $this->resolveFactionReputationSummary(
+                $lookup,
+                ServiceFactory::getLocalizationService(),
+                $factionRepUuid,
+            );
+            $faction = $factionData['name'];
+            $factionUuid = $factionData['uuid'];
         }
 
         $scope = null;

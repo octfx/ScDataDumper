@@ -6,6 +6,7 @@ namespace Octfx\ScDataDumper\Commands;
 
 use JsonException;
 use Octfx\ScDataDumper\DocumentTypes\Faction\Faction;
+use Octfx\ScDataDumper\DocumentTypes\Faction\FactionReputation;
 use Octfx\ScDataDumper\Formats\ScUnpacked\Faction as ScUnpackedFaction;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -38,7 +39,10 @@ class LoadFactions extends AbstractDataCommand
 
         $service = ServiceFactory::getFoundryLookupService();
 
-        $io->progressStart($service->countDocumentType('Faction'));
+        $io->progressStart(
+            $service->countDocumentType('Faction')
+            + $service->countDocumentType('FactionReputation')
+        );
 
         $outDir = sprintf('%s%sfactions', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
 
@@ -47,7 +51,14 @@ class LoadFactions extends AbstractDataCommand
         $start = microtime(true);
 
         $this->withLazyReferenceHydration([$service], function () use ($service, $overwrite, $io, $outDir): void {
+            $linkedRepUuids = [];
+
             foreach ($service->getDocumentType('Faction', Faction::class) as $faction) {
+                $repRef = $faction->getFactionReputationReference();
+                if ($repRef !== null) {
+                    $linkedRepUuids[$repRef] = true;
+                }
+
                 $fileName = strtolower($faction->getClassName());
                 $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
 
@@ -57,22 +68,27 @@ class LoadFactions extends AbstractDataCommand
                     continue;
                 }
 
-                try {
-                    $json = json_encode((new ScUnpackedFaction($faction))->toArray(), JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+                $this->writeFactionExport($faction, $filePath, $fileName, 'faction', $io);
+                $io->progressAdvance();
+            }
 
-                    if (! $this->writeJsonFile($filePath, $json, $io)) {
-                        $io->warning(sprintf('Skipping faction %s due to write failure', $fileName));
-                        $io->progressAdvance();
-
-                        continue;
-                    }
-                } catch (JsonException $e) {
-                    $io->warning(sprintf('Failed to encode JSON for faction %s: %s', $fileName, $e->getMessage()));
+            foreach ($service->getDocumentType('FactionReputation', FactionReputation::class) as $factionRep) {
+                if (isset($linkedRepUuids[$factionRep->getUuid()])) {
                     $io->progressAdvance();
 
                     continue;
                 }
 
+                $fileName = strtolower($factionRep->getClassName());
+                $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
+
+                if (! $overwrite && file_exists($filePath)) {
+                    $io->progressAdvance();
+
+                    continue;
+                }
+
+                $this->writeFactionExport($factionRep, $filePath, $fileName, 'faction reputation', $io);
                 $io->progressAdvance();
             }
         });
@@ -86,6 +102,28 @@ class LoadFactions extends AbstractDataCommand
         ));
 
         return Command::SUCCESS;
+    }
+
+    private function writeFactionExport(
+        Faction|FactionReputation $document,
+        string $filePath,
+        string $fileName,
+        string $label,
+        SymfonyStyle $io,
+    ): void {
+        try {
+            $json = json_encode(new ScUnpackedFaction($document)->toArray(), JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+            if ($json === 'null' || $json === 'false') {
+                return;
+            }
+
+            if (! $this->writeJsonFile($filePath, $json, $io)) {
+                $io->warning(sprintf('Skipping %s %s due to write failure', $label, $fileName));
+            }
+        } catch (JsonException $e) {
+            $io->warning(sprintf('Failed to encode JSON for %s %s: %s', $label, $fileName, $e->getMessage()));
+        }
     }
 
     protected function configure(): void
