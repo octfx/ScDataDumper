@@ -568,7 +568,7 @@ final class LoadStarmap extends AbstractDataCommand
                     'exit_uuid' => $exit['starMapUuid'],
                     'entry_system' => $entry['system'],
                     'exit_system' => $exit['system'],
-                    'fuel_cost' => $fuelCost,
+                    'fuel_cost' => $fuelCost > 0 ? $fuelCost / 1e6 : 0,
                 ];
 
                 $matched[$key] = true;
