@@ -6,6 +6,7 @@ namespace Octfx\ScDataDumper\Tests\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\Formats\ScUnpacked\Ship;
 use Octfx\ScDataDumper\Services\Vehicle\SeatingAnalyzer;
+use Octfx\ScDataDumper\Services\Vehicle\SocpakObject;
 use Octfx\ScDataDumper\Services\Vehicle\VehicleDataContext;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 use ReflectionClass;
@@ -340,6 +341,35 @@ final class ShipLoadoutExportRegressionTest extends ScDataTestCase
         self::assertSame([['tier' => 'T2', 'count' => 1]], $result['MedicalBeds']);
     }
 
+    public function test_build_seating_info_keeps_loadout_beds_when_socpak_beds_also_exist(): void
+    {
+        $standardisedParts = [
+            [
+                'Name' => 'RootPart',
+                'Port' => [
+                    'PortName' => 'hardpoint_bed_loadout',
+                    'InstalledItem' => [
+                        'type' => 'Bed',
+                        'stdItem' => [
+                            'Type' => 'Bed.Captain',
+                            'ClassName' => 'Bed_Single_Loadout_Source',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $result = $this->invokeSeatingAnalyzer(
+            $standardisedParts,
+            [new SocpakObject('Bed_Single_Socpak_Source', 'Bed_Instance_01', 'socpak_section', null, '/tmp/interior.socpak')],
+        );
+
+        self::assertCount(1, $result['Beds']);
+        self::assertSame('hardpoint_bed_loadout', $result['Beds'][0]['HardpointName']);
+        self::assertSame('Bed_Single_Loadout_Source', $result['Beds'][0]['ClassName']);
+        self::assertSame(1, $result['TotalBeds']);
+    }
+
     private function newShipForInternalInvocation(): Ship
     {
         return new ReflectionClass(Ship::class)->newInstanceWithoutConstructor();
@@ -570,7 +600,7 @@ final class ShipLoadoutExportRegressionTest extends ScDataTestCase
         self::assertSame(['Ballistic', 'Energy'], $ct[0]['SubTypes']);
     }
 
-    private function invokeSeatingAnalyzer(array $standardisedParts): array
+    private function invokeSeatingAnalyzer(array $standardisedParts, array $socpakObjects = []): array
     {
         $context = new VehicleDataContext(
             standardisedParts: $standardisedParts,
@@ -581,6 +611,7 @@ final class ShipLoadoutExportRegressionTest extends ScDataTestCase
             isVehicle: false,
             isGravlev: false,
             isSpaceship: true,
+            socpakObjects: $socpakObjects,
         );
 
         $analyzer = new SeatingAnalyzer;

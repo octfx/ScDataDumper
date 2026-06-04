@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Services\Vehicle;
 
 use Illuminate\Support\Arr;
+use Octfx\ScDataDumper\Helper\Element;
+use Octfx\ScDataDumper\Services\ItemService;
 
 /**
  * Aggregates resource data for vehicles
@@ -16,10 +18,16 @@ final readonly class ResourceAggregator implements VehicleDataCalculator
 {
     private ItemTypeResolver $itemTypeResolver;
 
+    /** @var list<string> Entity type prefixes for weapon racks */
+    private const array WEAPON_RACK_PREFIXES = ['Weapon_Rack_', 'weapon_rack_'];
+
+    /** @var list<string> Entity type prefixes for suit lockers */
+    private const array SUIT_LOCKER_PREFIXES = ['Locker_Suit_', 'Useable_suit_locker_', 'SuitLocker_'];
+
     public function __construct(
         private StandardisedPartWalker $walker,
         ?ItemTypeResolver $itemTypeResolver = null,
-        private ?SocpakStorageExtractor $socpakStorageExtractor = null,
+        private ?ItemService $itemService = null,
     ) {
         $this->itemTypeResolver = $itemTypeResolver ?? new ItemTypeResolver;
     }
@@ -199,60 +207,68 @@ final readonly class ResourceAggregator implements VehicleDataCalculator
             'by_locker' => $suitStorageByLocker !== [] ? $suitStorageByLocker : null,
         ];
 
-        if ($this->socpakStorageExtractor !== null && $context->entity !== null) {
-            $socpakStorage = $this->socpakStorageExtractor->extractStorage($context->entity);
+        $weaponRacks = array_values(array_filter(
+            $context->socpakObjects,
+            fn (SocpakObject $object): bool => $this->isWeaponRack($object->className),
+        ));
 
-            if ($weaponStorage['slots_total'] === null && $socpakStorage['weapon_racks'] !== []) {
-                $totalSocpakSlots = 0;
-                $totalSocpakRifle = 0;
-                $totalSocpakPistol = 0;
-                $socpakByLocker = [];
+        $suitLockersFromSocpak = array_values(array_filter(
+            $context->socpakObjects,
+            fn (SocpakObject $object): bool => $this->isSocpakSuitLocker($object->className),
+        ));
 
-                foreach ($socpakStorage['weapon_racks'] as $rack) {
-                    $totalSocpakSlots += $rack['slots_total'];
-                    $totalSocpakRifle += $rack['slots_rifle'];
-                    $totalSocpakPistol += $rack['slots_pistol'];
+        if ($weaponStorage['slots_total'] === null && $weaponRacks !== []) {
+            $totalSocpakSlots = 0;
+            $totalSocpakRifle = 0;
+            $totalSocpakPistol = 0;
+            $socpakByLocker = [];
 
-                    $socpakByLocker[] = [
-                        'name' => 'Weapon Rack',
-                        'class_name' => $rack['class_name'],
-                        'port' => '<interior>',
-                        'slots_total' => $rack['slots_total'],
-                        'slots_rifle' => $rack['slots_rifle'],
-                        'slots_pistol' => $rack['slots_pistol'],
-                    ];
-                }
+            foreach ($weaponRacks as $rack) {
+                $slots = $this->countSocpakWeaponSlots($rack->className);
+                $totalSocpakSlots += $slots['slots_total'];
+                $totalSocpakRifle += $slots['slots_rifle'];
+                $totalSocpakPistol += $slots['slots_pistol'];
 
-                $weaponStorage = [
-                    'lockers' => count($socpakStorage['weapon_racks']),
-                    'slots_total' => $totalSocpakSlots,
-                    'slots_rifle' => $totalSocpakRifle,
-                    'slots_pistol' => $totalSocpakPistol,
-                    'by_locker' => $socpakByLocker,
+                $socpakByLocker[] = [
+                    'name' => 'Weapon Rack',
+                    'class_name' => strtolower($rack->className),
+                    'port' => '<interior>',
+                    'slots_total' => $slots['slots_total'],
+                    'slots_rifle' => $slots['slots_rifle'],
+                    'slots_pistol' => $slots['slots_pistol'],
                 ];
             }
 
-            if ($suitStorage['slots_total'] === null && $socpakStorage['suit_lockers'] !== []) {
-                $totalSocpakSuitSlots = 0;
-                $socpakSuitByLocker = [];
+            $weaponStorage = [
+                'lockers' => count($weaponRacks),
+                'slots_total' => $totalSocpakSlots,
+                'slots_rifle' => $totalSocpakRifle,
+                'slots_pistol' => $totalSocpakPistol,
+                'by_locker' => $socpakByLocker,
+            ];
+        }
 
-                foreach ($socpakStorage['suit_lockers'] as $locker) {
-                    $totalSocpakSuitSlots += $locker['slots_total'];
+        if ($suitStorage['slots_total'] === null && $suitLockersFromSocpak !== []) {
+            $totalSocpakSuitSlots = 0;
+            $socpakSuitByLocker = [];
 
-                    $socpakSuitByLocker[] = [
-                        'name' => 'Suit Locker',
-                        'class_name' => $locker['class_name'],
-                        'port' => '<interior>',
-                        'slots_total' => $locker['slots_total'],
-                    ];
-                }
+            foreach ($suitLockersFromSocpak as $locker) {
+                $slotsTotal = $this->countSocpakSuitSlots($locker->className);
+                $totalSocpakSuitSlots += $slotsTotal;
 
-                $suitStorage = [
-                    'lockers' => count($socpakStorage['suit_lockers']),
-                    'slots_total' => $totalSocpakSuitSlots,
-                    'by_locker' => $socpakSuitByLocker,
+                $socpakSuitByLocker[] = [
+                    'name' => 'Suit Locker',
+                    'class_name' => strtolower($locker->className),
+                    'port' => '<interior>',
+                    'slots_total' => $slotsTotal,
                 ];
             }
+
+            $suitStorage = [
+                'lockers' => count($suitLockersFromSocpak),
+                'slots_total' => $totalSocpakSuitSlots,
+                'by_locker' => $socpakSuitByLocker,
+            ];
         }
 
         $shieldRegenEffective = $this->calculateTheoreticalShieldRegen(
@@ -260,6 +276,7 @@ final readonly class ResourceAggregator implements VehicleDataCalculator
             $activeShieldPowerMaxTotal,
             $installedShieldPowerMaxTotal,
         );
+
         $shieldRegenerationTime = ($shieldHp > 0.0 && $shieldRegenEffective > 0.0)
             ? $shieldHp / $shieldRegenEffective
             : null;
@@ -292,6 +309,127 @@ final readonly class ResourceAggregator implements VehicleDataCalculator
     public function getPriority(): int
     {
         return 40;
+    }
+
+    private function isWeaponRack(string $type): bool
+    {
+        return array_any(self::WEAPON_RACK_PREFIXES, fn($prefix) => str_starts_with($type, $prefix));
+    }
+
+    private function isSocpakSuitLocker(string $type): bool
+    {
+        return array_any(self::SUIT_LOCKER_PREFIXES, fn($prefix) => str_starts_with($type, $prefix));
+    }
+
+    /**
+     * @return array{slots_total: int, slots_rifle: int, slots_pistol: int}
+     */
+    private function countSocpakWeaponSlots(string $className): array
+    {
+        $defaults = ['slots_total' => 0, 'slots_rifle' => 0, 'slots_pistol' => 0];
+
+        if ($this->itemService === null) {
+            return $defaults;
+        }
+
+        $entity = $this->itemService->getByClassName($className);
+
+        if ($entity === null) {
+            return $defaults;
+        }
+
+        $ports = $entity->get('Components/SItemPortContainerComponentParams/Ports');
+
+        if ($ports === null) {
+            return $defaults;
+        }
+
+        $slotsTotal = 0;
+        $slotsRifle = 0;
+        $slotsPistol = 0;
+
+        foreach ($ports->children() as $portDef) {
+            $types = $this->extractPortTypesFromEntity($portDef);
+
+            if (! $this->isWeaponPersonalPort($types)) {
+                continue;
+            }
+
+            $maxSize = (float) ($portDef->get('@MaxSize') ?? $portDef->get('@maxSize') ?? 0);
+
+            $slotsTotal++;
+
+            if ($maxSize <= 2) {
+                $slotsPistol++;
+            } else {
+                $slotsRifle++;
+            }
+        }
+
+        return ['slots_total' => $slotsTotal, 'slots_rifle' => $slotsRifle, 'slots_pistol' => $slotsPistol];
+    }
+
+    private function countSocpakSuitSlots(string $className): int
+    {
+        if ($this->itemService === null) {
+            return 0;
+        }
+
+        $entity = $this->itemService->getByClassName($className);
+
+        if ($entity === null) {
+            return 0;
+        }
+
+        $ports = $entity->get('Components/SItemPortContainerComponentParams/Ports');
+
+        if ($ports === null) {
+            return 0;
+        }
+
+        $count = 0;
+
+        foreach ($ports->children() as $portDef) {
+            $types = $this->extractPortTypesFromEntity($portDef);
+
+            if ($this->isSuitStoragePort($types)) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function extractPortTypesFromEntity(Element $portDef): array
+    {
+        $types = [];
+
+        foreach ($portDef->get('./Types')?->children() ?? [] as $portType) {
+            $major = $portType->get('@Type') ?? $portType->get('@type');
+
+            if (empty($major)) {
+                continue;
+            }
+
+            $subTypesElement = $portType->get('./SubTypes');
+
+            if ($subTypesElement !== null && $subTypesElement->getNode()->childNodes->count() > 0) {
+                foreach ($subTypesElement->children() as $subType) {
+                    $minor = $subType->get('@value');
+
+                    if (! empty($minor)) {
+                        $types[] = "{$major}.{$minor}";
+                    }
+                }
+            } else {
+                $types[] = $major;
+            }
+        }
+
+        return $types;
     }
 
     /**

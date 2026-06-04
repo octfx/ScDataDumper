@@ -5,7 +5,6 @@ namespace Octfx\ScDataDumper\Services\Vehicle;
 use Illuminate\Support\Arr;
 use Octfx\ScDataDumper\DocumentTypes\InventoryContainer;
 use Octfx\ScDataDumper\Helper\VehicleWrapper;
-use Octfx\ScDataDumper\Services\DataDumper\SocpakReader;
 use Octfx\ScDataDumper\Services\InventoryContainerService;
 use Octfx\ScDataDumper\Services\ItemClassifierService;
 use Octfx\ScDataDumper\Services\ServiceFactory;
@@ -14,17 +13,20 @@ use Octfx\ScDataDumper\ValueObjects\ScuCalculator;
 
 final class InventoryContainerResolver
 {
-    public function __construct(
-        private readonly ?SocpakPersonalStorageExtractor $psExtractor = null,
-    ) {}
+    /** @var list<string> */
+    // TODO: Prefer component-driven detection over class-name prefixes so renamed personal storage entities are not missed.
+    private const array PERSONAL_STORAGE_PREFIXES = ['PersonalStorage_'];
 
-    public function resolveInventoryContainers(VehicleWrapper $vehicle): InventoryContainerResult
+    /**
+     * @param  list<SocpakObject>  $socpakObjects
+     */
+    public function resolveInventoryContainers(VehicleWrapper $vehicle, array $socpakObjects = []): InventoryContainerResult
     {
         $result = new InventoryContainerResult;
         $inventoryService = ServiceFactory::getInventoryContainerService();
         $classifier = new ItemClassifierService;
 
-        $vehicleContainerUuid = $this->addVehicleContainer($vehicle, $inventoryService, $result);
+        $vehicleContainerUuid = $this->addVehicleContainer($vehicle, $result);
 
         foreach ($this->collectLoadoutContainers($vehicle->loadout) as $entry) {
             $itemRaw = $entry['itemRaw'] ?? null;
@@ -67,22 +69,21 @@ final class InventoryContainerResolver
             $result->addContainer($containerData, $dedupKey, $isClosed);
         }
 
-        // Extract PersonalStorage items from socpak interior files
-        $psExtractor = $this->psExtractor ?? new SocpakPersonalStorageExtractor(
-            new SocpakReader(ServiceFactory::getActiveScDataPath()),
-            ServiceFactory::getItemService(),
-        );
+        // Extract PersonalStorage items from pre-collected socpak interior files.
+        foreach ($socpakObjects as $psItem) {
+            if (! $this->isPersonalStorage($psItem->className)) {
+                continue;
+            }
 
-        foreach ($psExtractor->extractPersonalStorage($vehicle->entity) as $psItem) {
-            $scu = $psItem['SCU'] ?? 0;
+            [$containerUuid, $scu] = $this->resolvePersonalStorageContainer($psItem->className);
 
             if ($scu <= 0) {
                 continue;
             }
 
             $containerData = [
-                'uuid' => $psItem['ContainerUUID'],
-                'class' => $psItem['ClassName'],
+                'uuid' => $containerUuid,
+                'class' => $psItem->className,
                 'scu' => $scu,
                 'capacity' => $scu,
                 'capacity_name' => 'SCU',
@@ -95,22 +96,44 @@ final class InventoryContainerResolver
                 'source' => 'socpak',
             ];
 
-            // Each PersonalStorage instance in a socpak is a unique physical locker.
-            // Dedup by instance name to avoid counting the same physical locker twice.
-            $dedupKey = 'socpak:'.$psItem['InstanceName'];
+            // Each object placement is a unique physical locker. Include path and
+            // section to avoid suppressing module lockers that reuse instance names.
+            $dedupKey = 'socpak:'.$psItem->socpakPath.':'.$psItem->section.':'.$psItem->instanceName;
 
             // true = isClosedContainer; PersonalStorage lockers are always closed containers
             $result->addContainer($containerData, $dedupKey, true);
         }
 
-        $vehicleContainerUuid = null;
-
         return $result;
+    }
+
+    private function isPersonalStorage(string $className): bool
+    {
+        return array_any(self::PERSONAL_STORAGE_PREFIXES, fn($prefix) => str_starts_with($className, $prefix));
+    }
+
+    /**
+     * @return array{0: string|null, 1: float}
+     */
+    private function resolvePersonalStorageContainer(string $className): array
+    {
+        $entity = ServiceFactory::getItemService()->getByClassName($className);
+
+        if ($entity === null) {
+            return [null, 0.0];
+        }
+
+        $container = $entity->getInventoryContainer();
+
+        if ($container === null) {
+            return [null, 0.0];
+        }
+
+        return [$container->getUuid(), $container->getSCU()];
     }
 
     private function addVehicleContainer(
         VehicleWrapper $vehicle,
-        InventoryContainerService $inventoryService,
         InventoryContainerResult $result
     ): ?string {
         $container = $vehicle->entity->getInventoryContainer();

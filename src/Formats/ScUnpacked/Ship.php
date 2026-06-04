@@ -25,8 +25,7 @@ use Octfx\ScDataDumper\Services\Vehicle\PropulsionSystemAggregator;
 use Octfx\ScDataDumper\Services\Vehicle\QuantumTravelCalculator;
 use Octfx\ScDataDumper\Services\Vehicle\ResourceAggregator;
 use Octfx\ScDataDumper\Services\Vehicle\SeatingAnalyzer;
-use Octfx\ScDataDumper\Services\Vehicle\SocpakBedExtractor;
-use Octfx\ScDataDumper\Services\Vehicle\SocpakStorageExtractor;
+use Octfx\ScDataDumper\Services\Vehicle\SocpakObjectCollector;
 use Octfx\ScDataDumper\Services\Vehicle\StanceSpeedExtractor;
 use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartBuilder;
 use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartWalker;
@@ -205,6 +204,12 @@ final class Ship extends BaseFormat
             $this->vehicleWrapper->entity,
         );
 
+        $socpakReader = new SocpakReader(ServiceFactory::getActiveScDataPath());
+        $socpakObjects = (new SocpakObjectCollector($socpakReader))->collectAll(
+            $this->vehicleWrapper->entity,
+            $this->vehicleWrapper->loadout,
+        );
+
         $context = new VehicleDataContext(
             standardisedParts: $standardisedParts,
             portSummary: $portSummary,
@@ -217,18 +222,15 @@ final class Ship extends BaseFormat
             turretControlMap: $turretControlMap,
             intermediateResults: [],
             entity: $this->vehicleWrapper->entity,
+            loadout: $this->vehicleWrapper->loadout,
+            socpakObjects: $socpakObjects,
         );
-
-        $socpakReader = new SocpakReader(ServiceFactory::getActiveScDataPath());
 
         $calculators = [
             new EmissionAggregator($walker, $this->vehicleWrapper),
             new ResourceAggregator(
                 walker: $walker,
-                socpakStorageExtractor: new SocpakStorageExtractor(
-                    reader: $socpakReader,
-                    itemService: ServiceFactory::getItemService(),
-                ),
+                itemService: ServiceFactory::getItemService(),
             ),
             new PropulsionSystemAggregator,
             new QuantumTravelCalculator,
@@ -236,10 +238,7 @@ final class Ship extends BaseFormat
             new HealthAggregator($walker),
             new WeaponDpsAggregator($walker),
             new WeaponSystemAnalyzer,
-            new SeatingAnalyzer(
-                bedExtractor: new SocpakBedExtractor($socpakReader),
-                itemService: ServiceFactory::getItemService(),
-            ),
+            new SeatingAnalyzer(itemService: ServiceFactory::getItemService()),
             new DriveCharacteristicsVehicleCalculator(
                 new DriveCharacteristicsCalculator,
                 $this->vehicleWrapper
@@ -348,7 +347,10 @@ final class Ship extends BaseFormat
         $cargoSizeLimits = $this->cargoGridResolver->calculateCargoGridSizeLimits($cargoResult->grids);
         $summary['CargoSizeLimits'] = $this->transformArrayKeysToPascalCase($cargoSizeLimits);
 
-        $inventoryResult = $this->inventoryContainerResolver->resolveInventoryContainers($this->vehicleWrapper);
+        $inventoryResult = $this->inventoryContainerResolver->resolveInventoryContainers(
+            $this->vehicleWrapper,
+            socpakObjects: $socpakObjects,
+        );
 
         if ($inventoryResult->stowageCapacity > 0) {
             $summary['Stowage'] = round($inventoryResult->stowageCapacity, 2);

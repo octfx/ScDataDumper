@@ -7,6 +7,7 @@ namespace Octfx\ScDataDumper\Tests\Services\Vehicle;
 use Octfx\ScDataDumper\DocumentTypes\VehicleDefinition;
 use Octfx\ScDataDumper\Helper\VehicleWrapper;
 use Octfx\ScDataDumper\Services\Vehicle\InventoryContainerResolver;
+use Octfx\ScDataDumper\Services\Vehicle\SocpakObject;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 
 final class InventoryContainerResolverTest extends ScDataTestCase
@@ -198,6 +199,93 @@ final class InventoryContainerResolverTest extends ScDataTestCase
         self::assertCount(1, $result->containers);
         self::assertSame('loadout', $result->containers->first()['source']);
         self::assertSame('uuid-standalone-ps', $result->containers->first()['uuid']);
+    }
+
+    public function test_socpak_personal_storage_dedup_includes_physical_placement_identity(): void
+    {
+        $containerPath = $this->writeFile(
+            'Data/Libs/Foundry/Records/inventorycontainers/personal/test_socpak_ps.xml',
+            <<<'XML'
+            <InventoryContainer.TEST_SOCPAK_PS __type="InventoryContainer" __ref="uuid-socpak-ps" __path="libs/foundry/records/inventorycontainers/personal/test_socpak_ps.xml">
+              <interiorDimensions x="0.5" y="0.5" z="0.5" />
+              <inventoryType>
+                <InventoryClosedContainerType>
+                  <capacity>
+                    <SStandardCargoUnit standardCargoUnits="0.39" />
+                  </capacity>
+                </InventoryClosedContainerType>
+              </inventoryType>
+            </InventoryContainer.TEST_SOCPAK_PS>
+            XML
+        );
+        $psEntityPath = $this->writeFile(
+            'Data/Libs/Foundry/Records/entities/scitem/ships/test_personal_storage.xml',
+            <<<'XML'
+            <EntityClassDefinition.PersonalStorage_Test __type="EntityClassDefinition" __ref="uuid-ps-entity" __path="libs/foundry/records/entities/scitem/ships/test_personal_storage.xml">
+              <Components>
+                <SAttachableComponentParams>
+                  <AttachDef Type="UNDEFINED" />
+                </SAttachableComponentParams>
+                <SCItemInventoryContainerComponentParams containerParams="uuid-socpak-ps" />
+              </Components>
+            </EntityClassDefinition.PersonalStorage_Test>
+            XML
+        );
+        $vehiclePath = $this->writeFile(
+            'Data/Libs/Foundry/Records/entities/vehicles/test_socpak_vehicle.xml',
+            <<<'XML'
+            <VehicleDefinition.TEST_SOCPAK_VEHICLE __type="VehicleDefinition" __ref="uuid-socpak-vehicle" __path="libs/foundry/records/entities/vehicles/test_socpak_vehicle.xml">
+              <Components>
+                <SAttachableComponentParams>
+                  <AttachDef Type="Vehicle" SubType="Ship" />
+                </SAttachableComponentParams>
+              </Components>
+            </VehicleDefinition.TEST_SOCPAK_VEHICLE>
+            XML
+        );
+
+        $this->writeCacheFiles(
+            classToPathMap: [
+                'EntityClassDefinition' => [
+                    'TEST_SOCPAK_VEHICLE' => $vehiclePath,
+                    'PersonalStorage_Test' => $psEntityPath,
+                ],
+                'InventoryContainer' => [
+                    'TEST_SOCPAK_PS' => $containerPath,
+                ],
+            ],
+            uuidToClassMap: [
+                'uuid-socpak-vehicle' => 'TEST_SOCPAK_VEHICLE',
+                'uuid-ps-entity' => 'PersonalStorage_Test',
+                'uuid-socpak-ps' => 'TEST_SOCPAK_PS',
+            ],
+            classToUuidMap: [
+                'TEST_SOCPAK_VEHICLE' => 'uuid-socpak-vehicle',
+                'PersonalStorage_Test' => 'uuid-ps-entity',
+                'TEST_SOCPAK_PS' => 'uuid-socpak-ps',
+            ],
+            uuidToPathMap: [
+                'uuid-socpak-vehicle' => $vehiclePath,
+                'uuid-ps-entity' => $psEntityPath,
+                'uuid-socpak-ps' => $containerPath,
+            ],
+        );
+        $this->initializeMinimalItemServices();
+
+        $vehicle = new VehicleDefinition;
+        $vehicle->load($vehiclePath);
+
+        $result = (new InventoryContainerResolver)->resolveInventoryContainers(
+            new VehicleWrapper(null, $vehicle, []),
+            socpakObjects: [
+                new SocpakObject('PersonalStorage_Test', 'PersonalStorage_Template-Left_01', 'module_left_t3', null, '/tmp/t3_left.socpak'),
+                new SocpakObject('PersonalStorage_Test', 'PersonalStorage_Template-Left_01', 'module_left_t2', null, '/tmp/t2_left.socpak'),
+            ],
+        );
+
+        self::assertCount(2, $result->containers);
+        self::assertSame(0.78, $result->stowageCapacity);
+        self::assertEqualsCanonicalizing(['socpak', 'socpak'], $result->containers->pluck('source')->all());
     }
 
     public function test_different_containers_both_appear(): void

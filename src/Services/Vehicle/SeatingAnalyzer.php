@@ -2,11 +2,20 @@
 
 namespace Octfx\ScDataDumper\Services\Vehicle;
 
-use Octfx\ScDataDumper\DocumentTypes\VehicleDefinition;
 use Octfx\ScDataDumper\Services\ItemService;
 
 final class SeatingAnalyzer implements VehicleDataCalculator
 {
+    private const string BED_TYPE_PREFIX = 'Bed_';
+
+    /** @var list<string> */
+    private const array NON_BED_PREFIXES = [
+        'Console_',
+        'ControlPanel_',
+        'SCItemDisplayScreen_',
+        'Cupboard_',
+    ];
+
     private const array MED_BED_TIER_MAP = [
         'Hospital' => 'T1',
         'Clinic' => 'T2',
@@ -47,7 +56,6 @@ final class SeatingAnalyzer implements VehicleDataCalculator
 
     public function __construct(
         ?ItemTypeResolver $itemTypeResolver = null,
-        private readonly ?SocpakBedExtractor $bedExtractor = null,
         private readonly ?ItemService $itemService = null,
     ) {
         $this->itemTypeResolver = $itemTypeResolver ?? new ItemTypeResolver;
@@ -108,7 +116,7 @@ final class SeatingAnalyzer implements VehicleDataCalculator
             $seats[] = $this->buildSeatEntry($item, $portName);
         }
 
-        $beds = $this->resolveBeds($loadoutBeds, $context->entity);
+        $beds = $this->resolveBeds($loadoutBeds, $context->socpakObjects);
 
         $result = [];
 
@@ -255,13 +263,13 @@ final class SeatingAnalyzer implements VehicleDataCalculator
         ];
     }
 
-    private function buildBedEntryFromSocpak(array $socpakBed): array
+    private function buildBedEntryFromSocpak(SocpakObject $socpakBed): array
     {
-        $className = $socpakBed['ClassName'];
+        $className = $socpakBed->className;
         $tier = $this->getMedicalTier($className);
 
         return [
-            'HardpointName' => $socpakBed['Section'],
+            'HardpointName' => $socpakBed->section,
             'ClassName' => $className,
             'BedType' => $this->classifyBedType($className),
             'IsMedical' => $tier !== null,
@@ -270,33 +278,41 @@ final class SeatingAnalyzer implements VehicleDataCalculator
     }
 
     /**
-     * @return list<array{ClassName: string, InstanceName: string, Section: string, Layer: string|null}>
+     * @param  list<SocpakObject>  $socpakObjects
      */
-    private function extractSocpakBeds(?VehicleDefinition $entity): array
+    private function resolveBeds(array $loadoutBeds, array $socpakObjects): array
     {
-        if ($this->bedExtractor === null || $entity === null) {
-            return [];
+        if ($loadoutBeds !== []) {
+            return $loadoutBeds;
         }
 
-        return $this->bedExtractor->extractBeds($entity);
+        $socpakBeds = array_values(array_filter(
+            $socpakObjects,
+            fn (SocpakObject $object): bool => $this->isSocpakBed($object->className),
+        ));
+
+        return array_map(fn (SocpakObject $bed): array => $this->buildBedEntryFromSocpak($bed), $socpakBeds);
     }
 
-    private function resolveBeds(array $loadoutBeds, ?VehicleDefinition $entity): array
+    private function isSocpakBed(string $type): bool
     {
-        $socpakBeds = $this->extractSocpakBeds($entity);
-
-        if ($socpakBeds !== []) {
-            return array_map(fn (array $b) => $this->buildBedEntryFromSocpak($b), $socpakBeds);
+        if (str_starts_with($type, self::BED_TYPE_PREFIX)) {
+            return true;
         }
 
-        return $loadoutBeds;
+        return str_contains($type, 'Med_Bed') && ! $this->isNonBedType($type);
+    }
+
+    private function isNonBedType(string $type): bool
+    {
+        return array_any(self::NON_BED_PREFIXES, fn ($prefix) => str_starts_with($type, $prefix));
     }
 
     private function classifyBedType(string $className): string
     {
         $lower = strtolower($className);
 
-        if (str_contains($lower, 'medical')) {
+        if (str_contains($lower, 'medical') || str_contains($lower, 'med_bed') || str_contains($lower, 'medbed')) {
             return 'Medical';
         }
 

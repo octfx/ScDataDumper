@@ -23,7 +23,9 @@ final readonly class VehicleDataContext
      * @param  bool  $isSpaceship  True if this is a spaceship
      * @param  array  $turretControlMap  List of turret hardpoint names controllable from bridge positions
      * @param  array  $intermediateResults  Results from previously executed calculators
-     * @param  VehicleDefinition|null  $entity  Vehicle entity class definition for socpak bed extraction
+     * @param  VehicleDefinition|null  $entity  Vehicle entity class definition
+     * @param  array  $loadout  Raw loadout entries
+     * @param  list<SocpakObject>  $socpakObjects  Pre-collected socpak objects for all calculators
      */
     public function __construct(
         public array $standardisedParts,
@@ -37,6 +39,8 @@ final readonly class VehicleDataContext
         public array $turretControlMap = [],
         public array $intermediateResults = [],
         public ?VehicleDefinition $entity = null,
+        public array $loadout = [],
+        public array $socpakObjects = [],
     ) {}
 
     /**
@@ -59,6 +63,8 @@ final readonly class VehicleDataContext
             turretControlMap: $this->turretControlMap,
             intermediateResults: $intermediateResults,
             entity: $this->entity,
+            loadout: $this->loadout,
+            socpakObjects: $this->socpakObjects,
         );
     }
 }
