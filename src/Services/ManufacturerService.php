@@ -20,6 +20,15 @@ final class ManufacturerService extends BaseService
 
     private const int CACHE_LIMIT = 100;
 
+    /**
+     * Canonical manufacturer index keyed by raw localization name key.
+     *
+     * Duplicate name keys prefer the primary `scitemmanufacturer.*.xml` record.
+     *
+     * @var array<string, array{code: string, uuid: string}>
+     */
+    private array $canonicalIndex = [];
+
     public static function resetDocumentCache(): void
     {
         self::$documentCache = [];
@@ -32,25 +41,86 @@ final class ManufacturerService extends BaseService
 
     public function initialize(): void
     {
-        // Only keep real SCItemManufacturer documents and ignore other files that happen to live in the folder
-        $this->manufacturerPaths = array_filter(
-            self::$uuidToPathMap,
-            static function (string $path): bool {
-                if (str_contains($path, 'scitemmanufacturer') !== true) {
-                    return false;
-                }
+        /** @var array<string, list<array{code: string, uuid: string, path: string, is_primary: bool}>> $candidates */
+        $candidates = [];
+        $paths = [];
 
-                $handle = @fopen($path, 'rb');
-                if (! $handle) {
-                    return false;
-                }
-
-                $firstLine = fgets($handle) ?: '';
-                fclose($handle);
-
-                return (bool) preg_match('/^<SCItemManufacturer\\./', ltrim($firstLine));
+        foreach (self::$uuidToPathMap as $path) {
+            if (str_contains($path, 'scitemmanufacturer') !== true) {
+                continue;
             }
-        );
+
+            $manufacturer = new SCItemManufacturer;
+            $manufacturer->setReferenceHydrationEnabled($this->referenceHydrationEnabled);
+            $manufacturer->load($path);
+
+            if (! str_starts_with($manufacturer->documentElement->nodeName, 'SCItemManufacturer.')) {
+                continue;
+            }
+
+            $manufacturer->checkValidity();
+            $paths[] = $path;
+
+            $code = $manufacturer->getCode();
+            $uuid = $manufacturer->getUuid();
+            $nameKey = $manufacturer->get('Localization@Name', raw: true);
+
+            if ($code === null || $code === '' || $uuid === '') {
+                continue;
+            }
+
+            if (! is_string($nameKey) || ! str_starts_with($nameKey, '@manufacturer_')) {
+                continue;
+            }
+
+            $lookupKey = $nameKey;
+            if (str_starts_with($lookupKey, '@manufacturer_Desc')) {
+                $lookupKey = '@manufacturer_Name'.substr($lookupKey, strlen('@manufacturer_Desc'));
+            }
+
+            $basename = basename($path);
+            $isPrimary = str_starts_with($basename, 'scitemmanufacturer.');
+
+            $candidates[$lookupKey][] = [
+                'code' => $code,
+                'uuid' => $uuid,
+                'path' => $path,
+                'is_primary' => $isPrimary,
+            ];
+        }
+
+        $this->manufacturerPaths = $paths;
+
+        foreach ($candidates as $key => $entries) {
+            usort($entries, static function (array $a, array $b): int {
+                if ($a['is_primary'] !== $b['is_primary']) {
+                    return $a['is_primary'] ? -1 : 1;
+                }
+
+                return $a['path'] <=> $b['path'];
+            });
+
+            $winner = $entries[0];
+            $this->canonicalIndex[$key] = [
+                'code' => $winner['code'],
+                'uuid' => $winner['uuid'],
+            ];
+        }
+    }
+
+    /**
+     * Look up a canonical manufacturer by raw localization name key.
+     *
+     * @param  string  $nameKey  Raw localization key, e.g. `@manufacturer_NameRSI`
+     * @return array{code: string, uuid: string}|null Canonical manufacturer data, or null if not found
+     */
+    public function getCanonicalByNameKey(string $nameKey): ?array
+    {
+        if (str_starts_with($nameKey, '@manufacturer_Desc')) {
+            $nameKey = '@manufacturer_Name'.substr($nameKey, strlen('@manufacturer_Desc'));
+        }
+
+        return $this->canonicalIndex[$nameKey] ?? null;
     }
 
     public function iterator(): Generator

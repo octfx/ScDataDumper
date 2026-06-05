@@ -7,6 +7,7 @@ use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\DocumentTypes\SCItemManufacturer;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 use Octfx\ScDataDumper\Formats\LazyFormat;
+use Octfx\ScDataDumper\Formats\ScUnpacked\Concerns\ResolvesEventSource;
 use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Helper\ItemDescriptionParser;
 use Octfx\ScDataDumper\Services\ServiceFactory;
@@ -16,6 +17,8 @@ use Octfx\ScDataDumper\Services\ServiceFactory;
  */
 final class Item extends BaseFormat
 {
+    use ResolvesEventSource;
+
     protected ?string $elementKey = 'Components/SAttachableComponentParams/AttachDef';
 
     public function toArray(): array
@@ -31,7 +34,20 @@ final class Item extends BaseFormat
             'UUID' => '00000000-0000-0000-0000-000000000000',
         ];
 
-        $hasManufacturer = $manufacturer && $manufacturer->get('Localization@__Name', raw: true) !== '@LOC_PLACEHOLDER';
+        $rawNameKey = $manufacturer?->get('Localization@Name', raw: true);
+        $manufacturerCode = $manufacturer?->getCode();
+        $hasManufacturer = $manufacturer !== null;
+
+        // Only codeless manufacturer aliases need canonical resolution.
+        $canonicalManufacturer = null;
+        if (($manufacturerCode === null || $manufacturerCode === '')
+            && $hasManufacturer
+            && is_string($rawNameKey)
+            && str_starts_with($rawNameKey, '@manufacturer_')
+        ) {
+            $canonicalManufacturer = ServiceFactory::getManufacturerService()
+                ->getCanonicalByNameKey($rawNameKey);
+        }
 
         $name = $attach->get('Localization@Name');
         $description = $attach->get('Localization@Description') ?? '';
@@ -79,8 +95,9 @@ final class Item extends BaseFormat
                 'tag' => $tag,
                 'name' => $entityTagNames->getTagName($tag),
             ], $entityTags),
-            'manufacturer' => $manufacturer?->getCode(),
+            'manufacturer' => $canonicalManufacturer['code'] ?? $manufacturerCode,
             'classification' => $this->item->getClassification(),
+            'event_source' => self::resolveEventSource($this->item->getClassName(), $this->item->getTagList()),
             'stdItem' => [
                 'UUID' => $this->item->getUuid(),
                 'ClassName' => $this->item->getClassName(),
@@ -99,11 +116,17 @@ final class Item extends BaseFormat
                 'Description' => $description,
                 'DescriptionData' => $descriptionData['data'] ?? null,
                 'DescriptionText' => $descriptionData['description'] ?? null,
-                'Manufacturer' => $hasManufacturer ? [
-                    'Code' => $manufacturer->getCode(),
-                    'Name' => $manufacturer->get('Localization@Name'),
-                    'UUID' => $manufacturer->getUuid(),
-                ] : $defaultManufacturer,
+                'Manufacturer' => $canonicalManufacturer !== null
+                    ? [
+                        'Code' => $canonicalManufacturer['code'],
+                        'Name' => $manufacturer->get('Localization@Name'),
+                        'UUID' => $canonicalManufacturer['uuid'],
+                    ]
+                    : ($hasManufacturer ? [
+                        'Code' => $manufacturerCode,
+                        'Name' => $manufacturer->get('Localization@Name'),
+                        'UUID' => $manufacturer->getUuid(),
+                    ] : $defaultManufacturer),
                 'Tags' => $this->item->getTagList(),
                 'RequiredTags' => $this->item->getRequiredTagList(),
                 'Rarity' => $rarity,
