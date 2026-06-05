@@ -125,6 +125,8 @@ final class Contract extends BaseFormat
 
         $resolvedReputation = $this->buildFaction();
 
+        $titleKey = $this->entry->getTitleKey();
+        $descriptionKey = $this->entry->getDescriptionKey();
         $title = $this->translateLocalizationValue($this->entry->getTitle());
         $description = $this->translateLocalizationValue($this->entry->getDescription());
         $locationPools = $this->buildLocationPools();
@@ -142,6 +144,14 @@ final class Contract extends BaseFormat
 
             if ($description === '') {
                 $description = $this->translateMbeText($mbe->getDescription());
+            }
+
+            if ($titleKey === null) {
+                $titleKey = $mbe->getTitleKey();
+            }
+
+            if ($descriptionKey === null) {
+                $descriptionKey = $mbe->getDescriptionKey();
             }
 
             if ($locationPools === []) {
@@ -176,8 +186,10 @@ final class Contract extends BaseFormat
             'mission_type' => $missionType,
             'mission_giver' => $missionGiver,
             'title' => $title,
+            'title_key' => $titleKey,
             'display_title' => $displayTitle,
             'description' => $description,
+            'description_key' => $descriptionKey,
             'display_description' => $displayDescription,
             'location_pools' => $locationPools,
             'mission_tokens' => $missionTokens,

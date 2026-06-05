@@ -73,6 +73,32 @@ class ContractEntry extends RootDocument
         return $this->resolveTemplateDisplayStrings()[1];
     }
 
+    public function getTitleKey(): ?string
+    {
+        $value = $this->get('paramOverrides/stringParamOverrides/ContractStringParam[@param="Title"]@value', raw: true);
+
+        if (is_string($value) && str_starts_with($value, '@')) {
+            return ltrim($value, '@');
+        }
+
+        $template = $this->resolveTemplateDisplayStrings()[0];
+
+        return is_string($template) && str_starts_with($template, '@') ? ltrim($template, '@') : null;
+    }
+
+    public function getDescriptionKey(): ?string
+    {
+        $value = $this->get('paramOverrides/stringParamOverrides/ContractStringParam[@param="Description"]@value', raw: true);
+
+        if (is_string($value) && str_starts_with($value, '@')) {
+            return ltrim($value, '@');
+        }
+
+        $template = $this->resolveTemplateDisplayStrings()[1];
+
+        return is_string($template) && str_starts_with($template, '@') ? ltrim($template, '@') : null;
+    }
+
     public function getContractor(): ?string
     {
         $value = $this->getString('paramOverrides/stringParamOverrides/ContractStringParam[@param="Contractor"]@value');

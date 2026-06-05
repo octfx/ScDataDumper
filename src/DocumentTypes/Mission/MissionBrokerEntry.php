@@ -19,6 +19,20 @@ final class MissionBrokerEntry extends RootDocument
         return $this->getString('@description');
     }
 
+    public function getTitleKey(): ?string
+    {
+        $value = $this->get('@title', raw: true);
+
+        return is_string($value) && str_starts_with($value, '@') ? ltrim($value, '@') : null;
+    }
+
+    public function getDescriptionKey(): ?string
+    {
+        $value = $this->get('@description', raw: true);
+
+        return is_string($value) && str_starts_with($value, '@') ? ltrim($value, '@') : null;
+    }
+
     public function getMissionGiver(): ?string
     {
         return $this->getString('@missionGiver');
