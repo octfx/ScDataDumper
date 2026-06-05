@@ -313,12 +313,12 @@ final readonly class ResourceAggregator implements VehicleDataCalculator
 
     private function isWeaponRack(string $type): bool
     {
-        return array_any(self::WEAPON_RACK_PREFIXES, fn($prefix) => str_starts_with($type, $prefix));
+        return array_any(self::WEAPON_RACK_PREFIXES, fn ($prefix) => str_starts_with($type, $prefix));
     }
 
     private function isSocpakSuitLocker(string $type): bool
     {
-        return array_any(self::SUIT_LOCKER_PREFIXES, fn($prefix) => str_starts_with($type, $prefix));
+        return array_any(self::SUIT_LOCKER_PREFIXES, fn ($prefix) => str_starts_with($type, $prefix));
     }
 
     /**

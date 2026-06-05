@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride;
 
+use Octfx\ScDataDumper\DocumentTypes\RootDocument;
+
 /**
- * @phpstan-require-extends \Octfx\ScDataDumper\DocumentTypes\RootDocument
+ * @phpstan-require-extends RootDocument
  */
 trait HasTagSearchTerms
 {

@@ -11,6 +11,7 @@ use Octfx\ScDataDumper\Services\ServiceFactory;
 use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Exception\ExceptionInterface;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -26,7 +27,7 @@ class LoadManufacturers extends AbstractDataCommand
     use NormalizesValues;
 
     /**
-     * @throws JsonException|\Symfony\Component\Console\Exception\ExceptionInterface
+     * @throws JsonException|ExceptionInterface
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {

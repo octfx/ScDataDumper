@@ -109,7 +109,7 @@ final class InventoryContainerResolver
 
     private function isPersonalStorage(string $className): bool
     {
-        return array_any(self::PERSONAL_STORAGE_PREFIXES, fn($prefix) => str_starts_with($className, $prefix));
+        return array_any(self::PERSONAL_STORAGE_PREFIXES, fn ($prefix) => str_starts_with($className, $prefix));
     }
 
     /**
