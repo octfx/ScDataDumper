@@ -27,6 +27,7 @@ use Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride\StringHashValue;
 use Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride\TimeTrialRaceValue;
 use Octfx\ScDataDumper\DocumentTypes\Mission\MissionBrokerEntry;
 use Octfx\ScDataDumper\Formats\BaseFormat;
+use Octfx\ScDataDumper\Formats\ScUnpacked\Concerns\BuildsMissionItemHaulingOrders;
 use Octfx\ScDataDumper\Formats\ScUnpacked\Concerns\FormatsMissionBrokerEntries;
 use Octfx\ScDataDumper\Services\FoundryLookupService;
 use Octfx\ScDataDumper\Services\ItemService;
@@ -35,6 +36,7 @@ use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class Contract extends BaseFormat
 {
+    use BuildsMissionItemHaulingOrders;
     use FormatsMissionBrokerEntries;
 
     /**
@@ -176,8 +178,12 @@ final class Contract extends BaseFormat
             }
         }
 
-        if ($haulingOrders === [] && $itemCounts !== null) {
-            $haulingOrders = $this->buildMissionItemHaulingOrdersFromItemCounts($itemCounts);
+        if ($itemCounts !== null) {
+            $haulingOrders = $this->enrichMissionItemHaulingOrdersFromItemCounts($haulingOrders, $itemCounts);
+
+            if ($haulingOrders === []) {
+                $haulingOrders = $this->buildMissionItemHaulingOrdersFromItemCounts($itemCounts);
+            }
         }
 
         $displayTitle = $this->buildDisplayTextFromMissionTokens($title, $missionTokens);
@@ -1242,7 +1248,7 @@ final class Contract extends BaseFormat
             'faction_uuid' => $factionUuid,
             'scope' => $scope,
             'scope_uuid' => $scopeUuid,
-        ], static fn ($v) => $v !== null) ?: true;
+        ], static fn ($v) => $v !== null);
     }
 
     private function buildPropertyOverrides(): ?array
@@ -1348,39 +1354,6 @@ final class Contract extends BaseFormat
         }
 
         return $merged !== [] ? $merged : null;
-    }
-
-    /**
-     * @param  array{items?: list<array{uuid?: string, name?: ?string}>, min_items?: int, max_items?: int}  $itemCounts
-     * @return list<array>
-     */
-    private function buildMissionItemHaulingOrdersFromItemCounts(array $itemCounts): array
-    {
-        $items = $itemCounts['items'] ?? [];
-
-        if ($items === []) {
-            return [];
-        }
-
-        if (count($items) === 1) {
-            $item = $items[0];
-
-            return [[
-                'kind' => 'MissionItem',
-                'name' => $item['name'] ?? null,
-                'uuid' => $item['uuid'] ?? null,
-                'items' => [],
-                'max_amount' => $itemCounts['max_items'] ?? null,
-                'min_amount' => $itemCounts['min_items'] ?? null,
-            ]];
-        }
-
-        return [[
-            'kind' => 'MissionItem',
-            'items' => $items,
-            'max_amount' => $itemCounts['max_items'] ?? null,
-            'min_amount' => $itemCounts['min_items'] ?? null,
-        ]];
     }
 
     /**

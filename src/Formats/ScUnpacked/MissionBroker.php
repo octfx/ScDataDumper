@@ -6,11 +6,13 @@ namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Octfx\ScDataDumper\DocumentTypes\Mission\MissionBrokerEntry;
 use Octfx\ScDataDumper\Formats\BaseFormat;
+use Octfx\ScDataDumper\Formats\ScUnpacked\Concerns\BuildsMissionItemHaulingOrders;
 use Octfx\ScDataDumper\Formats\ScUnpacked\Concerns\FormatsMissionBrokerEntries;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class MissionBroker extends BaseFormat
 {
+    use BuildsMissionItemHaulingOrders;
     use FormatsMissionBrokerEntries;
 
     /**
@@ -38,8 +40,12 @@ final class MissionBroker extends BaseFormat
         $haulingOrders = $this->buildMbeHaulingOrders($this->entry);
         $itemCounts = $this->buildMbeItemCounts();
 
-        if ($haulingOrders === [] && $itemCounts !== null) {
-            $haulingOrders = $this->buildMissionItemHaulingOrdersFromItemCounts($itemCounts);
+        if ($itemCounts !== null) {
+            $haulingOrders = $this->enrichMissionItemHaulingOrdersFromItemCounts($haulingOrders, $itemCounts);
+
+            if ($haulingOrders === []) {
+                $haulingOrders = $this->buildMissionItemHaulingOrdersFromItemCounts($itemCounts);
+            }
         }
 
         $data = $this->transformArrayKeysToPascalCase($this->removeNullValuesPreservingEmptyArrays([
@@ -159,39 +165,6 @@ final class MissionBroker extends BaseFormat
             'required_tags' => [],
             'excluded_tags' => [],
             'required_missions' => $requiredMissions,
-        ]];
-    }
-
-    /**
-     * @param  array{items?: list<array{uuid?: string, name?: ?string}>, min_items?: int, max_items?: int}  $itemCounts
-     * @return list<array>
-     */
-    private function buildMissionItemHaulingOrdersFromItemCounts(array $itemCounts): array
-    {
-        $items = $itemCounts['items'] ?? [];
-
-        if ($items === []) {
-            return [];
-        }
-
-        if (count($items) === 1) {
-            $item = $items[0];
-
-            return [[
-                'kind' => 'MissionItem',
-                'name' => $item['name'] ?? null,
-                'uuid' => $item['uuid'] ?? null,
-                'items' => [],
-                'max_amount' => $itemCounts['max_items'] ?? null,
-                'min_amount' => $itemCounts['min_items'] ?? null,
-            ]];
-        }
-
-        return [[
-            'kind' => 'MissionItem',
-            'items' => $items,
-            'max_amount' => $itemCounts['max_items'] ?? null,
-            'min_amount' => $itemCounts['min_items'] ?? null,
         ]];
     }
 
