@@ -47,7 +47,7 @@ class LoadTags extends AbstractDataCommand
         }
 
         try {
-            $tags = $tagService->getTagNameMap();
+            $tags = $tagService->getTagNameMapWithParents();
             $json = json_encode($tags, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
 
             if (! $this->writeJsonFile($filePath, $json, $io)) {

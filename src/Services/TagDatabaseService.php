@@ -101,6 +101,24 @@ final class TagDatabaseService extends BaseService
     }
 
     /**
+     * @return array<string, array{name: string, parent_uuid: string|null}>
+     */
+    public function getTagNameMapWithParents(): array
+    {
+        $this->ensureParentMap();
+
+        $result = [];
+        foreach ($this->tagByUuid as $uuid => $tag) {
+            $result[$uuid] = [
+                'name' => $tag['name'],
+                'parent_uuid' => $this->parentMap[$uuid] ?? null,
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
      * @return list<string> All ancestor UUIDs (including self), from leaf toward root.
      */
     public function getAncestorUuids(string $uuid): array

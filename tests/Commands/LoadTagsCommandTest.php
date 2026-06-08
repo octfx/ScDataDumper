@@ -37,8 +37,14 @@ final class LoadTagsCommandTest extends ScDataTestCase
 
         self::assertSame(0, $exitCode);
         self::assertSame([
-            'uuid-one' => 'ArmouryItem',
-            'uuid-two' => 'Cargo',
+            'uuid-one' => [
+                'name' => 'ArmouryItem',
+                'parent_uuid' => null,
+            ],
+            'uuid-two' => [
+                'name' => 'Cargo',
+                'parent_uuid' => null,
+            ],
         ], $this->readJsonFile('tags.json'));
     }
 
@@ -55,6 +61,37 @@ final class LoadTagsCommandTest extends ScDataTestCase
 
         self::assertSame(0, $exitCode);
         self::assertSame([], $this->readJsonFile('tags.json'));
+    }
+
+    public function test_execute_includes_parent_uuid_from_children(): void
+    {
+        $this->writeCacheFiles();
+        file_put_contents(
+            $this->getCachePath(),
+            json_encode([
+                'uuid-parent' => [
+                    'name' => 'Weapon',
+                    'legacyGUID' => '1',
+                    'children' => ['uuid-child'],
+                ],
+                'uuid-child' => [
+                    'name' => 'WeaponPistol',
+                    'legacyGUID' => '2',
+                    'children' => [],
+                ],
+            ], JSON_THROW_ON_ERROR)
+        );
+
+        $tester = new CommandTester(new LoadTags);
+        $exitCode = $tester->execute([
+            'scDataPath' => $this->tempDir,
+            'jsonOutPath' => $this->tempDir,
+        ]);
+
+        self::assertSame(0, $exitCode);
+        $result = $this->readJsonFile('tags.json');
+        self::assertSame(['name' => 'Weapon', 'parent_uuid' => null], $result['uuid-parent']);
+        self::assertSame(['name' => 'WeaponPistol', 'parent_uuid' => 'uuid-parent'], $result['uuid-child']);
     }
 
     public function test_execute_skips_tags_with_empty_names(): void
@@ -85,8 +122,8 @@ final class LoadTagsCommandTest extends ScDataTestCase
         self::assertSame(0, $exitCode);
         $result = $this->readJsonFile('tags.json');
         // The command does not filter empty-name tags - they pass through as-is
-        self::assertSame('', $result['uuid-empty']);
-        self::assertSame('ValidTag', $result['uuid-valid']);
+        self::assertSame(['name' => '', 'parent_uuid' => null], $result['uuid-empty']);
+        self::assertSame(['name' => 'ValidTag', 'parent_uuid' => null], $result['uuid-valid']);
     }
 
     private function getCachePath(): string
