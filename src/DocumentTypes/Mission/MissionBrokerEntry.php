@@ -205,6 +205,9 @@ final class MissionBrokerEntry extends RootDocument
                 'organizations' => $this->referenceValues($valueElement, 'matchConditions/DataSetMatchCondition_SpecificOrganizationsDef/organizations/Reference@value'),
                 'tagSearchTerms' => $this->tagSearchTerms($valueElement),
                 'resourceTags' => $this->referenceValues($valueElement, 'resourceTags/Reference@value'),
+                'specificItems' => $this->referenceValues($valueElement, 'matchConditions/DataSetMatchCondition_SpecificItemsDef/items/Reference@value'),
+                'minItemsToFind' => $valueElement !== null ? (int) ($valueElement->get('@minItemsToFind') ?? 0) : 0,
+                'maxItemsToFind' => $valueElement !== null ? (int) ($valueElement->get('@maxItemsToFind') ?? 0) : 0,
             ];
         }
 

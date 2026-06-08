@@ -35,6 +35,12 @@ final class MissionBroker extends BaseFormat
         $displayTitle = $this->buildDisplayTextFromMissionTokens($title, $missionTokens);
         $displayDescription = $this->buildDisplayTextFromMissionTokens($description, $missionTokens);
         $missionTokens = $this->resolveTokenValueReferences($missionTokens ?? []);
+        $haulingOrders = $this->buildMbeHaulingOrders($this->entry);
+        $itemCounts = $this->buildMbeItemCounts();
+
+        if ($haulingOrders === [] && $itemCounts !== null) {
+            $haulingOrders = $this->buildMissionItemHaulingOrdersFromItemCounts($itemCounts);
+        }
 
         $data = $this->transformArrayKeysToPascalCase($this->removeNullValuesPreservingEmptyArrays([
             'uuid' => $this->entry->getUuid(),
@@ -49,7 +55,7 @@ final class MissionBroker extends BaseFormat
             'location_pools' => $locationPools,
             'mission_tokens' => $missionTokens,
             ...$this->buildMbeRewardFields($this->entry),
-            'hauling_orders' => $this->buildMbeHaulingOrders($this->entry),
+            'hauling_orders' => $haulingOrders,
             'min_standing' => $standingReqs['min'],
             'max_standing' => $standingReqs['max'],
             'rank_index' => $standingReqs['rank_index'],
@@ -65,6 +71,7 @@ final class MissionBroker extends BaseFormat
             'completion_tags' => $this->buildCompletionTags(),
             'required_missions' => $requiredMissions = $this->buildRequiredMissions(),
             'prerequisites' => $this->buildPrerequisites($requiredMissions),
+            'item_counts' => $itemCounts,
         ]));
 
         $data['GeneratorClass'] = null;
@@ -153,5 +160,101 @@ final class MissionBroker extends BaseFormat
             'excluded_tags' => [],
             'required_missions' => $requiredMissions,
         ]];
+    }
+
+    /**
+     * @param  array{items?: list<array{uuid?: string, name?: ?string}>, min_items?: int, max_items?: int}  $itemCounts
+     * @return list<array>
+     */
+    private function buildMissionItemHaulingOrdersFromItemCounts(array $itemCounts): array
+    {
+        $items = $itemCounts['items'] ?? [];
+
+        if ($items === []) {
+            return [];
+        }
+
+        if (count($items) === 1) {
+            $item = $items[0];
+
+            return [[
+                'kind' => 'MissionItem',
+                'name' => $item['name'] ?? null,
+                'uuid' => $item['uuid'] ?? null,
+                'items' => [],
+                'max_amount' => $itemCounts['max_items'] ?? null,
+                'min_amount' => $itemCounts['min_items'] ?? null,
+            ]];
+        }
+
+        return [[
+            'kind' => 'MissionItem',
+            'items' => $items,
+            'max_amount' => $itemCounts['max_items'] ?? null,
+            'min_amount' => $itemCounts['min_items'] ?? null,
+        ]];
+    }
+
+    private function buildMbeItemCounts(): ?array
+    {
+        $itemProperties = array_values(array_filter(
+            $this->entry->getProperties(),
+            static fn (array $property): bool => $property['valueTypeName'] === 'MissionPropertyValue_MissionItem',
+        ));
+
+        if ($itemProperties === []) {
+            return null;
+        }
+
+        $itemService = ServiceFactory::getItemService();
+        $lookup = ServiceFactory::getFoundryLookupService();
+
+        $merged = [];
+        $allTagTerms = [];
+
+        foreach ($itemProperties as $property) {
+            $min = $property['minItemsToFind'] ?? 0;
+            $max = $property['maxItemsToFind'] ?? 0;
+
+            if ($min > 0) {
+                $merged['min_items'] = $min;
+            }
+
+            if ($max > 0) {
+                $merged['max_items'] = $max;
+            }
+
+            $specificItemUuids = $property['specificItems'] ?? [];
+
+            if ($specificItemUuids !== []) {
+                $resolved = [];
+
+                foreach ($specificItemUuids as $uuid) {
+                    $entityClassUuid = $lookup->resolveMissionItemEntityClass($uuid);
+
+                    if ($entityClassUuid === null) {
+                        continue;
+                    }
+
+                    $resolved[] = [
+                        'uuid' => $entityClassUuid,
+                        'name' => $itemService->getByReference($entityClassUuid)?->getDisplayName(),
+                    ];
+                }
+
+                $merged['items'] = $resolved;
+            }
+
+            $tagTerms = $property['tagSearchTerms'] ?? [];
+            if ($tagTerms !== []) {
+                $allTagTerms = $tagTerms;
+            }
+        }
+
+        if ($allTagTerms !== []) {
+            $merged['tag_search_terms'] = ServiceFactory::getTagDatabaseService()->resolveTagSearchTermsNames($allTagTerms);
+        }
+
+        return $merged !== [] ? $merged : null;
     }
 }

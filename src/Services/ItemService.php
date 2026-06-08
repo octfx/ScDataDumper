@@ -168,6 +168,45 @@ final class ItemService extends BaseService
         return $item;
     }
 
+    /**
+     * Find all items whose entity tag references intersect with the given tag UUIDs.
+     *
+     * Expands positive tags to include descendants (so searching for "Weapon" also matches "Pistol", "Rifle", etc.),
+     * then excludes items matching any negative tags.
+     *
+     * @param  list<string>  $positiveTagUuids  Tag UUIDs that items must have
+     * @param  list<string>  $negativeTagUuids  Tag UUIDs that exclude items
+     * @return list<array{uuid: string, name: ?string}>
+     */
+    public function findByTagUuids(array $positiveTagUuids, array $negativeTagUuids = []): array
+    {
+        $tagService = ServiceFactory::getTagDatabaseService();
+        $expandedPositive = array_map('strtolower', $tagService->expandTagsWithDescendants($positiveTagUuids));
+        $expandedNegative = array_map('strtolower', $tagService->expandTagsWithDescendants($negativeTagUuids));
+
+        $results = [];
+        foreach ($this->iterator() as $item) {
+            $itemTags = array_map('strtolower', $item->getEntityTagReferences());
+
+            // Item must have at least one positive tag
+            if (empty(array_intersect($expandedPositive, $itemTags))) {
+                continue;
+            }
+
+            // Item must not have any negative tag
+            if (! empty(array_intersect($expandedNegative, $itemTags))) {
+                continue;
+            }
+
+            $results[] = [
+                'uuid' => $item->getUuid(),
+                'name' => $item->getDisplayName(),
+            ];
+        }
+
+        return $results;
+    }
+
     private function buildDocumentCacheKey(string $filePath): string
     {
         return sprintf(

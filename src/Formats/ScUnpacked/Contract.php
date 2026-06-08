@@ -131,6 +131,7 @@ final class Contract extends BaseFormat
         $description = $this->translateLocalizationValue($this->entry->getDescription());
         $locationPools = $this->buildLocationPools();
         $haulingOrders = $this->buildHaulingOrders();
+        $itemCounts = $this->buildMissionItemCounts();
         $missionType = $this->buildMissionType();
         $missionGiver = $meta['mission_giver'] ?? null;
         $missionTokens = $this->buildMissionTokens($title, $description, $locationPools);
@@ -175,6 +176,10 @@ final class Contract extends BaseFormat
             }
         }
 
+        if ($haulingOrders === [] && $itemCounts !== null) {
+            $haulingOrders = $this->buildMissionItemHaulingOrdersFromItemCounts($itemCounts);
+        }
+
         $displayTitle = $this->buildDisplayTextFromMissionTokens($title, $missionTokens);
         $displayDescription = $this->buildDisplayTextFromMissionTokens($description, $missionTokens);
         $missionTokens = $this->resolveTokenValueReferences($missionTokens ?? []);
@@ -210,7 +215,7 @@ final class Contract extends BaseFormat
             'time_trial_splits' => $this->buildTimeTrialSplits(),
             'property_overrides' => $this->buildPropertyOverrides(),
             'npc_names' => $this->buildNPCNames(),
-            'item_counts' => $this->buildMissionItemCounts(),
+            'item_counts' => $itemCounts,
         ]));
     }
 
@@ -1295,23 +1300,119 @@ final class Contract extends BaseFormat
 
     private function buildMissionItemCounts(): ?array
     {
+        $allItems = [];
+        $allTagTerms = [];
+
         foreach ($this->getAllOverrides() as $override) {
             $value = $override->getValue();
 
-            if ($value instanceof MissionItemValue) {
-                $min = $value->getMinItemsToFind();
-                $max = $value->getMaxItemsToFind();
-
-                if ($min > 0 || $max > 0) {
-                    return array_filter([
-                        'min_items' => $min > 0 ? $min : null,
-                        'max_items' => $max > 0 ? $max : null,
-                    ], static fn ($v) => $v !== null);
-                }
+            if (! ($value instanceof MissionItemValue)) {
+                continue;
             }
+
+            $min = $value->getMinItemsToFind();
+            $max = $value->getMaxItemsToFind();
+
+            if ($min <= 0 && $max <= 0) {
+                continue;
+            }
+
+            $result = array_filter([
+                'min_items' => $min > 0 ? $min : null,
+                'max_items' => $max > 0 ? $max : null,
+            ], static fn ($v) => $v !== null);
+
+            $specificItems = $this->resolveSpecificItems($value);
+
+            if ($specificItems !== []) {
+                $result['items'] = $specificItems;
+            }
+
+            $tagTerms = $value->getTagSearchTerms();
+
+            if ($tagTerms !== []) {
+                $allTagTerms = $tagTerms;
+            }
+
+            $allItems[] = $result;
         }
 
-        return null;
+        if ($allItems === []) {
+            return null;
+        }
+
+        $merged = array_merge(...$allItems);
+
+        if ($allTagTerms !== []) {
+            $merged['tag_search_terms'] = ServiceFactory::getTagDatabaseService()->resolveTagSearchTermsNames($allTagTerms);
+        }
+
+        return $merged !== [] ? $merged : null;
+    }
+
+    /**
+     * @param  array{items?: list<array{uuid?: string, name?: ?string}>, min_items?: int, max_items?: int}  $itemCounts
+     * @return list<array>
+     */
+    private function buildMissionItemHaulingOrdersFromItemCounts(array $itemCounts): array
+    {
+        $items = $itemCounts['items'] ?? [];
+
+        if ($items === []) {
+            return [];
+        }
+
+        if (count($items) === 1) {
+            $item = $items[0];
+
+            return [[
+                'kind' => 'MissionItem',
+                'name' => $item['name'] ?? null,
+                'uuid' => $item['uuid'] ?? null,
+                'items' => [],
+                'max_amount' => $itemCounts['max_items'] ?? null,
+                'min_amount' => $itemCounts['min_items'] ?? null,
+            ]];
+        }
+
+        return [[
+            'kind' => 'MissionItem',
+            'items' => $items,
+            'max_amount' => $itemCounts['max_items'] ?? null,
+            'min_amount' => $itemCounts['min_items'] ?? null,
+        ]];
+    }
+
+    /**
+     * @return list<array{uuid: string, name: ?string}>
+     */
+    private function resolveSpecificItems(MissionItemValue $value): array
+    {
+        $itemUuids = $value->getSpecificItems();
+
+        if ($itemUuids === []) {
+            return [];
+        }
+
+        $itemService = ServiceFactory::getItemService();
+        $lookup = ServiceFactory::getFoundryLookupService();
+
+        $resolved = [];
+
+        foreach ($itemUuids as $uuid) {
+            $entityClassUuid = $lookup->resolveMissionItemEntityClass($uuid);
+
+            if ($entityClassUuid === null) {
+                continue;
+            }
+
+            $resolved[] = [
+                'uuid' => $entityClassUuid,
+                'name' => $itemService->getByReference($entityClassUuid)?->getDisplayName(),
+            ];
+        }
+
+        return $resolved;
     }
 
     /**

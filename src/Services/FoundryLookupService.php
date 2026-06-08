@@ -489,4 +489,39 @@ final class FoundryLookupService extends BaseService
 
         return $this->load($path)->getStringValue('@entityClass');
     }
+
+    public function resolveMissionItemClassName(?string $missionItemUuid): ?string
+    {
+        $path = $this->resolvePathByReference($missionItemUuid);
+        if ($path === null) {
+            return null;
+        }
+
+        return $this->load($path)->getClassName();
+    }
+
+    /**
+     * @return list<string>|null Tag UUIDs from the MissionItem's <tags> element.
+     */
+    public function resolveMissionItemTags(?string $missionItemUuid): ?array
+    {
+        $path = $this->resolvePathByReference($missionItemUuid);
+        if ($path === null) {
+            return null;
+        }
+
+        $record = $this->load($path);
+
+        $refs = $record->getValue('tags/Reference@value');
+
+        if ($refs === null) {
+            return null;
+        }
+
+        if (is_string($refs)) {
+            return [$refs];
+        }
+
+        return is_array($refs) ? $refs : null;
+    }
 }

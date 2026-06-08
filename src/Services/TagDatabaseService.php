@@ -65,6 +65,18 @@ final class TagDatabaseService extends BaseService
     }
 
     /**
+     * @param  list<array{positiveTags: list<string>, negativeTags: list<string>}>  $tagTerms
+     * @return list<array{positive_tags?: list<array{uuid: string, name: ?string}>, negative_tags?: list<array{uuid: string, name: ?string}>}>
+     */
+    public function resolveTagSearchTermsNames(array $tagTerms): array
+    {
+        return array_map(fn (array $term): array => array_filter([
+            'positive_tags' => $this->resolveUuidsToNameObjects($term['positiveTags']),
+            'negative_tags' => $this->resolveUuidsToNameObjects($term['negativeTags']),
+        ], static fn ($v) => $v !== [] && $v !== null), $tagTerms);
+    }
+
+    /**
      * @param  array<int, string>  $uuids
      * @return array<int, string>
      */
