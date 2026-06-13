@@ -62,7 +62,18 @@ final class TractorBeam extends BaseFormat
 
     public function canTransform(): bool
     {
-        return ($this->item?->getAttachType() === 'TractorBeam' || $this->item?->getAttachType() === 'TowingBeam') && parent::canTransform();
+        if ($this->item === null) {
+            return false;
+        }
+
+        $type = $this->item->getAttachType();
+
+        // SalvageHead items with TractorBeam in their class name are S3 tractor beams
+        if ($type === 'SalvageHead' && ! str_contains($this->item->getClassName(), '_TractorBeam_') && ! str_contains($this->item->getClassName(), '_TowingBeam_')) {
+            return false;
+        }
+
+        return parent::canTransform();
     }
 
     private function castBool(mixed $value): ?bool

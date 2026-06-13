@@ -24,13 +24,11 @@ final class SalvageModifier extends BaseFormat
             return null;
         }
 
-        $data = [
+        return $this->removeNullValues([
             'SalvageSpeedMultiplier' => $salvage->get('@salvageSpeedMultiplier'),
             'RadiusMultiplier' => $salvage->get('@radiusMultiplier'),
             'ExtractionEfficiency' => $salvage->get('@extractionEfficiency'),
-        ];
-
-        return $this->removeNullValues($data);
+        ]);
     }
 
     public function canTransform(): bool

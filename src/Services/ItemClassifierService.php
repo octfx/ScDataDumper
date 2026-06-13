@@ -177,7 +177,7 @@ final class ItemClassifierService
 
             // Fuel nozzles (not internal docking tubes)
             [
-                'Matcher' => fn ($item) => self::typeMatch($item, 'DockingCollar.UNDEFINED') && self::pathMatch($item, 'refueling'),
+                'Matcher' => fn ($item) => self::typeMatch($item, 'DockingCollar.UNDEFINED') && self::pathMatch($item, 'fuel_nozzle_'),
                 'Classifier' => fn ($t, $s) => 'Ship.FuelNozzle',
             ],
 
@@ -482,9 +482,9 @@ final class ItemClassifierService
         }
 
         if (strcasecmp((string) $type, 'DockingCollar') === 0 && strcasecmp((string) $subType, 'UNDEFINED') === 0) {
-            $isRefueling = self::pathMatch($entity, 'refueling') ? 'refuel' : 'dock';
+            $isFuelNozzle = self::pathMatch($entity, 'fuel_nozzle_') ? 'nozzle' : 'dock';
 
-            return $base.'|'.$isRefueling;
+            return $base.'|'.$isFuelNozzle;
         }
 
         return $base;

@@ -9,7 +9,11 @@ use Octfx\ScDataDumper\Helper\Element;
 
 final class WeaponModifier extends BaseFormat
 {
-    protected ?string $elementKey = 'Components/SWeaponModifierComponentParams';
+    private const string WEAPON_MODIFIER_COMPONENT = 'Components/SWeaponModifierComponentParams';
+    private const string ATTACHABLE_MODIFIER_COMPONENT = 'Components/EntityComponentAttachableModifierParams';
+
+    /** Component path resolved by canTransform() */
+    private ?string $resolvedComponentPath = null;
 
     public function toArray(): ?array
     {
@@ -17,15 +21,17 @@ final class WeaponModifier extends BaseFormat
             return null;
         }
 
-        $component = $this->get();
-        $weaponStats = $component?->get('modifier/weaponStats');
+        $component = $this->get($this->resolvedComponentPath);
+        $weaponStats = $this->resolveWeaponStats($component);
 
         if ($weaponStats === null) {
             return null;
         }
 
+        $isAttachable = $this->resolvedComponentPath === self::ATTACHABLE_MODIFIER_COMPONENT;
+
         $data = [
-            ...$this->buildMetadata($component),
+            ...$this->buildMetadata($component, $isAttachable),
             'WeaponStats' => [
                 'Base' => $this->buildBaseStats($weaponStats),
                 'Recoil' => $this->buildRecoil($weaponStats->get('recoilModifier')),
@@ -34,22 +40,69 @@ final class WeaponModifier extends BaseFormat
                 'Regen' => $this->buildRegen($weaponStats->get('regenModifier')),
                 'Salvage' => $this->buildSalvage($weaponStats->get('salvageModifier')),
             ],
-            'Zeroing' => $this->buildZeroing($component->get('zeroingParams/SWeaponZeroingParams')),
-            'Reticle' => $this->buildReticle($component->get('reticleParams/SWeaponReticleParams')),
         ];
+
+        if (! $isAttachable) {
+            $data['Zeroing'] = $this->buildZeroing($component->get('zeroingParams/SWeaponZeroingParams'));
+            $data['Reticle'] = $this->buildReticle($component->get('reticleParams/SWeaponReticleParams'));
+        }
 
         return $this->removeNullValues($data);
     }
 
     public function canTransform(): bool
     {
-        return $this->item !== null
-            && $this->has($this->elementKey ?? '')
-            && $this->item->get('Components/SWeaponModifierComponentParams/modifier/weaponStats') !== null;
+        if ($this->item === null) {
+            return false;
+        }
+
+        // Standard weapon modifier (barrels, power arrays, etc.)
+        if ($this->item->get(self::WEAPON_MODIFIER_COMPONENT.'/modifier/weaponStats') !== null) {
+            $this->resolvedComponentPath = self::WEAPON_MODIFIER_COMPONENT;
+
+            return true;
+        }
+
+        // Salvage modifier modules (attachable modifier with weaponStats)
+        if ($this->item->get(self::ATTACHABLE_MODIFIER_COMPONENT.'/modifiers/ItemWeaponModifiersParams/weaponModifier/weaponStats') !== null) {
+            $this->resolvedComponentPath = self::ATTACHABLE_MODIFIER_COMPONENT;
+
+            return true;
+        }
+
+        return false;
     }
 
-    private function buildMetadata(Element $component): array
+    /**
+     * Resolve the weaponStats element from either component type.
+     *
+     * - SWeaponModifierComponentParams -> modifier/weaponStats
+     * - EntityComponentAttachableModifierParams -> modifiers/ItemWeaponModifiersParams/weaponModifier/weaponStats
+     */
+    private function resolveWeaponStats(?Element $component): ?Element
     {
+        if ($component === null) {
+            return null;
+        }
+
+        if ($this->resolvedComponentPath === self::ATTACHABLE_MODIFIER_COMPONENT) {
+            return $component->get('modifiers/ItemWeaponModifiersParams/weaponModifier/weaponStats');
+        }
+
+        return $component->get('modifier/weaponStats');
+    }
+
+    private function buildMetadata(Element $component, bool $isAttachable): array
+    {
+        if ($isAttachable) {
+            return $this->mapAttributes($component, [
+                '@activationMethod' => 'ActivationMethod',
+                '@charges' => 'Charges',
+                '@canInterrupt' => 'CanInterrupt',
+                '@isInterruptible' => 'IsInterruptible',
+            ]);
+        }
+
         return $this->mapAttributes($component, [
             '@activateOnAttach' => 'ActivateOnAttach',
             '@ignoreWear' => 'IgnoreWear',
@@ -58,11 +111,12 @@ final class WeaponModifier extends BaseFormat
 
     private function buildBaseStats(Element $weaponStats): array
     {
-        $effectStrength = $this->get()?->get('@barrelEffectsStrength');
+        $component = $this->get($this->resolvedComponentPath);
+        $effectStrength = $component?->get('@barrelEffectsStrength');
 
         return [
             'MuzzleFlashScale' => $effectStrength,
-            ...($this->getFlashModifiers() ?? []),
+            ...($this->getFlashModifiers($component) ?? []),
         ] + $this->mapAttributes($weaponStats, [
             '@fireRateMultiplier' => 'FireRateMultiplier',
             '@damageMultiplier' => 'DamageMultiplier',
@@ -74,9 +128,8 @@ final class WeaponModifier extends BaseFormat
         ]);
     }
 
-    private function getFlashModifiers(): ?array
+    private function getFlashModifiers(?Element $component): ?array
     {
-        $component = $this->get();
         $fireEffects = $component?->get('fireEffects');
 
         if ($fireEffects === null) {
