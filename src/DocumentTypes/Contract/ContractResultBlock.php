@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes\Contract;
 
+use Octfx\ScDataDumper\DocumentTypes\ItemAwardWeightingsRecord;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
+use Octfx\ScDataDumper\Helper\Element;
+use Octfx\ScDataDumper\Services\ServiceFactory;
 
 class ContractResultBlock extends RootDocument
 {
@@ -147,6 +150,24 @@ class ContractResultBlock extends RootDocument
         return $this->get('contractResults/ContractResult_CompletionBounty') !== null;
     }
 
+    /**
+     * Weighted item award sets from ContractResult_ItemsWeighting blocks.
+     *
+     * Each ContractResult_ItemsWeighting carries an itemAwardStructure holding one or more
+     * ItemAwardWeightings options. Every entry under an option's awards is granted together;
+     * the options themselves are weighted alternatives.
+     *
+     * The award structure is defined either inline (<ItemAwardWeightings>) or by reference
+     * (<ItemAwardWeightingsParams awardsRecord="<uuid>"> pointing at an iawr_*.xml pool);
+     * the two shapes are mutually exclusive per block. Both parse through
+     * {@see ItemAwardWeightingsRecord::getAwardSets()}, which owns the shared structure.
+     *
+     * @return list<array{
+     *     weight: int,
+     *     awardOnlyToMissionOwner: bool,
+     *     items: list<array{entityClass: ?string, amount: int}>
+     * }>
+     */
     public function getItemAwardSets(): array
     {
         $sets = [];
@@ -155,21 +176,41 @@ class ContractResultBlock extends RootDocument
         foreach ($nodes as $node) {
             $awardOnlyToMissionOwner = (int) ($node->get('@awardOnlyToMissionOwner') ?? 0) === 1;
 
-            foreach ($node->getAll('itemAwardStructure/ItemAwardWeightings') as $weighting) {
-                $items = [];
-
-                foreach ($weighting->getAll('awards/ItemAwardEntityClass') as $award) {
-                    $items[] = [
-                        'entityClass' => $award->get('@entityClass'),
-                        'amount' => (int) ($award->get('@amountToAward') ?? 0),
-                    ];
-                }
-
+            foreach ($this->resolveItemAwardWeighting($node) as $set) {
                 $sets[] = [
-                    'weight' => (int) ($weighting->get('@weighting') ?? 0),
+                    'weight' => $set['weight'],
                     'awardOnlyToMissionOwner' => $awardOnlyToMissionOwner,
-                    'items' => $items,
+                    'items' => $set['items'],
                 ];
+            }
+        }
+
+        return $sets;
+    }
+
+    /**
+     * Resolve the {weight, items} award sets for a single ContractResult_ItemsWeighting node,
+     * transparently handling both the inline and by-reference award shapes.
+     *
+     * @return list<array{weight: int, items: list<array{entityClass: ?string, amount: int}>}>
+     */
+    private function resolveItemAwardWeighting(Element $node): array
+    {
+        // Inline awards: the ContractResult_ItemsWeighting node
+        $inline = ItemAwardWeightingsRecord::fromNode($node->getNode())?->getAwardSets() ?? [];
+        if ($inline !== []) {
+            return $inline;
+        }
+
+        // By-reference awards: <ItemAwardWeightingsParams awardsRecord="<uuid>"/>.
+        $sets = [];
+        foreach ($node->getAll('itemAwardStructure/ItemAwardWeightingsParams') as $params) {
+            $ref = $params->get('@awardsRecord');
+            if ($ref !== null && ServiceFactory::isInitialized()) {
+                $pool = ServiceFactory::getFoundryLookupService()->getItemAwardWeightingsByReference($ref);
+                foreach ($pool?->getAwardSets() ?? [] as $set) {
+                    $sets[] = $set;
+                }
             }
         }
 

@@ -23,6 +23,7 @@ use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestableClusterPreset;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestablePreset;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestableSetup;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\SubHarvestableMultiConfigRecord;
+use Octfx\ScDataDumper\DocumentTypes\ItemAwardWeightingsRecord;
 use Octfx\ScDataDumper\DocumentTypes\JumpPointPermanent;
 use Octfx\ScDataDumper\DocumentTypes\Loot\LootArchetypeV3Record;
 use Octfx\ScDataDumper\DocumentTypes\Loot\LootGenerationGlobalParams;
@@ -357,9 +358,9 @@ final class FoundryLookupService extends BaseService
         return $this->getByReference($uuid, ['/records/contracts/contractdifficultyprofiles/']);
     }
 
-    public function getItemAwardWeightingsByReference(?string $uuid): ?FoundryRecord
+    public function getItemAwardWeightingsByReference(?string $uuid): ?ItemAwardWeightingsRecord
     {
-        return $this->getByReference($uuid, ['/records/contracts/contractrewards/']);
+        return $this->getByReference($uuid, ['/records/contracts/contractrewards/'], ItemAwardWeightingsRecord::class);
     }
 
     public function getContractGeneratorByReference(?string $uuid): ?ContractGeneratorRecord

@@ -1062,22 +1062,29 @@ final class Contract extends BaseFormat
     {
         $sets = [];
 
+        // ContractResult_Item nodes are unconditional always-awarded items with no grouping in source
+        $unconditionalItems = [];
+        $unconditionalOwner = false;
         foreach ($results->getItemResults() as $item) {
             $entity = $item['entityClass'] !== null
                 ? $itemService->getByReference($item['entityClass'])
                 : null;
 
+            $unconditionalItems[] = [
+                'name' => $entity?->getDisplayName(),
+                'uuid' => $item['entityClass'],
+                'amount' => $item['amount'],
+                'send_to_home' => $item['sendToPlayerHomeLocation'],
+            ];
+            // Per-item flags are uniform across every ContractResult_Item node in a contract (checked in 4.8.1)
+            $unconditionalOwner = $item['awardOnlyToMissionOwner'];
+        }
+
+        if ($unconditionalItems !== []) {
             $sets[] = [
                 'weight' => null,
-                'award_only_to_mission_owner' => $item['awardOnlyToMissionOwner'],
-                'items' => [
-                    [
-                        'name' => $entity?->getDisplayName(),
-                        'uuid' => $item['entityClass'],
-                        'amount' => $item['amount'],
-                        'send_to_home' => $item['sendToPlayerHomeLocation'],
-                    ],
-                ],
+                'award_only_to_mission_owner' => $unconditionalOwner,
+                'items' => $unconditionalItems,
             ];
         }
 

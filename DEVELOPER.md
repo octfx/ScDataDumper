@@ -2,250 +2,162 @@
 
 ## What This Codebase Does
 
-ScDataDumper reads extracted Star Citizen XML, turns those records into typed PHP documents, formats them into export structures, and writes JSON files to `export/`.
-
-The main runtime path is:
+ScDataDumper reads extracted Star Citizen XML, turns those records into typed PHP documents,
+formats them into export structures, and writes JSON to `export/`.
 
 ```text
-CLI command
-  -> ServiceFactory
-  -> Service
-  -> RootDocument
-  -> Format
-  -> JSON file
+CLI command -> ServiceFactory -> Service -> RootDocument -> Format -> JSON file
 ```
 
-## High-Level Architecture
+## Layer Map
 
 | Layer          | Directory                                         | Responsibility                                                  |
 |----------------|---------------------------------------------------|-----------------------------------------------------------------|
 | Commands       | `src/Commands/`                                   | Symfony Console entry points that orchestrate exports           |
 | Services       | `src/Services/`                                   | Find records, load documents, resolve references, manage caches |
 | Document types | `src/DocumentTypes/`                              | Typed wrappers around XML documents and related-record helpers  |
-| Definitions    | `src/Definitions/`                                | Optional DOM mutation during document load                      |
+| Definitions    | `src/Definitions/`                                | Optional DOM mutation during document load (see below)          |
 | Formats        | `src/Formats/ScUnpacked/`                         | Convert documents into export arrays                            |
 | Loader/factory | `src/Loader/`, `src/ElementDefinitionFactory.php` | Walk the DOM and attach matching definitions                    |
 
-Supporting entry points:
+Key entry points:
 
-- `cli.php` registers all console commands.
-- `src/Commands/AbstractDataCommand.php` contains shared command behavior.
-- `src/Services/ServiceFactory.php` initializes and exposes shared services.
-- `src/Services/BaseService.php` loads cache maps and creates typed documents.
-- `src/DocumentTypes/RootDocument.php` is the base class for XML-backed documents.
-- `src/Formats/BaseFormat.php` is the base class for export mappers.
+- `cli.php` registers all commands.
+- `src/Commands/AbstractDataCommand.php`: shared command behavior (paths, JSON writing, lazy-hydration toggle via the `GeneratesCache` trait).
+- `src/Services/ServiceFactory.php`: static singleton registry; initializes the active SC data path and boots services on demand.
+- `src/Services/BaseService.php`: loads cache maps and instantiates typed documents.
+- `src/DocumentTypes/RootDocument.php`: base class for XML-backed documents.
+- `src/Formats/BaseFormat.php`: base class for export mappers.
 
-## Runtime Flow
+## Commands
 
-### 1. Commands orchestrate the export
+`load:data` is the umbrella that runs everything. The individual commands
+(registered in `cli.php`, sequenced in `LoadData::subcommands()`):
 
-Commands prepare services, create output directories, iterate records, and write JSON files.
+`generate:cache`, `load:items`, `load:vehicles`, `load:blueprints`, `load:commodities`, `load:commodity-trade-locations`, `load:contracts`, `load:factions`, `load:starmap`, `load:translations`, `load:manufacturers`, `load:tags`, `load:resources`
 
-Typical examples:
+`schema:diff` is a separate diagnostic command (compares XML schema snapshots between two import directories), not part of the export pipeline.
 
-- `load:data` runs multiple exports.
-- `load:items` writes `items.json`, filtered index files, and per-item JSON files.
-- `load:vehicles`, `load:blueprints`, `load:starmap`, and similar commands each drive one export pipeline.
+Commands own orchestration only: prepare services, make output dirs, iterate records, write JSON. Export logic belongs in **formats and document types**.
 
-`AbstractDataCommand` provides the shared pieces:
-
-- cache generation/bootstrap
-- input/output path helpers
-- directory creation
-- JSON file writing
-- temporary lazy-reference mode for selected services
-
-### 2. Services locate and load records
+## Services
 
 Services are the boundary between cache/index lookups and typed documents.
+`ServiceFactory` is a static singleton registry; commands talk to services through accessors like `ServiceFactory::getItemService()`.
 
-`ServiceFactory` initializes the active Star Citizen data path and boots shared service instances on demand. Commands generally talk to services through `ServiceFactory`.
+`BaseService` loads the shared cache maps (UUID-to-path, class-to-path, etc.) into static arrays, resolves references, and instantiates `RootDocument` subclasses.
+`ServiceFactory::reset()` clears all static state; call it in tests.
 
-`BaseService` provides the common mechanics:
+Top-level services (one per export domain):
 
-- load cache maps such as UUID-to-path and class-to-path
-- validate cache path normalization
-- resolve references to XML file paths
-- instantiate `RootDocument` subclasses
-- propagate the current hydration mode into loaded documents
+`ItemService`, `VehicleService`, `BlueprintService`, `ContractGeneratorService`,
+`MissionBrokerService`, `ResourceService`, `ManufacturerService`,
+`FoundryLookupService`, `LoadoutFileService`, `InventoryContainerService`,
+`TagDatabaseService`, `LocalizationService`, `ItemClassifierService`,
+`AmmoParamsService`, `StarmapParentResolver`, `ContractLocationResolver`,
+`MissionLocationStarmapResolver`.
 
-Service classes then add domain-specific lookup logic, iteration, and caching. Examples:
+Two large sub-namespaces are worth knowing about:
 
-- `ItemService` iterates `EntityClassDefinition` records for item exports
-- `VehicleService` loads vehicle records and vehicle-specific derived data
-- `BlueprintService` resolves crafting blueprints
-- `FoundryLookupService` provides typed record lookups by reference
-- `LoadoutFileService` resolves XML-backed loadout files
+- **`Services/Vehicle/`** (~33 classes); the vehicle aggregation pipeline.
+  `VehicleDataOrchestrator` builds a `VehicleDataContext` from resolvers and
+  aggregators: health, emissions, propulsion, resources, weapon DPS, flight
+  and quantum-travel characteristics, cargo grids (strategy-based), loadouts,
+  seating, turrets, and ground-vehicle drive characteristics.
+- **`Services/Resource/`** (~9 classes); mining, harvestable, commodity, and
+  trade-location resolution: `ResourceIndexBuilder`, quality tier/range
+  resolvers, cave-harvestable and harvestable-provider starmap resolvers,
+  `CommodityTradeLocationResolver`, `SocpakMappingGenerator`.
 
-### 3. Document types provide typed XML access
+`Services/DataDumper/` (`Game2ExtractorService`, `SocpakReader`) handles `.socpak` extraction concerns.
+
+## Document Types
 
 Each `RootDocument` subclass wraps one XML document type and exposes methods that hide raw XML traversal from the rest of the codebase.
+Documents are grouped by SC schema under `src/DocumentTypes/`:
 
-Typical document responsibilities:
+`EntityClassDefinition` (most item/vehicle entities), `Vehicle`/`VehicleDefinition`,
+`Loadout` + `Loadout/LoadoutEntry`, `Crafting/`, `Contract/`, `Mission/`,
+`Mining/`, `Harvestable/`, `Loot/`, `Recovery/`, `Reputation/`, `Radar/`,
+`Starmap/`, `Faction/`, `AreaServices/`.
 
-- expose scalar getters for local values
-- expose typed helpers for related records
-- expose normalized helpers for repeated XML shapes
-- keep format code from growing into a second lookup layer
+`RootDocument` (a `DOMDocument` subclass) provides, as the **subclass API**:
 
-Important base functionality lives in `RootDocument`:
+- identity: `getClassName()`, `getType()`, `getPath()`, `getUuid()`
+- typed scalars: `getString()`, `getInt()`, `getFloat()`, `getBool()`, `getNullableBool()`
+- relations: `getHydratedDocument()`, `resolveRelatedDocument()`, `resolveRelatedDocuments()`
+- output: `toArray()`, `toJson()`
 
-- `getClassName()`, `getType()`, `getPath()`, `getUuid()`
-- typed scalar helpers such as `getString()`, `getInt()`, `getFloat()`, `getBool()`
-- relation helpers such as `getHydratedDocument()`, `resolveRelatedDocument()`, and `resolveRelatedDocuments()`
+XML access itself comes from the `XmlAccess` trait (`get()`, `has()`, `getAll()`), shared with `BaseFormat`.
 
-Representative current documents:
+## Definitions (Deprecated)
 
-- `EntityClassDefinition` for most item and vehicle entity exports
-- `Loadout` and `Loadout\LoadoutEntry` for loadout traversal
-- `Crafting\CraftingBlueprintRecord` for blueprint exports
-- `Starmap\StarMapObject` for starmap exports
-- `Faction\Faction` and `Faction\FactionReputation` for faction exports
+Definitions mutate the DOM during document load. They are **not** the primary API; most contributors never touch them.
 
-### 4. Definitions mutate the DOM when needed
+`ElementLoader` walks the DOM after a document is loaded and
+`ElementDefinitionFactory` maps XML element paths to classes in
+`src/Definitions/`, which can resolve related XML and append it into the tree.
 
-Definitions are not the primary API for most contributors. They exist for cases where the XML tree needs to be extended during load.
+Use a definition only when a related record must appear in the DOM as part of document initialization and multiple consumers rely on that nested structure.
+For ordinary cross-document lookups, prefer a typed helper on the document.
 
-`ElementLoader` walks the DOM after a document is loaded. `ElementDefinitionFactory` maps XML element paths to matching classes in `src/Definitions/`. A definition can then resolve related XML and append it into the current DOM tree.
+## Formats
 
-Use a definition when:
+Formats are output mappers. They receive a typed document and return the array that becomes JSON.
+Extend `BaseFormat`, implement `toArray(): ?array`.
 
-- a related record must appear in the DOM as part of document initialization
-- multiple consumers rely on that nested structure being present
-- the behavior is truly a document-load concern, not just a convenient lookup
+`BaseFormat` provides `get()`/`has()` wrappers, localization helpers, JSON/array
+post-processing (`removeNullValues()`), and the resistance-key ordering
+(`Physical, Energy, Distortion, Thermal, Biochemical, Stun`).
 
-Do not use a definition just to avoid adding a typed helper. If a format needs a related record, prefer a document method first.
-
-### 5. Formats shape export output
-
-Formats should read like output mappers. They receive a typed document and return the array structure that will become JSON.
-
-`BaseFormat` provides:
-
-- `get()` and `has()` wrappers for local XML reads
-- localization helpers
-- JSON conversion helpers
-- array post-processing helpers
-
-Current format conventions:
+Conventions:
 
 - use typed document helpers for cross-document relations
-- keep direct XPath-like access for local scalar values
-- avoid embedding service lookup logic directly in format classes unless there is no document-level helper yet
+- keep direct XML access for local scalar values
+- avoid embedding service lookup logic in formats unless no document helper exists yet
+- compose sub-formats via `LazyFormat` to defer construction until `canTransform()` passes
 
-Examples:
-
-- `Formats\ScUnpacked\Item` builds the item export from `EntityClassDefinition`
-- `Formats\ScUnpacked\Ship` builds vehicle output from typed vehicle helpers
-- `Formats\ScUnpacked\Blueprint` reads blueprint-specific typed relations
-
-## Working In The Codebase
-
-### Adding or changing an export
-
-When you need to change exported JSON:
-
-1. Find the command that owns the export.
-2. Find the service that supplies the source documents.
-3. Check whether the source document already exposes the data as a typed helper.
-4. Add or update the format class that shapes the output.
-5. Add tests close to the changed behavior.
-
-In most cases, export work belongs in formats and document types, not in commands.
-
-### Adding a typed document helper
-
-If a format or service needs related data:
-
-1. Add a `getXReference()` method if the XML stores a reference.
-2. Add a `getX()` method returning the typed related document.
-3. Use `resolveRelatedDocument()` or `resolveRelatedDocuments()` to support both hydrated and non-hydrated access.
-
-This keeps relation logic in one place and makes formats simpler to maintain.
-
-### Adding a definition
-
-Add a definition only when DOM mutation is required during document load.
-
-A typical definition should:
-
-1. guard against running twice
-2. call `parent::initialize()`
-3. resolve the related record
-4. append it only when it is not already present
-
-If no DOM mutation is needed, a typed helper on the document is usually the better abstraction.
-
-### Adding a service-level cache
-
-If a service caches documents and those documents differ depending on hydration mode, include hydration mode in the cache key. Lazy and eager documents must not alias each other in the same cache entry.
-
-This matters for services such as `BlueprintService` and `LoadoutFileService`.
+Examples: `Item` (item export from `EntityClassDefinition`),
+`Ship` (aggregates many sub-formatters from vehicle helpers), `Blueprint`, `Contract`,
+`MissionBroker`, `TradeLocation`, `Mineable`.
 
 ## Reference Hydration
 
-Reference hydration is part of the current architecture, but it is an internal loading strategy, not the main mental model for the repo.
+**Lazy is the default and the forward path. Eager hydration is deprecated.**
 
-### What it means
+`RootDocument::fromNode()` defaults `referenceHydrationEnabled` to `false`.
+When eager hydration is on, `ElementLoader` appends related XML records into the DOM during load.
+When it is off (the normal case), documents stay light and related records are resolved on demand through typed helpers and services.
 
-When reference hydration is enabled, definitions can append related XML records into the current DOM during document load.
+`fromNode()`, `setReferenceHydrationEnabled()`, `isReferenceHydrationEnabled()`,
+and `ElementLoader` are all marked `@deprecated`; keep new code lazy.
 
-When it is disabled, documents stay lighter and related records are expected to be resolved on demand through typed helpers and services.
+A handful of export commands explicitly force lazy mode while building output,
+via `AbstractDataCommand::withLazyReferenceHydration(array $services, callable $callback)`,
+because they only need a small subset of related data:
 
-`BaseService::loadDocument()` passes the service's hydration mode into each created `RootDocument`.
-
-### Important current behavior
-
-- `RootDocument::fromNode()` defaults `referenceHydrationEnabled` to `false`
-- `RootDocument::load()` and `RootDocument::loadXML()` both run `ElementLoader::load()`
-- typed relation helpers should work whether related data is already hydrated or must be resolved lazily
-
-### When to use lazy reference mode
-
-Some export commands intentionally disable reference hydration while building output because they only need a small subset of related data.
-
-Shared support lives in:
-
-```php
-AbstractDataCommand::withLazyReferenceHydration(array $services, callable $callback): mixed
-```
-
-Use this when:
-
-- eager hydration would append large subtrees that the export does not need
-- the document layer already exposes the needed related records through typed helpers
-
-Current commands using this pattern include `load:blueprints`, `load:factions`, `load:mineables`, and `load:starmap`.
+`load:blueprints`, `load:factions`, `load:starmap`, `load:resources`,
+`load:contracts`, `load:commodity-trade-locations`.
 
 ## Loadouts
 
-Loadouts have a dedicated typed pipeline and should not be treated as ad hoc XML fragments.
+Loadouts have a dedicated typed pipeline; do not treat them as ad hoc XML.
 
-Current structure:
+- `LoadoutFileService` resolves `Scripts/Loadouts/...` XML files.
+- `Loadout` wraps a bare loadout root, an empty loadout, or a parent document containing a nested loadout.
+- `Loadout\LoadoutEntry` normalizes both manual and XML-backed entry shapes.
+- `EntityClassDefinition::getDefaultLoadoutEntries()` is the canonical way to read default loadouts.
 
-- `LoadoutFileService` resolves `Scripts/Loadouts/...` XML files
-- `Loadout` is a `RootDocument` that can wrap a bare loadout root, an empty loadout, or a parent document containing a nested loadout
-- `Loadout\LoadoutEntry` normalizes both manual and XML-backed loadout entry shapes
-- `EntityClassDefinition::getDefaultLoadoutEntries()` is the canonical way to read default loadouts
-
-Contributor guidance:
-
-- use `LoadoutEntry` helpers instead of manual child traversal
-- prefer `getPortName()`, `getEntityClassName()`, `getEntityClassReference()`, `getInstalledItem()`, and `getNestedEntries()`
-- keep loadout normalization in the typed layer rather than in formats
-
-Current consumers include:
-
-- `Formats\ScUnpacked\Item`
-- `Formats\ScUnpacked\Loadout`
-- `Formats\ScUnpacked\WeaponAttachment`
-- `Services\Vehicle\LoadoutBuilder`
+Prefer `LoadoutEntry` helpers (`getPortName()`, `getEntityClassName()`,
+`getEntityClassReference()`, `getInstalledItem()`, `getNestedEntries()`) over
+manual child traversal. Current consumers: `Formats\ScUnpacked\Ship` and
+`Loadout`, plus `Services\Vehicle\LoadoutBuilder`, `StandardisedPartBuilder`,
+`VehicleDataContext`, and `FlightCharacteristicsCalculator`.
 
 ## Cache Files
 
-Cache generation is required before most export work. The cache files are generated by `generate:cache` and then consumed by services.
-
-Important cache maps:
+Cache generation (`generate:cache`) is required before most export work.
+The files live in the SC data directory and are OS-specific (`PHP_OS_FAMILY` suffix).
 
 | File                          | Purpose                                              |
 |-------------------------------|------------------------------------------------------|
@@ -256,34 +168,40 @@ Important cache maps:
 | `classToTypeMap-{OS}.json`    | Entity type/classification lookup                    |
 | `entityMetadataMap-{OS}.json` | Compact item metadata for subtype and entity queries |
 
-Important runtime details:
+Runtime details:
 
-- cache paths must use normalized forward slashes
-- if cache files contain Windows backslashes, regenerate them
-- services rely on shared static cache state, so `ServiceFactory::reset()` is important in tests and isolated runs
+- cache paths must use normalized forward slashes; regenerate if a file contains Windows backslashes.
+- services rely on shared static cache state, so `ServiceFactory::reset()` matters in tests and isolated runs.
+- when a service caches documents that differ by hydration mode, include the mode in the cache key.
 
-## Testing Guidance
+## Working In The Codebase
 
-Tests are organized by subsystem:
+**Changing exported JSON:** find the owning command, then the service that supplies documents, check whether the document already exposes the data as a typed helper, add/update the format, and add a test.
 
-- `tests/Commands/` for CLI/export behavior
-- `tests/Services/` for lookup, caching, and orchestration
-- `tests/DocumentTypes/` for typed XML access and relations
-- `tests/Formats/` for export mapping behavior
-- `tests/Helper/` for low-level XML helper behavior
+**Adding a typed document helper:** add a `getXReference()` method if the XML stores a reference; add a `getX()` returning the typed document;
+use `resolveRelatedDocument()` / `resolveRelatedDocuments()` so it works whether the related data is hydrated or lazy.
 
-When changing behavior:
+**Adding a service cache:** if cached documents differ by hydration mode, include the mode in the cache key; lazy and eager documents must not alias.
 
-- add or update the narrowest test that proves the behavior
-- prefer document or format tests for typed helper/output changes
-- use command tests when the change affects export orchestration or file-writing behavior
+## Testing
+
+Tests mirror `src/`: `tests/Commands/`, `tests/Services/`,
+`tests/DocumentTypes/`, `tests/Formats/`, `tests/Helper/`. Fixtures live in
+`tests/Fixtures/xml/` and `tests/Fixtures/exports/`.
+
+```shell
+composer test            # PHPUnit
+composer test:coverage   # with coverage
+```
+
+Add or update the narrowest test that proves the behavior: document/format tests for typed helper or output changes, command tests for export orchestration or file-writing.
 
 ## Contributor Checklist
 
 - Start from the owning command, then trace into service, document, and format layers.
 - Put cross-document lookup logic on `RootDocument` subclasses when possible.
-- Keep format classes focused on shaping output, not resolving the world.
+- Keep formats focused on shaping output, not resolving the world.
 - Use definitions only for real DOM-mutation concerns.
 - Regenerate cache when working with fresh SC data or cache-shape changes.
-- Include hydration mode in cache keys when cached documents can differ between lazy and eager loading.
+- Include hydration mode in cache keys when cached documents can differ.
 - Add tests next to the subsystem you changed.

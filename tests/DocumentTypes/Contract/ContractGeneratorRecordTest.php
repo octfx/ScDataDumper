@@ -8,6 +8,7 @@ use Octfx\ScDataDumper\DocumentTypes\Contract\ContractEntry;
 use Octfx\ScDataDumper\DocumentTypes\Contract\ContractGeneratorRecord;
 use Octfx\ScDataDumper\DocumentTypes\Contract\ContractHandler;
 use Octfx\ScDataDumper\DocumentTypes\Contract\ContractResultBlock;
+use Octfx\ScDataDumper\Services\FoundryLookupService;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 
@@ -356,5 +357,69 @@ XML);
         $block->loadXML('<contractResults contractBuyInAmount="0" timeToComplete="0"><contractResults /></contractResults>');
 
         self::assertSame([], $block->getItemAwardSets());
+    }
+
+    public function test_item_award_sets_resolve_by_reference(): void
+    {
+        // Standalone ItemAwardWeightingsRecord pool, referenced by UUID from the contract block.
+        $poolUuid = '11111111-0000-0000-0000-000000000001';
+        $poolPath = $this->writeFile(
+            'Data/Libs/Foundry/Records/contracts/contractrewards/iawr_test.xml',
+            <<<XML
+<ItemAwardWeightingsRecord.IAWR_Test __type="ItemAwardWeightingsRecord" __ref="{$poolUuid}" __path="libs/foundry/records/contracts/contractrewards/iawr_test.xml">
+  <itemAwardStructure>
+    <ItemAwardWeightings weighting="70">
+      <awards>
+        <ItemAwardEntityClass amountToAward="1" entityClass="22222222-0000-0000-0000-000000000002" />
+      </awards>
+    </ItemAwardWeightings>
+    <ItemAwardWeightings weighting="30">
+      <awards>
+        <ItemAwardEntityClass amountToAward="2" entityClass="33333333-0000-0000-0000-000000000003" />
+      </awards>
+    </ItemAwardWeightings>
+  </itemAwardStructure>
+</ItemAwardWeightingsRecord.IAWR_Test>
+XML
+        );
+
+        $this->writeCacheFiles(uuidToPathMap: [
+            strtolower($poolUuid) => $poolPath,
+        ]);
+
+        $foundryService = new FoundryLookupService($this->tempDir);
+        $foundryService->initialize();
+        $this->addServiceToFactory('FoundryLookupService', $foundryService);
+
+        // Contract block references the pool via ItemAwardWeightingsParams @awardsRecord
+        // instead of defining awards inline.
+        $block = new ContractResultBlock;
+        $block->loadXML(<<<XML
+<contractResults contractBuyInAmount="0" timeToComplete="0">
+  <contractResults>
+    <ContractResult_ItemsWeighting awardOnlyToMissionOwner="1">
+      <itemAwardStructure>
+        <ItemAwardWeightingsParams awardsRecord="{$poolUuid}" />
+      </itemAwardStructure>
+    </ContractResult_ItemsWeighting>
+  </contractResults>
+</contractResults>
+XML
+        );
+
+        $sets = $block->getItemAwardSets();
+        self::assertCount(2, $sets);
+
+        // The owner flag from the referencing block is stamped onto each resolved set.
+        self::assertSame(70, $sets[0]['weight']);
+        self::assertTrue($sets[0]['awardOnlyToMissionOwner']);
+        self::assertCount(1, $sets[0]['items']);
+        self::assertSame('22222222-0000-0000-0000-000000000002', $sets[0]['items'][0]['entityClass']);
+        self::assertSame(1, $sets[0]['items'][0]['amount']);
+
+        self::assertSame(30, $sets[1]['weight']);
+        self::assertTrue($sets[1]['awardOnlyToMissionOwner']);
+        self::assertSame('33333333-0000-0000-0000-000000000003', $sets[1]['items'][0]['entityClass']);
+        self::assertSame(2, $sets[1]['items'][0]['amount']);
     }
 }
