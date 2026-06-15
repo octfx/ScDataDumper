@@ -123,7 +123,7 @@ class ContractResultBlock extends RootDocument
     }
 
     /**
-     * @return list<array{entityClass: ?string, amount: int, sendToPlayerHomeLocation: bool}>
+     * @return list<array{entityClass: ?string, amount: int, sendToPlayerHomeLocation: bool, awardOnlyToMissionOwner: bool}>
      */
     public function getItemResults(): array
     {
@@ -135,6 +135,7 @@ class ContractResultBlock extends RootDocument
                 'entityClass' => $node->get('@entityClass'),
                 'amount' => (int) ($node->get('@amount') ?? 0),
                 'sendToPlayerHomeLocation' => (int) ($node->get('@sendToPlayerHomeLocation') ?? 0) === 1,
+                'awardOnlyToMissionOwner' => (int) ($node->get('@awardOnlyToMissionOwner') ?? 0) === 1,
             ];
         }
 
@@ -146,14 +147,33 @@ class ContractResultBlock extends RootDocument
         return $this->get('contractResults/ContractResult_CompletionBounty') !== null;
     }
 
-    public function getItemsWeighting(): ?bool
+    public function getItemAwardSets(): array
     {
-        $node = $this->get('contractResults/ContractResult_ItemsWeighting');
-        if ($node === null) {
-            return null;
+        $sets = [];
+        $nodes = $this->getAll('contractResults/ContractResult_ItemsWeighting');
+
+        foreach ($nodes as $node) {
+            $awardOnlyToMissionOwner = (int) ($node->get('@awardOnlyToMissionOwner') ?? 0) === 1;
+
+            foreach ($node->getAll('itemAwardStructure/ItemAwardWeightings') as $weighting) {
+                $items = [];
+
+                foreach ($weighting->getAll('awards/ItemAwardEntityClass') as $award) {
+                    $items[] = [
+                        'entityClass' => $award->get('@entityClass'),
+                        'amount' => (int) ($award->get('@amountToAward') ?? 0),
+                    ];
+                }
+
+                $sets[] = [
+                    'weight' => (int) ($weighting->get('@weighting') ?? 0),
+                    'awardOnlyToMissionOwner' => $awardOnlyToMissionOwner,
+                    'items' => $items,
+                ];
+            }
         }
 
-        return (int) ($node->get('@awardOnlyToMissionOwner') ?? 0) === 1;
+        return $sets;
     }
 
     public function getRefundBuyIn(): ?float

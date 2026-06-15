@@ -1010,20 +1010,7 @@ final class Contract extends BaseFormat
             ];
         }
 
-        $items = [];
-
-        foreach ($results->getItemResults() as $item) {
-            $entity = $item['entityClass'] !== null
-                ? $itemService->getByReference($item['entityClass'])
-                : null;
-
-            $items[] = [
-                'name' => $entity?->getDisplayName(),
-                'uuid' => $item['entityClass'],
-                'amount' => $item['amount'],
-                'send_to_home' => $item['sendToPlayerHomeLocation'],
-            ];
-        }
+        $rewardItems = $this->buildRewardItems($results, $itemService);
 
         $buyIn = $results->getContractBuyInAmount();
 
@@ -1045,7 +1032,7 @@ final class Contract extends BaseFormat
                 : null,
             'fixed_reward' => $results->getFixedReward(),
             'time_to_complete' => ($t = $results->getTimeToComplete()) !== null && $t > 0 ? $t : null,
-            'items' => $items !== [] ? $items : null,
+            'reward_items' => $rewardItems !== [] ? $rewardItems : null,
             'blueprints' => $resolvedBlueprints !== [] ? $resolvedBlueprints : null,
             'reputation_gained' => $rep['gained'] !== [] ? $rep['gained'] : null,
             'reputation_lost' => $rep['lost'] !== [] ? $rep['lost'] : null,
@@ -1054,10 +1041,70 @@ final class Contract extends BaseFormat
             'scenario_progress' => $results->getScenarioProgress(),
             'journal_entries' => $journalEntries !== [] ? $journalEntries : null,
             'badge_award' => $results->getBadgeAward(),
-            'items_weighting' => $results->getItemsWeighting(),
             'refund_buy_in' => $results->getRefundBuyIn(),
             'cost' => $buyIn > 0 ? $buyIn : null,
         ], static fn ($v) => $v !== null);
+    }
+
+    /**
+     * Merges reward items (ContractResult_Item) and weighted award sets (ContractResult_ItemsWeighting) into a single list of award sets.
+     * Each set is a group of items granted together.
+     * Unconditional sets have weight null (always awarded); weighted sets carry the ItemAwardWeightings weighting value,
+     * since only one such set is selected at mission completion.
+     *
+     * @return list<array{
+     *     weight: ?int,
+     *     award_only_to_mission_owner: bool,
+     *     items: list<array{name: ?string, uuid: ?string, amount: int, send_to_home: ?bool}>
+     * }>
+     */
+    private function buildRewardItems(ContractResultBlock $results, ItemService $itemService): array
+    {
+        $sets = [];
+
+        foreach ($results->getItemResults() as $item) {
+            $entity = $item['entityClass'] !== null
+                ? $itemService->getByReference($item['entityClass'])
+                : null;
+
+            $sets[] = [
+                'weight' => null,
+                'award_only_to_mission_owner' => $item['awardOnlyToMissionOwner'],
+                'items' => [
+                    [
+                        'name' => $entity?->getDisplayName(),
+                        'uuid' => $item['entityClass'],
+                        'amount' => $item['amount'],
+                        'send_to_home' => $item['sendToPlayerHomeLocation'],
+                    ],
+                ],
+            ];
+        }
+
+        foreach ($results->getItemAwardSets() as $set) {
+            $items = [];
+
+            foreach ($set['items'] as $award) {
+                $entity = $award['entityClass'] !== null
+                    ? $itemService->getByReference($award['entityClass'])
+                    : null;
+
+                $items[] = [
+                    'name' => $entity?->getDisplayName(),
+                    'uuid' => $award['entityClass'],
+                    'amount' => $award['amount'],
+                    'send_to_home' => null,
+                ];
+            }
+
+            $sets[] = [
+                'weight' => $set['weight'],
+                'award_only_to_mission_owner' => $set['awardOnlyToMissionOwner'],
+                'items' => $items,
+            ];
+        }
+
+        return $sets;
     }
 
     private function resolveMissionTypeInfo(?string $uuid): ?array

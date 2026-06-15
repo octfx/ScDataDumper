@@ -207,6 +207,7 @@ final class ContractGeneratorRecordTest extends ScDataTestCase
         self::assertSame('00000000-0000-0000-0000-000000000040', $itemResults[0]['entityClass']);
         self::assertSame(3, $itemResults[0]['amount']);
         self::assertTrue($itemResults[0]['sendToPlayerHomeLocation']);
+        self::assertTrue($itemResults[0]['awardOnlyToMissionOwner']);
     }
 
     public function test_difficulty(): void
@@ -291,5 +292,69 @@ final class ContractGeneratorRecordTest extends ScDataTestCase
 
         self::assertSame([], $handler->getLegacyContracts());
         self::assertSame([], $handler->getPVPBountyContracts());
+    }
+
+    public function test_item_award_sets_extracts_weighted_options(): void
+    {
+        $block = new ContractResultBlock;
+        $block->loadXML(<<<'XML'
+<contractResults contractBuyInAmount="0" timeToComplete="0">
+  <contractResults>
+    <ContractResult_ItemsWeighting awardOnlyToMissionOwner="1">
+      <itemAwardStructure>
+        <ItemAwardWeightings weighting="11907000">
+          <awards>
+            <ItemAwardEntityClass amountToAward="1" entityClass="aaaaaaaa-0000-0000-0000-000000000001" />
+          </awards>
+        </ItemAwardWeightings>
+        <ItemAwardWeightings weighting="8820000">
+          <awards>
+            <ItemAwardEntityClass amountToAward="2" entityClass="bbbbbbbb-0000-0000-0000-000000000002" />
+            <ItemAwardEntityClass amountToAward="3" entityClass="cccccccc-0000-0000-0000-000000000003" />
+          </awards>
+        </ItemAwardWeightings>
+      </itemAwardStructure>
+    </ContractResult_ItemsWeighting>
+    <ContractResult_Item entityClass="dddddddd-0000-0000-0000-000000000004" amount="5" sendToPlayerHomeLocation="1" awardOnlyToMissionOwner="0">
+      <missionResults><Bool value="1" /></missionResults>
+    </ContractResult_Item>
+  </contractResults>
+</contractResults>
+XML);
+
+        // Weighted award sets: two mutually exclusive options, each preserves its weight,
+        // the owner flag from the parent block, and every item granted within the option.
+        $sets = $block->getItemAwardSets();
+        self::assertCount(2, $sets);
+
+        self::assertSame(11907000, $sets[0]['weight']);
+        self::assertTrue($sets[0]['awardOnlyToMissionOwner']);
+        self::assertCount(1, $sets[0]['items']);
+        self::assertSame('aaaaaaaa-0000-0000-0000-000000000001', $sets[0]['items'][0]['entityClass']);
+        self::assertSame(1, $sets[0]['items'][0]['amount']);
+
+        self::assertSame(8820000, $sets[1]['weight']);
+        self::assertTrue($sets[1]['awardOnlyToMissionOwner']);
+        self::assertCount(2, $sets[1]['items']);
+        self::assertSame('bbbbbbbb-0000-0000-0000-000000000002', $sets[1]['items'][0]['entityClass']);
+        self::assertSame(2, $sets[1]['items'][0]['amount']);
+        self::assertSame('cccccccc-0000-0000-0000-000000000003', $sets[1]['items'][1]['entityClass']);
+        self::assertSame(3, $sets[1]['items'][1]['amount']);
+
+        // Unconditional item still parsed alongside the weighted block.
+        $items = $block->getItemResults();
+        self::assertCount(1, $items);
+        self::assertSame('dddddddd-0000-0000-0000-000000000004', $items[0]['entityClass']);
+        self::assertSame(5, $items[0]['amount']);
+        self::assertTrue($items[0]['sendToPlayerHomeLocation']);
+        self::assertFalse($items[0]['awardOnlyToMissionOwner']);
+    }
+
+    public function test_item_award_sets_empty_when_no_weighting_block(): void
+    {
+        $block = new ContractResultBlock;
+        $block->loadXML('<contractResults contractBuyInAmount="0" timeToComplete="0"><contractResults /></contractResults>');
+
+        self::assertSame([], $block->getItemAwardSets());
     }
 }
