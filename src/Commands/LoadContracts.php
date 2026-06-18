@@ -29,13 +29,13 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class LoadContracts extends AbstractDataCommand
 {
-    private const TYPE_CONTRACTS = 'contracts';
+    private const string TYPE_CONTRACTS = 'contracts';
 
-    private const TYPE_INTRO = 'intro';
+    private const string TYPE_INTRO = 'intro';
 
-    private const TYPE_LEGACY = 'legacy';
+    private const string TYPE_LEGACY = 'legacy';
 
-    private const TYPE_PVP = 'pvp';
+    private const string TYPE_PVP = 'pvp';
 
     /**
      * @throws JsonException|ExceptionInterface
@@ -61,14 +61,14 @@ class LoadContracts extends AbstractDataCommand
         $io->progressStart($total);
 
         $start = microtime(true);
-        $phase1Files = [];
+        $referencedMbeUuids = [];
 
-        $this->withLazyReferenceHydration([$service, $missionBrokerService], function () use ($service, $missionBrokerService, $chainIndex, $overwrite, $io, $outDir, &$phase1Files): void {
+        $this->withLazyReferenceHydration([$service, $missionBrokerService], function () use ($service, $missionBrokerService, $chainIndex, $overwrite, $io, $outDir, &$referencedMbeUuids): void {
             foreach ($service->iterator() as $record) {
-                $this->processRecord($record, $chainIndex, $overwrite, $io, $outDir, $phase1Files);
+                $this->processRecord($record, $chainIndex, $overwrite, $io, $outDir, $referencedMbeUuids);
             }
 
-            $this->exportUnreferencedMBEs($missionBrokerService, $phase1Files, $io, $outDir);
+            $this->exportUnreferencedMBEs($missionBrokerService, $referencedMbeUuids, $io, $outDir);
         });
 
         $end = microtime(true);
@@ -135,7 +135,7 @@ class LoadContracts extends AbstractDataCommand
         bool $overwrite,
         SymfonyStyle $io,
         string $outDir,
-        array &$phase1Files,
+        array &$referencedMbeUuids,
     ): void {
         foreach ($record->getHandlers() as $handler) {
             $entrySets = [
@@ -147,7 +147,14 @@ class LoadContracts extends AbstractDataCommand
 
             foreach ($entrySets as $type => $entries) {
                 foreach ($entries as $entry) {
-                    $phase1Files[$this->fileNameForContractEntry($entry)] = true;
+                    if ($type === self::TYPE_LEGACY) {
+                        $mbeRef = $entry->getMissionBrokerEntryReference();
+
+                        if ($mbeRef !== null) {
+                            $referencedMbeUuids[strtolower($mbeRef)] = true;
+                        }
+                    }
+
                     $this->writeEntry($entry, $handler, $record, $type, $chainIndex, $overwrite, $io, $outDir);
                     $io->progressAdvance();
                 }
@@ -165,7 +172,8 @@ class LoadContracts extends AbstractDataCommand
         SymfonyStyle $io,
         string $outDir,
     ): void {
-        $fileName = $this->fileNameForContractEntry($entry);
+        // debugNames can collide (ask me how I know...)
+        $fileName = strtolower((string) $entry->getId());
         $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
 
         if (! $overwrite && file_exists($filePath)) {
@@ -189,7 +197,7 @@ class LoadContracts extends AbstractDataCommand
 
     private function exportUnreferencedMBEs(
         MissionBrokerService $service,
-        array $phase1Files,
+        array $referencedMbeUuids,
         SymfonyStyle $io,
         string $outDir,
     ): void {
@@ -204,16 +212,16 @@ class LoadContracts extends AbstractDataCommand
             }
         }
 
-        foreach ($allEntries as $className => $mbe) {
-            $fileName = $this->normalizeContractFileName($className);
+        foreach ($allEntries as $mbe) {
+            $uuid = strtolower($mbe->getUuid());
 
-            if (isset($phase1Files[$fileName])) {
+            if (isset($referencedMbeUuids[$uuid])) {
                 $io->progressAdvance();
 
                 continue;
             }
 
-            $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
+            $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $uuid);
 
             try {
                 $format = new MissionBrokerFormat($mbe, $mbeChainIndex);
@@ -223,24 +231,14 @@ class LoadContracts extends AbstractDataCommand
                 $json = json_encode($data, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
                 if (! $this->writeJsonFile($filePath, $json, $io)) {
-                    $io->warning(sprintf('Skipping mission broker entry %s due to write failure', $fileName));
+                    $io->warning(sprintf('Skipping mission broker entry %s due to write failure', $uuid));
                 }
             } catch (JsonException $e) {
-                $io->warning(sprintf('Failed to encode JSON for mission broker entry %s: %s', $fileName, $e->getMessage()));
+                $io->warning(sprintf('Failed to encode JSON for mission broker entry %s: %s', $uuid, $e->getMessage()));
             }
 
             $io->progressAdvance();
         }
-    }
-
-    private function fileNameForContractEntry(ContractEntry $entry): string
-    {
-        return $this->normalizeContractFileName($entry->getDebugName() ?? $entry->getId() ?? 'unknown');
-    }
-
-    private function normalizeContractFileName(string $value): string
-    {
-        return strtolower(preg_replace('/[^a-zA-Z0-9_\-]/', '_', $value));
     }
 
     /**

@@ -25,10 +25,12 @@ use Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride\RewardValue;
 use Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride\ShipSpawnDescriptionsValue;
 use Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride\StringHashValue;
 use Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride\TimeTrialRaceValue;
+use Octfx\ScDataDumper\DocumentTypes\FoundryRecord;
 use Octfx\ScDataDumper\DocumentTypes\Mission\MissionBrokerEntry;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 use Octfx\ScDataDumper\Formats\ScUnpacked\Concerns\BuildsMissionItemHaulingOrders;
 use Octfx\ScDataDumper\Formats\ScUnpacked\Concerns\FormatsMissionBrokerEntries;
+use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Services\FoundryLookupService;
 use Octfx\ScDataDumper\Services\ItemService;
 use Octfx\ScDataDumper\Services\LocalizationService;
@@ -176,6 +178,11 @@ final class Contract extends BaseFormat
             if ($missionTokens === null) {
                 $missionTokens = $this->buildMbeMissionTokens($mbe, $title, $description, $locationPools);
             }
+        }
+
+        // Fallback for orders on the template's ObjectiveHandler_Hauling objective.
+        if ($haulingOrders === []) {
+            $haulingOrders = $this->buildTemplateObjectiveHaulingOrders();
         }
 
         if ($itemCounts !== null) {
@@ -727,6 +734,331 @@ final class Contract extends BaseFormat
         }
 
         return $orders;
+    }
+
+    /**
+     * Orders declared on the template's ObjectiveHandler_Hauling objective.
+     * buildHaulingOrders() only covers the property-override shape, so this is the fallback for missions
+     * (e.g. TheCollector_Vehicle_Polaris) that use the objective-token shape instead.
+     *
+     * @return list<array{kind: string, uuid: ?string, name: ?string, min_amount: int, max_amount: int, max_container_size: int, min_scu: int, max_scu: int, items?: list<array{uuid: string, name: ?string}>}>
+     */
+    private function buildTemplateObjectiveHaulingOrders(): array
+    {
+        $templateRef = $this->entry->getTemplateReference();
+        if ($templateRef === null) {
+            return [];
+        }
+
+        $template = ServiceFactory::getFoundryLookupService()->getContractTemplateByReference($templateRef);
+        if ($template === null) {
+            return [];
+        }
+
+        $nodes = $template->getAll('objectiveTokens/ObjectiveToken/objectiveHandler/ObjectiveHandler_Hauling/haulingOrders/*');
+        if ($nodes === []) {
+            return [];
+        }
+
+        $itemService = ServiceFactory::getItemService();
+        $lookup = ServiceFactory::getFoundryLookupService();
+        $localization = ServiceFactory::getLocalizationService();
+        $overrides = $this->getAllOverrides();
+
+        $orders = [];
+
+        foreach ($nodes as $node) {
+            $type = $node->nodeName;
+
+            // HaulingOrder_Property and HaulingOrder_DropOff are indirect refs whose real cargo
+            // lives in a hauling-content property override already emitted by buildHaulingOrders();
+            // reaching here means the variable is empty, so skip them.
+            if ($type === 'HaulingOrder_Property' || $type === 'HaulingOrder_DropOff') {
+                continue;
+            }
+
+            $kind = match ($type) {
+                'HaulingOrder_EntityClass' => 'Entity',
+                'HaulingOrder_EntityClasses' => 'Entities',
+                'HaulingOrder_Resource', 'HaulingOrder_ResourceUnlimitedDropOff' => 'Resource',
+                'HaulingOrder_MissionItem' => 'MissionItem',
+                default => str_starts_with($type, 'HaulingOrder_') ? substr($type, strlen('HaulingOrder_')) : $type,
+            };
+
+            $order = $this->buildTemplateObjectiveOrder(
+                $node,
+                $kind,
+                $itemService,
+                $lookup,
+                $localization,
+                $overrides,
+            );
+
+            foreach ($order as $entry) {
+                $orders[] = $entry;
+            }
+        }
+
+        return $orders;
+    }
+
+    /**
+     * Resolve a single template-objective hauling order to the same shape HaulingOrdersValue emits.
+     * Returns [] when the order carries no resolvable cargo (e.g. a MissionItem ref whose target variable is empty)
+     * so the caller drops it instead of emitting a hollow placeholder.
+     * A HaulingOrder_MissionItem resolving to multiple concrete items fans out to one row each
+     * (matching the override path's resolveMissionItemRef).
+     *
+     * @param  list<MissionPropertyOverride>  $overrides
+     * @return list<array{kind: string, uuid: ?string, name: ?string, min_amount: int, max_amount: int, max_container_size: int, min_scu: int, max_scu: int, items?: list<array{uuid: string, name: ?string}>}>
+     */
+    private function buildTemplateObjectiveOrder(
+        Element $node,
+        string $kind,
+        ItemService $itemService,
+        FoundryLookupService $lookup,
+        LocalizationService $localization,
+        array $overrides,
+    ): array {
+        $uuid = null;
+        $name = null;
+        $items = null;
+        $multiItems = null;
+        $tagTerms = null;
+
+        if ($kind === 'Entity') {
+            $entityClass = $node->get('@entityClass');
+
+            if (is_string($entityClass)) {
+                $uuid = $entityClass;
+                $name = $itemService->getByReference($entityClass)?->getDisplayName();
+            }
+        } elseif ($kind === 'Entities') {
+            $entityClasses = $node->get('@haulingEntityClasses');
+
+            if (is_string($entityClasses)) {
+                $uuid = $entityClasses;
+                $record = $lookup->getHaulingEntityClassesByReference($entityClasses);
+                $displayName = $record?->getStringValue('@orderDisplayName');
+                $name = $displayName !== null ? $localization->translateValue($displayName, true) : $record?->getClassName();
+                $items = $this->resolveEntityClassItems($record, $itemService);
+            }
+        } elseif ($kind === 'Resource') {
+            $resource = $node->get('@resource');
+
+            if (is_string($resource)) {
+                $uuid = $resource;
+                $resourceRecord = $lookup->getResourceTypeByReference($resource);
+                $name = $resourceRecord !== null
+                    ? $localization->translateValue($resourceRecord->getDisplayName(), true)
+                    : null;
+            }
+        } elseif ($kind === 'MissionItem') {
+            // <item value="ObjectiveProperty_Referenced[hex]"/> -> template variable -> entry override.
+            $resolved = $this->resolveTemplateMissionItemOrder($node, $overrides, $itemService, $lookup);
+            if ($resolved === []) {
+                return [];
+            }
+
+            if (isset($resolved['items'])) {
+                if (count($resolved['items']) === 1) {
+                    $uuid = $resolved['items'][0]['uuid'];
+                    $name = $resolved['items'][0]['name'];
+                } else {
+                    $multiItems = $resolved['items'];
+                }
+            } elseif (isset($resolved['tag_terms'])) {
+                // No concrete item UUID; carry the tag terms so the order still signals
+                // "haul 1 item matching these tags" instead of looking empty.
+                $tagTerms = $resolved['tag_terms'];
+            }
+        }
+
+        $baseOrder = [
+            'kind' => $kind,
+            'uuid' => $uuid,
+            'name' => $name,
+            'min_amount' => (int) ($node->get('@minAmount') ?? 0),
+            'max_amount' => (int) ($node->get('@maxAmount') ?? 0),
+            'max_container_size' => (int) ($node->get('@maxContainerSize') ?? -1),
+            'min_scu' => (int) ($node->get('@minSCU') ?? 0),
+            'max_scu' => (int) ($node->get('@maxSCU') ?? 0),
+        ];
+
+        if ($items !== null) {
+            $baseOrder['items'] = $items;
+        }
+
+        if ($tagTerms !== null) {
+            $baseOrder['tag_search_terms'] = $tagTerms;
+        }
+
+        if ($multiItems === null) {
+            return [$baseOrder];
+        }
+
+        // Fan out one row per resolved concrete item (matches the override path).
+        $results = [];
+
+        foreach ($multiItems as $item) {
+            $row = $baseOrder;
+            $row['uuid'] = $item['uuid'];
+            $row['name'] = $item['name'];
+            $results[] = $row;
+        }
+
+        return $results;
+    }
+
+    /**
+     * Resolve a HaulingOrder_MissionItem's <item> ref through the template's ObjectiveProperty list
+     * to a missionVariableName, then look that variable up in the merged overrides. Concrete
+     * specificItems resolve to entity UUIDs; otherwise tag search terms are returned so callers
+     * can still describe what to haul. Mirrors resolveMissionItemRef + buildMissionItemCounts.
+     *
+     * @param  list<MissionPropertyOverride>  $overrides
+     * @return array{items?: list<array{uuid: string, name: ?string}>, tag_terms?: list<array{positive_tags?: list<array{uuid: string, name: ?string}>, negative_tags?: list<array{uuid: string, name: ?string}>}>}
+     */
+    private function resolveTemplateMissionItemOrder(
+        Element $node,
+        array $overrides,
+        ItemService $itemService,
+        FoundryLookupService $lookup,
+    ): array {
+        $itemRef = $node->get('item@value');
+        if (! is_string($itemRef) || ! preg_match('/ObjectiveProperty_Referenced\[([0-9A-Fa-f]+)\]/', $itemRef, $m)) {
+            return [];
+        }
+
+        // Scope the property table to the hauling node's enclosing ObjectiveToken.
+        // The ObjectiveProperty_Referenced[hex] indices encode positions relative to THAT
+        // token's property list, not the template-wide concatenation. Reading from the
+        // template root silently crosses token boundaries on multi-objective templates
+        // (e.g. eliminateall_courier: EliminateAll token has 12 properties, Courier token
+        // has the hauling node) and lands on the wrong missionVariableName.
+        $ops = $node->getAll('ancestor::ObjectiveToken/properties/ObjectiveProperty_Referenced');
+        if ($ops === []) {
+            return [];
+        }
+
+        // Collect every ObjectiveProperty_Referenced[hex] ref in this node so the base
+        // offset can be validated self-consistently (see below).
+        $nodeHexes = [];
+
+        foreach ($node->children() as $child) {
+            $val = $child->get('@value');
+
+            if (is_string($val) && preg_match('/ObjectiveProperty_Referenced\[([0-9A-Fa-f]+)\]/', $val, $rm)) {
+                $nodeHexes[] = hexdec($rm[1]);
+            }
+        }
+
+        if ($nodeHexes === []) {
+            return [];
+        }
+
+        // Decode the ObjectiveProperty index: base = min ref hex, assuming the node
+        // references the token's first property (the common hauling shape: pickup at
+        // position 0, dropoff at 1, item at 2+). Unlike computeHandlerPropertyBaseOffset()
+        // we cannot type-check the resolved property (ObjectiveProperty_Referenced carries
+        // only missionVariableName), so we validate structurally instead: every referenced
+        // hex must resolve to a valid index in the scoped list. If the min-hex heuristic is
+        // wrong the offsets go out of bounds and we fail loudly rather than reading the
+        // wrong variable.
+        $base = min($nodeHexes);
+        $propCount = count($ops);
+
+        foreach ($nodeHexes as $hex) {
+            if ($hex - $base < 0 || $hex - $base >= $propCount) {
+                return [];
+            }
+        }
+
+        $idx = hexdec($m[1]) - $base;
+
+        if ($idx < 0 || $idx >= $propCount) {
+            return [];
+        }
+
+        $varName = $ops[$idx]->get('@missionVariableName');
+
+        if (! is_string($varName)) {
+            return [];
+        }
+
+        // The first matching override is not necessarily the populated one (e.g. an empty handler
+        // default plus an entry-specific one), so scan all of them for one with concrete cargo.
+        foreach ($overrides as $override) {
+            if ($override->getMissionVariableName() !== $varName) {
+                continue;
+            }
+
+            $value = $override->getValue();
+            if (! ($value instanceof MissionItemValue)) {
+                continue;
+            }
+
+            $specific = $value->getSpecificItems();
+            if ($specific !== []) {
+                $results = [];
+
+                foreach ($specific as $itemUuid) {
+                    $resolvedUuid = $lookup->resolveMissionItemEntityClass($itemUuid) ?? $itemUuid;
+                    $results[] = [
+                        'uuid' => $resolvedUuid,
+                        'name' => $itemService->getByReference($resolvedUuid)?->getDisplayName(),
+                    ];
+                }
+
+                return ['items' => $results];
+            }
+        }
+
+        // No concrete items on any matching override: fall back to tag search terms.
+        foreach ($overrides as $override) {
+            if ($override->getMissionVariableName() !== $varName) {
+                continue;
+            }
+
+            $value = $override->getValue();
+
+            if (! ($value instanceof MissionItemValue)) {
+                continue;
+            }
+
+            $tagTerms = $value->getTagSearchTerms();
+
+            if ($tagTerms !== []) {
+                return ['tag_terms' => ServiceFactory::getTagDatabaseService()->resolveTagSearchTermsNames($tagTerms)];
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @return list<array{uuid: string, name: ?string}>
+     */
+    private function resolveEntityClassItems(?FoundryRecord $record, ItemService $itemService): array
+    {
+        if ($record === null) {
+            return [];
+        }
+
+        $seen = [];
+        $items = [];
+
+        foreach ($record->getAll('entityClasses//Reference@value') as $refUuid) {
+            if (is_string($refUuid) && ! isset($seen[strtolower($refUuid)])) {
+                $seen[strtolower($refUuid)] = true;
+                $items[] = [
+                    'uuid' => $refUuid,
+                    'name' => $itemService->getByReference($refUuid)?->getDisplayName(),
+                ];
+            }
+        }
+
+        return $items;
     }
 
     /**
