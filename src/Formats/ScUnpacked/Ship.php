@@ -19,6 +19,7 @@ use Octfx\ScDataDumper\Services\Vehicle\EmissionAggregator;
 use Octfx\ScDataDumper\Services\Vehicle\FlightCharacteristicsCalculator;
 use Octfx\ScDataDumper\Services\Vehicle\HealthAggregator;
 use Octfx\ScDataDumper\Services\Vehicle\InventoryContainerResolver;
+use Octfx\ScDataDumper\Services\Vehicle\LoadoutPortIdentityAnnotator;
 use Octfx\ScDataDumper\Services\Vehicle\PortFinder;
 use Octfx\ScDataDumper\Services\Vehicle\PortSummaryBuilder;
 use Octfx\ScDataDumper\Services\Vehicle\PropulsionSystemAggregator;
@@ -29,7 +30,9 @@ use Octfx\ScDataDumper\Services\Vehicle\SocpakObjectCollector;
 use Octfx\ScDataDumper\Services\Vehicle\StanceSpeedExtractor;
 use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartBuilder;
 use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartWalker;
+use Octfx\ScDataDumper\Services\Vehicle\SystemsBuilder;
 use Octfx\ScDataDumper\Services\Vehicle\TurretControlMapper;
+use Octfx\ScDataDumper\Services\Vehicle\TurretDpsEnricher;
 use Octfx\ScDataDumper\Services\Vehicle\VehicleDataContext;
 use Octfx\ScDataDumper\Services\Vehicle\VehicleDataOrchestrator;
 use Octfx\ScDataDumper\Services\Vehicle\WeaponDpsAggregator;
@@ -113,12 +116,16 @@ final class Ship extends BaseFormat
             'UUID' => $this->item->getUuid(),
             'ClassName' => $this->item->getClassName(),
             'Name' => trim($vehicleName !== '' ? $vehicleName : $this->item->getClassName()),
+            'NameKey' => $vehicleNameKey !== null && $vehicleNameKey !== '' ? ltrim($vehicleNameKey, '@') : null,
             'Description' => $vehicleDescription,
+            'DescriptionKey' => $vehicleDescriptionKey !== null && $vehicleDescriptionKey !== '' ? ltrim($vehicleDescriptionKey, '@') : null,
             'DescriptionData' => $descriptionData['data'] ?? null,
             'DescriptionText' => $descriptionData['description'] ?? null,
 
             'Career' => $vehicleCareerLabel,
+            'CareerKey' => $vehicleCareerKey !== null && $vehicleCareerKey !== '' ? ltrim($vehicleCareerKey, '@') : null,
             'Role' => $vehicleRoleLabel,
+            'RoleKey' => $vehicleRoleKey !== null && $vehicleRoleKey !== '' ? ltrim($vehicleRoleKey, '@') : null,
 
             'Manufacturer' => $manufacturer ? [
                 'UUID' => $manufacturer->getUuid(),
@@ -205,7 +212,7 @@ final class Ship extends BaseFormat
         );
 
         $socpakReader = new SocpakReader(ServiceFactory::getActiveScDataPath());
-        $socpakObjects = (new SocpakObjectCollector($socpakReader))->collectAll(
+        $socpakObjects = new SocpakObjectCollector($socpakReader)->collectAll(
             $this->vehicleWrapper->entity,
             $this->vehicleWrapper->loadout,
         );
@@ -252,8 +259,6 @@ final class Ship extends BaseFormat
         $data['MassTotal'] = round($data['Mass'] + ($data['MassLoadout'] ?? 0));
         $data['Mass'] = round($data['Mass']);
 
-        // collect($portSummary)->map(fn ($collection, $key) => $collection->count())->dd();
-
         // Crew roles derived from installed turrets
         $weaponCrew = ($portSummary['mannedTurrets']->count() ?? 0) + ($portSummary['remoteTurrets']->count() ?? 0);
         $operationsCrew = max(
@@ -270,8 +275,6 @@ final class Ship extends BaseFormat
         }
 
         $summary = [];
-
-        $crossSectionValues = [];
 
         // Shield Face Type + Shield Resistance/Absorption
         $shields = [];
@@ -314,8 +317,6 @@ final class Ship extends BaseFormat
             }
         }
 
-        $crossSectionMultiplier = 1;
-
         if ($portSummary['armor']->count() > 0) {
             $armor = Arr::get($portSummary['armor']->first(), 'Port.InstalledItem.stdItem', []);
 
@@ -330,7 +331,7 @@ final class Ship extends BaseFormat
         $crossSectionParams = $this->vehicleWrapper->entity->getCrossSectionParams();
 
         if ($crossSectionParams !== null) {
-            $data['cross_section'] = array_map(static fn ($x) => (float) $x * $crossSectionMultiplier, $crossSectionParams);
+            $data['cross_section'] = array_map(static fn ($x): float => (float) $x, $crossSectionParams);
         }
 
         $cargoResult = $this->cargoGridResolver->resolveCargoGrids($this->vehicleWrapper);
@@ -362,46 +363,7 @@ final class Ship extends BaseFormat
             });
         }
 
-        //        $personalInventory = collect($this->vehicleWrapper->loadout)
-        //            ->filter(fn ($entry) => isset($entry['Item']['Components']['SCItemInventoryContainerComponentParams']))
-        //            ->filter(fn ($entry) => str_contains(strtolower($entry['portName'] ?? ''), 'personal'))
-        //            ->sum(fn ($entry) => ScuCalculator::fromItem($entry['Item']) ?? 0.);
-        //
-        //        $data['personal_inventory'] = $personalInventory;
-        //
-        //        $vehicleInventory = collect($this->vehicleWrapper->loadout)
-        //            ->filter(fn ($entry) => isset($entry['Item']['Components']['SCItemInventoryContainerComponentParams']))
-        //            ->reject(fn ($entry) => str_contains(strtolower($entry['portName'] ?? ''), 'personal'))
-        //            ->reject(fn ($entry) => Arr::get($entry, 'Item.Components.SAttachableComponentParams.AttachDef.Type') === 'CargoGrid'
-        //                || Arr::get($entry, 'Item.Type') === 'Ship.Container.Cargo')
-        //            ->sum(fn ($entry) => ScuCalculator::fromItem($entry['Item']) ?? 0.);
-        //
-        //        $data['vehicle_inventory'] = $vehicleInventory;
-
-        // Add orchestrator calculated data to the output
-        //        if (! empty($calculatedData['Propulsion'])) {
-        //            $data['fuel'] = [
-        //                'capacity' => isset($calculatedData['Propulsion']['FuelCapacity']) ? $calculatedData['Propulsion']['FuelCapacity'] / 1000 : null,
-        //                'intake_rate' => $calculatedData['Propulsion']['FuelIntakeRate'] ?? null,
-        //                'usage' => [
-        //                    'main' => $calculatedData['Propulsion']['FuelUsage']['Main'] ?? null,
-        //                    'retro' => $calculatedData['Propulsion']['FuelUsage']['Retro'] ?? null,
-        //                    'vtol' => $calculatedData['Propulsion']['FuelUsage']['Vtol'] ?? null,
-        //                    'maneuvering' => $calculatedData['Propulsion']['FuelUsage']['Maneuvering'] ?? null,
-        //                ],
-        //            ];
-        //        }
-
-        //        if (! empty($calculatedData['QuantumTravel'])) {
-        //            $data['quantum'] = [
-        //                'quantum_speed' => $calculatedData['QuantumTravel']['Speed'] ?? null,
-        //                'quantum_spool_time' => $calculatedData['QuantumTravel']['SpoolTime'] ?? null,
-        //                'quantum_fuel_capacity' => isset($calculatedData['QuantumTravel']['FuelCapacity']) ? $calculatedData['QuantumTravel']['FuelCapacity'] / 1000 : null,
-        //                'quantum_range' => isset($calculatedData['QuantumTravel']['Range']) ? $calculatedData['QuantumTravel']['Range'] / 1000 : null,
-        //            ];
-        //        }
         $data['emission'] = $data['emission'] ?? $calculatedData['emission'] ?? [];
-        // $data['emission_budgeted'] = $calculatedData['power_budgeting'] ?? null;
         $data['cooling'] = $calculatedData['cooling'] ?? [];
         $data['power'] = $calculatedData['power'] ?? [];
         $data['power_pools'] = $calculatedData['power_pools'] ?? [];
@@ -414,6 +376,9 @@ final class Ship extends BaseFormat
         if (isset($shieldAbsorption)) {
             $data['shields_total']['Absorption'] = $shieldAbsorption;
         }
+
+        // Keep Systems.Shields.Summary in parity with the enriched top-level ShieldsTotal payload.
+        $calculatedData['shields_total'] = $data['shields_total'];
 
         // deprecated, use shields_total.hp
         $data['shield_hp'] = round($calculatedData['shields_total']['hp'] ?? 0);
@@ -509,18 +474,15 @@ final class Ship extends BaseFormat
         }
 
         $loadout = $this->buildLoadout($standardisedParts);
-        if (! empty($loadout) && ! empty($turretControlMap)) {
-            $this->markPilotSlaveable($loadout, $turretControlMap);
-        }
-        if (! empty($loadout)) {
-            $data['loadout'] = $loadout;
-        }
 
-        if (! empty($crossSectionValues)) {
-            $data['cross_section'] = array_map(
-                static fn (float $value): float => $value * $crossSectionMultiplier,
-                $crossSectionValues
-            );
+        if (! empty($loadout)) {
+            if (! empty($turretControlMap)) {
+                $this->markPilotSlaveable($loadout, $turretControlMap);
+            }
+
+            $loadout = (new LoadoutPortIdentityAnnotator)->annotate($loadout);
+            $loadout = (new TurretDpsEnricher)->enrich($loadout, $calculatedData);
+            $data['loadout'] = $loadout;
         }
 
         // Engineering boost (multi-crew weapon regen modifier)
@@ -545,6 +507,14 @@ final class Ship extends BaseFormat
         }
 
         $data = array_merge($data, $summary);
+
+        // Build semantic Systems index from annotated loadout
+        $systems = (new SystemsBuilder)->build(
+            annotatedLoadout: $loadout ?? [],
+            calculatedData: $calculatedData,
+            legacyPortSummary: $portSummary,
+        );
+        $data['systems'] = $systems;
 
         $this->processArray($data);
 

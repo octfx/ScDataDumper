@@ -95,6 +95,34 @@ final class ShipIntegrationTest extends ScDataTestCase
     /**
      * @throws JsonException
      */
+    public function test_to_array_keeps_shield_system_summary_in_parity_with_top_level_shields_total(): void
+    {
+        $manufacturerPath = $this->writeManufacturerFile();
+        $this->writeShipTestCacheFiles($manufacturerPath);
+        $this->configureServiceFactory();
+
+        $entity = new VehicleDefinition;
+        $entity->load($this->writeVehicleEntityFileWithShieldPool());
+
+        $vehicle = new Vehicle;
+        $vehicle->load($this->writeShieldVehicleImplementationFile());
+
+        $ship = new Ship(new VehicleWrapper($vehicle, $entity, $this->makeShieldLoadout()));
+        $result = $ship->toArray();
+
+        self::assertSame(
+            $result['ShieldsTotal']['Resistance'],
+            $result['Systems']['Shields']['Summary']['Resistance'],
+        );
+        self::assertSame(
+            $result['ShieldsTotal']['Absorption'],
+            $result['Systems']['Shields']['Summary']['Absorption'],
+        );
+    }
+
+    /**
+     * @throws JsonException
+     */
     public function test_to_array_uses_attachdef_localization_for_actor_vehicles_without_vehicle_component_params(): void
     {
         $manufacturerPath = $this->writeManufacturerFile();
@@ -400,6 +428,38 @@ final class ShipIntegrationTest extends ScDataTestCase
         );
     }
 
+    private function writeVehicleEntityFileWithShieldPool(int $maxShieldCount = 1): string
+    {
+        return $this->writeFile(
+            'records/entity/test_ship.xml',
+            <<<XML
+            <?xml version="1.0" encoding="UTF-8"?>
+            <VehicleDefinition.TEST_SHIP __type="EntityClassDefinition" __ref="ship-uuid" __path="libs/foundry/records/entityclassdefinition/test_ship.xml">
+                <Components>
+                    <SAttachableComponentParams>
+                        <AttachDef Type="Vehicle" SubType="Ship" Size="2" manufacturer="00000000-0000-0000-0000-000000000000">
+                            <Localization Name="@vehicle_name" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY" />
+                        </AttachDef>
+                    </SAttachableComponentParams>
+                    <VehicleComponentParams vehicleName="@vehicle_name" vehicleDescription="@vehicle_description" vehicleCareer="@vehicle_career" vehicleRole="@vehicle_role" />
+                    <SItemPortContainerComponentParams>
+                        <resourceNetworkPowerPools>
+                            <itemPools>
+                                <Pool itemType="Shield" maxItemCount="{$maxShieldCount}" />
+                            </itemPools>
+                        </resourceNetworkPowerPools>
+                    </SItemPortContainerComponentParams>
+                </Components>
+                <StaticEntityClassData>
+                    <SEntityInsuranceProperties>
+                        <displayParams manufacturer="11111111-1111-1111-1111-111111111111" />
+                    </SEntityInsuranceProperties>
+                </StaticEntityClassData>
+            </VehicleDefinition.TEST_SHIP>
+            XML
+        );
+    }
+
     private function writeActorVehicleEntityFile(): string
     {
         return $this->writeFile(
@@ -427,6 +487,27 @@ final class ShipIntegrationTest extends ScDataTestCase
     private function writeVehicleImplementationFile(): string
     {
         return $this->writeStandardVehicleImplementationFile();
+    }
+
+    private function writeShieldVehicleImplementationFile(): string
+    {
+        return $this->writeFile(
+            'records/vehicles/test_ship_impl.xml',
+            <<<'XML'
+            <?xml version="1.0" encoding="UTF-8"?>
+            <Vehicle.TEST_SHIP_IMPL>
+                <Parts>
+                    <Part name="shield_mount" mass="100" damageMax="500">
+                        <ItemPort maxSize="2" minSize="1">
+                            <Types>
+                                <Type type="Shield" />
+                            </Types>
+                        </ItemPort>
+                    </Part>
+                </Parts>
+            </Vehicle.TEST_SHIP_IMPL>
+            XML
+        );
     }
 
     private function writeVehicleImplementationFileWithPortTags(string $portTags): string
@@ -528,6 +609,43 @@ final class ShipIntegrationTest extends ScDataTestCase
                         'MaxSize' => 1,
                         'Uneditable' => true,
                     ]],
+                ],
+            ],
+        ]];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function makeShieldLoadout(): array
+    {
+        return [[
+            'portName' => 'shield_mount',
+            'className' => 'SHIELD_TEST',
+            'entries' => [],
+            'Item' => [
+                'type' => 'Shield',
+                'stdItem' => [
+                    'ClassName' => 'SHIELD_TEST',
+                    'UUID' => 'shield-uuid',
+                    'Name' => 'Test Shield',
+                    'Manufacturer' => ['Name' => 'Fallback Industries'],
+                    'Type' => 'Shield.UNDEFINED',
+                    'Grade' => 'A',
+                    'Mass' => 10.0,
+                    'Shield' => [
+                        'MaxShieldHealth' => 1000.0,
+                        'MaxShieldRegen' => 100.0,
+                        'Resistance' => [
+                            'Physical' => ['Minimum' => 0.1, 'Maximum' => 0.2],
+                            'Energy' => ['Minimum' => 0.3, 'Maximum' => 0.4],
+                        ],
+                        'Absorption' => [
+                            'Physical' => ['Minimum' => 0.5, 'Maximum' => 0.6],
+                            'Energy' => ['Minimum' => 0.7, 'Maximum' => 0.8],
+                        ],
+                    ],
+                    'Ports' => [],
                 ],
             ],
         ]];
