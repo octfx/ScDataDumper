@@ -97,7 +97,7 @@ final class Item extends BaseFormat
             ], $entityTags),
             'manufacturer' => $canonicalManufacturer['code'] ?? $manufacturerCode,
             'classification' => $this->item->getClassification(),
-            'event_source' => self::resolveEventSource($this->item->getClassName(), $this->item->getTagList()),
+            'event_source' => self::resolveEventSource($this->item->getClassName(), $this->item->getTagList(), $this->item->getUuid()),
             'stdItem' => [
                 'UUID' => $this->item->getUuid(),
                 'ClassName' => $this->item->getClassName(),
