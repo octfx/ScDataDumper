@@ -34,22 +34,11 @@ final class Item extends BaseFormat
             'UUID' => '00000000-0000-0000-0000-000000000000',
         ];
 
-        $rawNameKey = $manufacturer?->get('Localization@Name', raw: true);
-        $manufacturerCode = $manufacturer?->getCode();
-        $hasManufacturer = $manufacturer !== null;
+        $wikiFacts = ServiceFactory::getDataOverrideService()->factsFor($this->item->getUuid());
+        $resolvedManufacturer = ServiceFactory::getManufacturerService()
+            ->resolveForEntity($manufacturer, $wikiFacts['manufacturer'] ?? null);
 
-        // Only codeless manufacturer aliases need canonical resolution.
-        $canonicalManufacturer = null;
-        if (($manufacturerCode === null || $manufacturerCode === '')
-            && $hasManufacturer
-            && is_string($rawNameKey)
-            && str_starts_with($rawNameKey, '@manufacturer_')
-        ) {
-            $canonicalManufacturer = ServiceFactory::getManufacturerService()
-                ->getCanonicalByNameKey($rawNameKey);
-        }
-
-        $name = $attach->get('Localization@Name');
+        $name = $wikiFacts['name'] ?? $attach->get('Localization@Name');
         $description = $attach->get('Localization@Description') ?? '';
         $descriptionData = ItemDescriptionParser::parse($description);
 
@@ -95,7 +84,7 @@ final class Item extends BaseFormat
                 'tag' => $tag,
                 'name' => $entityTagNames->getTagName($tag),
             ], $entityTags),
-            'manufacturer' => $canonicalManufacturer['code'] ?? $manufacturerCode,
+            'manufacturer' => $resolvedManufacturer['code'] ?? null,
             'classification' => $this->item->getClassification(),
             'event_source' => self::resolveEventSource($this->item->getClassName(), $this->item->getTagList(), $this->item->getUuid()),
             'stdItem' => [
@@ -116,17 +105,13 @@ final class Item extends BaseFormat
                 'Description' => $description,
                 'DescriptionData' => $descriptionData['data'] ?? null,
                 'DescriptionText' => $descriptionData['description'] ?? null,
-                'Manufacturer' => $canonicalManufacturer !== null
+                'Manufacturer' => $resolvedManufacturer !== null
                     ? [
-                        'Code' => $canonicalManufacturer['code'],
-                        'Name' => $manufacturer->get('Localization@Name'),
-                        'UUID' => $canonicalManufacturer['uuid'],
+                        'Code' => $resolvedManufacturer['code'],
+                        'Name' => $resolvedManufacturer['name'],
+                        'UUID' => $resolvedManufacturer['uuid'],
                     ]
-                    : ($hasManufacturer ? [
-                        'Code' => $manufacturerCode,
-                        'Name' => $manufacturer->get('Localization@Name'),
-                        'UUID' => $manufacturer->getUuid(),
-                    ] : $defaultManufacturer),
+                    : $defaultManufacturer,
                 'Tags' => $this->item->getTagList(),
                 'RequiredTags' => $this->item->getRequiredTagList(),
                 'Rarity' => $rarity,

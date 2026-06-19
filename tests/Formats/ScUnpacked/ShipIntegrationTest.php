@@ -153,9 +153,42 @@ final class ShipIntegrationTest extends ScDataTestCase
         self::assertSame('Handcrafted by Wikelo.', $result['DescriptionText']);
         self::assertSame('22222222-2222-2222-2222-222222222222', $result['Manufacturer']['UUID']);
         self::assertSame('BANU', $result['Manufacturer']['Code']);
-        self::assertSame('Banu', $result['Manufacturer']['Name']);
+        // XML name "Banu" is the abbreviation; data.json canonical "Banu Souli"
+        // wins via code fallback (code is identity).
+        self::assertSame('Banu Souli', $result['Manufacturer']['Name']);
         self::assertSame('', $result['Career']);
         self::assertSame('', $result['Role']);
+    }
+
+    /**
+     * @throws JsonException
+     */
+    public function test_to_array_applies_wiki_manufacturer_code_to_fix_variant_name(): void
+    {
+        // Vehicle UUID 4a7a4b9d.. is curated in wiki_vehicles.json as BANU.
+        // The XML manufacturer name is "Banu" (truncated variant), which misses
+        // the name->code reverse map. The wiki code forward-resolves to the
+        // canonical "Banu Souli" -- code is identity, name follows.
+        $manufacturerPath = $this->writeBanuManufacturerFile();
+        $this->writeShipTestCacheFiles($manufacturerPath, extraManufacturers: [
+            '22222222-2222-2222-2222-222222222222' => [
+                'class' => 'BANU',
+                'path' => $this->tempDir.DIRECTORY_SEPARATOR.'records'.DIRECTORY_SEPARATOR.'scitemmanufacturer'.DIRECTORY_SEPARATOR.'banu.xml',
+            ],
+        ]);
+        $this->configureServiceFactory();
+
+        $entity = new VehicleDefinition;
+        $entity->load($this->writeCuratedBanuVehicleEntityFile());
+
+        $vehicle = new Vehicle;
+        $vehicle->load($this->writeVehicleImplementationFile());
+
+        $ship = new Ship(new VehicleWrapper($vehicle, $entity, $this->makeLoadout()));
+        $result = $ship->toArray();
+
+        self::assertSame('BANU', $result['Manufacturer']['Code']);
+        self::assertSame('Banu Souli', $result['Manufacturer']['Name']);
     }
 
     /**
@@ -480,6 +513,32 @@ final class ShipIntegrationTest extends ScDataTestCase
                     </SEntityInsuranceProperties>
                 </StaticEntityClassData>
             </VehicleDefinition.ACTOR_SHIP>
+            XML
+        );
+    }
+
+    /** Vehicle entity with a UUID curated in wiki_vehicles.json as BANU. */
+    private function writeCuratedBanuVehicleEntityFile(): string
+    {
+        return $this->writeFile(
+            'records/entity/curated_banu_ship.xml',
+            <<<'XML'
+            <?xml version="1.0" encoding="UTF-8"?>
+            <VehicleDefinition.CURATED_BANU_SHIP __type="EntityClassDefinition" __ref="4a7a4b9d-ae3c-4375-af63-4100f831f43c" __path="libs/foundry/records/entityclassdefinition/curated_banu_ship.xml">
+                <Components>
+                    <SAttachableComponentParams>
+                        <AttachDef Type="Vehicle" SubType="Ship" Size="2" Grade="1" Manufacturer="22222222-2222-2222-2222-222222222222">
+                            <Localization Name="@vehicle_name" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY" />
+                        </AttachDef>
+                    </SAttachableComponentParams>
+                    <VehicleComponentParams vehicleName="@vehicle_name" vehicleDescription="@LOC_EMPTY" vehicleCareer="@LOC_EMPTY" vehicleRole="@LOC_EMPTY" />
+                </Components>
+                <StaticEntityClassData>
+                    <SEntityInsuranceProperties>
+                        <displayParams manufacturer="22222222-2222-2222-2222-222222222222" />
+                    </SEntityInsuranceProperties>
+                </StaticEntityClassData>
+            </VehicleDefinition.CURATED_BANU_SHIP>
             XML
         );
     }

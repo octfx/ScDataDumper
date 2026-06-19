@@ -61,6 +61,50 @@ final class LoadManufacturersTest extends ScDataTestCase
         self::assertArrayNotHasKey('Description', $result);
     }
 
+    public function test_apply_canonical_override_applies_data_json_code_and_name(): void
+    {
+        // data.json canonical wins for both code and name.
+        $entry = ['Code' => 'FSKI', 'Name' => 'Aegis Dynamics', 'Reference' => 'fski-uuid'];
+
+        $result = $this->invokeMethod($this->command, 'applyCanonicalOverride', $entry, [
+            'code' => 'FSKI',
+            'name' => 'FireStorm Kinetics',
+            'uuid' => 'fski-uuid',
+        ]);
+
+        self::assertSame('FSKI', $result['Code']);
+        self::assertSame('FireStorm Kinetics', $result['Name']);
+    }
+
+    public function test_apply_canonical_override_changes_code_when_data_json_code_differs(): void
+    {
+        // XML code AEG -> data.json canonical AEGS. The export must emit the
+        // canonical code so it joins with items (which also emit AEGS).
+        $entry = ['Code' => 'AEG', 'Name' => 'Aegis Dynamics', 'Reference' => 'aeg-uuid'];
+
+        $result = $this->invokeMethod($this->command, 'applyCanonicalOverride', $entry, [
+            'code' => 'AEGS',
+            'name' => 'Aegis Dynamics',
+            'uuid' => 'aeg-uuid',
+        ]);
+
+        self::assertSame('AEGS', $result['Code']);
+        self::assertSame('Aegis Dynamics', $result['Name']);
+        // Reference (uuid) is owned by the XML record, never touched here.
+        self::assertSame('aeg-uuid', $result['Reference']);
+    }
+
+    public function test_apply_canonical_override_keeps_xml_values_when_no_data_json_match(): void
+    {
+        // Garbage / uncurated code -> null canonical -> XML code+name preserved.
+        $entry = ['Code' => 'CUBY', 'Name' => 'Casaba Outlet', 'Reference' => 'cuby-uuid'];
+
+        $result = $this->invokeMethod($this->command, 'applyCanonicalOverride', $entry, null);
+
+        self::assertSame('CUBY', $result['Code']);
+        self::assertSame('Casaba Outlet', $result['Name']);
+    }
+
     /**
      * @return array<string, array{0: array<string, mixed>}>
      */

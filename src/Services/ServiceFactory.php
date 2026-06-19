@@ -9,10 +9,11 @@ use RuntimeException;
 
 final class ServiceFactory
 {
-    private const SC_DATA_PATH_INDEPENDENT = [
+    private const array SC_DATA_PATH_INDEPENDENT = [
         'ItemClassifierService',
         'ContractLocationResolver',
         'MissionLocationStarmapResolver',
+        'DataOverrideService',
     ];
 
     private static bool $initialized = false;
@@ -88,6 +89,8 @@ final class ServiceFactory
         LoadoutFileService::resetDocumentCache();
         ItemClassifierService::resetCache();
         ManufacturerService::resetDocumentCache();
+        ManufacturerService::resetDataOverrideCache();
+        DataOverrideService::reset();
     }
 
     public static function getInventoryContainerService(): InventoryContainerService
@@ -175,6 +178,11 @@ final class ServiceFactory
         return self::getService('MissionLocationStarmapResolver');
     }
 
+    public static function getDataOverrideService(): DataOverrideService
+    {
+        return self::getService('DataOverrideService');
+    }
+
     public static function getItemRecoveryConfiguration(): ?ItemRecoveryConfigurationParams
     {
         return self::getFoundryLookupService()->getItemRecoveryConfiguration();
@@ -219,6 +227,7 @@ final class ServiceFactory
             'LoadoutFileService' => new LoadoutFileService(self::$activeScDataPath),
             'ContractLocationResolver' => new ContractLocationResolver,
             'MissionLocationStarmapResolver' => new MissionLocationStarmapResolver,
+            'DataOverrideService' => new DataOverrideService,
             default => throw new RuntimeException('Unknown service: '.$serviceName),
         };
 

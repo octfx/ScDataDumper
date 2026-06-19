@@ -7,7 +7,6 @@ require __DIR__.'/vendor/autoload.php';
 
 use Octfx\ScDataDumper\Commands\GenerateCache;
 use Octfx\ScDataDumper\Commands\LoadBlueprints;
-use Octfx\ScDataDumper\Commands\SchemaDiffCommand;
 use Octfx\ScDataDumper\Commands\LoadCommodities;
 use Octfx\ScDataDumper\Commands\LoadCommodityTradeLocations;
 use Octfx\ScDataDumper\Commands\LoadContracts;
@@ -20,6 +19,8 @@ use Octfx\ScDataDumper\Commands\LoadStarmap;
 use Octfx\ScDataDumper\Commands\LoadTags;
 use Octfx\ScDataDumper\Commands\LoadTranslations;
 use Octfx\ScDataDumper\Commands\LoadVehicles;
+use Octfx\ScDataDumper\Commands\SchemaDiffCommand;
+use Octfx\ScDataDumper\Commands\WikiSyncCommand;
 use Symfony\Component\Console\Application;
 
 $application = new Application('ScDataDumper', '1.0.0');
@@ -39,5 +40,6 @@ $application->addCommand(new LoadManufacturers);
 $application->addCommand(new LoadTags);
 $application->addCommand(new LoadResources);
 $application->addCommand(new SchemaDiffCommand);
+$application->addCommand(new WikiSyncCommand);
 
 $application->run();

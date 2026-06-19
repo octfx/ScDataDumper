@@ -40,15 +40,31 @@ class LoadManufacturers extends AbstractDataCommand
 
         $io->progressStart($service->count());
 
-        $manufacturers = [];
+        $byCanonicalCode = [];
 
         try {
-            foreach ($service->iterator() as $manufacturer) {
+            foreach ($service->canonicalIterator() as $manufacturer) {
                 try {
-                    $manufacturerArray = $manufacturer->toArray();
-                    $manufacturers[] = $this->buildManufacturerExportEntry($manufacturerArray);
+                    $entry = $this->buildManufacturerExportEntry($manufacturer->toArray());
                 } catch (RuntimeException $e) {
                     $io->warning(sprintf('Skipped manufacturer: %s', $e->getMessage()));
+                    $io->progressAdvance();
+                    continue;
+                }
+
+                // data.json is the label authority: its code+name win over the XML
+                // values so the export matches item output (items emit data.json codes).
+                $xmlCode = (string) ($entry['Code'] ?? '');
+                $canonical = $service->resolveCanonicalByNameOrCode($entry['Name'] ?? null, $xmlCode);
+                $entry = $this->applyCanonicalOverride($entry, $canonical);
+
+                // Collapse records sharing a canonical code (GHEX+ARCC -> ARCC).
+                // Priority: a record that canonicalizes beats one that doesn't;
+                $canonicalCode = $canonical['code'] ?? $xmlCode;
+                $priority = $canonical === null ? 0 : ($xmlCode === $canonicalCode ? 2 : 1);
+
+                if (! isset($byCanonicalCode[$canonicalCode]) || $priority > $byCanonicalCode[$canonicalCode]['priority']) {
+                    $byCanonicalCode[$canonicalCode] = ['entry' => $entry, 'priority' => $priority];
                 }
 
                 $io->progressAdvance();
@@ -58,6 +74,10 @@ class LoadManufacturers extends AbstractDataCommand
         }
 
         $io->progressFinish();
+
+        $manufacturers = array_column($byCanonicalCode, 'entry');
+
+        usort($manufacturers, static fn (array $a, array $b): int => ($a['Code'] ?? '') <=> ($b['Code'] ?? ''));
 
         $filePath = sprintf('%s%smanufacturers.json', $input->getArgument('jsonOutPath'), DIRECTORY_SEPARATOR);
 
@@ -100,6 +120,29 @@ class LoadManufacturers extends AbstractDataCommand
         }
 
         return $this->transformArrayKeysToPascalCase($entry);
+    }
+
+    /**
+     * Override Code/Name from the data.json canonical record.
+     * Null canonical (placeholders, shop kiosks) leaves the entry as-is.
+     *
+     * @param  array<string, mixed>  $entry
+     * @param  array{code: string, name: string, uuid: ?string}|null  $canonical
+     * @return array<string, mixed>
+     */
+    private function applyCanonicalOverride(array $entry, ?array $canonical): array
+    {
+        if ($canonical !== null) {
+            if (($canonical['code'] ?? '') !== '') {
+                $entry['Code'] = $canonical['code'];
+            }
+
+            if (($canonical['name'] ?? '') !== '') {
+                $entry['Name'] = $canonical['name'];
+            }
+        }
+
+        return $entry;
     }
 
     protected function configure(): void

@@ -424,14 +424,13 @@ final class Contract extends BaseFormat
             }
 
             if ($prereq['factionReputation'] !== null) {
-                $faction = null;
-                $factionUuid = null;
-                $factionRecord = $lookup->getFactionByFactionReputationUuid($prereq['factionReputation']);
-
-                if ($factionRecord !== null) {
-                    $faction = ServiceFactory::getLocalizationService()->translateValue($factionRecord->getName(), true);
-                    $factionUuid = $factionRecord->getUuid();
-                }
+                $factionData = $this->resolveFactionReputationSummary(
+                    $lookup,
+                    ServiceFactory::getLocalizationService(),
+                    $prereq['factionReputation'],
+                );
+                $faction = $factionData['name'];
+                $factionUuid = $factionData['uuid'];
 
                 $scopeName = null;
 
@@ -532,6 +531,8 @@ final class Contract extends BaseFormat
         if ($missionGiver === null || $missionGiver === '') {
             $missionGiver = $this->resolveOrgFromOverrides($this->getAllOverrides());
         }
+
+        $missionGiver = $this->applyManufacturerNameOverride($missionGiver);
 
         return $this->removeNullValuesPreservingEmptyArrays([
             'mission_giver' => $missionGiver,
@@ -1599,9 +1600,54 @@ final class Contract extends BaseFormat
                 : null;
         }
 
+        return $this->applyManufacturerFactionOverride(
+            $name,
+            $faction !== null ? $faction->getUuid() : $factionRepUuid,
+        );
+    }
+
+    /**
+     * Unify a manufacturer-named mission giver (Shubin, Stanton) to the canonical manufacturer name.
+     * Non-manufacturer givers pass through.
+     */
+    private function applyManufacturerNameOverride(?string $name): ?string
+    {
+        if ($name === null || $name === '') {
+            return $name;
+        }
+
+        $canonical = ServiceFactory::getManufacturerService()->resolveCanonicalByNameOrCode($name, null);
+
+        return $canonical !== null ? $canonical['name'] : $name;
+    }
+
+    /**
+     * Unify a manufacturer-named faction to the canonical manufacturer name + primary uuid.
+     * Other factions pass through. Keeps the faction uuid when the manufacturer has no XML record.
+     *
+     * @return array{name: ?string, uuid: ?string}
+     */
+    private function applyManufacturerFactionOverride(?string $name, ?string $fallbackUuid): array
+    {
+        if ($name === null || $name === '') {
+            return [
+                'uuid' => $fallbackUuid,
+                'name' => $name,
+            ];
+        }
+
+        $canonical = ServiceFactory::getManufacturerService()->resolveCanonicalByNameOrCode($name, null);
+
+        if ($canonical === null) {
+            return [
+                'uuid' => $fallbackUuid,
+                'name' => $name,
+            ];
+        }
+
         return [
-            'uuid' => $faction !== null ? $faction->getUuid() : $factionRepUuid,
-            'name' => $name,
+            'uuid' => $canonical['uuid'] ?? $fallbackUuid,
+            'name' => $canonical['name'],
         ];
     }
 

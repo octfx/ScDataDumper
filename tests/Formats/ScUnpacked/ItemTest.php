@@ -166,24 +166,27 @@ final class ItemTest extends ScDataTestCase
         self::assertSame('Roberts Space Industries', $result['stdItem']['Manufacturer']['Name']);
     }
 
-    public function test_to_array_preserves_coded_manufacturer_even_when_canonical_shares_name_key(): void
+    public function test_to_array_curated_manufacturer_code_wins_over_conflicting_xml_name(): void
     {
+        // Game-data copy-paste bug: FSKI's XML Name token is @AEGS, so its display
+        // name resolves to "Aegis Dynamics". The curated code FSKI is identity
+        // and must win -- the item is FireStorm Kinetics, not Aegis Dynamics.
         $canonicalManufacturerPath = $this->writeFile(
-            'records/scitemmanufacturer/scitemmanufacturer.aeg.xml',
+            'records/scitemmanufacturer/scitemmanufacturer.aegs.xml',
             <<<'XML'
-            <SCItemManufacturer.AEG Code="AEG" __type="SCItemManufacturer" __ref="cf4a74bf-eb2c-462a-9b78-f7f2724c31d2" __path="libs/foundry/records/scitemmanufacturer/scitemmanufacturer.aeg.xml">
-                <Localization Name="@manufacturer_NameAEG" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY">
+            <SCItemManufacturer.AEGS Code="AEGS" __type="SCItemManufacturer" __ref="cf4a74bf-eb2c-462a-9b78-f7f2724c31d2" __path="libs/foundry/records/scitemmanufacturer/scitemmanufacturer.aegs.xml">
+                <Localization Name="@manufacturer_NameAEGS" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY">
                     <displayFeatures />
                 </Localization>
-            </SCItemManufacturer.AEG>
+            </SCItemManufacturer.AEGS>
             XML
         );
 
-        $codedAliasManufacturerPath = $this->writeFile(
-            'records/scitemmanufacturer/paintcolorlogo_fski.xml',
+        $buggyFskiPath = $this->writeFile(
+            'records/scitemmanufacturer/scitemmanufacturer.fski.xml',
             <<<'XML'
-            <SCItemManufacturer.FSKI Code="FSKI" __type="SCItemManufacturer" __ref="5f81335d-44e6-4104-841e-c5af9df06829" __path="libs/foundry/records/scitemmanufacturer/paintcolorlogo_fski.xml">
-                <Localization Name="@manufacturer_NameAEG" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY">
+            <SCItemManufacturer.FSKI Code="FSKI" __type="SCItemManufacturer" __ref="5f81335d-44e6-4104-841e-c5af9df06829" __path="libs/foundry/records/scitemmanufacturer/scitemmanufacturer.fski.xml">
+                <Localization Name="@manufacturer_NameAEGS" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY">
                     <displayFeatures />
                 </Localization>
             </SCItemManufacturer.FSKI>
@@ -192,29 +195,29 @@ final class ItemTest extends ScDataTestCase
 
         $this->writeCacheFiles(
             uuidToClassMap: [
-                'cf4a74bf-eb2c-462a-9b78-f7f2724c31d2' => 'AEG',
+                'cf4a74bf-eb2c-462a-9b78-f7f2724c31d2' => 'AEGS',
                 '5f81335d-44e6-4104-841e-c5af9df06829' => 'FSKI',
             ],
             classToUuidMap: [
-                'AEG' => 'cf4a74bf-eb2c-462a-9b78-f7f2724c31d2',
+                'AEGS' => 'cf4a74bf-eb2c-462a-9b78-f7f2724c31d2',
                 'FSKI' => '5f81335d-44e6-4104-841e-c5af9df06829',
             ],
             uuidToPathMap: [
                 'cf4a74bf-eb2c-462a-9b78-f7f2724c31d2' => $canonicalManufacturerPath,
-                '5f81335d-44e6-4104-841e-c5af9df06829' => $codedAliasManufacturerPath,
+                '5f81335d-44e6-4104-841e-c5af9df06829' => $buggyFskiPath,
             ]
         );
 
         $this->initializeMinimalItemServices([
             'LOC_EMPTY' => '',
-            'manufacturer_NameAEG' => 'Aegis Dynamics',
-            'item_name' => 'Coded Alias Manufacturer Test Item',
+            'manufacturer_NameAEGS' => 'Aegis Dynamics',
+            'item_name' => 'Curated Code Wins Test Item',
         ]);
 
         $path = $this->writeFile(
-            'records/entities/scitem/coded_alias_manufacturer_item.xml',
+            'records/entities/scitem/curated_code_item.xml',
             <<<'XML'
-            <EntityClassDefinition.CODED_ALIAS_MANUFACTURER_ITEM __type="EntityClassDefinition" __ref="33333333-3333-3333-3333-333333333333" __path="libs/foundry/records/entities/scitem/coded_alias_manufacturer_item.xml">
+            <EntityClassDefinition.CURATED_CODE_ITEM __type="EntityClassDefinition" __ref="33333333-3333-3333-3333-333333333333" __path="libs/foundry/records/entities/scitem/curated_code_item.xml">
                 <Components>
                     <SAttachableComponentParams>
                         <AttachDef Type="UNDEFINED" SubType="UNDEFINED" Size="1" Grade="1" Manufacturer="5f81335d-44e6-4104-841e-c5af9df06829">
@@ -227,7 +230,7 @@ final class ItemTest extends ScDataTestCase
                         </PhysType>
                     </SEntityPhysicsControllerParams>
                 </Components>
-            </EntityClassDefinition.CODED_ALIAS_MANUFACTURER_ITEM>
+            </EntityClassDefinition.CURATED_CODE_ITEM>
             XML
         );
 
@@ -236,9 +239,94 @@ final class ItemTest extends ScDataTestCase
 
         $result = (new Item($item))->toArray();
 
+        // Item references FSKI (uuid 5f81335d...). FSKI is curated in data.json,
+        // so the code wins over the buggy XML name -> FireStorm Kinetics, not
+        // Aegis Dynamics. UUID is FSKI's own primary record.
         self::assertSame('FSKI', $result['manufacturer']);
         self::assertSame('FSKI', $result['stdItem']['Manufacturer']['Code']);
         self::assertSame('5f81335d-44e6-4104-841e-c5af9df06829', $result['stdItem']['Manufacturer']['UUID']);
+        self::assertSame('FireStorm Kinetics', $result['stdItem']['Manufacturer']['Name']);
+    }
+
+    public function test_to_array_unifies_manufacturer_uuid_to_canonical_primary(): void
+    {
+        // Primary AEGS record + a codeless alias (no Code attr) reusing the same
+        // name token. The item points at the alias; via the token path
+        // (canonicalIndex) the uuid collapses to the primary's. This is the
+        // "100 variations of RSI -> one uuid" guarantee at the item level.
+        $canonicalManufacturerPath = $this->writeFile(
+            'records/scitemmanufacturer/scitemmanufacturer.aegs.xml',
+            <<<'XML'
+            <SCItemManufacturer.AEGS Code="AEGS" __type="SCItemManufacturer" __ref="11111111-1111-1111-1111-111111111111" __path="libs/foundry/records/scitemmanufacturer/scitemmanufacturer.aegs.xml">
+                <Localization Name="@manufacturer_NameAEGS" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY">
+                    <displayFeatures />
+                </Localization>
+            </SCItemManufacturer.AEGS>
+            XML
+        );
+
+        $codelessAliasPath = $this->writeFile(
+            'records/scitemmanufacturer/paintcolorlogo_aegs.xml',
+            <<<'XML'
+            <SCItemManufacturer.AEGS_LOGO __type="SCItemManufacturer" __ref="22222222-2222-2222-2222-222222222222" __path="libs/foundry/records/scitemmanufacturer/paintcolorlogo_aegs.xml">
+                <Localization Name="@manufacturer_NameAEGS" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY">
+                    <displayFeatures />
+                </Localization>
+            </SCItemManufacturer.AEGS_LOGO>
+            XML
+        );
+
+        $this->writeCacheFiles(
+            uuidToClassMap: [
+                '11111111-1111-1111-1111-111111111111' => 'AEGS',
+                '22222222-2222-2222-2222-222222222222' => 'AEGS_LOGO',
+            ],
+            classToUuidMap: [
+                'AEGS' => '11111111-1111-1111-1111-111111111111',
+                'AEGS_LOGO' => '22222222-2222-2222-2222-222222222222',
+            ],
+            uuidToPathMap: [
+                '11111111-1111-1111-1111-111111111111' => $canonicalManufacturerPath,
+                '22222222-2222-2222-2222-222222222222' => $codelessAliasPath,
+            ]
+        );
+
+        $this->initializeMinimalItemServices([
+            'LOC_EMPTY' => '',
+            'manufacturer_NameAEGS' => 'Aegis Dynamics',
+            'item_name' => 'UUID Unification Test Item',
+        ]);
+
+        $path = $this->writeFile(
+            'records/entities/scitem/uuid_unification_item.xml',
+            <<<'XML'
+            <EntityClassDefinition.UUID_UNIFICATION_ITEM __type="EntityClassDefinition" __ref="33333333-3333-3333-3333-333333333333" __path="libs/foundry/records/entities/scitem/uuid_unification_item.xml">
+                <Components>
+                    <SAttachableComponentParams>
+                        <AttachDef Type="UNDEFINED" SubType="UNDEFINED" Size="1" Grade="1" Manufacturer="22222222-2222-2222-2222-222222222222">
+                            <Localization Name="@item_name" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY" />
+                        </AttachDef>
+                    </SAttachableComponentParams>
+                    <SEntityPhysicsControllerParams>
+                        <PhysType>
+                            <SEntityRigidPhysicsControllerParams Mass="1" />
+                        </PhysType>
+                    </SEntityPhysicsControllerParams>
+                </Components>
+            </EntityClassDefinition.UUID_UNIFICATION_ITEM>
+            XML
+        );
+
+        $item = new EntityClassDefinition;
+        $item->load($path);
+
+        $result = (new Item($item))->toArray();
+
+        // Item references the codeless alias (uuid 22222222...). The alias has
+        // no Code attr, so the token path resolves it to AEGS, and the uuid
+        // collapses to the AEGS primary's.
+        self::assertSame('AEGS', $result['stdItem']['Manufacturer']['Code']);
+        self::assertSame('11111111-1111-1111-1111-111111111111', $result['stdItem']['Manufacturer']['UUID']);
         self::assertSame('Aegis Dynamics', $result['stdItem']['Manufacturer']['Name']);
     }
 
@@ -306,5 +394,121 @@ final class ItemTest extends ScDataTestCase
 
         // Volume is still present
         self::assertArrayHasKey('Volume', $occ);
+    }
+
+    public function test_to_array_wiki_manufacturer_code_wins_over_name_resolution(): void
+    {
+        // Item UUID 047ae622.. is curated in wiki_items.json as manufacturer=GRIN.
+        // The XML manufacturer name "Anvil Aerospace" would resolve to ANVL via
+        // the name->code reverse map; the wiki code GRIN must win, and the name
+        // forward-resolves to "Greycat Industrial".
+        $manufacturerPath = $this->writeFile(
+            'records/scitemmanufacturer/anvl.xml',
+            <<<'XML'
+            <SCItemManufacturer.ANVL Code="ANVL" __type="SCItemManufacturer" __ref="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" __path="libs/foundry/records/scitemmanufacturer/anvl.xml">
+                <Localization Name="@manufacturer_anvl" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY">
+                    <displayFeatures />
+                </Localization>
+            </SCItemManufacturer.ANVL>
+            XML
+        );
+
+        $this->writeCacheFiles(
+            uuidToClassMap: ['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' => 'ANVL'],
+            classToUuidMap: ['ANVL' => 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'],
+            uuidToPathMap: ['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' => $manufacturerPath]
+        );
+
+        $this->initializeMinimalItemServices([
+            'LOC_EMPTY' => '',
+            'manufacturer_anvl' => 'Anvil Aerospace',
+            'item_name' => 'Test Paint',
+        ]);
+
+        $path = $this->writeFile(
+            'records/entities/scitem/curated_grin_item.xml',
+            <<<'XML'
+            <EntityClassDefinition.CURATED_GRIN_ITEM __type="EntityClassDefinition" __ref="047ae622-d622-4d72-9482-008ab7d9600d" __path="libs/foundry/records/entities/scitem/curated_grin_item.xml">
+                <Components>
+                    <SAttachableComponentParams>
+                        <AttachDef Type="UNDEFINED" SubType="UNDEFINED" Size="1" Grade="1" Manufacturer="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa">
+                            <Localization Name="@item_name" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY" />
+                        </AttachDef>
+                    </SAttachableComponentParams>
+                    <SEntityPhysicsControllerParams>
+                        <PhysType>
+                            <SEntityRigidPhysicsControllerParams Mass="1" />
+                        </PhysType>
+                    </SEntityPhysicsControllerParams>
+                </Components>
+            </EntityClassDefinition.CURATED_GRIN_ITEM>
+            XML
+        );
+
+        $item = new EntityClassDefinition;
+        $item->load($path);
+
+        $result = (new Item($item))->toArray();
+
+        self::assertSame('GRIN', $result['manufacturer']);
+        self::assertSame('GRIN', $result['stdItem']['Manufacturer']['Code']);
+        self::assertSame('Greycat Industrial', $result['stdItem']['Manufacturer']['Name']);
+    }
+
+    public function test_to_array_applies_wiki_item_name_override_at_both_output_sites(): void
+    {
+        // Item UUID 047ae622.. is curated with name="MXC Moonstone Livery".
+        // The XML item name "Test Paint" must be overridden at data.name and
+        // data.stdItem.Name.
+        $manufacturerPath = $this->writeFile(
+            'records/scitemmanufacturer/grin.xml',
+            <<<'XML'
+            <SCItemManufacturer.GRIN Code="GRIN" __type="SCItemManufacturer" __ref="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb" __path="libs/foundry/records/scitemmanufacturer/grin.xml">
+                <Localization Name="@manufacturer_grin" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY">
+                    <displayFeatures />
+                </Localization>
+            </SCItemManufacturer.GRIN>
+            XML
+        );
+
+        $this->writeCacheFiles(
+            uuidToClassMap: ['bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' => 'GRIN'],
+            classToUuidMap: ['GRIN' => 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'],
+            uuidToPathMap: ['bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' => $manufacturerPath]
+        );
+
+        $this->initializeMinimalItemServices([
+            'LOC_EMPTY' => '',
+            'manufacturer_grin' => 'Greycat Industrial',
+            'item_name' => 'Test Paint',
+        ]);
+
+        $path = $this->writeFile(
+            'records/entities/scitem/curated_named_item.xml',
+            <<<'XML'
+            <EntityClassDefinition.CURATED_NAMED_ITEM __type="EntityClassDefinition" __ref="047ae622-d622-4d72-9482-008ab7d9600d" __path="libs/foundry/records/entities/scitem/curated_named_item.xml">
+                <Components>
+                    <SAttachableComponentParams>
+                        <AttachDef Type="UNDEFINED" SubType="UNDEFINED" Size="1" Grade="1" Manufacturer="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb">
+                            <Localization Name="@item_name" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY" />
+                        </AttachDef>
+                    </SAttachableComponentParams>
+                    <SEntityPhysicsControllerParams>
+                        <PhysType>
+                            <SEntityRigidPhysicsControllerParams Mass="1" />
+                        </PhysType>
+                    </SEntityPhysicsControllerParams>
+                </Components>
+            </EntityClassDefinition.CURATED_NAMED_ITEM>
+            XML
+        );
+
+        $item = new EntityClassDefinition;
+        $item->load($path);
+
+        $result = (new Item($item))->toArray();
+
+        self::assertSame('MXC Moonstone Livery', $result['name']);
+        self::assertSame('MXC Moonstone Livery', $result['stdItem']['Name']);
     }
 }

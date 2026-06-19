@@ -23,6 +23,105 @@ final class ContractTest extends ScDataTestCase
         $this->addServiceToFactory('FoundryLookupService', $foundryService);
     }
 
+    private function buildInlineContract(): Contract
+    {
+        $dom = new DOMDocument;
+        $dom->loadXML('<ContractGeneratorHandler_Recovery debugName="H"><contractParams /><contracts><Contract id="e1" debugName="E"><paramOverrides /><generationParams><ContractGenerationParams_Legacy maxInstances="1" maxInstancesPerPlayer="1" respawnTime="0" respawnTimeVariation="0" /></generationParams><contractResults contractBuyInAmount="0" timeToComplete="-1" /></Contract></contracts></ContractGeneratorHandler_Recovery>');
+        $handler = ContractHandler::fromNode($dom->documentElement);
+        $entry = $handler->getContracts()[0];
+        $record = new ContractGeneratorRecord;
+
+        return new Contract($entry, $handler, $record);
+    }
+
+    public function test_faction_unifies_to_manufacturer_canonical_name_and_uuid(): void
+    {
+        // "Crusader Industries" is both a faction and a manufacturer. The faction
+        // entity has its own uuid; the override must collapse to the manufacturer
+        // primary uuid while keeping the canonical name.
+        $crus = $this->writeFile(
+            'records/scitemmanufacturer/scitemmanufacturer.crus.xml',
+            <<<'XML'
+            <SCItemManufacturer.CRUS Code="CRUS" __type="SCItemManufacturer" __ref="crus-primary-uuid-aaaa" __path="libs/foundry/records/scitemmanufacturer/scitemmanufacturer.crus.xml">
+                <Localization Name="@manufacturer_NameCRUS" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY">
+                    <displayFeatures />
+                </Localization>
+            </SCItemManufacturer.CRUS>
+            XML
+        );
+
+        $this->writeCacheFiles(uuidToPathMap: ['crus-primary-uuid-aaaa' => $crus]);
+        $this->bootServices();
+
+        $result = $this->invokeMethod(
+            $this->buildInlineContract(),
+            'applyManufacturerFactionOverride',
+            'Crusader Industries',
+            'faction-entity-uuid',
+        );
+
+        self::assertSame('Crusader Industries', $result['name']);
+        self::assertSame('crus-primary-uuid-aaaa', $result['uuid']);
+    }
+
+    public function test_faction_passes_through_when_not_a_manufacturer(): void
+    {
+        // ~32 factions (XenoThreat, BHG, Covalex, ...) are not manufacturers;
+        // they must pass through untouched.
+        $this->writeCacheFiles();
+        $this->bootServices();
+
+        $result = $this->invokeMethod(
+            $this->buildInlineContract(),
+            'applyManufacturerFactionOverride',
+            'XenoThreat',
+            'xt-faction-uuid',
+        );
+
+        self::assertSame('XenoThreat', $result['name']);
+        self::assertSame('xt-faction-uuid', $result['uuid']);
+    }
+
+    public function test_faction_override_keeps_fallback_uuid_when_manufacturer_has_no_xml(): void
+    {
+        // Manufacturer name matches but no XML record (codeToUuid misses) ->
+        // canonical name wins, faction entity uuid is kept (never nulled).
+        $this->writeCacheFiles();
+        $this->bootServices();
+
+        $result = $this->invokeMethod(
+            $this->buildInlineContract(),
+            'applyManufacturerFactionOverride',
+            'ArcCorp',
+            'arccorp-faction-uuid',
+        );
+
+        self::assertSame('ArcCorp', $result['name']);
+        self::assertSame('arccorp-faction-uuid', $result['uuid']);
+    }
+
+    public function test_mission_giver_unifies_to_manufacturer_canonical_name(): void
+    {
+        // Shubin Interstellar is both a contractor org and a manufacturer.
+        $this->writeCacheFiles();
+        $this->bootServices();
+
+        $name = $this->invokeMethod($this->buildInlineContract(), 'applyManufacturerNameOverride', 'Shubin Interstellar');
+
+        self::assertSame('Shubin Interstellar', $name);
+    }
+
+    public function test_mission_giver_passes_through_when_not_a_manufacturer(): void
+    {
+        // HeadHunters is an org, not a manufacturer; name is untouched.
+        $this->writeCacheFiles();
+        $this->bootServices();
+
+        $name = $this->invokeMethod($this->buildInlineContract(), 'applyManufacturerNameOverride', 'HeadHunters');
+
+        self::assertSame('HeadHunters', $name);
+    }
+
     public function test_offset_extracts_hex_refs_from_entry_overrides(): void
     {
         $this->writeCacheFiles();

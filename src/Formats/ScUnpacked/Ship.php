@@ -79,6 +79,12 @@ final class Ship extends BaseFormat
 
         $manufacturer = $this->vehicleWrapper->entity->getManufacturer();
 
+        $wikiCode = $manufacturer !== null
+            ? ServiceFactory::getDataOverrideService()->factsFor($this->vehicleWrapper->entity->getUuid())['manufacturer'] ?? null
+            : null;
+        $resolvedManufacturer = ServiceFactory::getManufacturerService()
+            ->resolveForEntity($manufacturer, $wikiCode);
+
         $isVehicle = $this->vehicleWrapper->entity->isGroundVehicle();
         $isGravlev = $this->vehicleWrapper->entity->isGravlev();
         $dimensions = $this->vehicleWrapper->entity->getDimensions();
@@ -127,10 +133,10 @@ final class Ship extends BaseFormat
             'Role' => $vehicleRoleLabel,
             'RoleKey' => $vehicleRoleKey !== null && $vehicleRoleKey !== '' ? ltrim($vehicleRoleKey, '@') : null,
 
-            'Manufacturer' => $manufacturer ? [
-                'UUID' => $manufacturer->getUuid(),
-                'Code' => $manufacturer->getCode(),
-                'Name' => $manufacturer->get('Localization@Name'),
+            'Manufacturer' => $resolvedManufacturer !== null ? [
+                'UUID' => $resolvedManufacturer['uuid'],
+                'Code' => $resolvedManufacturer['code'],
+                'Name' => $resolvedManufacturer['name'],
             ] : [],
 
             'Size' => $attach?->get('@Size', 0) ?? 0,
