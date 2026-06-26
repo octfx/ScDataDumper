@@ -276,11 +276,39 @@ final class ManufacturerServiceResolverTest extends ScDataTestCase
 
     // -- resolveForEntity (the consumer-facing entry point) --
 
-    public function test_resolve_for_entity_returns_null_when_entity_is_null(): void
+    public function test_resolve_for_entity_returns_null_when_entity_is_null_and_no_wiki_code(): void
     {
+        // Neither XML entity nor wiki override: nothing to resolve.
         $service = $this->bootServiceWithManufacturers([]);
 
         self::assertNull($service->resolveForEntity(null, null));
+    }
+
+    public function test_resolve_for_entity_uses_wiki_code_when_entity_is_null(): void
+    {
+        // Stale source UUID: CIG ships paint/livery records (e.g. the ATLS
+        // Foreman Livery) with a Manufacturer UUID that has no
+        // scitemmanufacturer.*.xml, so getManufacturer() returns null. The wiki
+        // override still carries the right code -- it must recover ARGO instead
+        // of leaving the export on the Unknown Manufacturer fallback.
+        $argo = $this->writeManufacturerXml('scitemmanufacturer.argo.xml', 'ARGO', 'ARGO', 'argo-xml-uuid', '@manufacturer_NameARGO');
+        $service = $this->bootServiceWithManufacturers(['argo-xml-uuid' => $argo]);
+
+        $result = $service->resolveForEntity(null, 'ARGO');
+
+        self::assertSame('ARGO', $result['code']);
+        self::assertSame('Argo Astronautics', $result['name']);
+        self::assertSame('argo-xml-uuid', $result['uuid']);
+    }
+
+    public function test_resolve_for_entity_returns_null_when_entity_null_and_wiki_code_unknown(): void
+    {
+        // A wiki code that isn't curated must fall through to null so the caller
+        // keeps the Unknown Manufacturer default rather than emitting a
+        // half-applied {code, xmlName}.
+        $service = $this->bootServiceWithManufacturers([]);
+
+        self::assertNull($service->resolveForEntity(null, 'NOPE'));
     }
 
     public function test_resolve_for_entity_returns_canonical_code_name_uuid(): void

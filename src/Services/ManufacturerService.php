@@ -323,15 +323,14 @@ final class ManufacturerService extends BaseService
 
     /**
      * Resolve a manufacturer entity to {code, name, uuid}: token path (codeless
-     * aliases), data.json canonical, cross-code alias, raw-XML fallback. Null
-     * only when the entity itself is null.
+     * aliases), data.json canonical, cross-code alias, raw-XML fallback.
      *
      * @return array{code: ?string, name: ?string, uuid: ?string}|null
      */
     public function resolveForEntity(?SCItemManufacturer $manufacturer, ?string $wikiCode): ?array
     {
         if ($manufacturer === null) {
-            return null;
+            return $wikiCode !== null ? $this->resolveCanonicalByCode($wikiCode) : null;
         }
 
         $code = $manufacturer->getCode();
