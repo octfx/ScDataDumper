@@ -55,22 +55,74 @@ class ContractResultBlock extends RootDocument
     }
 
     /**
-     * @return list<array{factionReputation: ?string, reputationScope: ?string, reward: ?string}>
+     * @return list<array{factionReputation: ?string, reputationScope: ?string, reward: ?string, outcome: ?string}>
      */
     public function getLegacyReputationRewards(): array
     {
         $results = [];
-        $nodes = $this->getAll('contractResults/ContractResult_LegacyReputation/contractResultReputationAmounts');
+        $nodes = $this->getAll('contractResults/ContractResult_LegacyReputation');
 
         foreach ($nodes as $node) {
-            $results[] = [
-                'factionReputation' => $node->get('@factionReputation'),
-                'reputationScope' => $node->get('@reputationScope'),
-                'reward' => $node->get('@reward'),
-            ];
+            $outcome = self::deriveOutcomeLabel($this->readOutcomeVector($node));
+
+            foreach ($node->getAll('contractResultReputationAmounts') as $amount) {
+                $results[] = [
+                    'factionReputation' => $amount->get('@factionReputation'),
+                    'reputationScope' => $amount->get('@reputationScope'),
+                    'reward' => $amount->get('@reward'),
+                    'outcome' => $outcome,
+                ];
+            }
         }
 
         return $results;
+    }
+
+    /**
+     * Read the 5-bool <missionResults> vector gating which mission outcome fires a result.
+     *
+     * @return list<bool>
+     */
+    private function readOutcomeVector(Element $node): array
+    {
+        return array_map(
+            static fn (Element $b): bool => (int) ($b->get('@value') ?? 0) === 1,
+            $node->getAll('missionResults/Bool'),
+        );
+    }
+
+    /**
+     * Derive a human outcome label from a missionResults vector.
+     *
+     * Slot 0 = Success
+     * slot 2 = Failure
+     *
+     * @param  list<bool>  $vector
+     */
+    public static function deriveOutcomeLabel(array $vector): ?string
+    {
+        if ($vector === []) {
+            return null;
+        }
+
+        $set = count(array_filter($vector));
+
+        if ($set === 0) {
+            return 'unconditional';
+        }
+
+        $success = $vector[0] ?? false;
+        $failure = $vector[2] ?? false;
+
+        if ($success && $set === 1) {
+            return null;
+        }
+
+        if ($failure) {
+            return 'failure';
+        }
+
+        return 'other';
     }
 
     public function getCalculatedReputation(): ?array

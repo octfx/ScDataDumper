@@ -117,7 +117,12 @@ class LoadContracts extends AbstractDataCommand
                         }
                     }
 
-                    foreach ($entry->getCompletedContractTagPrerequisites() as $prereq) {
+                    $requiredSources = array_merge(
+                        $handler->getCompletedContractTagPrerequisites(),
+                        $entry->getCompletedContractTagPrerequisites(),
+                    );
+
+                    foreach ($requiredSources as $prereq) {
                         foreach ($prereq['requiredTags'] as $tag) {
                             $required[$tag][] = $summary;
                         }

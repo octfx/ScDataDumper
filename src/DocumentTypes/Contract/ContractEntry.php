@@ -134,9 +134,34 @@ class ContractEntry extends RootDocument
         return $this->getNullableBool('paramOverrides/boolParamOverrides/ContractBoolParam[@param="HideInMobiGlas"]@value');
     }
 
+    public function isNotifyOnAvailable(): ?bool
+    {
+        return $this->getNullableBool('paramOverrides/boolParamOverrides/ContractBoolParam[@param="NotifyOnAvailable"]@value');
+    }
+
     public function getMissionTypeOverride(): ?string
     {
         return $this->getString('paramOverrides@missionTypeOverride');
+    }
+
+    /**
+     * @return list<array{factionReputation: ?string, scope: ?string, minStanding: ?string, maxStanding: ?string}>
+     */
+    public function getReputationPrerequisites(): array
+    {
+        $results = [];
+        $nodes = $this->getAll('additionalPrerequisites/ContractPrerequisite_Reputation');
+
+        foreach ($nodes as $node) {
+            $results[] = [
+                'factionReputation' => $node->get('@factionReputation'),
+                'scope' => $node->get('@scope'),
+                'minStanding' => $node->get('@minStanding'),
+                'maxStanding' => $node->get('@maxStanding'),
+            ];
+        }
+
+        return $results;
     }
 
     /**
@@ -155,6 +180,42 @@ class ContractEntry extends RootDocument
     }
 
     /**
+     * Locality gates carried by SubContract variants.
+     * A subcontract is a location-specific overlay on the parent (one per planet/region it's offered at),
+     * so its localities are additional places the contract appears
+     *
+     * @return list<array{localityAvailable: ?string}>
+     */
+    public function getSubContractLocalityPrerequisites(): array
+    {
+        $results = [];
+        $nodes = $this->getAll('subContracts/SubContract/additionalPrerequisites/ContractPrerequisite_Locality');
+
+        foreach ($nodes as $node) {
+            $results[] = ['localityAvailable' => $node->get('@localityAvailable')];
+        }
+
+        return $results;
+    }
+
+    /**
+     * Per-entry location gates (a SPECIFIC POI/system the player must be at, as opposed to a Locality region).
+     *
+     * @return list<array{locationAvailable: ?string}>
+     */
+    public function getLocationPrerequisites(): array
+    {
+        $results = [];
+        $nodes = $this->getAll('additionalPrerequisites/ContractPrerequisite_Location');
+
+        foreach ($nodes as $node) {
+            $results[] = ['locationAvailable' => $node->get('@locationAvailable')];
+        }
+
+        return $results;
+    }
+
+    /**
      * @return list<array{requiredCountValue: int, excludedCountValue: int, requiredTags: list<string>, excludedTags: list<string>}>
      */
     public function getCompletedContractTagPrerequisites(): array
@@ -165,9 +226,11 @@ class ContractEntry extends RootDocument
         foreach ($nodes as $node) {
             $requiredTags = [];
             $requiredTagNodes = $node->get('requiredCompletedContractTags/tags');
+
             if ($requiredTagNodes instanceof Element) {
                 foreach ($requiredTagNodes->children() as $tagNode) {
                     $val = $tagNode->get('@value') ?? $tagNode->get('@tag');
+
                     if (is_string($val)) {
                         $requiredTags[] = $val;
                     }

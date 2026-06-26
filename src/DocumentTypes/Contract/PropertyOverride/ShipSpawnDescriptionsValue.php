@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride;
 
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
+use Octfx\ScDataDumper\Helper\Element;
+use Octfx\ScDataDumper\Services\ServiceFactory;
 
 class ShipSpawnDescriptionsValue extends RootDocument
 {
@@ -14,7 +16,7 @@ class ShipSpawnDescriptionsValue extends RootDocument
     }
 
     /**
-     * @return list<array{name: ?string, shipOptions: list<array{ships: list<array{concurrentAmount: int, includeLocationAISpawnTags: bool, weight: int, initialDamageSettings: ?string, tags: list<string>, markupTags: list<string>}>}>}>
+     * @return list<array{name: ?string, shipOptions: list<array{ships: list<array{concurrentAmount: int, includeLocationAISpawnTags: bool, weight: int, initialDamageSettings: ?string, tags: list<string>, negativeTags: list<string>, markupTags: list<string>}>}>}>
      */
     public function getShipGroups(): array
     {
@@ -30,27 +32,14 @@ class ShipSpawnDescriptionsValue extends RootDocument
                 $shipNodes = $optionsContainer->getAll('options/SpawnDescription_Ship');
 
                 foreach ($shipNodes as $ship) {
-                    $tags = [];
-                    foreach ($ship->getAll('tags/tags/Reference@value') as $val) {
-                        if (is_string($val) && $val !== '') {
-                            $tags[] = $val;
-                        }
-                    }
-
-                    $markupTags = [];
-                    foreach ($ship->getAll('markupTags/tags/Reference@value') as $val) {
-                        if (is_string($val) && $val !== '') {
-                            $markupTags[] = $val;
-                        }
-                    }
-
                     $ships[] = [
                         'concurrentAmount' => (int) ($ship->get('@concurrentAmount') ?? 1),
                         'includeLocationAISpawnTags' => (int) ($ship->get('@includeLocationAISpawnTags') ?? 0) === 1,
                         'weight' => (int) ($ship->get('@weight') ?? 1),
                         'initialDamageSettings' => $ship->get('@initialDamageSettings'),
-                        'tags' => $tags,
-                        'markupTags' => $markupTags,
+                        'tags' => $this->referenceValues($ship, 'tags/tags/Reference@value'),
+                        'negativeTags' => $this->referenceValues($ship, 'negativeTags/tags/Reference@value'),
+                        'markupTags' => $this->referenceValues($ship, 'markupTags/tags/Reference@value'),
                     ];
                 }
 
@@ -78,12 +67,29 @@ class ShipSpawnDescriptionsValue extends RootDocument
     }
 
     /**
-     * @param  string  $variableName  The mission variable name from the override
-     * @return list<array{spawn_kind: string, role: string, group_name: ?string, concurrent_amount: int, weight: int, initial_damage_settings: ?string}>
+     * @return list<string>
+     */
+    private function referenceValues(Element $ship, string $path): array
+    {
+        $values = [];
+
+        foreach ($ship->getAll($path) as $val) {
+            if (is_string($val) && $val !== '') {
+                $values[] = $val;
+            }
+        }
+
+        return $values;
+    }
+
+    /**
+     * @param  string  $variableName
+     * @return list<array{spawn_kind: string, role: string, group_name: ?string, concurrent_amount: int, weight: int, initial_damage_settings: ?string, ships: list<array{className: ?string, name: string}>}>
      */
     public function toArray(string $variableName = ''): array
     {
         $role = self::resolveShipRole($variableName);
+        $resolver = ServiceFactory::getShipPoolResolver();
         $rows = [];
 
         foreach ($this->getShipGroups() as $group) {
@@ -96,6 +102,7 @@ class ShipSpawnDescriptionsValue extends RootDocument
                         'concurrent_amount' => $ship['concurrentAmount'],
                         'weight' => $ship['weight'],
                         'initial_damage_settings' => $ship['initialDamageSettings'],
+                        'ships' => $resolver->resolve($ship['tags'], $ship['negativeTags']),
                     ];
                 }
             }

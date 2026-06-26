@@ -10,6 +10,7 @@ use Octfx\ScDataDumper\DocumentTypes\Contract\ContractHandler;
 use Octfx\ScDataDumper\DocumentTypes\Contract\PropertyOverride\HaulingOrdersValue;
 use Octfx\ScDataDumper\Formats\ScUnpacked\Contract;
 use Octfx\ScDataDumper\Services\FoundryLookupService;
+use Octfx\ScDataDumper\Services\ServiceFactory;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 
 final class ContractTest extends ScDataTestCase
@@ -506,6 +507,641 @@ final class ContractTest extends ScDataTestCase
         self::assertSame(['2H', '1H'], $names);
     }
 
+    public function test_hauling_order_property_attaches_pickup_and_dropoff_pools(): void
+    {
+        // HaulingOrder_Property nodes bind cargo to location POOLS: each carries
+        // pickUpLocation/dropOffLocation/haulingOrdersProperty refs that index into the
+        // template's ObjectiveProperty list, whose entries carry missionVariableName --
+        // the SAME names that become the contract's LocationPools keys (PickupLocation,
+        // DropoffLocation1, ...). The override path emits the cargo rows but drops the
+        // binding, so a 1->2 split-delivery (one pickup, two dropoffs) exports as a flat
+        // list of identical-looking rows. Resolve the refs and tag each row with its pool.
+        //
+        // The refs are absolute positions, and routing nodes reference a non-contiguous
+        // subset that does NOT start at the list head (Organization sits unreferenced at
+        // index 0), so the min-hex heuristic used elsewhere mis-decodes -- the base must be
+        // anchored on the cargo variable matching a HaulingOrdersValue override.
+        $resA = $this->writeFile(
+            'Data/Libs/Foundry/Records/resources/test_res_a.xml',
+            '<ResourceType.ResA displayName="Resource A" __type="ResourceType" __ref="bbbb0000-0000-0000-0000-0000000000a1" __path="libs/foundry/records/resources/test_res_a.xml" />'
+        );
+        $resB = $this->writeFile(
+            'Data/Libs/Foundry/Records/resources/test_res_b.xml',
+            '<ResourceType.ResB displayName="Resource B" __type="ResourceType" __ref="bbbb0000-0000-0000-0000-0000000000a2" __path="libs/foundry/records/resources/test_res_b.xml" />'
+        );
+
+        // ObjectiveProperty list (6 entries). Base = 0x1000 (Organization, unreferenced).
+        //   [0] Organization        [3] PickupLocation
+        //   [1] HaulingOrderForDropoff1   [4] DropoffLocation1
+        //   [2] HaulingOrderForDropoff2   [5] DropoffLocation2
+        // Edge1: cargo[1001] pickup[1003] dropoff[1004]   Edge2: cargo[1002] pickup[1003] dropoff[1005]
+        // min(1001,1003,1004)=1001 != base 1000, so the naive min-heuristic mis-decodes.
+        $templatePath = $this->writeFile(
+            'Data/Libs/Foundry/Records/contracts/contracttemplates/test_routing_haul.xml',
+            '<ContractTemplate.TestRoute __type="ContractTemplate" __ref="cccc0000-0000-0000-0000-000000000700" __path="libs/foundry/records/contracts/contracttemplates/test_routing_haul.xml"><objectiveTokens><ObjectiveToken id="delivery_token_id" debugName="Delivery"><properties><ObjectiveProperty_Referenced missionVariableName="Organization"><property value="MissionProperty[7000]" /></ObjectiveProperty_Referenced><ObjectiveProperty_Referenced missionVariableName="HaulingOrderForDropoff1"><property value="MissionProperty[7001]" /></ObjectiveProperty_Referenced><ObjectiveProperty_Referenced missionVariableName="HaulingOrderForDropoff2"><property value="MissionProperty[7002]" /></ObjectiveProperty_Referenced><ObjectiveProperty_Referenced missionVariableName="PickupLocation"><property value="MissionProperty[7003]" /></ObjectiveProperty_Referenced><ObjectiveProperty_Referenced missionVariableName="DropoffLocation1"><property value="MissionProperty[7004]" /></ObjectiveProperty_Referenced><ObjectiveProperty_Referenced missionVariableName="DropoffLocation2"><property value="MissionProperty[7005]" /></ObjectiveProperty_Referenced></properties><objectiveHandler><ObjectiveHandler_Hauling><haulingOrders><HaulingOrder_Property><pickUpLocation value="ObjectiveProperty_Referenced[1003]" /><dropOffLocation value="ObjectiveProperty_Referenced[1004]" /><haulingOrdersProperty value="ObjectiveProperty_Referenced[1001]" /></HaulingOrder_Property><HaulingOrder_Property><pickUpLocation value="ObjectiveProperty_Referenced[1003]" /><dropOffLocation value="ObjectiveProperty_Referenced[1005]" /><haulingOrdersProperty value="ObjectiveProperty_Referenced[1002]" /></HaulingOrder_Property></haulingOrders></ObjectiveHandler_Hauling></objectiveHandler></ObjectiveToken></objectiveTokens></ContractTemplate.TestRoute>'
+        );
+
+        $this->writeCacheFiles(
+            uuidToPathMap: [
+                'bbbb0000-0000-0000-0000-0000000000a1' => $resA,
+                'bbbb0000-0000-0000-0000-0000000000a2' => $resB,
+                'cccc0000-0000-0000-0000-000000000700' => $templatePath,
+            ],
+        );
+
+        $this->bootServices();
+
+        // Two cargo overrides -- one per routing edge -- keyed by the variables the
+        // routing nodes reference. These are what buildHaulingOrders emits rows from.
+        $ha = '<MissionProperty missionVariableName="HaulingOrderForDropoff1"><value><MissionPropertyValue_HaulingOrders><haulingOrderContent><HaulingOrderContent_Resource resource="bbbb0000-0000-0000-0000-0000000000a1" maxContainerSize="16" minSCU="48" /></haulingOrderContent></MissionPropertyValue_HaulingOrders></value></MissionProperty>';
+        $hb = '<MissionProperty missionVariableName="HaulingOrderForDropoff2"><value><MissionPropertyValue_HaulingOrders><haulingOrderContent><HaulingOrderContent_Resource resource="bbbb0000-0000-0000-0000-0000000000a2" maxContainerSize="16" minSCU="48" /></haulingOrderContent></MissionPropertyValue_HaulingOrders></value></MissionProperty>';
+        $handlerXml = "<ContractGeneratorHandler_Recovery debugName=\"Handler\"><contractParams><propertyOverrides>{$ha}{$hb}</propertyOverrides></contractParams><contracts><Contract id=\"e1\" debugName=\"TestRoute\" template=\"cccc0000-0000-0000-0000-000000000700\"><paramOverrides /><generationParams><ContractGenerationParams_Legacy maxInstances=\"1\" maxInstancesPerPlayer=\"1\" respawnTime=\"0\" respawnTimeVariation=\"0\" /></generationParams><contractResults contractBuyInAmount=\"0\" timeToComplete=\"-1\" /></Contract></contracts></ContractGeneratorHandler_Recovery>";
+
+        $dom = new DOMDocument;
+        $dom->loadXML($handlerXml);
+        $handler = ContractHandler::fromNode($dom->documentElement);
+        $entry = $handler->getContracts()[0];
+
+        $contract = new Contract($entry, $handler, new ContractGeneratorRecord);
+        $orders = $this->invokeMethod($contract, 'buildHaulingOrders');
+
+        // One row per cargo override; each must carry the pool binding from its edge.
+        $byUuid = array_column($orders, null, 'uuid');
+
+        self::assertArrayHasKey('bbbb0000-0000-0000-0000-0000000000a1', $byUuid);
+        self::assertSame('PickupLocation', $byUuid['bbbb0000-0000-0000-0000-0000000000a1']['pickup_pool']);
+        self::assertSame('DropoffLocation1', $byUuid['bbbb0000-0000-0000-0000-0000000000a1']['dropoff_pool']);
+
+        self::assertArrayHasKey('bbbb0000-0000-0000-0000-0000000000a2', $byUuid);
+        self::assertSame('PickupLocation', $byUuid['bbbb0000-0000-0000-0000-0000000000a2']['pickup_pool']);
+        self::assertSame('DropoffLocation2', $byUuid['bbbb0000-0000-0000-0000-0000000000a2']['dropoff_pool']);
+    }
+
+    public function test_handler_level_completed_contract_tags_prerequisite_is_surfaced(): void
+    {
+        // TheCollector (Wikelo) gates EVERY contract under a handler via the handler's
+        // defaultAvailability/prerequisites/ContractPrerequisite_CompletedContractTags (a
+        // shared chain gate). Pre-fix buildTagPrerequisites read the entry container only,
+        // so contracts with no entry-level chain prereq exported Prerequisites: [] despite
+        // a real handler-level gate (e.g. eda899b9 -> tag 87e124b5).
+        $tag1 = ['name' => 'CollectorChain', 'uuid' => 'eeee0000-0000-0000-0000-000000000001'];
+        $this->writeCacheFiles();
+        $this->initializeMinimalItemServices(tags: [$tag1]);
+
+        $handlerXml = '<ContractGeneratorHandler_List debugName="TheCollector_Small_Items"><defaultAvailability><prerequisites><ContractPrerequisite_CompletedContractTags includePrerequisiteWhenSharing="0" requiredCountValue="1" excludedCountValue="1"><requiredCompletedContractTags><tags><Reference value="eeee0000-0000-0000-0000-000000000001" /></tags></requiredCompletedContractTags></ContractPrerequisite_CompletedContractTags></prerequisites></defaultAvailability><contractParams /><contracts><Contract id="e1" debugName="SmallItemRun"><paramOverrides /><generationParams><ContractGenerationParams_Legacy maxInstances="1" maxInstancesPerPlayer="1" respawnTime="0" respawnTimeVariation="0" /></generationParams><contractResults contractBuyInAmount="0" timeToComplete="-1" /></Contract></contracts></ContractGeneratorHandler_List>';
+
+        $dom = new DOMDocument;
+        $dom->loadXML($handlerXml);
+        $handler = ContractHandler::fromNode($dom->documentElement);
+        $entry = $handler->getContracts()[0];
+
+        $contract = new Contract($entry, $handler, new ContractGeneratorRecord);
+        $prerequisites = $this->invokeMethod($contract, 'buildTagPrerequisites', ServiceFactory::getTagDatabaseService());
+
+        self::assertCount(1, $prerequisites);
+        self::assertSame(1, $prerequisites[0]['required_count']);
+        self::assertSame('eeee0000-0000-0000-0000-000000000001', $prerequisites[0]['required_tags'][0]['uuid']);
+        self::assertSame('CollectorChain', $prerequisites[0]['required_tags'][0]['name']);
+    }
+
+    public function test_handler_and_entry_completed_contract_tags_merge_without_duplicates(): void
+    {
+        // When the handler and the entry both gate on the same tag (the TheCollector shape,
+        // where the entry mirrors the handler), the merged Prerequisites must not duplicate.
+        // When they gate on different tags, both must survive (they are cumulative AND gates).
+        $tagShared = ['name' => 'Shared', 'uuid' => 'eeee0000-0000-0000-0000-000000000010'];
+        $tagEntryOnly = ['name' => 'EntryOnly', 'uuid' => 'eeee0000-0000-0000-0000-000000000020'];
+        $this->writeCacheFiles();
+        $this->initializeMinimalItemServices(tags: [$tagShared, $tagEntryOnly]);
+
+        $handlerXml = '<ContractGeneratorHandler_List debugName="H"><defaultAvailability><prerequisites><ContractPrerequisite_CompletedContractTags includePrerequisiteWhenSharing="0" requiredCountValue="1" excludedCountValue="0"><requiredCompletedContractTags><tags><Reference value="eeee0000-0000-0000-0000-000000000010" /></tags></requiredCompletedContractTags></ContractPrerequisite_CompletedContractTags></prerequisites></defaultAvailability><contractParams /><contracts><Contract id="e1" debugName="E"><additionalPrerequisites><ContractPrerequisite_CompletedContractTags includePrerequisiteWhenSharing="0" requiredCountValue="1" excludedCountValue="0"><requiredCompletedContractTags><tags><Reference value="eeee0000-0000-0000-0000-000000000010" /><Reference value="eeee0000-0000-0000-0000-000000000020" /></tags></requiredCompletedContractTags></ContractPrerequisite_CompletedContractTags></additionalPrerequisites><paramOverrides /><generationParams><ContractGenerationParams_Legacy maxInstances="1" maxInstancesPerPlayer="1" respawnTime="0" respawnTimeVariation="0" /></generationParams><contractResults contractBuyInAmount="0" timeToComplete="-1" /></Contract></contracts></ContractGeneratorHandler_List>';
+
+        $dom = new DOMDocument;
+        $dom->loadXML($handlerXml);
+        $handler = ContractHandler::fromNode($dom->documentElement);
+        $entry = $handler->getContracts()[0];
+
+        $contract = new Contract($entry, $handler, new ContractGeneratorRecord);
+        $prerequisites = $this->invokeMethod($contract, 'buildTagPrerequisites', ServiceFactory::getTagDatabaseService());
+
+        // Handler gate {Shared} and entry gate {Shared, EntryOnly} are distinct prereq blocks
+        // (different tag sets), so both survive -- NOT deduped into one.
+        self::assertCount(2, $prerequisites);
+
+        $allRequiredUuids = [];
+        foreach ($prerequisites as $p) {
+            foreach ($p['required_tags'] as $t) {
+                $allRequiredUuids[] = $t['uuid'];
+            }
+        }
+        sort($allRequiredUuids);
+        self::assertSame(['eeee0000-0000-0000-0000-000000000010', 'eeee0000-0000-0000-0000-000000000010', 'eeee0000-0000-0000-0000-000000000020'], $allRequiredUuids);
+    }
+
+    public function test_handler_and_entry_completed_contract_tags_dedup_identical(): void
+    {
+        // Identical handler+entry gates (same tags, same counts) collapse to one entry to
+        // avoid noise when an entry mirrors its handler's default gate.
+        $tag = ['name' => 'Shared', 'uuid' => 'eeee0000-0000-0000-0000-000000000030'];
+        $this->writeCacheFiles();
+        $this->initializeMinimalItemServices(tags: [$tag]);
+
+        $cct = '<ContractPrerequisite_CompletedContractTags includePrerequisiteWhenSharing="0" requiredCountValue="1" excludedCountValue="0"><requiredCompletedContractTags><tags><Reference value="eeee0000-0000-0000-0000-000000000030" /></tags></requiredCompletedContractTags></ContractPrerequisite_CompletedContractTags>';
+        $handlerXml = '<ContractGeneratorHandler_List debugName="H"><defaultAvailability><prerequisites>'.$cct.'</prerequisites></defaultAvailability><contractParams /><contracts><Contract id="e1" debugName="E"><additionalPrerequisites>'.$cct.'</additionalPrerequisites><paramOverrides /><generationParams><ContractGenerationParams_Legacy maxInstances="1" maxInstancesPerPlayer="1" respawnTime="0" respawnTimeVariation="0" /></generationParams><contractResults contractBuyInAmount="0" timeToComplete="-1" /></Contract></contracts></ContractGeneratorHandler_List>';
+
+        $dom = new DOMDocument;
+        $dom->loadXML($handlerXml);
+        $handler = ContractHandler::fromNode($dom->documentElement);
+        $entry = $handler->getContracts()[0];
+
+        $contract = new Contract($entry, $handler, new ContractGeneratorRecord);
+        $prerequisites = $this->invokeMethod($contract, 'buildTagPrerequisites', ServiceFactory::getTagDatabaseService());
+
+        self::assertCount(1, $prerequisites, 'Identical handler+entry gates must collapse to one');
+    }
+
+    public function test_notify_on_available_entry_override_wins_over_handler_default(): void
+    {
+        // Same shape as the reputation bug: NotifyOnAvailable is readable from both the
+        // entry (paramOverrides boolParam) and the handler (defaultAvailability attr +
+        // contractParams boolParam), but buildProperties read the handler default only.
+        // Four unaffiliated counter-offer contracts (866fb0fd ...) set the entry override
+        // to 1 while the handler default is 0, and exported null.
+        $this->writeCacheFiles();
+        $this->initializeMinimalItemServices();
+
+        $handlerXml = '<ContractGeneratorHandler_List debugName="H"><defaultAvailability notifyOnAvailable="0" /><contractParams /><contracts><Contract id="e1" debugName="E"><paramOverrides><boolParamOverrides><ContractBoolParam param="NotifyOnAvailable" value="1" /></boolParamOverrides></paramOverrides><generationParams><ContractGenerationParams_Legacy maxInstances="1" maxInstancesPerPlayer="1" respawnTime="0" respawnTimeVariation="0" /></generationParams><contractResults contractBuyInAmount="0" timeToComplete="-1" /></Contract></contracts></ContractGeneratorHandler_List>';
+
+        $dom = new DOMDocument;
+        $dom->loadXML($handlerXml);
+        $handler = ContractHandler::fromNode($dom->documentElement);
+        $entry = $handler->getContracts()[0];
+
+        $contract = new Contract($entry, $handler, new ContractGeneratorRecord);
+        $properties = $this->invokeMethod($contract, 'buildProperties');
+
+        self::assertTrue($properties['notify_on_available']);
+    }
+
+    public function test_notify_on_available_handler_contract_params_override_beats_default(): void
+    {
+        // The handler's own contractParams/boolParamOverrides override must beat its
+        // defaultAvailability attr when no entry override is present. Pre-fix the handler
+        // method read defaultAvailability only, dropping the contractParams override.
+        $this->writeCacheFiles();
+        $this->initializeMinimalItemServices();
+
+        $handlerXml = '<ContractGeneratorHandler_List debugName="H"><defaultAvailability notifyOnAvailable="0" /><contractParams><boolParamOverrides><ContractBoolParam param="NotifyOnAvailable" value="1" /></boolParamOverrides></contractParams><contracts><Contract id="e1" debugName="E"><paramOverrides /><generationParams><ContractGenerationParams_Legacy maxInstances="1" maxInstancesPerPlayer="1" respawnTime="0" respawnTimeVariation="0" /></generationParams><contractResults contractBuyInAmount="0" timeToComplete="-1" /></Contract></contracts></ContractGeneratorHandler_List>';
+
+        $dom = new DOMDocument;
+        $dom->loadXML($handlerXml);
+        $handler = ContractHandler::fromNode($dom->documentElement);
+        $entry = $handler->getContracts()[0];
+
+        $contract = new Contract($entry, $handler, new ContractGeneratorRecord);
+        $properties = $this->invokeMethod($contract, 'buildProperties');
+
+        self::assertTrue($properties['notify_on_available']);
+    }
+
+    public function test_notify_on_available_falls_back_to_handler_default(): void
+    {
+        // No overrides anywhere -> the handler defaultAvailability attr is the source.
+        $this->writeCacheFiles();
+        $this->initializeMinimalItemServices();
+
+        $handlerXml = '<ContractGeneratorHandler_List debugName="H"><defaultAvailability notifyOnAvailable="1" /><contractParams /><contracts><Contract id="e1" debugName="E"><paramOverrides /><generationParams><ContractGenerationParams_Legacy maxInstances="1" maxInstancesPerPlayer="1" respawnTime="0" respawnTimeVariation="0" /></generationParams><contractResults contractBuyInAmount="0" timeToComplete="-1" /></Contract></contracts></ContractGeneratorHandler_List>';
+
+        $dom = new DOMDocument;
+        $dom->loadXML($handlerXml);
+        $handler = ContractHandler::fromNode($dom->documentElement);
+        $entry = $handler->getContracts()[0];
+
+        $contract = new Contract($entry, $handler, new ContractGeneratorRecord);
+        $properties = $this->invokeMethod($contract, 'buildProperties');
+
+        self::assertTrue($properties['notify_on_available']);
+    }
+
+    public function test_location_prerequisite_surfaces_specific_poi(): void
+    {
+        // ContractPrerequisite_Location (@locationAvailable) gates a contract to a SPECIFIC
+        // POI/system (a StarMapObject), distinct from Locality (a region/set of POIs).
+        // Pre-fix buildLocalityPrerequisites filtered type==='Locality' only, so all 453
+        // Location prereqs vanished (e.g. Klescher 1464ed09 -> Aberdeen prison POI).
+        $poi = $this->writeStarmapObject('55555555-0000-0000-0000-000000000001', '@Stanton1b_Aberdeen_Prison', 'AberdeenPrison');
+
+        $this->writeCacheFiles(uuidToPathMap: [strtolower('55555555-0000-0000-0000-000000000001') => $poi]);
+        $this->initializeMinimalItemServices(translations: ['Stanton1b_Aberdeen_Prison' => 'Aberdeen Prison']);
+        $foundryService = new FoundryLookupService($this->tempDir);
+        $foundryService->initialize();
+        $this->addServiceToFactory('FoundryLookupService', $foundryService);
+
+        $handlerXml = '<ContractGeneratorHandler_List debugName="H"><defaultAvailability><prerequisites><ContractPrerequisite_Location locationAvailable="55555555-0000-0000-0000-000000000001" /></prerequisites></defaultAvailability><contractParams /><contracts><Contract id="e1" debugName="E"><paramOverrides /><generationParams><ContractGenerationParams_Legacy maxInstances="1" maxInstancesPerPlayer="1" respawnTime="0" respawnTimeVariation="0" /></generationParams><contractResults contractBuyInAmount="0" timeToComplete="-1" /></Contract></contracts></ContractGeneratorHandler_List>';
+
+        $dom = new DOMDocument;
+        $dom->loadXML($handlerXml);
+        $handler = ContractHandler::fromNode($dom->documentElement);
+        $entry = $handler->getContracts()[0];
+
+        $contract = new Contract($entry, $handler, new ContractGeneratorRecord);
+        $requirements = $this->invokeMethod($contract, 'buildRequirements');
+
+        self::assertArrayHasKey('required_locations', $requirements);
+        self::assertCount(1, $requirements['required_locations']);
+        self::assertSame('55555555-0000-0000-0000-000000000001', $requirements['required_locations'][0]['uuid']);
+        self::assertSame('Aberdeen Prison', $requirements['required_locations'][0]['name']);
+    }
+
+    public function test_location_prerequisite_merges_entry_and_handler_and_dedups(): void
+    {
+        // Location prereqs on BOTH the handler defaultAvailability and the entry
+        // additionalPrerequisites must both surface (and dedup when identical).
+        $poi1 = $this->writeStarmapObject('55555555-0000-0000-0000-000000000010', '@LocA', 'LocA');
+        $poi2 = $this->writeStarmapObject('55555555-0000-0000-0000-000000000020', '@LocB', 'LocB');
+
+        $this->writeCacheFiles(uuidToPathMap: [
+            strtolower('55555555-0000-0000-0000-000000000010') => $poi1,
+            strtolower('55555555-0000-0000-0000-000000000020') => $poi2,
+        ]);
+        $this->initializeMinimalItemServices(translations: ['LocA' => 'Loc A', 'LocB' => 'Loc B']);
+        $foundryService = new FoundryLookupService($this->tempDir);
+        $foundryService->initialize();
+        $this->addServiceToFactory('FoundryLookupService', $foundryService);
+
+        // Handler gates LocA; entry gates LocA (dup) + LocB. Expect LocA, LocB (deduped).
+        $handlerXml = '<ContractGeneratorHandler_List debugName="H"><defaultAvailability><prerequisites><ContractPrerequisite_Location locationAvailable="55555555-0000-0000-0000-000000000010" /></prerequisites></defaultAvailability><contractParams /><contracts><Contract id="e1" debugName="E"><additionalPrerequisites><ContractPrerequisite_Location locationAvailable="55555555-0000-0000-0000-000000000010" /><ContractPrerequisite_Location locationAvailable="55555555-0000-0000-0000-000000000020" /></additionalPrerequisites><paramOverrides /><generationParams><ContractGenerationParams_Legacy maxInstances="1" maxInstancesPerPlayer="1" respawnTime="0" respawnTimeVariation="0" /></generationParams><contractResults contractBuyInAmount="0" timeToComplete="-1" /></Contract></contracts></ContractGeneratorHandler_List>';
+
+        $dom = new DOMDocument;
+        $dom->loadXML($handlerXml);
+        $handler = ContractHandler::fromNode($dom->documentElement);
+        $entry = $handler->getContracts()[0];
+
+        $contract = new Contract($entry, $handler, new ContractGeneratorRecord);
+        $requirements = $this->invokeMethod($contract, 'buildRequirements');
+
+        $uuids = array_column($requirements['required_locations'], 'uuid');
+        sort($uuids);
+        self::assertSame(['55555555-0000-0000-0000-000000000010', '55555555-0000-0000-0000-000000000020'], $uuids);
+    }
+
+    public function test_mission_result_outcome_labels_each_reputation_reward(): void
+    {
+        // Every ContractResult_* carries a 5-bool <missionResults> vector gating which
+        // mission outcome (slot 0 = Success, slot 2 = Failure, all-off = unconditional)
+        // fires the reward. The dumper parsed it via an orphaned getter and emitted nothing,
+        // so a failure-only reputation penalty was indistinguishable from a success reward,
+        // and an unconditional reward was indistinguishable from a success-only one. The
+        // sign heuristic (<0 => Lost) happens to align for LegacyReputation but is not the
+        // real gate and cannot express 'unconditional' at all.
+        $chain = $this->writeReputationChain([
+            'factionUuid' => '41000000-0000-0000-0000-000000000001',
+            'factionRepUuid' => '41000000-0000-0000-0000-000000000002',
+            'scopeUuid' => '41000000-0000-0000-0000-000000000003',
+            'minStandingUuid' => '41000000-0000-0000-0000-000000000004',
+            'maxStandingUuid' => '41000000-0000-0000-0000-000000000005',
+            'factionNameKey' => '@loc_fac',
+            'factionName' => 'TestFaction',
+            'scopeName' => 'TestScope',
+            'minStandingNameKey' => '@loc_min',
+            'minStandingName' => 'Min',
+            'maxStandingNameKey' => '@loc_max',
+            'maxStandingName' => 'Max',
+            'minReputation' => 0,
+            'maxReputation' => 1000,
+        ]);
+
+        // Three reputation reward tiers, one per outcome slot we exercise.
+        $rewardSuccess = $this->writeReputationReward('41100000-0000-0000-0000-000000000001', 500, '+T_success');
+        $rewardFailure = $this->writeReputationReward('41100000-0000-0000-0000-000000000002', -250, '-T_fail');
+        $rewardUncond = $this->writeReputationReward('41100000-0000-0000-0000-000000000003', 50, '+T_uncond');
+
+        $this->writeCacheFiles(
+            classToPathMap: $chain['classToPathMap'],
+            uuidToPathMap: array_merge($chain['uuidToPathMap'], [
+                '41100000-0000-0000-0000-000000000001' => $rewardSuccess,
+                '41100000-0000-0000-0000-000000000002' => $rewardFailure,
+                '41100000-0000-0000-0000-000000000003' => $rewardUncond,
+            ]),
+            uuidToClassMap: $chain['uuidToClassMap'],
+            classToUuidMap: $chain['classToUuidMap'],
+        );
+        $this->initializeMinimalItemServices(translations: [
+            'LOC_EMPTY' => '',
+            'loc_fac' => 'TestFaction',
+            'loc_min' => 'Min',
+            'loc_max' => 'Max',
+        ]);
+        $foundryService = new FoundryLookupService($this->tempDir);
+        $foundryService->initialize();
+        $this->addServiceToFactory('FoundryLookupService', $foundryService);
+
+        $facRep = '41000000-0000-0000-0000-000000000002';
+        $scope = '41000000-0000-0000-0000-000000000003';
+        $handlerXml = "<ContractGeneratorHandler_Recovery debugName=\"Outcome\"><defaultAvailability><prerequisites><ContractPrerequisite_CrimeStat includePrerequisiteWhenSharing=\"0\" minCrimeStat=\"0\" maxCrimeStat=\"2\" /></prerequisites></defaultAvailability><contractParams /><contracts><Contract id=\"e1\" debugName=\"Outcome\"><paramOverrides /><generationParams><ContractGenerationParams_Legacy maxInstances=\"1\" maxInstancesPerPlayer=\"1\" respawnTime=\"0\" respawnTimeVariation=\"0\" /></generationParams><contractResults contractBuyInAmount=\"0\" timeToComplete=\"-1\"><contractResults><ContractResult_LegacyReputation><missionResults><Bool value=\"1\" /><Bool value=\"0\" /><Bool value=\"0\" /><Bool value=\"0\" /><Bool value=\"0\" /></missionResults><contractResultReputationAmounts factionReputation=\"{$facRep}\" reputationScope=\"{$scope}\" reward=\"41100000-0000-0000-0000-000000000001\" /></ContractResult_LegacyReputation><ContractResult_LegacyReputation><missionResults><Bool value=\"0\" /><Bool value=\"0\" /><Bool value=\"1\" /><Bool value=\"0\" /><Bool value=\"0\" /></missionResults><contractResultReputationAmounts factionReputation=\"{$facRep}\" reputationScope=\"{$scope}\" reward=\"41100000-0000-0000-0000-000000000002\" /></ContractResult_LegacyReputation><ContractResult_LegacyReputation><missionResults><Bool value=\"0\" /><Bool value=\"0\" /><Bool value=\"0\" /><Bool value=\"0\" /><Bool value=\"0\" /></missionResults><contractResultReputationAmounts factionReputation=\"{$facRep}\" reputationScope=\"{$scope}\" reward=\"41100000-0000-0000-0000-000000000003\" /></ContractResult_LegacyReputation></contractResults></contractResults></Contract></contracts></ContractGeneratorHandler_Recovery>";
+
+        $dom = new DOMDocument;
+        $dom->loadXML($handlerXml);
+        $handler = ContractHandler::fromNode($dom->documentElement);
+        $entry = $handler->getContracts()[0];
+
+        $contract = new Contract($entry, $handler, new ContractGeneratorRecord);
+        $results = $this->invokeMethod($contract, 'buildResults', $entry->getResults());
+
+        $byAmount = [];
+        foreach ($results['reputation_gained'] ?? [] as $g) {
+            $byAmount[$g['amount']] = $g;
+        }
+        foreach ($results['reputation_lost'] ?? [] as $l) {
+            $byAmount[$l['amount']] = $l;
+        }
+
+        // Success-only reward: outcome is the default and is omitted (anti-noise).
+        self::assertArrayHasKey(500, $byAmount);
+        self::assertArrayNotHasKey('outcome', $byAmount[500], 'Success outcome must be omitted as the default');
+
+        // Failure-only reward: labelled, regardless of sign.
+        self::assertArrayHasKey(-250, $byAmount);
+        self::assertSame('failure', $byAmount[-250]['outcome']);
+
+        // Unconditional reward: distinguishable from a success reward -- the one thing the
+        // sign heuristic could never express.
+        self::assertArrayHasKey(50, $byAmount);
+        self::assertSame('unconditional', $byAmount[50]['outcome']);
+    }
+
+    public function test_subcontract_localities_merge_into_availability_locations(): void
+    {
+        // A SubContract (nested under <Contract>/<CareerContract>) is a location-specific
+        // variant: it carries its own additionalPrerequisites gating where that variant
+        // is offered. The dumper read only the parent entry's direct additionalPrerequisites,
+        // so a Shubin mining career contract exporting as 'Stanton1 (Hurston) only' would
+        // actually be offered at Stanton2/3/4 too -- the subcontract gates vanish. Merge
+        // the subcontract localities into the parent's availability_locations.
+        $locStanton1 = $this->writeMissionLocality('42000000-0000-0000-0000-000000000001', 'Stanton1');
+        $locStanton2 = $this->writeMissionLocality('42000000-0000-0000-0000-000000000002', 'Stanton2');
+        $locStanton3 = $this->writeMissionLocality('42000000-0000-0000-0000-000000000003', 'Stanton3');
+
+        $this->writeCacheFiles(
+            uuidToPathMap: [
+                '42000000-0000-0000-0000-000000000001' => $locStanton1,
+                '42000000-0000-0000-0000-000000000002' => $locStanton2,
+                '42000000-0000-0000-0000-000000000003' => $locStanton3,
+            ],
+        );
+        $this->initializeMinimalItemServices();
+        $foundryService = new FoundryLookupService($this->tempDir);
+        $foundryService->initialize();
+        $this->addServiceToFactory('FoundryLookupService', $foundryService);
+
+        $l1 = '42000000-0000-0000-0000-000000000001';
+        $l2 = '42000000-0000-0000-0000-000000000002';
+        $l3 = '42000000-0000-0000-0000-000000000003';
+        $handlerXml = "<ContractGeneratorHandler_Career debugName=\"Sub\"><contractParams /><contracts><CareerContract id=\"e1\" debugName=\"Sub\" template=\"t\"><paramOverrides /><generationParams><ContractGenerationParams_Legacy maxInstances=\"1\" maxInstancesPerPlayer=\"1\" respawnTime=\"0\" respawnTimeVariation=\"0\" /></generationParams><subContracts><SubContract id=\"s1\"><additionalPrerequisites><ContractPrerequisite_Locality localityAvailable=\"{$l2}\" /></additionalPrerequisites></SubContract><SubContract id=\"s2\"><additionalPrerequisites><ContractPrerequisite_Locality localityAvailable=\"{$l3}\" /></additionalPrerequisites></SubContract></subContracts><additionalPrerequisites><ContractPrerequisite_Locality localityAvailable=\"{$l1}\" /></additionalPrerequisites><contractResults contractBuyInAmount=\"0\" timeToComplete=\"-1\" /></CareerContract></contracts></ContractGeneratorHandler_Career>";
+
+        $dom = new DOMDocument;
+        $dom->loadXML($handlerXml);
+        $handler = ContractHandler::fromNode($dom->documentElement);
+        $entry = $handler->getContracts()[0];
+
+        $contract = new Contract($entry, $handler, new ContractGeneratorRecord);
+        $requirements = $this->invokeMethod($contract, 'buildRequirements');
+
+        $names = array_column($requirements['availability_locations'], 'name');
+        sort($names);
+
+        // Parent (Stanton1) + both subcontract variants (Stanton2, Stanton3) must all surface.
+        self::assertSame(['Stanton1', 'Stanton2', 'Stanton3'], $names);
+    }
+
+    public function test_entry_level_reputation_prerequisite_is_surfaced(): void
+    {
+        // TheCollector (Wikelo) contracts put their reputation gate on the contract
+        // ENTRY under additionalPrerequisites/ContractPrerequisite_Reputation, not on
+        // the handler's defaultAvailability/prerequisites. Pre-fix the dumper only read
+        // the handler path, so ReputationPrerequisite came out null for both Wikelo
+        // collector contracts (77fa8882 / 3c839c32).
+        $chain = $this->writeReputationChain([
+            'factionUuid' => '40000000-0000-0000-0000-000000000001',
+            'factionRepUuid' => '40000000-0000-0000-0000-000000000002',
+            'scopeUuid' => '40000000-0000-0000-0000-000000000003',
+            'minStandingUuid' => '40000000-0000-0000-0000-000000000004',
+            'maxStandingUuid' => '40000000-0000-0000-0000-000000000005',
+            'factionNameKey' => '@loc_wikelo',
+            'factionName' => 'Wikelo',
+            'scopeName' => 'WikeloScope',
+            'minStandingNameKey' => '@loc_wikelo_rank1',
+            'minStandingName' => 'Rank 1',
+            'maxStandingNameKey' => '@loc_wikelo_rank2',
+            'maxStandingName' => 'Rank 2',
+            'minReputation' => 340,
+            'maxReputation' => 999,
+        ]);
+
+        $this->writeCacheFiles(
+            classToPathMap: $chain['classToPathMap'],
+            uuidToPathMap: $chain['uuidToPathMap'],
+            uuidToClassMap: $chain['uuidToClassMap'],
+            classToUuidMap: $chain['classToUuidMap'],
+        );
+        $this->initializeMinimalItemServices(translations: [
+            'LOC_EMPTY' => '',
+            'loc_wikelo' => 'Wikelo',
+            'loc_wikelo_rank1' => 'Rank 1',
+            'loc_wikelo_rank2' => 'Rank 2',
+        ]);
+        $foundryService = new FoundryLookupService($this->tempDir);
+        $foundryService->initialize();
+        $this->addServiceToFactory('FoundryLookupService', $foundryService);
+
+        $handlerXml = '<ContractGeneratorHandler_Recovery debugName="TheCollector_Vehicles"><defaultAvailability><prerequisites><ContractPrerequisite_CrimeStat includePrerequisiteWhenSharing="0" minCrimeStat="0" maxCrimeStat="2" /></prerequisites></defaultAvailability><contractParams /><contracts><Contract id="e1" debugName="WikeloRun"><additionalPrerequisites><ContractPrerequisite_Reputation includePrerequisiteWhenSharing="0" factionReputation="40000000-0000-0000-0000-000000000002" scope="40000000-0000-0000-0000-000000000003" minStanding="40000000-0000-0000-0000-000000000004" maxStanding="40000000-0000-0000-0000-000000000005" /></additionalPrerequisites><paramOverrides /><generationParams><ContractGenerationParams_Legacy maxInstances="1" maxInstancesPerPlayer="1" respawnTime="0" respawnTimeVariation="0" /></generationParams><contractResults contractBuyInAmount="0" timeToComplete="-1" /></Contract></contracts></ContractGeneratorHandler_Recovery>';
+
+        $dom = new DOMDocument;
+        $dom->loadXML($handlerXml);
+        $handler = ContractHandler::fromNode($dom->documentElement);
+        $entry = $handler->getContracts()[0];
+
+        $contract = new Contract($entry, $handler, new ContractGeneratorRecord);
+        $requirements = $this->invokeMethod($contract, 'buildRequirements');
+
+        self::assertArrayHasKey('reputation_prerequisite', $requirements);
+        $rep = $requirements['reputation_prerequisite'];
+        self::assertSame('Wikelo', $rep['faction']);
+        self::assertSame('40000000-0000-0000-0000-000000000001', $rep['faction_uuid']);
+        self::assertSame('WikeloScope', $rep['scope']);
+        self::assertSame('40000000-0000-0000-0000-000000000003', $rep['scope_uuid']);
+        self::assertSame('Rank 1', $rep['min_standing']['name']);
+        self::assertSame(340, $rep['min_standing']['min_reputation']);
+        self::assertSame('Rank 2', $rep['max_standing']['name']);
+        self::assertSame(999, $rep['max_standing']['min_reputation']);
+    }
+
+    public function test_entry_reputation_prerequisite_overrides_handler_level(): void
+    {
+        // When both the handler and the entry declare a reputation prerequisite, the
+        // entry is the more specific (per-contract) gate and must win.
+        $entry = $this->writeReputationChain([
+            'factionUuid' => '40000000-0000-0000-0000-000000000011',
+            'factionRepUuid' => '40000000-0000-0000-0000-000000000012',
+            'scopeUuid' => '40000000-0000-0000-0000-000000000013',
+            'minStandingUuid' => '40000000-0000-0000-0000-000000000014',
+            'maxStandingUuid' => '40000000-0000-0000-0000-000000000015',
+            'factionNameKey' => '@loc_entry_faction',
+            'factionName' => 'EntryFaction',
+            'scopeName' => 'EntryScope',
+            'minStandingNameKey' => '@loc_entry_min',
+            'minStandingName' => 'Entry Min',
+            'maxStandingNameKey' => '@loc_entry_max',
+            'maxStandingName' => 'Entry Max',
+            'minReputation' => 10,
+            'maxReputation' => 20,
+        ]);
+        $handler = $this->writeReputationChain([
+            'factionUuid' => '40000000-0000-0000-0000-000000000021',
+            'factionRepUuid' => '40000000-0000-0000-0000-000000000022',
+            'scopeUuid' => '40000000-0000-0000-0000-000000000023',
+            'minStandingUuid' => '40000000-0000-0000-0000-000000000024',
+            'maxStandingUuid' => '40000000-0000-0000-0000-000000000025',
+            'factionNameKey' => '@loc_handler_faction',
+            'factionName' => 'HandlerFaction',
+            'scopeName' => 'HandlerScope',
+            'minStandingNameKey' => '@loc_handler_min',
+            'minStandingName' => 'Handler Min',
+            'maxStandingNameKey' => '@loc_handler_max',
+            'maxStandingName' => 'Handler Max',
+            'minReputation' => 30,
+            'maxReputation' => 40,
+        ]);
+
+        $this->writeCacheFiles(
+            classToPathMap: array_replace_recursive($entry['classToPathMap'], $handler['classToPathMap']),
+            uuidToPathMap: array_replace($entry['uuidToPathMap'], $handler['uuidToPathMap']),
+            uuidToClassMap: array_replace($entry['uuidToClassMap'], $handler['uuidToClassMap']),
+            classToUuidMap: array_replace($entry['classToUuidMap'], $handler['classToUuidMap']),
+        );
+        $this->initializeMinimalItemServices(translations: [
+            'LOC_EMPTY' => '',
+            'loc_entry_faction' => 'EntryFaction',
+            'loc_handler_faction' => 'HandlerFaction',
+        ]);
+        $foundryService = new FoundryLookupService($this->tempDir);
+        $foundryService->initialize();
+        $this->addServiceToFactory('FoundryLookupService', $foundryService);
+
+        $handlerXml = '<ContractGeneratorHandler_Recovery debugName="H"><defaultAvailability><prerequisites><ContractPrerequisite_Reputation includePrerequisiteWhenSharing="0" factionReputation="40000000-0000-0000-0000-000000000022" scope="40000000-0000-0000-0000-000000000023" minStanding="40000000-0000-0000-0000-000000000024" maxStanding="40000000-0000-0000-0000-000000000025" /></prerequisites></defaultAvailability><contractParams /><contracts><Contract id="e1" debugName="E"><additionalPrerequisites><ContractPrerequisite_Reputation includePrerequisiteWhenSharing="0" factionReputation="40000000-0000-0000-0000-000000000012" scope="40000000-0000-0000-0000-000000000013" minStanding="40000000-0000-0000-0000-000000000014" maxStanding="40000000-0000-0000-0000-000000000015" /></additionalPrerequisites><paramOverrides /><generationParams><ContractGenerationParams_Legacy maxInstances="1" maxInstancesPerPlayer="1" respawnTime="0" respawnTimeVariation="0" /></generationParams><contractResults contractBuyInAmount="0" timeToComplete="-1" /></Contract></contracts></ContractGeneratorHandler_Recovery>';
+
+        $dom = new DOMDocument;
+        $dom->loadXML($handlerXml);
+        $handlerDoc = ContractHandler::fromNode($dom->documentElement);
+        $entryDoc = $handlerDoc->getContracts()[0];
+
+        $contract = new Contract($entryDoc, $handlerDoc, new ContractGeneratorRecord);
+        $requirements = $this->invokeMethod($contract, 'buildRequirements');
+
+        $rep = $requirements['reputation_prerequisite'];
+        self::assertSame('EntryFaction', $rep['faction'], 'Entry-level reputation prereq must override handler-level');
+        self::assertSame('EntryScope', $rep['scope']);
+        self::assertSame(10, $rep['min_standing']['min_reputation']);
+    }
+
+    /**
+     * Write a minimal StarMapObject record (a specific POI / system) used as a
+     * ContractPrerequisite_Location @locationAvailable target.
+     */
+    private function writeStarmapObject(string $uuid, string $nameKey, string $className = 'TestPOI'): string
+    {
+        return $this->writeFile(
+            sprintf('Data/Libs/Foundry/Records/starmap/pu/%s.xml', strtolower($uuid)),
+            sprintf('<StarMapObject.%1$s name="%2$s" __type="StarMapObject" __ref="%3$s" __path="libs/foundry/records/starmap/pu/%4$s.xml" />', $className, $nameKey, $uuid, strtolower($uuid))
+        );
+    }
+
+    /**
+     * Write a minimal MissionLocality record (a region/set, e.g. Stanton1=Hurston system) used
+     * as a ContractPrerequisite_Locality @localityAvailable target. className is the part after
+     * '.' in the element name -> getClassName() returns it as the locality name.
+     */
+    private function writeMissionLocality(string $uuid, string $className): string
+    {
+        return $this->writeFile(
+            sprintf('Data/Libs/Foundry/Records/missiondata/pu_missionlocality/%s.xml', strtolower($uuid)),
+            sprintf('<MissionLocality.%2$s __type="MissionLocality" __ref="%1$s" __path="libs/foundry/records/missiondata/pu_missionlocality/%3$s.xml"><availableLocations /></MissionLocality.%2$s>', $uuid, $className, strtolower($uuid))
+        );
+    }
+
+    /**
+     * Write a reputation reward-amount record (the +T/-T tier a ContractResult_LegacyReputation
+     * points at via @reward). Resolved by FoundryLookupService::getReputationRewardByReference,
+     * which path-matches under /records/reputation/rewards/missionrewards_reputation/.
+     */
+    private function writeReputationReward(string $uuid, int $amount, string $editorName): string
+    {
+        return $this->writeFile(
+            sprintf('Data/Libs/Foundry/Records/reputation/rewards/missionrewards_reputation/%s.xml', strtolower($uuid)),
+            sprintf('<SReputationRewardAmount.Test editorName="%2$s" reputationAmount="%3$d" __type="SReputationRewardAmount" __ref="%1$s" __path="libs/foundry/records/reputation/rewards/missionrewards_reputation/%4$s.xml" />', $uuid, $editorName, $amount, strtolower($uuid))
+        );
+    }
+
+    /**
+     * @param  array<string, string|int>  $c
+     * @return array{classToPathMap: array<string, array<string, string>>, uuidToPathMap: array<string, string>, uuidToClassMap: array<string, string>, classToUuidMap: array<string, string>}
+     */
+    private function writeReputationChain(array $c): array
+    {
+        $factionUuid = $c['factionUuid'];
+        $factionRepUuid = $c['factionRepUuid'];
+        $scopeUuid = $c['scopeUuid'];
+        $minStandingUuid = $c['minStandingUuid'];
+        $maxStandingUuid = $c['maxStandingUuid'];
+
+        $factionPath = $this->writeFile(
+            sprintf('Data/Libs/Foundry/Records/factions/%s.xml', strtolower((string) $factionUuid)),
+            sprintf('<Faction.TestFaction name="%1$s" factionReputationRef="%3$s" __type="Faction" __ref="%2$s" __path="libs/foundry/records/factions/test.xml" />', (string) $c['factionNameKey'], $factionUuid, $factionRepUuid)
+        );
+        $factionRepPath = $this->writeFile(
+            sprintf('Data/Libs/Foundry/Records/factions/factionreputation/%s.xml', strtolower((string) $factionRepUuid)),
+            sprintf('<FactionReputation.TestRep displayName="%1$s" __type="FactionReputation" __ref="%2$s" __path="libs/foundry/records/factions/factionreputation/test.xml" />', (string) $c['factionNameKey'], $factionRepUuid)
+        );
+        $scopePath = $this->writeFile(
+            sprintf('Data/Libs/Foundry/Records/reputation/scopes/%s.xml', strtolower((string) $scopeUuid)),
+            sprintf('<SReputationScopeParams.TestScope scopeName="%1$s" __type="SReputationScopeParams" __ref="%2$s" __path="libs/foundry/records/reputation/scopes/test.xml"><standingMap reputationCeiling="1000" initialReputation="0"><standings /></standingMap></SReputationScopeParams.TestScope>', (string) $c['scopeName'], $scopeUuid)
+        );
+        $minStandingPath = $this->writeFile(
+            sprintf('Data/Libs/Foundry/Records/reputation/standings/%s.xml', strtolower((string) $minStandingUuid)),
+            sprintf('<SReputationStandingParams.Min name="Min" displayName="%1$s" minReputation="%2$d" __type="SReputationStandingParams" __ref="%3$s" __path="libs/foundry/records/reputation/standings/test.xml" />', (string) $c['minStandingNameKey'], (int) $c['minReputation'], $minStandingUuid)
+        );
+        $maxStandingPath = $this->writeFile(
+            sprintf('Data/Libs/Foundry/Records/reputation/standings/%s.xml', strtolower((string) $maxStandingUuid)),
+            sprintf('<SReputationStandingParams.Max name="Max" displayName="%1$s" minReputation="%2$d" __type="SReputationStandingParams" __ref="%3$s" __path="libs/foundry/records/reputation/standings/test.xml" />', (string) $c['maxStandingNameKey'], (int) $c['maxReputation'], $maxStandingUuid)
+        );
+
+        return [
+            'classToPathMap' => [
+                'Faction' => ['TestFaction' => $factionPath],
+                'FactionReputation' => ['TestRep' => $factionRepPath],
+                'SReputationScopeParams' => ['TestScope' => $scopePath],
+                'SReputationStandingParams' => ['Min' => $minStandingPath, 'Max' => $maxStandingPath],
+            ],
+            'uuidToPathMap' => [
+                strtolower((string) $factionUuid) => $factionPath,
+                strtolower((string) $factionRepUuid) => $factionRepPath,
+                strtolower((string) $scopeUuid) => $scopePath,
+                strtolower((string) $minStandingUuid) => $minStandingPath,
+                strtolower((string) $maxStandingUuid) => $maxStandingPath,
+            ],
+            'uuidToClassMap' => [
+                strtolower((string) $factionUuid) => 'TestFaction',
+                strtolower((string) $factionRepUuid) => 'TestRep',
+                strtolower((string) $scopeUuid) => 'TestScope',
+                strtolower((string) $minStandingUuid) => 'Min',
+                strtolower((string) $maxStandingUuid) => 'Max',
+            ],
+            'classToUuidMap' => [
+                'TestFaction' => strtolower((string) $factionUuid),
+            ],
+        ];
+    }
+
     public function test_handler_with_no_mission_items_returns_null_offset(): void
     {
         $this->writeCacheFiles();
@@ -597,5 +1233,83 @@ final class ContractTest extends ScDataTestCase
             'Data/Libs/Foundry/Records/contracts/contractgenerator/test_multi.xml',
             $fullXml
         );
+    }
+
+    public function test_faction_name_resolves_through_uninitialized_sentinel(): void
+    {
+        // Some Faction records carry name="@LOC_UNINITIALIZED" as a placeholder;
+        // the real display name lives on the inner FactionReputation's displayName.
+        // The dumper emitted "<= UNINITIALIZED =>" instead of falling through to the
+        // FactionReputation name (e.g. "Vaughn").
+        $factionUuid = '42000000-0000-0000-0000-000000000001';
+        $factionRepUuid = '42000000-0000-0000-0000-000000000002';
+        $scopeUuid = '42000000-0000-0000-0000-000000000003';
+
+        $factionPath = $this->writeFile(
+            'Data/Libs/Foundry/Records/factions/faction_unlawful_test.xml',
+            sprintf(
+                '<Faction.Faction_Unlawful_Test name="@LOC_UNINITIALIZED" factionReputationRef="%2$s" __type="Faction" __ref="%1$s" __path="libs/foundry/records/factions/faction_unlawful_test.xml" />',
+                $factionUuid,
+                $factionRepUuid,
+            )
+        );
+        $factionRepPath = $this->writeFile(
+            'Data/Libs/Foundry/Records/factions/factionreputation/factionreputation_unlawful_test.xml',
+            sprintf(
+                '<FactionReputation.FactionReputation_Unlawful_Test displayName="@TestFaction_RepUI_Name" __type="FactionReputation" __ref="%1$s" __path="libs/foundry/records/factions/factionreputation/factionreputation_unlawful_test.xml" />',
+                $factionRepUuid,
+            )
+        );
+        $scopePath = $this->writeFile(
+            'Data/Libs/Foundry/Records/reputation/scopes/test_scope.xml',
+            sprintf(
+                '<SReputationScopeParams.TestScope scopeName="TestScope" __type="SReputationScopeParams" __ref="%1$s" __path="libs/foundry/records/reputation/scopes/test_scope.xml"><standingMap reputationCeiling="1000" initialReputation="0"><standings /></standingMap></SReputationScopeParams.TestScope>',
+                $scopeUuid,
+            )
+        );
+        $rewardPath = $this->writeReputationReward('42100000-0000-0000-0000-000000000001', 500, '+T_success');
+
+        $this->writeCacheFiles(
+            classToPathMap: [
+                'Faction' => ['Faction_Unlawful_Test' => $factionPath],
+                'FactionReputation' => ['FactionReputation_Unlawful_Test' => $factionRepPath],
+                'SReputationScopeParams' => ['TestScope' => $scopePath],
+            ],
+            uuidToClassMap: [
+                strtolower($factionUuid) => 'Faction_Unlawful_Test',
+                strtolower($factionRepUuid) => 'FactionReputation_Unlawful_Test',
+                strtolower($scopeUuid) => 'TestScope',
+            ],
+            uuidToPathMap: [
+                strtolower($factionUuid) => $factionPath,
+                strtolower($factionRepUuid) => $factionRepPath,
+                strtolower($scopeUuid) => $scopePath,
+                '42100000-0000-0000-0000-000000000001' => $rewardPath,
+            ],
+        );
+        $this->initializeMinimalItemServices(translations: [
+            'LOC_EMPTY' => '',
+            'LOC_UNINITIALIZED' => '<= UNINITIALIZED =>',
+            'TestFaction_RepUI_Name' => 'TestFaction',
+        ]);
+
+        $foundryService = new FoundryLookupService($this->tempDir);
+        $foundryService->initialize();
+        $this->addServiceToFactory('FoundryLookupService', $foundryService);
+
+        $handlerXml = "<ContractGeneratorHandler_Test debugName=\"RepTest\"><defaultAvailability><prerequisites /></defaultAvailability><contractParams /><contracts><Contract id=\"t1\" debugName=\"RepTest\"><paramOverrides /><generationParams><ContractGenerationParams_Legacy maxInstances=\"1\" maxInstancesPerPlayer=\"1\" respawnTime=\"0\" respawnTimeVariation=\"0\" /></generationParams><contractResults contractBuyInAmount=\"0\" timeToComplete=\"-1\"><contractResults><ContractResult_LegacyReputation><missionResults><Bool value=\"1\" /><Bool value=\"0\" /><Bool value=\"0\" /><Bool value=\"0\" /><Bool value=\"0\" /></missionResults><contractResultReputationAmounts factionReputation=\"{$factionRepUuid}\" reputationScope=\"{$scopeUuid}\" reward=\"42100000-0000-0000-0000-000000000001\" /></ContractResult_LegacyReputation></contractResults></contractResults></Contract></contracts></ContractGeneratorHandler_Test>";
+
+        $dom = new DOMDocument;
+        $dom->loadXML($handlerXml);
+        $handler = ContractHandler::fromNode($dom->documentElement);
+        $entry = $handler->getContracts()[0];
+
+        $contract = new Contract($entry, $handler, new ContractGeneratorRecord);
+        $results = $this->invokeMethod($contract, 'buildResults', $entry->getResults());
+
+        $gained = $results['reputation_gained'] ?? [];
+        self::assertCount(1, $gained);
+        self::assertSame('TestFaction', $gained[0]['faction'], 'Faction name must resolve through @LOC_UNINITIALIZED sentinel');
+        self::assertStringNotContainsString('UNINITIALIZED', $gained[0]['faction']);
     }
 }

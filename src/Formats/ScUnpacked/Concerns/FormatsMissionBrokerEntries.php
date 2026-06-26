@@ -886,6 +886,10 @@ trait FormatsMissionBrokerEntries
                 ? $localization->translateValue($faction->getName(), true)
                 : null;
 
+            if ($name !== null && (str_contains($name, 'UNINITIALIZED') || str_contains($name, 'PLACEHOLDER'))) {
+                $name = null;
+            }
+
             if ($name === null) {
                 $factionRep = $lookup->getFactionReputationByReference($factionRepUuid);
                 $name = $factionRep !== null
@@ -901,6 +905,7 @@ trait FormatsMissionBrokerEntries
 
         $reputationScope = null;
         $scopeUuid = $primary['reputation_scope'];
+
         if ($scopeUuid !== null) {
             $scope = $lookup->getReputationScopeByReference($scopeUuid);
             $reputationScope = [
@@ -973,6 +978,10 @@ trait FormatsMissionBrokerEntries
             $faction = $factionRecord !== null
                 ? $localization->translateValue($factionRecord->getName(), true)
                 : null;
+
+            if ($faction !== null && (str_contains($faction, 'UNINITIALIZED') || str_contains($faction, 'PLACEHOLDER'))) {
+                $faction = null;
+            }
 
             if ($faction === null) {
                 $factionRep = $lookup->getFactionReputationByReference($factionRepUuid);

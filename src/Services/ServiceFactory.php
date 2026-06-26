@@ -183,6 +183,11 @@ final class ServiceFactory
         return self::getService('DataOverrideService');
     }
 
+    public static function getShipPoolResolver(): ShipPoolResolver
+    {
+        return self::getService('ShipPoolResolver');
+    }
+
     public static function getItemRecoveryConfiguration(): ?ItemRecoveryConfigurationParams
     {
         return self::getFoundryLookupService()->getItemRecoveryConfiguration();
@@ -228,6 +233,7 @@ final class ServiceFactory
             'ContractLocationResolver' => new ContractLocationResolver,
             'MissionLocationStarmapResolver' => new MissionLocationStarmapResolver,
             'DataOverrideService' => new DataOverrideService,
+            'ShipPoolResolver' => new ShipPoolResolver(self::$activeScDataPath),
             default => throw new RuntimeException('Unknown service: '.$serviceName),
         };
 

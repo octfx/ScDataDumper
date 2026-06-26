@@ -47,18 +47,21 @@ final class ContractLocationResolver
 
             foreach ($this->templates as $template) {
                 $uuidLower = strtolower($template['uuid']);
+
                 if (isset($seen[$uuidLower])) {
                     continue;
                 }
 
                 if ($resourceTags !== []) {
                     $hasMatchingLimit = false;
+
                     foreach ($resourceTags as $rt) {
                         if (isset($template['limitTags'][strtolower($rt)])) {
                             $hasMatchingLimit = true;
                             break;
                         }
                     }
+
                     if (! $hasMatchingLimit) {
                         continue;
                     }
@@ -90,12 +93,18 @@ final class ContractLocationResolver
 
                 $seen[$uuidLower] = true;
                 $starmapUuid = $this->starmapResolver?->getStarmapUuid($template['uuid']);
-                $results[] = [
-                    'uuid' => $starmapUuid ?? $template['uuid'],
+                $result = [
+                    'uuid' => $template['uuid'],
                     'location_template_uuid' => $template['uuid'],
                     'name' => $template['displayName'],
                     'class_name' => $template['className'],
                 ];
+
+                if ($starmapUuid !== null) {
+                    $result['starmap_uuid'] = $starmapUuid;
+                }
+
+                $results[] = $result;
             }
         }
 
@@ -119,16 +128,19 @@ final class ContractLocationResolver
             $expanded = $tagService->expandTagsWithAncestors($generalTags);
 
             $expandedTags = [];
+
             foreach ($expanded as $tag) {
                 $expandedTags[strtolower($tag)] = true;
             }
 
             $limitTags = [];
+
             foreach ($template->getMissionLimitTags() as $limitTag) {
                 $limitTags[strtolower($limitTag)] = true;
             }
 
             $displayName = $template->getDisplayName();
+
             if ($displayName !== null) {
                 $displayName = $localization->translateValue($displayName, true);
             }

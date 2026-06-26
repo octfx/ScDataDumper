@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\DocumentTypes\Contract;
 
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
+use Octfx\ScDataDumper\Helper\Element;
 
 class ContractHandler extends RootDocument
 {
@@ -103,9 +104,59 @@ class ContractHandler extends RootDocument
             ?? $this->getNullableBool('defaultAvailability@failIfBecameCriminal');
     }
 
-    public function notifyOnAvailable(): bool
+    public function notifyOnAvailable(): ?bool
     {
-        return $this->getBool('defaultAvailability@notifyOnAvailable');
+        return $this->getNullableBool('contractParams/boolParamOverrides/ContractBoolParam[@param="NotifyOnAvailable"]@value')
+            ?? $this->getNullableBool('defaultAvailability@notifyOnAvailable');
+    }
+
+    /**
+     * Handler-level completed-contract-tag chain gates. Mirrors the entry reader but
+     * reads defaultAvailability/prerequisites/ContractPrerequisite_CompletedContractTags.
+     *
+     * @return list<array{requiredCountValue: int, excludedCountValue: int, requiredTags: list<string>, excludedTags: list<string>}>
+     */
+    public function getCompletedContractTagPrerequisites(): array
+    {
+        $results = [];
+        $nodes = $this->getAll('defaultAvailability/prerequisites/ContractPrerequisite_CompletedContractTags');
+
+        foreach ($nodes as $node) {
+            $requiredTags = [];
+            $requiredTagNodes = $node->get('requiredCompletedContractTags/tags');
+
+            if ($requiredTagNodes instanceof Element) {
+                foreach ($requiredTagNodes->children() as $tagNode) {
+                    $val = $tagNode->get('@value') ?? $tagNode->get('@tag');
+
+                    if (is_string($val)) {
+                        $requiredTags[] = $val;
+                    }
+                }
+            }
+
+            $excludedTags = [];
+            $excludedTagNodes = $node->get('excludedCompletedContractTags/tags');
+
+            if ($excludedTagNodes instanceof Element) {
+                foreach ($excludedTagNodes->children() as $tagNode) {
+                    $val = $tagNode->get('@value') ?? $tagNode->get('@tag');
+
+                    if (is_string($val)) {
+                        $excludedTags[] = $val;
+                    }
+                }
+            }
+
+            $results[] = [
+                'requiredCountValue' => (int) ($node->get('@requiredCountValue') ?? 0),
+                'excludedCountValue' => (int) ($node->get('@excludedCountValue') ?? 0),
+                'requiredTags' => $requiredTags,
+                'excludedTags' => $excludedTags,
+            ];
+        }
+
+        return $results;
     }
 
     /**

@@ -130,7 +130,7 @@ final class LocalizationService extends BaseService
 
         $trimmed = trim($value);
 
-        if ($excludePlaceholder && in_array($trimmed, ['@LOC_EMPTY', '@blank_space', '@LOC_PLACEHOLDER'], true)) {
+        if ($excludePlaceholder && in_array($trimmed, ['@LOC_EMPTY', '@blank_space', '@LOC_PLACEHOLDER', '@LOC_UNINITIALIZED'], true)) {
             return null;
         }
 

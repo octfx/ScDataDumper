@@ -32,47 +32,26 @@ final class MissionLocationStarmapResolver
     {
         $this->ensureInitialized();
 
-        $mltUuidByFacilityTag = [];
-
+        // display name match against starmap
         foreach ($locations as $location) {
-            $mltUuid = $location['uuid'];
-
             $starmapUuid = $this->resolveByDisplayName($location['displayName']);
+
             if ($starmapUuid !== null) {
-                $this->resolvedStarmapUuids[$mltUuid] = $starmapUuid;
-            }
-
-            foreach ($location['generalTags'] as $generalTag) {
-                $mltUuidByFacilityTag[strtolower($generalTag)][] = $mltUuid;
+                $this->resolvedStarmapUuids[$location['uuid']] = $starmapUuid;
             }
         }
 
-        foreach ($mltUuidByFacilityTag as $mltUuids) {
-            $anyResolved = null;
-            foreach ($mltUuids as $mltUuid) {
-                if (isset($this->resolvedStarmapUuids[$mltUuid])) {
-                    $anyResolved = $this->resolvedStarmapUuids[$mltUuid];
-                    break;
-                }
-            }
-
-            if ($anyResolved !== null) {
-                foreach ($mltUuids as $mltUuid) {
-                    if (! isset($this->resolvedStarmapUuids[$mltUuid])) {
-                        $this->resolvedStarmapUuids[$mltUuid] = $anyResolved;
-                    }
-                }
-            }
-        }
-
+        // classname
         foreach ($locations as $location) {
             $mltUuid = $location['uuid'];
+
             if (isset($this->resolvedStarmapUuids[$mltUuid])) {
                 continue;
             }
 
             $className = strtolower($location['className']);
             $stripped = $className;
+
             if (str_starts_with($stripped, 'outpost_')) {
                 $stripped = substr($stripped, 8);
             }
@@ -101,15 +80,19 @@ final class MissionLocationStarmapResolver
 
         foreach ($lookup->getDocumentType('StarMapObject', StarMapObject::class) as $object) {
             $className = strtolower($object->getClassName());
+
             if (! isset($this->starmapByClassName[$className])) {
                 $this->starmapByClassName[$className] = $object->getUuid();
             }
 
             $smoName = $object->getName();
+
             if ($smoName !== null) {
                 $translated = $localization->translateValue($smoName);
+
                 if ($translated !== null) {
                     $normalizedName = $this->normalizeKey($translated);
+
                     if ($normalizedName !== '' && ! isset($this->starmapByNormalizedName[$normalizedName])) {
                         $this->starmapByNormalizedName[$normalizedName] = $object->getUuid();
                     }

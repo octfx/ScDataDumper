@@ -265,6 +265,7 @@ final class Contract extends BaseFormat
                         'uuid' => $loc['uuid'],
                         'location_template_uuid' => $loc['location_template_uuid'],
                         'name' => $loc['name'],
+                        'starmap_uuid' => $loc['starmap_uuid'] ?? null,
                     ],
                     $resolver->resolveLocations($terms, $resourceTags),
                 );
@@ -317,6 +318,7 @@ final class Contract extends BaseFormat
         $tagPrerequisites = $this->buildTagPrerequisites($tagService);
         [$crimeStat, $reputationPrereq] = $this->buildHandlerPrerequisites($lookup);
         $localities = $this->buildLocalityPrerequisites($lookup);
+        $requiredLocations = $this->buildLocationPrerequisites($lookup);
 
         return $this->removeNullValuesPreservingEmptyArrays([
             'min_standing' => $standingReqs['min'],
@@ -326,6 +328,7 @@ final class Contract extends BaseFormat
             'reputation_prerequisite' => $reputationPrereq,
             'prerequisites' => $tagPrerequisites,
             'availability_locations' => $localities,
+            'required_locations' => $requiredLocations,
         ]);
     }
 
@@ -382,9 +385,27 @@ final class Contract extends BaseFormat
 
     private function buildTagPrerequisites($tagService): array
     {
-        $prerequisites = [];
+        // Chain gates can live on the handler (defaultAvailability, shared by every
+        // contract under it) and/or the entry (additionalPrerequisites, per-contract).
+        // Both must be satisfied, so they accumulate; identical handler+entry blocks
+        // (an entry mirroring its handler's default) collapse to avoid duplication.
+        $rawPrereqs = array_merge(
+            $this->handler->getCompletedContractTagPrerequisites(),
+            $this->entry->getCompletedContractTagPrerequisites(),
+        );
 
-        foreach ($this->entry->getCompletedContractTagPrerequisites() as $prereq) {
+        $prerequisites = [];
+        $seen = [];
+
+        foreach ($rawPrereqs as $prereq) {
+            $signature = $this->completedContractTagSignature($prereq);
+
+            if (isset($seen[$signature])) {
+                continue;
+            }
+
+            $seen[$signature] = true;
+
             $requiredMissions = [];
 
             foreach ($prereq['requiredTags'] as $tag) {
@@ -408,6 +429,16 @@ final class Contract extends BaseFormat
     }
 
     /**
+     * @param  array{requiredCountValue: int, excludedCountValue: int, requiredTags: list<string>, excludedTags: list<string>}  $prereq
+     */
+    private function completedContractTagSignature(array $prereq): string
+    {
+        $norm = static fn (array $tags): string => implode('|', array_map('strtolower', $tags));
+
+        return $prereq['requiredCountValue'].':'.$prereq['excludedCountValue'].':'.$norm($prereq['requiredTags']).':'.$norm($prereq['excludedTags']);
+    }
+
+    /**
      * @return array{0: ?array, 1: ?array}
      */
     private function buildHandlerPrerequisites(FoundryLookupService $lookup): array
@@ -423,34 +454,55 @@ final class Contract extends BaseFormat
                 ];
             }
 
-            if ($prereq['factionReputation'] !== null) {
-                $factionData = $this->resolveFactionReputationSummary(
-                    $lookup,
-                    ServiceFactory::getLocalizationService(),
-                    $prereq['factionReputation'],
-                );
-                $faction = $factionData['name'];
-                $factionUuid = $factionData['uuid'];
+            $rep = $this->buildReputationPrerequisite($lookup, $prereq);
 
-                $scopeName = null;
+            if ($rep !== null) {
+                $reputationPrereq = $rep;
+            }
+        }
 
-                if ($prereq['scope'] !== null) {
-                    $scope = $lookup->getReputationScopeByReference($prereq['scope']);
-                    $scopeName = $scope?->getScopeName();
-                }
+        // TheCollector/Wikelo shape
+        foreach ($this->entry->getReputationPrerequisites() as $prereq) {
+            $rep = $this->buildReputationPrerequisite($lookup, $prereq);
 
-                $reputationPrereq = [
-                    'faction' => $faction,
-                    'faction_uuid' => $factionUuid,
-                    'scope' => $scopeName,
-                    'scope_uuid' => $prereq['scope'],
-                    'min_standing' => $this->resolveStanding($lookup, $prereq['minStanding']),
-                    'max_standing' => $this->resolveStanding($lookup, $prereq['maxStanding']),
-                ];
+            if ($rep !== null) {
+                $reputationPrereq = $rep;
             }
         }
 
         return [$crimeStat, $reputationPrereq];
+    }
+
+    /**
+     * @param  array{factionReputation: ?string, scope: ?string, minStanding: ?string, maxStanding: ?string}  $prereq
+     * @return array{faction: ?string, faction_uuid: ?string, scope: ?string, scope_uuid: ?string, min_standing: ?array, max_standing: ?array}|null
+     */
+    private function buildReputationPrerequisite(FoundryLookupService $lookup, array $prereq): ?array
+    {
+        if ($prereq['factionReputation'] === null) {
+            return null;
+        }
+
+        $factionData = $this->resolveFactionReputationSummary(
+            $lookup,
+            ServiceFactory::getLocalizationService(),
+            $prereq['factionReputation'],
+        );
+
+        $scopeName = null;
+        if ($prereq['scope'] !== null) {
+            $scope = $lookup->getReputationScopeByReference($prereq['scope']);
+            $scopeName = $scope?->getScopeName();
+        }
+
+        return [
+            'faction' => $factionData['name'],
+            'faction_uuid' => $factionData['uuid'],
+            'scope' => $scopeName,
+            'scope_uuid' => $prereq['scope'],
+            'min_standing' => $this->resolveStanding($lookup, $prereq['minStanding']),
+            'max_standing' => $this->resolveStanding($lookup, $prereq['maxStanding']),
+        ];
     }
 
     private function buildLocalityPrerequisites(FoundryLookupService $lookup): array
@@ -458,6 +510,14 @@ final class Contract extends BaseFormat
         $localityUuids = [];
 
         foreach ($this->entry->getLocalityPrerequisites() as $prereq) {
+            if ($prereq['localityAvailable'] !== null) {
+                $localityUuids[$prereq['localityAvailable']] = true;
+            }
+        }
+
+        // SubContract variants gate where a location-specific overlay is offered;
+        // those localities are additional places the contract appears, merged into the same set.
+        foreach ($this->entry->getSubContractLocalityPrerequisites() as $prereq) {
             if ($prereq['localityAvailable'] !== null) {
                 $localityUuids[$prereq['localityAvailable']] = true;
             }
@@ -498,6 +558,40 @@ final class Contract extends BaseFormat
         return $localities;
     }
 
+    /**
+     * Specific POIs/systems the player must be at (ContractPrerequisite_Location)
+     */
+    private function buildLocationPrerequisites(FoundryLookupService $lookup): array
+    {
+        $uuids = [];
+
+        foreach ($this->entry->getLocationPrerequisites() as $prereq) {
+            if ($prereq['locationAvailable'] !== null) {
+                $uuids[$prereq['locationAvailable']] = true;
+            }
+        }
+
+        foreach ($this->handler->getDefaultPrerequisites() as $prereq) {
+            if ($prereq['type'] === 'ContractPrerequisite_Location' && $prereq['locationAvailable'] !== null) {
+                $uuids[$prereq['locationAvailable']] = true;
+            }
+        }
+
+        $locations = [];
+
+        foreach (array_keys($uuids) as $uuid) {
+            $smo = $lookup->getStarMapObjectByReference($uuid);
+            $locations[] = [
+                'uuid' => $uuid,
+                'name' => $smo !== null
+                    ? $this->translateLocalizationValue($smo->getName())
+                    : null,
+            ];
+        }
+
+        return $locations;
+    }
+
     private function buildProperties(): array
     {
         return [
@@ -517,7 +611,7 @@ final class Contract extends BaseFormat
             'fail_if_became_criminal' => $this->entry->failIfBecameCriminal() ?? $this->handler->failIfBecameCriminal() ?? false,
             'escaped_convicts' => $this->handler->hasEscapedConvicts() ?: null,
             'hidden_in_mobiglas' => $this->entry->isHideInMobiGlas() ?? $this->handler->isHideInMobiGlas() ?? false ?: null,
-            'notify_on_available' => $this->handler->notifyOnAvailable() ?: null,
+            'notify_on_available' => ($this->entry->isNotifyOnAvailable() ?? $this->handler->notifyOnAvailable()) ?: null,
         ];
     }
 
@@ -717,6 +811,7 @@ final class Contract extends BaseFormat
     {
         $handlerProperties = $this->getAllOverrides();
         $baseOffset = $this->computeHandlerPropertyBaseOffset($handlerProperties);
+        $routing = $this->buildHaulingOrderRoutingMap($handlerProperties);
 
         $orders = [];
 
@@ -727,14 +822,154 @@ final class Contract extends BaseFormat
                 continue;
             }
 
+            $variableName = $override->getMissionVariableName();
+            $binding = $variableName !== null ? ($routing[$variableName] ?? null) : null;
+
             foreach ($value->toArray() as $order) {
                 foreach ($this->resolveMissionItemRef($order, $handlerProperties, $baseOffset) as $resolved) {
+                    if ($binding !== null) {
+                        if ($binding['pickup'] !== null) {
+                            $resolved['pickup_pool'] = $binding['pickup'];
+                        }
+
+                        if ($binding['dropoff'] !== null) {
+                            $resolved['dropoff_pool'] = $binding['dropoff'];
+                        }
+                    }
                     $orders[] = $resolved;
                 }
             }
         }
 
         return $orders;
+    }
+
+    /**
+     * Build a {cargoVariable => {pickup, dropoff}} map from the template's HaulingOrder_Property routing edges.
+     * Each edge binds a cargo override (by missionVariableName) to the location pools it hauls between
+     *
+     * The ObjectiveProperty_Referenced[hex] refs are absolute positions,
+     * but routing edges reference a non-contiguous subset that does not start at the list head,
+     * so the base cannot be taken from the min ref.
+     *
+     * @param  list<MissionPropertyOverride>  $overrides
+     * @return array<string, array{pickup: ?string, dropoff: ?string}>
+     */
+    private function buildHaulingOrderRoutingMap(array $overrides): array
+    {
+        $templateRef = $this->entry->getTemplateReference();
+        if ($templateRef === null) {
+            return [];
+        }
+
+        $template = ServiceFactory::getFoundryLookupService()->getContractTemplateByReference($templateRef);
+        if ($template === null) {
+            return [];
+        }
+
+        $routes = $template->getAll('objectiveTokens/ObjectiveToken/objectiveHandler/ObjectiveHandler_Hauling/haulingOrders/HaulingOrder_Property');
+        if ($routes === []) {
+            return [];
+        }
+
+        $cargoVars = [];
+        foreach ($overrides as $override) {
+            $name = $override->getMissionVariableName();
+
+            if ($name !== null && $override->getValue() instanceof HaulingOrdersValue) {
+                $cargoVars[$name] = true;
+            }
+        }
+
+        $map = [];
+        foreach ($routes as $route) {
+            $edge = $this->decodeRoutingEdge($route, $cargoVars);
+
+            if ($edge !== null) {
+                $map[$edge['cargo']] = ['pickup' => $edge['pickup'], 'dropoff' => $edge['dropoff']];
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * Decode one HaulingOrder_Property edge's three ObjectiveProperty refs to variable names.
+     * Returns null when the cargo ref cannot be anchored to a HaulingOrdersValue-backed variable (e.g. the variable is empty, or the contract carries no such override).
+     *
+     * @param  array<string, bool>  $cargoVars
+     * @return ?array{cargo: string, pickup: ?string, dropoff: ?string}
+     */
+    private function decodeRoutingEdge(Element $route, array $cargoVars): ?array
+    {
+        $ops = $route->getAll('ancestor::ObjectiveToken/properties/ObjectiveProperty_Referenced');
+        if ($ops === []) {
+            return null;
+        }
+        $propCount = count($ops);
+
+        $cargoHex = $this->extractObjectiveRefHex($route->get('haulingOrdersProperty@value'));
+        $pickupHex = $this->extractObjectiveRefHex($route->get('pickUpLocation@value'));
+        $dropoffHex = $this->extractObjectiveRefHex($route->get('dropOffLocation@value'));
+
+        if ($cargoHex === null) {
+            return null;
+        }
+
+        foreach ($ops as $i => $iValue) {
+            $cargoName = $iValue->get('@missionVariableName');
+
+            if ($cargoName === null || ! isset($cargoVars[$cargoName])) {
+                continue;
+            }
+
+            $base = $cargoHex - $i;
+
+            if (! $this->objectiveRefValid($cargoHex, $base, $propCount)) {
+                continue;
+            }
+
+            if (($pickupHex !== null && ! $this->objectiveRefLandsOnNonCargo($pickupHex, $base, $ops, $cargoVars))
+                || ($dropoffHex !== null && ! $this->objectiveRefLandsOnNonCargo($dropoffHex, $base, $ops, $cargoVars))) {
+                continue;
+            }
+
+            return [
+                'cargo' => $cargoName,
+                'pickup' => $pickupHex !== null ? $ops[$pickupHex - $base]->get('@missionVariableName') : null,
+                'dropoff' => $dropoffHex !== null ? $ops[$dropoffHex - $base]->get('@missionVariableName') : null,
+            ];
+        }
+
+        return null;
+    }
+
+    private function extractObjectiveRefHex(?string $ref): ?int
+    {
+        if ($ref === null || ! preg_match('/ObjectiveProperty_Referenced\[([0-9A-Fa-f]+)\]/', $ref, $m)) {
+            return null;
+        }
+
+        return hexdec($m[1]);
+    }
+
+    private function objectiveRefValid(int $hex, int $base, int $count): bool
+    {
+        return $hex - $base >= 0 && $hex - $base < $count;
+    }
+
+    /**
+     * @param  list<Element>  $ops
+     * @param  array<string, bool>  $cargoVars
+     */
+    private function objectiveRefLandsOnNonCargo(int $hex, int $base, array $ops, array $cargoVars): bool
+    {
+        if (! $this->objectiveRefValid($hex, $base, count($ops))) {
+            return false;
+        }
+        $name = $ops[$hex - $base]->get('@missionVariableName');
+
+        return $name !== null && ! isset($cargoVars[$name]);
     }
 
     /**
@@ -1232,6 +1467,7 @@ final class Contract extends BaseFormat
                 ...$resolved,
                 'amount' => $amount,
                 'tier' => $tier,
+                'outcome' => $rep['outcome'],
             ], static fn ($v) => $v !== null);
 
             if ($entry !== []) {
@@ -1592,6 +1828,10 @@ final class Contract extends BaseFormat
         $name = $faction !== null
             ? $localization->translateValue($faction->getName(), true)
             : null;
+
+        if ($name !== null && (str_contains($name, 'UNINITIALIZED') || str_contains($name, 'PLACEHOLDER'))) {
+            $name = null;
+        }
 
         if ($name === null) {
             $factionRep = $lookup->getFactionReputationByReference($factionRepUuid);
