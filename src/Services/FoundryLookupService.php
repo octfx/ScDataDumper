@@ -64,6 +64,9 @@ final class FoundryLookupService extends BaseService
     /** @var array<string, Faction>|null Maps FactionReputation UUID to parent Faction */
     private ?array $factionRepUuidToFactionMap = null;
 
+    /** @var array<string, int>|null Scope UUID -> number of distinct reputation contexts referencing it */
+    private ?array $reputationScopeContextCountMap = null;
+
     public function __construct(string $scDataDir)
     {
         parent::__construct($scDataDir);
@@ -341,6 +344,32 @@ final class FoundryLookupService extends BaseService
     public function getReputationContextByReference(?string $uuid): ?SReputationContextUI
     {
         return $this->getByReference($uuid, ['/records/reputation/contexts/'], SReputationContextUI::class);
+    }
+
+    public function getReputationScopeContextCount(string $uuid): int
+    {
+        if ($this->reputationScopeContextCountMap === null) {
+            $this->reputationScopeContextCountMap = [];
+
+            foreach ($this->getDocumentType('SReputationContextUI', SReputationContextUI::class) as $context) {
+                $refs = [];
+                $primary = $context->getPrimaryScopeReference();
+
+                if ($primary !== null) {
+                    $refs[strtolower($primary)] = true;
+                }
+
+                foreach ($context->getAdditionalScopeReferences() as $ref) {
+                    $refs[strtolower($ref)] = true;
+                }
+
+                foreach (array_keys($refs) as $ref) {
+                    $this->reputationScopeContextCountMap[$ref] = ($this->reputationScopeContextCountMap[$ref] ?? 0) + 1;
+                }
+            }
+        }
+
+        return $this->reputationScopeContextCountMap[strtolower($uuid)] ?? 0;
     }
 
     public function getReputationRewardByReference(?string $uuid): ?FoundryRecord

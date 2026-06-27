@@ -99,7 +99,7 @@ final class Faction extends BaseFormat
             'displayName' => ServiceFactory::getLocalizationService()->translateValue($reputation->getDisplayName(), true),
             'isNpc' => $reputation->isNpc(),
             'hideInDelphiApp' => $reputation->isHiddenInDelphiApp(),
-            'context' => $this->buildContext($reputation->getReputationContext()),
+            'context' => $this->buildContext($reputation->getReputationContext(), $reputation->getAlliedScopeReference()),
             'hostility' => $this->buildEdge(
                 $reputation->getHostilityScopeReference(),
                 $reputation->getHostilityStandingReference(),
@@ -118,16 +118,21 @@ final class Faction extends BaseFormat
         ]);
     }
 
-    private function buildContext(?SReputationContextUI $context): ?array
+    private function buildContext(?SReputationContextUI $context, ?string $alliedScopeUuid): ?array
     {
         if ($context === null) {
             return null;
         }
 
+        $scopes = $context->getLadderScopes($alliedScopeUuid);
+
         return $this->removeNullValuesPreservingEmptyArrays([
             'uuid' => $context->getUuid(),
             'sortOrderScope' => $context->getSortOrderScope(),
-            'primaryScope' => $this->buildScope($context->getPrimaryScope()),
+            'primaryScope' => $scopes !== [] ? $this->buildScope($scopes[0]) : null,
+            'additionalScopes' => array_slice($scopes, 1)
+                    |> (fn($x) => array_map(fn(SReputationScopeParams $scope): array => $this->buildScope($scope), $x,))
+                    |> array_values(...),
         ]);
     }
 

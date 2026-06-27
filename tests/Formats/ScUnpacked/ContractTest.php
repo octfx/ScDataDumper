@@ -976,6 +976,110 @@ final class ContractTest extends ScDataTestCase
         self::assertSame(999, $rep['max_standing']['min_reputation']);
     }
 
+    public function test_build_faction_falls_back_to_entry_reputation_prerequisite(): void
+    {
+        $chain = $this->writeReputationChain([
+            'factionUuid' => '40000000-0000-0000-0000-000000000001',
+            'factionRepUuid' => '40000000-0000-0000-0000-000000000002',
+            'scopeUuid' => '40000000-0000-0000-0000-000000000003',
+            'minStandingUuid' => '40000000-0000-0000-0000-000000000004',
+            'maxStandingUuid' => '40000000-0000-0000-0000-000000000005',
+            'factionNameKey' => '@loc_wikelo',
+            'factionName' => 'Wikelo',
+            'scopeName' => 'Wikelo',
+            'minStandingNameKey' => '@loc_wikelo_rank1',
+            'minStandingName' => 'Very Good Customer',
+            'maxStandingNameKey' => '@loc_wikelo_rank2',
+            'maxStandingName' => 'Very Best Customer',
+            'minReputation' => 340,
+            'maxReputation' => 999,
+        ]);
+
+        $this->writeCacheFiles(
+            classToPathMap: $chain['classToPathMap'],
+            uuidToClassMap: $chain['uuidToClassMap'],
+            classToUuidMap: $chain['classToUuidMap'],
+            uuidToPathMap: $chain['uuidToPathMap'],
+        );
+        $this->initializeMinimalItemServices(translations: [
+            'LOC_EMPTY' => '',
+            'loc_wikelo' => 'Wikelo',
+            'loc_wikelo_rank1' => 'Very Good Customer',
+            'loc_wikelo_rank2' => 'Very Best Customer',
+        ]);
+        $foundryService = new FoundryLookupService($this->tempDir);
+        $foundryService->initialize();
+        $this->addServiceToFactory('FoundryLookupService', $foundryService);
+
+        $handlerXml = '<ContractGeneratorHandler_Recovery debugName="TheCollector_Vehicles"><defaultAvailability><prerequisites><ContractPrerequisite_CrimeStat includePrerequisiteWhenSharing="0" minCrimeStat="0" maxCrimeStat="2" /></prerequisites></defaultAvailability><contractParams /><contracts><Contract id="e1" debugName="WikeloRun"><additionalPrerequisites><ContractPrerequisite_Reputation includePrerequisiteWhenSharing="0" factionReputation="40000000-0000-0000-0000-000000000002" scope="40000000-0000-0000-0000-000000000003" minStanding="40000000-0000-0000-0000-000000000004" maxStanding="40000000-0000-0000-0000-000000000005" /></additionalPrerequisites><paramOverrides /><generationParams><ContractGenerationParams_Legacy maxInstances="1" maxInstancesPerPlayer="1" respawnTime="0" respawnTimeVariation="0" /></generationParams><contractResults contractBuyInAmount="0" timeToComplete="-1" /></Contract></contracts></ContractGeneratorHandler_Recovery>';
+
+        $dom = new DOMDocument;
+        $dom->loadXML($handlerXml);
+        $handler = ContractHandler::fromNode($dom->documentElement);
+        $entry = $handler->getContracts()[0];
+
+        $contract = new Contract($entry, $handler, new ContractGeneratorRecord);
+        $faction = $this->invokeMethod($contract, 'buildFaction');
+
+        self::assertNotNull($faction, 'buildFaction() must fall back to the entry reputation prerequisite');
+        self::assertSame('Wikelo', $faction['faction_reputation']['name']);
+        self::assertSame('40000000-0000-0000-0000-000000000001', $faction['faction_reputation']['uuid']);
+        self::assertSame('Wikelo', $faction['reputation_scope']['scope_name']);
+        self::assertSame('40000000-0000-0000-0000-000000000003', $faction['reputation_scope']['uuid']);
+    }
+
+    public function test_build_faction_inherits_handler_reputation_consensus(): void
+    {
+        $chain = $this->writeReputationChain([
+            'factionUuid' => '40000000-0000-0000-0000-000000000001',
+            'factionRepUuid' => '40000000-0000-0000-0000-000000000002',
+            'scopeUuid' => '40000000-0000-0000-0000-000000000003',
+            'minStandingUuid' => '40000000-0000-0000-0000-000000000004',
+            'maxStandingUuid' => '40000000-0000-0000-0000-000000000005',
+            'factionNameKey' => '@loc_wikelo',
+            'factionName' => 'Wikelo',
+            'scopeName' => 'Wikelo',
+            'minStandingNameKey' => '@loc_wikelo_rank1',
+            'minStandingName' => 'Very Good Customer',
+            'maxStandingNameKey' => '@loc_wikelo_rank2',
+            'maxStandingName' => 'Very Best Customer',
+            'minReputation' => 340,
+            'maxReputation' => 999,
+        ]);
+
+        $this->writeCacheFiles(
+            classToPathMap: $chain['classToPathMap'],
+            uuidToPathMap: $chain['uuidToPathMap'],
+            uuidToClassMap: $chain['uuidToClassMap'],
+            classToUuidMap: $chain['classToUuidMap'],
+        );
+        $this->initializeMinimalItemServices(translations: [
+            'LOC_EMPTY' => '',
+            'loc_wikelo' => 'Wikelo',
+            'loc_wikelo_rank1' => 'Very Good Customer',
+            'loc_wikelo_rank2' => 'Very Best Customer',
+        ]);
+        $foundryService = new FoundryLookupService($this->tempDir);
+        $foundryService->initialize();
+        $this->addServiceToFactory('FoundryLookupService', $foundryService);
+
+        $handlerXml = '<ContractGeneratorHandler_List debugName="TheCollector_Standard"><defaultAvailability><prerequisites><ContractPrerequisite_CrimeStat includePrerequisiteWhenSharing="0" minCrimeStat="0" maxCrimeStat="2" /></prerequisites></defaultAvailability><contractParams /><contracts><Contract id="favors" debugName="TheCollector_Favours_CouncilScrip"><paramOverrides /><generationParams><ContractGenerationParams_Legacy maxInstances="1" maxInstancesPerPlayer="1" respawnTime="0" respawnTimeVariation="0" /></generationParams><contractResults contractBuyInAmount="0" timeToComplete="0" /></Contract><Contract id="sibling" debugName="TheCollector_Intro"><paramOverrides /><generationParams><ContractGenerationParams_Legacy maxInstances="1" maxInstancesPerPlayer="1" respawnTime="0" respawnTimeVariation="0" /></generationParams><contractResults contractBuyInAmount="0" timeToComplete="0"><contractResults><ContractResult_LegacyReputation><missionResults><Bool value="1" /><Bool value="0" /><Bool value="0" /><Bool value="0" /><Bool value="0" /></missionResults><contractResultReputationAmounts factionReputation="40000000-0000-0000-0000-000000000002" reputationScope="40000000-0000-0000-0000-000000000003" reward="40000000-0000-0000-0000-000000000009" /></ContractResult_LegacyReputation></contractResults></contractResults></Contract></contracts></ContractGeneratorHandler_List>';
+
+        $dom = new DOMDocument;
+        $dom->loadXML($handlerXml);
+        $handler = ContractHandler::fromNode($dom->documentElement);
+        $entry = $handler->getContracts()[0];
+
+        $contract = new Contract($entry, $handler, new ContractGeneratorRecord);
+        $faction = $this->invokeMethod($contract, 'buildFaction');
+
+        self::assertNotNull($faction, 'faction-less entry must inherit the handler reputation consensus');
+        self::assertSame('Wikelo', $faction['faction_reputation']['name']);
+        self::assertSame('40000000-0000-0000-0000-000000000001', $faction['faction_reputation']['uuid']);
+        self::assertSame('Wikelo', $faction['reputation_scope']['scope_name']);
+        self::assertSame('40000000-0000-0000-0000-000000000003', $faction['reputation_scope']['uuid']);
+    }
+
     public function test_entry_reputation_prerequisite_overrides_handler_level(): void
     {
         // When both the handler and the entry declare a reputation prerequisite, the

@@ -1750,6 +1750,22 @@ final class Contract extends BaseFormat
         }
 
         if ($factionRepUuid === null && $scopeUuid === null) {
+            foreach ($this->entry->getReputationPrerequisites() as $prereq) {
+                if ($prereq['factionReputation'] !== null) {
+                    $factionRepUuid = $prereq['factionReputation'];
+                    $scopeUuid = $prereq['scope'];
+                    break;
+                }
+            }
+        }
+
+        if ($factionRepUuid === null && $scopeUuid === null) {
+            $consensus = $this->resolveHandlerFactionConsensus();
+            $factionRepUuid = $consensus['factionReputation'];
+            $scopeUuid = $consensus['reputationScope'];
+        }
+
+        if ($factionRepUuid === null && $scopeUuid === null) {
             return null;
         }
 
@@ -1779,6 +1795,62 @@ final class Contract extends BaseFormat
         ];
 
         return array_filter($result, static fn ($v) => $v !== null) ?: null;
+    }
+
+    /**
+     * @return array{factionReputation: ?string, reputationScope: ?string}
+     */
+    private function resolveHandlerFactionConsensus(): array
+    {
+        $factionTally = [];
+        $scopeByFaction = [];
+
+        foreach ($this->handler->getContracts() as $sibling) {
+            $pairs = [];
+
+            $results = $sibling->getResults();
+            if ($results !== null) {
+                foreach ($results->getLegacyReputationRewards() as $reward) {
+                    $pairs[] = [$reward['factionReputation'], $reward['reputationScope']];
+                }
+
+                $calcRep = $results->getCalculatedReputation();
+                if ($calcRep !== null) {
+                    $pairs[] = [$calcRep['factionReputation'] ?? null, $calcRep['reputationScope'] ?? null];
+                }
+            }
+
+            foreach ($sibling->getReputationPrerequisites() as $prereq) {
+                $pairs[] = [$prereq['factionReputation'], $prereq['scope']];
+            }
+
+            foreach ($pairs as [$faction, $scope]) {
+                if ($faction === null) {
+                    continue;
+                }
+
+                $factionTally[$faction] = ($factionTally[$faction] ?? 0) + 1;
+
+                if ($scope !== null) {
+                    $scopeByFaction[$faction][$scope] = ($scopeByFaction[$faction][$scope] ?? 0) + 1;
+                }
+            }
+        }
+
+        if ($factionTally === []) {
+            return ['factionReputation' => null, 'reputationScope' => null];
+        }
+
+        arsort($factionTally);
+        $dominantFaction = array_key_first($factionTally);
+
+        $dominantScope = null;
+        if (isset($scopeByFaction[$dominantFaction])) {
+            arsort($scopeByFaction[$dominantFaction]);
+            $dominantScope = array_key_first($scopeByFaction[$dominantFaction]);
+        }
+
+        return ['factionReputation' => $dominantFaction, 'reputationScope' => $dominantScope];
     }
 
     /**
