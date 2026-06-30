@@ -87,6 +87,7 @@ final class Ship extends BaseFormat
 
         $isVehicle = $this->vehicleWrapper->entity->isGroundVehicle();
         $isGravlev = $this->vehicleWrapper->entity->isGravlev();
+        $isPowerSuit = $this->vehicleWrapper->entity->isActorVehicle();
         $dimensions = $this->vehicleWrapper->entity->getDimensions();
 
         $vehicleNameKey = $this->vehicleWrapper->entity->getVehicleNameKey();
@@ -150,6 +151,7 @@ final class Ship extends BaseFormat
             'IsVehicle' => $isVehicle,
             'IsGravlev' => $isGravlev,
             'IsSpaceship' => $this->vehicleWrapper->entity->isSpaceship(),
+            'IsPowerSuit' => $isPowerSuit,
 
             'PenetrationMultiplier' => [
                 'Fuse' => $this->vehicleWrapper->entity->getFusePenetrationMultiplier(),
