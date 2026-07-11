@@ -31,6 +31,27 @@ final readonly class PortClassifierService
             return ['DISABLED', 'DISABLED'];
         }
 
+        // Explicit single-purpose port types must win over the fuzzy
+        // name/loadout matching below: fuzzyNameMatch() also matches the
+        // installed item's class name, so e.g. on the ESPR_Prowler_Utility the
+        // installed classes (ARMR_/HTNK_/QTNK_/Controller_Flight_..._Utility)
+        // contain the substring "utility" and hijack the armor, fuel tank,
+        // quantum fuel tank and flight controller ports into
+        // 'Utility hardpoints' - the ship then loses Armor, FuelCapacity and
+        // FlightCharacteristics entirely.
+        if (ItemPort::accepts($port, 'Armor')) {
+            return ['Armor', 'Armor'];
+        }
+        if (ItemPort::accepts($port, 'FuelTank')) {
+            return ['Propulsion', 'Fuel tanks'];
+        }
+        if (ItemPort::accepts($port, 'QuantumFuelTank')) {
+            return ['Propulsion', 'Quantum fuel tanks'];
+        }
+        if (ItemPort::accepts($port, 'FlightController')) {
+            return ['Avionics', 'Flight controllers'];
+        }
+
         // Tractor beams
         if (self::fuzzyNameMatch($port, 'tractor')) {
             return ['Utility', 'Utility hardpoints'];
