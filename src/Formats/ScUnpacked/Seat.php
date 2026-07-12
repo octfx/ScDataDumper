@@ -18,13 +18,16 @@ final class Seat extends BaseFormat
         /** @var Element $seat */
         $seat = $this->get();
 
+        // Only treat a seat as ejecting when the block references an actual eject interaction.
+        $hasEjection = $seat->get('ejection/SCItemSeatEjectParams/ejectionInteraction') !== null;
+
         $data = [
             'SeatType' => $seat->get('@seatType'),
             'Yaw' => new MinMax($seat, '@minYaw', '@maxYaw'),
             'Pitch' => new MinMax($seat, '@minPitch', '@maxPitch'),
             'SetYawPitchLimits' => $this->boolOrNull($seat->get('@setYawPitchLimits')),
-            'HasEjection' => $seat->has('ejection/SCItemSeatEjectParams', 'SCItemSeatEjectParams'),
-            'Ejection' => $this->formatEjection($seat),
+            'HasEjection' => $hasEjection ?: null,
+            'Ejection' => $hasEjection ? $this->formatEjection($seat) : null,
             'ActorAttachment' => $this->formatActorAttachment($seat),
             'Dashboard' => new SeatDashboard($this->item),
         ];
