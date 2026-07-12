@@ -31,6 +31,20 @@ final readonly class PortClassifierService
             return ['DISABLED', 'DISABLED'];
         }
 
+        // Explicit single-purpose port types must win over fuzzy name/loadout matching
+        if (ItemPort::accepts($port, 'Armor')) {
+            return ['Armor', 'Armor'];
+        }
+        if (ItemPort::accepts($port, 'FuelTank')) {
+            return ['Propulsion', 'Fuel tanks'];
+        }
+        if (ItemPort::accepts($port, 'QuantumFuelTank')) {
+            return ['Propulsion', 'Quantum fuel tanks'];
+        }
+        if (ItemPort::accepts($port, 'FlightController')) {
+            return ['Avionics', 'Flight controllers'];
+        }
+
         // Tractor beams
         if (self::fuzzyNameMatch($port, 'tractor')) {
             return ['Utility', 'Utility hardpoints'];
