@@ -511,4 +511,150 @@ final class ItemTest extends ScDataTestCase
         self::assertSame('MXC Moonstone Livery', $result['name']);
         self::assertSame('MXC Moonstone Livery', $result['stdItem']['Name']);
     }
+
+    public function test_ammo_feeder_backpack_exposes_magazine_association(): void
+    {
+        $manufacturerUuid = '11111111-1111-1111-1111-111111111111';
+        $magazineUuid = 'b601c979-1a7e-41a9-b4f4-7e74d954d186';
+        $backpackUuid = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+
+        $manufacturerPath = $this->writeFile(
+            'records/scitemmanufacturer/fallback.xml',
+            <<<'XML'
+            <SCItemManufacturer.FALLBACK Code="FALL" __type="SCItemManufacturer" __ref="11111111-1111-1111-1111-111111111111" __path="libs/foundry/records/scitemmanufacturer/fallback.xml">
+                <Localization Name="@manufacturer_name" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY">
+                    <displayFeatures />
+                </Localization>
+            </SCItemManufacturer.FALLBACK>
+            XML
+        );
+
+        $magazinePath = $this->writeFile(
+            'records/entities/scitem/weapons/magazines/apar_hmg_ballistic_01_mag.xml',
+            <<<'XML'
+            <EntityClassDefinition.apar_hmg_ballistic_01_mag __type="EntityClassDefinition" __ref="b601c979-1a7e-41a9-b4f4-7e74d954d186" __path="libs/foundry/records/entities/scitem/weapons/magazines/apar_hmg_ballistic_01_mag.xml" />
+            XML
+        );
+
+        $backpackPath = $this->writeFile(
+            'records/entities/scitem/backpack/test_ammo_feeder_backpack.xml',
+            sprintf(
+                <<<'XML'
+                <EntityClassDefinition.TEST_AMMO_FEEDER_BACKPACK __type="EntityClassDefinition" __ref="%1$s" __path="libs/foundry/records/entities/scitem/backpack/test_ammo_feeder_backpack.xml">
+                    <Components>
+                        <SAttachableComponentParams>
+                            <AttachDef Type="Armor" SubType="Backpack" Size="2" Grade="1" Manufacturer="%2$s">
+                                <Localization Name="@item_name" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY" />
+                                <inventoryOccupancyDimensions x="2" y="2" z="2" />
+                                <inventoryOccupancyLocalBoundsMin x="-1" y="-1" z="0" />
+                                <inventoryOccupancyLocalBoundsMax x="1" y="1" z="2" />
+                                <inventoryOccupancyVolume>
+                                    <SMicroCargoUnit microSCU="1000" />
+                                </inventoryOccupancyVolume>
+                            </AttachDef>
+                        </SAttachableComponentParams>
+                        <SCItemAmmoContainerFeederComponentParams ammoContainerRecord="%3$s">
+                            <ejectParams impulseStrength="10">
+                                <impulseDirection x="0" y="0" z="1" />
+                            </ejectParams>
+                        </SCItemAmmoContainerFeederComponentParams>
+                    </Components>
+                </EntityClassDefinition.TEST_AMMO_FEEDER_BACKPACK>
+                XML,
+                $backpackUuid,
+                $manufacturerUuid,
+                $magazineUuid,
+            )
+        );
+
+        $this->writeCacheFiles(
+            uuidToClassMap: [
+                $manufacturerUuid => 'FALLBACK',
+                $magazineUuid => 'apar_hmg_ballistic_01_mag',
+                $backpackUuid => 'TEST_AMMO_FEEDER_BACKPACK',
+            ],
+            classToUuidMap: [
+                'FALLBACK' => $manufacturerUuid,
+                'apar_hmg_ballistic_01_mag' => $magazineUuid,
+                'TEST_AMMO_FEEDER_BACKPACK' => $backpackUuid,
+            ],
+            uuidToPathMap: [
+                $manufacturerUuid => $manufacturerPath,
+                $magazineUuid => $magazinePath,
+                $backpackUuid => $backpackPath,
+            ],
+        );
+
+        $this->initializeMinimalItemServices([
+            'LOC_EMPTY' => '',
+            'item_name' => 'Ammo Feeder Backpack',
+        ]);
+
+        $item = new EntityClassDefinition;
+        $item->load($backpackPath);
+
+        $result = (new Item($item))->toArray();
+
+        self::assertArrayHasKey('ammo_feed', $result);
+        self::assertSame($magazineUuid, $result['ammo_feed']['magazine_reference']);
+        self::assertSame('apar_hmg_ballistic_01_mag', $result['ammo_feed']['magazine_class_name']);
+    }
+
+    public function test_item_without_feeder_has_no_ammo_feed(): void
+    {
+        $manufacturerUuid = '11111111-1111-1111-1111-111111111111';
+
+        $manufacturerPath = $this->writeFile(
+            'records/scitemmanufacturer/fallback.xml',
+            <<<'XML'
+            <SCItemManufacturer.FALLBACK Code="FALL" __type="SCItemManufacturer" __ref="11111111-1111-1111-1111-111111111111" __path="libs/foundry/records/scitemmanufacturer/fallback.xml">
+                <Localization Name="@manufacturer_name" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY">
+                    <displayFeatures />
+                </Localization>
+            </SCItemManufacturer.FALLBACK>
+            XML
+        );
+
+        $path = $this->writeFile(
+            'records/entities/scitem/plain_item.xml',
+            sprintf(
+                <<<'XML'
+                <EntityClassDefinition.TEST_PLAIN_ITEM __type="EntityClassDefinition" __ref="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb" __path="libs/foundry/records/entities/scitem/plain_item.xml">
+                    <Components>
+                        <SAttachableComponentParams>
+                            <AttachDef Type="Armor" SubType="Backpack" Size="1" Grade="1" Manufacturer="%s">
+                                <Localization Name="@item_name" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY" />
+                                <inventoryOccupancyDimensions x="1" y="1" z="1" />
+                                <inventoryOccupancyLocalBoundsMin x="-0.5" y="-0.5" z="0" />
+                                <inventoryOccupancyLocalBoundsMax x="0.5" y="0.5" z="1" />
+                                <inventoryOccupancyVolume>
+                                    <SMicroCargoUnit microSCU="1" />
+                                </inventoryOccupancyVolume>
+                            </AttachDef>
+                        </SAttachableComponentParams>
+                    </Components>
+                </EntityClassDefinition.TEST_PLAIN_ITEM>
+                XML,
+                $manufacturerUuid,
+            )
+        );
+
+        $this->writeCacheFiles(
+            uuidToClassMap: [$manufacturerUuid => 'FALLBACK'],
+            classToUuidMap: ['FALLBACK' => $manufacturerUuid],
+            uuidToPathMap: [$manufacturerUuid => $manufacturerPath],
+        );
+
+        $this->initializeMinimalItemServices([
+            'LOC_EMPTY' => '',
+            'item_name' => 'Plain Backpack',
+        ]);
+
+        $item = new EntityClassDefinition;
+        $item->load($path);
+
+        $result = (new Item($item))->toArray();
+
+        self::assertArrayNotHasKey('ammo_feed', $result);
+    }
 }

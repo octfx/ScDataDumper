@@ -48,6 +48,9 @@ final class LoadCommoditiesCommandTest extends ScDataTestCase
                       </densityUnit>
                     </ResourceTypeDensity>
                   </densityType>
+                  <properties>
+                    <ResourceTypeVolatility name="Volatile" volatility="0.8" healthDecayPerSecond="1.5" />
+                  </properties>
                 </ResourceType.RawOre>
                 XML,
                 self::REFINED_ORE_UUID,
@@ -98,6 +101,8 @@ final class LoadCommoditiesCommandTest extends ScDataTestCase
             ['UUID' => 'crate_four', 'Name' => 'fourSCU', 'Size' => 4],
         ], $rawOre['CargoContainers']);
         self::assertSame(2.5, $rawOre['DensityGPerCc']);
+        self::assertSame(0.8, $rawOre['Volatility']);
+        self::assertSame(1.5, $rawOre['VolatilityHealthDecayPerSecond']);
         self::assertEquals(50.0, $rawOre['Instability']);
         self::assertEquals(-0.7, $rawOre['Resistance']);
 
@@ -110,6 +115,8 @@ final class LoadCommoditiesCommandTest extends ScDataTestCase
         self::assertFalse($refinedOre['HasDefaultCargoContainers']);
         self::assertSame([], $refinedOre['CargoContainers']);
         self::assertNull($refinedOre['DensityGPerCc']);
+        self::assertNull($refinedOre['Volatility']);
+        self::assertNull($refinedOre['VolatilityHealthDecayPerSecond']);
         self::assertNull($refinedOre['Instability']);
         self::assertNull($refinedOre['Resistance']);
 

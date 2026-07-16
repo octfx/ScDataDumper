@@ -414,4 +414,58 @@ class ContractEntry extends RootDocument
     {
         return $this->getNullableBool('paramOverrides/boolParamOverrides/ContractBoolParam[@param="CanReacceptAfterFailing"]@value');
     }
+
+    /**
+     * Rent-ship modifiers (paramOverrides/modifierOverrides)
+     * MissionModifier_RequestRentShip grants a rental ship for the contract duration (?)
+     *
+     * @return list<array{modifierName: ?string, enabled: bool, itemRecordGUID: ?string, durationSeconds: ?int, clearRentalOnFail: bool}>
+     *
+     * @since 4.9.0
+     */
+    public function getRentShipModifiers(): array
+    {
+        $results = [];
+        $nodes = $this->getAll('paramOverrides/modifierOverrides/MissionModifier_RequestRentShip');
+
+        foreach ($nodes as $node) {
+            $results[] = [
+                'modifierName' => $node->get('@modifierName'),
+                'enabled' => (int) ($node->get('@enabled') ?? 1) === 1,
+                'itemRecordGUID' => $node->get('@itemRecordGUID'),
+                'durationSeconds' => $node->get('@durationSeconds') !== null ? (int) $node->get('@durationSeconds') : null,
+                'clearRentalOnFail' => (int) ($node->get('@clearRentalOnFail') ?? 0) === 1,
+            ];
+        }
+
+        return $results;
+    }
+
+    /**
+     * Contract plugins (contractPlugins/*)
+     *
+     * @return list<array{pluginType: string, tag: ?string, storylineMission: bool, availableToAcceptFromContractManager: bool}>
+     *
+     * @since 4.9.0
+     */
+    public function getContractPlugins(): array
+    {
+        $results = [];
+        $container = $this->get('contractPlugins');
+
+        if ($container === null) {
+            return $results;
+        }
+
+        foreach ($container->children() as $plugin) {
+            $results[] = [
+                'pluginType' => $plugin->nodeName,
+                'tag' => $plugin->get('@tag'),
+                'storylineMission' => (int) ($plugin->get('@storylineMission') ?? 0) === 1,
+                'availableToAcceptFromContractManager' => (int) ($plugin->get('@availableToAcceptFromContractManager') ?? 0) === 1,
+            ];
+        }
+
+        return $results;
+    }
 }

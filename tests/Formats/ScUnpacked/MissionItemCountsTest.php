@@ -386,7 +386,7 @@ final class MissionItemCountsTest extends ScDataTestCase
 
         $mbePath = $this->writeFile(
             'Data/Libs/Foundry/Records/missionbroker/pu_missions/test_mbe_collect.xml',
-            <<<XML
+            <<<'XML'
             <MissionBrokerEntry.Test_MBE_Collect __type="MissionBrokerEntry" __ref="fd504984-8667-4eca-839e-bbf3e72ff5ac" __path="libs/foundry/records/missionbroker/pu_missions/test_mbe_collect.xml">
                 <properties>
                     <MissionProperty missionVariableName="Item" extendedTextToken="Item">
@@ -449,7 +449,7 @@ final class MissionItemCountsTest extends ScDataTestCase
     private function buildContractOutput(string $fileName): array
     {
         $record = new ContractGeneratorRecord;
-        $record->load($this->tempDir . '/Data/Libs/Foundry/Records/contracts/contractgenerator/' . $fileName);
+        $record->load($this->tempDir.'/Data/Libs/Foundry/Records/contracts/contractgenerator/'.$fileName);
 
         $handler = $record->getHandlers()[0];
         $entry = $handler->getContracts()[0];
@@ -462,7 +462,7 @@ final class MissionItemCountsTest extends ScDataTestCase
     private function buildMissionBrokerOutput(): array
     {
         $mbe = new MissionBrokerEntry;
-        $mbe->load($this->tempDir . '/Data/Libs/Foundry/Records/missionbroker/pu_missions/test_mbe_collect.xml');
+        $mbe->load($this->tempDir.'/Data/Libs/Foundry/Records/missionbroker/pu_missions/test_mbe_collect.xml');
 
         $format = new MissionBroker($mbe);
 

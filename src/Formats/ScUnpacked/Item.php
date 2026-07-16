@@ -87,6 +87,7 @@ final class Item extends BaseFormat
             'manufacturer' => $resolvedManufacturer['code'] ?? null,
             'classification' => $this->item->getClassification(),
             'event_source' => self::resolveEventSource($this->item->getClassName(), $this->item->getTagList(), $this->item->getUuid()),
+            'ammo_feed' => $this->buildAmmoFeed(),
             'stdItem' => [
                 'UUID' => $this->item->getUuid(),
                 'ClassName' => $this->item->getClassName(),
@@ -189,6 +190,23 @@ final class Item extends BaseFormat
         }
 
         return $this->removeNullValues($data);
+    }
+
+    /**
+     * Backpack with ammo feed like cds_combat_superheavy_backpack
+     *
+     * @return array{magazine_reference: ?string, magazine_class_name: ?string}|null
+     */
+    private function buildAmmoFeed(): ?array
+    {
+        if (! $this->item->hasAmmoContainerFeeder()) {
+            return null;
+        }
+
+        return [
+            'magazine_reference' => $this->item->getAmmoFeedMagazineReference(),
+            'magazine_class_name' => $this->item->getAmmoFeedMagazine()?->getClassName(),
+        ];
     }
 
     /**

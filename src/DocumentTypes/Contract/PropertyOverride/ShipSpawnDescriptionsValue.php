@@ -16,7 +16,7 @@ class ShipSpawnDescriptionsValue extends RootDocument
     }
 
     /**
-     * @return list<array{name: ?string, shipOptions: list<array{ships: list<array{concurrentAmount: int, includeLocationAISpawnTags: bool, weight: int, initialDamageSettings: ?string, tags: list<string>, negativeTags: list<string>, markupTags: list<string>}>}>}>
+     * @return list<array{name: ?string, shipOptions: list<array{ships: list<array{concurrentAmount: int, includeLocationAISpawnTags: bool, weight: int, initialDamageSettings: ?string, tags: list<string>, negativeTags: list<string>, markupTags: list<string>, entityTags: list<string>}>}>}>
      */
     public function getShipGroups(): array
     {
@@ -40,6 +40,7 @@ class ShipSpawnDescriptionsValue extends RootDocument
                         'tags' => $this->referenceValues($ship, 'tags/tags/Reference@value'),
                         'negativeTags' => $this->referenceValues($ship, 'negativeTags/tags/Reference@value'),
                         'markupTags' => $this->referenceValues($ship, 'markupTags/tags/Reference@value'),
+                        'entityTags' => $this->referenceValues($ship, 'entityTags/tags/Reference@value'),
                     ];
                 }
 
@@ -83,7 +84,6 @@ class ShipSpawnDescriptionsValue extends RootDocument
     }
 
     /**
-     * @param  string  $variableName
      * @return list<array{spawn_kind: string, role: string, group_name: ?string, concurrent_amount: int, weight: int, initial_damage_settings: ?string, ships: list<array{className: ?string, name: string}>}>
      */
     public function toArray(string $variableName = ''): array
@@ -102,6 +102,7 @@ class ShipSpawnDescriptionsValue extends RootDocument
                         'concurrent_amount' => $ship['concurrentAmount'],
                         'weight' => $ship['weight'],
                         'initial_damage_settings' => $ship['initialDamageSettings'],
+                        'entity_tags' => $ship['entityTags'],
                         'ships' => $resolver->resolve($ship['tags'], $ship['negativeTags']),
                     ];
                 }

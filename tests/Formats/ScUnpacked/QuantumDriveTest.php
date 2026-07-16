@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Tests\Formats\ScUnpacked;
 
+use Octfx\ScDataDumper\Formats\ScUnpacked\JumpPerformance;
 use Octfx\ScDataDumper\Formats\ScUnpacked\QuantumDrive;
 use Octfx\ScDataDumper\Tests\Fixtures\TestRootDocument;
 use PHPUnit\Framework\TestCase;
@@ -328,7 +329,7 @@ final class QuantumDriveTest extends TestCase
         self::assertNotNull($result);
         $standardJump = $result['StandardJump'];
         // StandardJump is a JumpPerformance format object (not yet resolved via processArray)
-        self::assertInstanceOf(\Octfx\ScDataDumper\Formats\ScUnpacked\JumpPerformance::class, $standardJump);
+        self::assertInstanceOf(JumpPerformance::class, $standardJump);
     }
 
     // ------------------------------------------------------------------ //

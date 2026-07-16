@@ -27,6 +27,16 @@ final class ResourceType extends RootDocument
         return $this->getFloat('densityType/ResourceTypeDensity/densityUnit/GramsPerCubicCentimeter@gramsPerCubicCentimeter');
     }
 
+    public function getVolatility(): ?float
+    {
+        return $this->getFloat('properties/ResourceTypeVolatility@volatility');
+    }
+
+    public function getVolatilityHealthDecayPerSecond(): ?float
+    {
+        return $this->getFloat('properties/ResourceTypeVolatility@healthDecayPerSecond');
+    }
+
     public function getQualityDistributionReference(): ?string
     {
         return $this->getString(

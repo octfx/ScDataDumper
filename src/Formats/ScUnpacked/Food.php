@@ -60,6 +60,8 @@ class Food extends BaseFormat
         $buffs = $this->calculateBuffs($defaultContents);
         $debuffs = $this->calculateDebuffs($defaultContents);
         $medicalEffects = $this->calculateMedicalEffects($defaultContents);
+        $resourceEffects = $this->calculateResourceEffects($defaultContents, $volume);
+        $gasEffects = $this->calculateGasEffects($defaultContents);
 
         $containerType = $consumable->get('@containerTypeTag', '');
         if ($containerType === '') {
@@ -72,6 +74,8 @@ class Food extends BaseFormat
             'Buffs' => $buffs,
             'Debuffs' => $debuffs,
             'MedicalEffects' => $medicalEffects,
+            'ResourceEffects' => $resourceEffects,
+            'GasEffects' => $gasEffects,
 
             'Container' => [
                 'Type' => $containerType,
@@ -369,6 +373,64 @@ class Food extends BaseFormat
         }
 
         return array_filter($medical, fn ($effects) => ! empty($effects));
+    }
+
+    /**
+     * Collect resource-grant effects from consumable subtypes, scaled by ratio and volume.
+     *
+     * @param  array  $defaultContents  Array of {uuid, ratio}
+     * @param  int  $volume  Volume in microSCU
+     * @return array<array{consumableResourceType: ?string, perMicroSCU: float, total: float}>|null
+     */
+    protected function calculateResourceEffects(array $defaultContents, int $volume): ?array
+    {
+        $effects = [];
+        $consumableService = ServiceFactory::getFoundryLookupService();
+
+        foreach ($defaultContents as $content) {
+            $subtype = $consumableService->getConsumableSubtypeByReference($content['uuid']);
+
+            if ($subtype === null) {
+                continue;
+            }
+
+            foreach ($subtype->getResourceEffects() as $resource) {
+                $perMicroScu = ($resource['amount'] ?? 0.0) * $content['ratio'];
+                $effects[] = [
+                    'consumableResourceType' => $resource['consumableResourceType'] ?? null,
+                    'perMicroSCU' => round($perMicroScu, 4),
+                    'total' => round($perMicroScu * $volume, 2),
+                ];
+            }
+        }
+
+        return $effects === [] ? null : $effects;
+    }
+
+    /**
+     * Collect gas-emission effects from consumable subtypes.
+     *
+     * @param  array  $defaultContents  Array of {uuid, ratio}
+     * @return array<array{gas: ?string, mass: ?float}>|null
+     */
+    protected function calculateGasEffects(array $defaultContents): ?array
+    {
+        $effects = [];
+        $consumableService = ServiceFactory::getFoundryLookupService();
+
+        foreach ($defaultContents as $content) {
+            $subtype = $consumableService->getConsumableSubtypeByReference($content['uuid']);
+
+            if ($subtype === null) {
+                continue;
+            }
+
+            foreach ($subtype->getGasEffects() as $gas) {
+                $effects[] = $gas['gasMass'] ?? ['gas' => null, 'mass' => null];
+            }
+        }
+
+        return $effects === [] ? null : $effects;
     }
 
     /**

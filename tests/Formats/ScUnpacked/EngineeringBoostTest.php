@@ -12,6 +12,7 @@ use Octfx\ScDataDumper\Formats\ScUnpacked\EngineeringBoost;
 use Octfx\ScDataDumper\Formats\ScUnpacked\Ship;
 use Octfx\ScDataDumper\Helper\VehicleWrapper;
 use Octfx\ScDataDumper\Services\ItemService;
+use Octfx\ScDataDumper\Services\LocalizationService;
 use Octfx\ScDataDumper\Services\ManufacturerService;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
@@ -324,7 +325,7 @@ final class EngineeringBoostTest extends ScDataTestCase
         $itemService = new ItemService($this->tempDir);
         $itemService->initialize();
 
-        $localizationService = new \Octfx\ScDataDumper\Services\LocalizationService($this->tempDir);
+        $localizationService = new LocalizationService($this->tempDir);
         $localizationService->initialize();
 
         $this->setPrivateProperty(ServiceFactory::class, 'initialized', true);

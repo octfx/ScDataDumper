@@ -8,6 +8,8 @@ use Octfx\ScDataDumper\Commands\LoadItems;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 use RuntimeException;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Tester\CommandTester;
 
 final class LoadItemsCommandTest extends ScDataTestCase
@@ -298,7 +300,7 @@ final class TestLoadItemsCommand extends LoadItems
         $this->setName('load:items');
     }
 
-    protected function prepareServices(\Symfony\Component\Console\Input\InputInterface $input, \Symfony\Component\Console\Output\OutputInterface $output): void {}
+    protected function prepareServices(InputInterface $input, OutputInterface $output): void {}
 
     protected function getItemExportCount(): int
     {

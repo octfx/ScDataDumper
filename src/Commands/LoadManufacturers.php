@@ -49,6 +49,7 @@ class LoadManufacturers extends AbstractDataCommand
                 } catch (RuntimeException $e) {
                     $io->warning(sprintf('Skipped manufacturer: %s', $e->getMessage()));
                     $io->progressAdvance();
+
                     continue;
                 }
 

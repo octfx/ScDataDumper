@@ -111,6 +111,8 @@ class LoadCommodities extends AbstractDataCommand
      *     quality_location_override_uuid: ?string,
      *     tier: ?string,
      *     density_g_per_cc: ?float,
+     *     volatility: ?float,
+     *     volatility_health_decay_per_second: ?float,
      *     instability: ?float,
      *     resistance: ?float,
      *     commodity_groups: list<string>
@@ -150,6 +152,8 @@ class LoadCommodities extends AbstractDataCommand
             'quality_location_override_uuid' => $this->extractQualityLocationOverrideUuid($resourceTypeData),
             'tier' => $tier,
             'density_g_per_cc' => $resourceType->getDensityGramsPerCubicCentimeter(),
+            'volatility' => $resourceType->getVolatility(),
+            'volatility_health_decay_per_second' => $resourceType->getVolatilityHealthDecayPerSecond(),
             'instability' => $mineableProps['instability'] ?? null,
             'resistance' => $mineableProps['resistance'] ?? null,
             'commodity_groups' => $groupResolver->getGroupsForResource($uuid),

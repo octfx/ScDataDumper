@@ -131,7 +131,7 @@ final class Faction extends BaseFormat
             'sortOrderScope' => $context->getSortOrderScope(),
             'primaryScope' => $scopes !== [] ? $this->buildScope($scopes[0]) : null,
             'additionalScopes' => array_slice($scopes, 1)
-                    |> (fn($x) => array_map(fn(SReputationScopeParams $scope): array => $this->buildScope($scope), $x,))
+                    |> (fn ($x) => array_map(fn (SReputationScopeParams $scope): array => $this->buildScope($scope), $x))
                     |> array_values(...),
         ]);
     }

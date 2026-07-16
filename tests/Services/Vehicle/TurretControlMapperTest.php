@@ -6,7 +6,10 @@ namespace Octfx\ScDataDumper\Tests\Services\Vehicle;
 
 use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 use Octfx\ScDataDumper\DocumentTypes\VehicleDefinition;
+use Octfx\ScDataDumper\Services\Vehicle\StandardisedPartWalker;
 use Octfx\ScDataDumper\Services\Vehicle\TurretControlMapper;
+use Octfx\ScDataDumper\Services\Vehicle\VehicleDataContext;
+use Octfx\ScDataDumper\Services\Vehicle\WeaponDpsAggregator;
 use Octfx\ScDataDumper\Tests\Fixtures\BuildsTestItems;
 use PHPUnit\Framework\TestCase;
 
@@ -581,7 +584,7 @@ XML);
             ],
         ];
 
-        $context = new \Octfx\ScDataDumper\Services\Vehicle\VehicleDataContext(
+        $context = new VehicleDataContext(
             standardisedParts: $parts,
             portSummary: [],
             ifcsLoadoutEntry: null,
@@ -593,8 +596,8 @@ XML);
             turretControlMap: ['hardpoint_remote_turret_top'],
         );
 
-        $aggregator = new \Octfx\ScDataDumper\Services\Vehicle\WeaponDpsAggregator(
-            new \Octfx\ScDataDumper\Services\Vehicle\StandardisedPartWalker
+        $aggregator = new WeaponDpsAggregator(
+            new StandardisedPartWalker
         );
         $result = $aggregator->calculate($context);
         $weaponry = $result['Weaponry'];
@@ -640,7 +643,7 @@ XML);
             ],
         ];
 
-        $context = new \Octfx\ScDataDumper\Services\Vehicle\VehicleDataContext(
+        $context = new VehicleDataContext(
             standardisedParts: $parts,
             portSummary: [],
             ifcsLoadoutEntry: null,
@@ -652,8 +655,8 @@ XML);
             turretControlMap: [], // empty = no bridge-controllable turrets
         );
 
-        $aggregator = new \Octfx\ScDataDumper\Services\Vehicle\WeaponDpsAggregator(
-            new \Octfx\ScDataDumper\Services\Vehicle\StandardisedPartWalker
+        $aggregator = new WeaponDpsAggregator(
+            new StandardisedPartWalker
         );
         $result = $aggregator->calculate($context);
         $weaponry = $result['Weaponry'];

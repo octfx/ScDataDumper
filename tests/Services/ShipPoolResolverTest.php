@@ -120,8 +120,8 @@ final class ShipPoolResolverTest extends ScDataTestCase
 
     /**
      * @param  list<string>  $tagUuids  top-level (selection) tags only
-     * @param  string        $nameKey   localization key suffix for vehicleName
-     * @param  ?string       $className base-hull ClassName (link key), or null for hulls with no player equivalent
+     * @param  string  $nameKey  localization key suffix for vehicleName
+     * @param  ?string  $className  base-hull ClassName (link key), or null for hulls with no player equivalent
      */
     private function writeShipEntity(string $slug, array $tagUuids, string $nameKey, ?string $className): string
     {
@@ -152,7 +152,7 @@ final class ShipPoolResolverTest extends ScDataTestCase
                 .'</Components>'
                 .'</EntityClassDefinition.%1$s>',
                 strtoupper($slug),
-                sprintf('%s-0000-0000-0000-%012d', substr(md5($slug), 0, 8), crc32($slug) & 0xffffff),
+                sprintf('%s-0000-0000-0000-%012d', substr(md5($slug), 0, 8), crc32($slug) & 0xFFFFFF),
                 $references,
                 $nameKey,
                 $insurance,

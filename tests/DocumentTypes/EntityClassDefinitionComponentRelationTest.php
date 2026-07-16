@@ -6,6 +6,7 @@ namespace Octfx\ScDataDumper\Tests\DocumentTypes;
 
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\Formats\ScUnpacked\MiningLaser;
+use Octfx\ScDataDumper\Formats\ScUnpacked\Radar;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
 
 final class EntityClassDefinitionComponentRelationTest extends ScDataTestCase
@@ -292,7 +293,7 @@ final class EntityClassDefinitionComponentRelationTest extends ScDataTestCase
         $document = new EntityClassDefinition;
         $document->load($this->tempDir.'/Data/Libs/Foundry/Records/entities/items/test_component_item.xml');
 
-        $formatted = (new \Octfx\ScDataDumper\Formats\ScUnpacked\Radar($document))->toArray();
+        $formatted = (new Radar($document))->toArray();
 
         self::assertSame(7.0, $formatted['Cooldown'] ?? null);
         self::assertNotNull($formatted['SignatureDetection']);

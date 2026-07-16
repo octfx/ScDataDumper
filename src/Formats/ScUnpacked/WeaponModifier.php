@@ -10,6 +10,7 @@ use Octfx\ScDataDumper\Helper\Element;
 final class WeaponModifier extends BaseFormat
 {
     private const string WEAPON_MODIFIER_COMPONENT = 'Components/SWeaponModifierComponentParams';
+
     private const string ATTACHABLE_MODIFIER_COMPONENT = 'Components/EntityComponentAttachableModifierParams';
 
     /** Component path resolved by canTransform() */

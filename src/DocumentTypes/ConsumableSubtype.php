@@ -290,6 +290,18 @@ final class ConsumableSubtype extends RootDocument
                 'type' => 'AddBuffEffect',
                 'buffType' => $effectElement->getAttribute('buffType'),
                 'duration' => $this->extractBuffDuration($effectElement),
+                'valueOverride' => $this->extractBuffValueOverride($effectElement),
+            ],
+            'ConsumableEffectResource' => [
+                'type' => 'Resource',
+                'effectDescription' => $effectElement->getAttribute('effectDescription'),
+                'consumableResourceType' => $effectElement->getAttribute('consumableResourceType'),
+                'amount' => (float) ($effectElement->getAttribute('amount') ?: 0),
+            ],
+            'ConsumableEffectGas' => [
+                'type' => 'Gas',
+                'effectDescription' => $effectElement->getAttribute('effectDescription'),
+                'gasMass' => $this->extractGasMass($effectElement),
             ],
             default => null,
         };
@@ -307,5 +319,81 @@ final class ConsumableSubtype extends RootDocument
         $duration = $durationNode->getAttribute('durationOverride');
 
         return $duration === '' ? null : (int) $duration;
+    }
+
+    private function extractBuffValueOverride(DOMElement $effectElement): ?float
+    {
+        $nodes = $effectElement->getElementsByTagName('BuffValueOverride');
+        $node = $nodes->item(0);
+
+        if (! $node instanceof DOMElement) {
+            return null;
+        }
+
+        $value = $node->getAttribute('valueOverride');
+
+        return $value === '' ? null : (float) $value;
+    }
+
+    /**
+     * @return array{gas: ?string, mass: ?float}|null
+     */
+    private function extractGasMass(DOMElement $effectElement): ?array
+    {
+        $nodes = $effectElement->getElementsByTagName('gasMass');
+        $node = $nodes->item(0);
+
+        if (! $node instanceof DOMElement) {
+            return null;
+        }
+
+        $gas = $node->getAttribute('Gas');
+        $mass = $node->getAttribute('Mass');
+
+        return [
+            'gas' => $gas !== '' ? $gas : null,
+            'mass' => $mass !== '' ? (float) $mass : null,
+        ];
+    }
+
+    /**
+     * @return list<array{consumableResourceType: ?string, amount: float}>
+     */
+    public function getResourceEffects(): array
+    {
+        $results = [];
+
+        foreach ($this->getEffects() as $effect) {
+            if (($effect['type'] ?? null) !== 'Resource') {
+                continue;
+            }
+
+            $results[] = [
+                'consumableResourceType' => $effect['consumableResourceType'] ?? null,
+                'amount' => $effect['amount'] ?? 0.0,
+            ];
+        }
+
+        return $results;
+    }
+
+    /**
+     * @return list<array{gasMass: array{gas: ?string, mass: ?float}|null}>
+     */
+    public function getGasEffects(): array
+    {
+        $results = [];
+
+        foreach ($this->getEffects() as $effect) {
+            if (($effect['type'] ?? null) !== 'Gas') {
+                continue;
+            }
+
+            $results[] = [
+                'gasMass' => $effect['gasMass'] ?? null,
+            ];
+        }
+
+        return $results;
     }
 }

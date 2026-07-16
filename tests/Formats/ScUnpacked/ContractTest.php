@@ -1416,4 +1416,155 @@ final class ContractTest extends ScDataTestCase
         self::assertSame('TestFaction', $gained[0]['faction'], 'Faction name must resolve through @LOC_UNINITIALIZED sentinel');
         self::assertStringNotContainsString('UNINITIALIZED', $gained[0]['faction']);
     }
+
+    public function test_rent_ship_modifiers_from_entry_and_template(): void
+    {
+        // Entry paramOverrides/modifierOverrides + template modifiers/MissionModifier_RequestRentShip
+        // are both surfaced, with item names resolved.
+        $shipPath = $this->writeFile(
+            'Data/Libs/Foundry/Records/entities/spaceships/rental_ship.xml',
+            '<EntityClassDefinition.RentalShip __type="EntityClassDefinition" __ref="f68ee841-88d1-46f3-a1e2-5dc71d9d5d97" __path="libs/foundry/records/entities/spaceships/rental_ship.xml"><Components><VehicleComponentParams vehicleName="@vehicle_NamePROSPECTOR" /></Components></EntityClassDefinition.RentalShip>'
+        );
+
+        $templatePath = $this->writeFile(
+            'Data/Libs/Foundry/Records/contracts/contracttemplates/test_rent_template.xml',
+            '<ContractTemplate.TestRent __type="ContractTemplate" __ref="cccc0000-0000-0000-0000-000000000800" __path="libs/foundry/records/contracts/contracttemplates/test_rent_template.xml"><modifiers><MissionModifier_RequestRentShip modifierName="RentalMiner" enabled="1" itemRecordGUID="f68ee841-88d1-46f3-a1e2-5dc71d9d5d97" durationSeconds="7200" clearRentalOnFail="1" /></modifiers></ContractTemplate.TestRent>'
+        );
+
+        $this->writeCacheFiles(uuidToPathMap: [
+            'f68ee841-88d1-46f3-a1e2-5dc71d9d5d97' => $shipPath,
+            'cccc0000-0000-0000-0000-000000000800' => $templatePath,
+        ]);
+        $this->bootServices();
+
+        $handlerXml = '<ContractGeneratorHandler_List debugName="RentTest"><contractParams /><contracts><Contract id="e1" debugName="RentEntry" template="cccc0000-0000-0000-0000-000000000800"><paramOverrides><modifierOverrides><MissionModifier_RequestRentShip modifierName="EntryShip" enabled="1" itemRecordGUID="f68ee841-88d1-46f3-a1e2-5dc71d9d5d97" durationSeconds="3600" clearRentalOnFail="0" /></modifierOverrides></paramOverrides><generationParams><ContractGenerationParams_Legacy maxInstances="1" maxInstancesPerPlayer="1" respawnTime="0" respawnTimeVariation="0" /></generationParams><contractResults contractBuyInAmount="0" timeToComplete="-1" /></Contract></contracts></ContractGeneratorHandler_List>';
+
+        $dom = new DOMDocument;
+        $dom->loadXML($handlerXml);
+        $handler = ContractHandler::fromNode($dom->documentElement);
+        $entry = $handler->getContracts()[0];
+
+        $contract = new Contract($entry, $handler, new ContractGeneratorRecord);
+        $mods = $this->invokeMethod($contract, 'buildRentShipModifiers');
+
+        self::assertCount(2, $mods);
+
+        $entryMod = array_find($mods, static fn (array $m): bool => $m['source'] === 'entry');
+        self::assertNotNull($entryMod);
+        self::assertSame('EntryShip', $entryMod['modifier_name']);
+        self::assertSame(3600, $entryMod['duration_seconds']);
+        self::assertFalse($entryMod['clear_rental_on_fail']);
+
+        $templateMod = array_find($mods, static fn (array $m): bool => $m['source'] === 'template');
+        self::assertNotNull($templateMod);
+        self::assertSame('RentalMiner', $templateMod['modifier_name']);
+        self::assertSame(7200, $templateMod['duration_seconds']);
+        self::assertTrue($templateMod['clear_rental_on_fail']);
+    }
+
+    public function test_contract_plugins_are_surfaced(): void
+    {
+        $this->writeCacheFiles();
+        $this->bootServices();
+
+        $handlerXml = '<ContractGeneratorHandler_List debugName="PluginTest"><contractParams /><contracts><Contract id="e1" debugName="PluginEntry"><paramOverrides /><contractPlugins><SContractPlugin_SMissionProvider tag="provider-tag-uuid" storylineMission="1" availableToAcceptFromContractManager="0" /></contractPlugins><generationParams><ContractGenerationParams_Legacy maxInstances="1" maxInstancesPerPlayer="1" respawnTime="0" respawnTimeVariation="0" /></generationParams><contractResults contractBuyInAmount="0" timeToComplete="-1" /></Contract></contracts></ContractGeneratorHandler_List>';
+
+        $dom = new DOMDocument;
+        $dom->loadXML($handlerXml);
+        $handler = ContractHandler::fromNode($dom->documentElement);
+        $entry = $handler->getContracts()[0];
+
+        $contract = new Contract($entry, $handler, new ContractGeneratorRecord);
+        $plugins = $this->invokeMethod($contract, 'buildContractPlugins');
+
+        self::assertCount(1, $plugins);
+        self::assertSame('SContractPlugin_SMissionProvider', $plugins[0]['plugin_type']);
+        self::assertSame('provider-tag-uuid', $plugins[0]['tag']);
+        self::assertTrue($plugins[0]['storyline_mission']);
+        self::assertFalse($plugins[0]['available_to_accept_from_contract_manager']);
+    }
+
+    public function test_objective_tokens_expose_phase_tag_and_meet_and_talk(): void
+    {
+        $templatePath = $this->writeFile(
+            'Data/Libs/Foundry/Records/contracts/contracttemplates/test_obj_tokens.xml',
+            '<ContractTemplate.TestObj __type="ContractTemplate" __ref="cccc0000-0000-0000-0000-000000000900" __path="libs/foundry/records/contracts/contracttemplates/test_obj_tokens.xml">'
+            .'<objectiveTokens>'
+            .'<ObjectiveToken id="dddd0000-0000-0000-0000-000000000901" debugName="Meet And Talk" missionPhaseIdentifierTag="75dd7a80-2da1-4513-b92d-abe1811ebf26">'
+            .'<objectiveHandler><ObjectiveHandler_MeetAndTalk travelRadiusKM="30" meetAndTalkObjectiveMarkerLabel="@SOO2_MeetMarker"><location value="ObjectiveProperty_Referenced[0979]" /><ocTagsToSearch><tags><Reference value="11111111-0000-0000-0000-0000000000a1" /></tags></ocTagsToSearch><travelObjectiveInfo shortDescription="@Short" longDescription="@Long" objectiveMarkerLabel="@Marker" category="Action" hideOnHUD="0" /></ObjectiveHandler_MeetAndTalk></objectiveHandler>'
+            .'</ObjectiveToken>'
+            .'</objectiveTokens>'
+            .'</ContractTemplate.TestObj>'
+        );
+
+        $this->writeCacheFiles(uuidToPathMap: [
+            'cccc0000-0000-0000-0000-000000000900' => $templatePath,
+        ]);
+        $this->bootServices();
+
+        $handlerXml = '<ContractGeneratorHandler_List debugName="ObjTest"><contractParams /><contracts><Contract id="e1" debugName="ObjEntry" template="cccc0000-0000-0000-0000-000000000900"><paramOverrides /><generationParams><ContractGenerationParams_Legacy maxInstances="1" maxInstancesPerPlayer="1" respawnTime="0" respawnTimeVariation="0" /></generationParams><contractResults contractBuyInAmount="0" timeToComplete="-1" /></Contract></contracts></ContractGeneratorHandler_List>';
+
+        $dom = new DOMDocument;
+        $dom->loadXML($handlerXml);
+        $handler = ContractHandler::fromNode($dom->documentElement);
+        $entry = $handler->getContracts()[0];
+
+        $contract = new Contract($entry, $handler, new ContractGeneratorRecord);
+        $tokens = $this->invokeMethod($contract, 'buildObjectiveTokens');
+
+        self::assertCount(1, $tokens);
+        $token = $tokens[0];
+
+        // Gap 7: missionPhaseIdentifierTag
+        self::assertSame('75dd7a80-2da1-4513-b92d-abe1811ebf26', $token['phase_identifier_tag']);
+
+        // Gap 4: ObjectiveHandler_MeetAndTalk
+        self::assertSame('ObjectiveHandler_MeetAndTalk', $token['handler_type']);
+        self::assertNotNull($token['meet_and_talk']);
+        self::assertSame(30.0, $token['meet_and_talk']['travel_radius_km']);
+        self::assertSame('ObjectiveProperty_Referenced[0979]', $token['meet_and_talk']['location_ref']);
+        self::assertSame(['11111111-0000-0000-0000-0000000000a1'], $token['meet_and_talk']['oc_tags']);
+    }
+
+    public function test_hauling_order_mission_item_drop_off_surfaces_target_types(): void
+    {
+        $tag = ['name' => 'FreightElevator', 'uuid' => '61bca4cf-95a1-49b3-ae5b-cf9dc9ee3127'];
+
+        $templatePath = $this->writeFile(
+            'Data/Libs/Foundry/Records/contracts/contracttemplates/test_dropoff_haul.xml',
+            '<ContractTemplate.TestDropOff __type="ContractTemplate" __ref="cccc0000-0000-0000-0000-000000000950" __path="libs/foundry/records/contracts/contracttemplates/test_dropoff_haul.xml">'
+            .'<objectiveTokens>'
+            .'<ObjectiveToken id="drop_token" debugName="Delivery">'
+            .'<objectiveHandler><ObjectiveHandler_Hauling><haulingOrders>'
+            .'<HaulingOrder_MissionItemDropOff><dropOffLocation value="ObjectiveProperty_Referenced[1001]" /><dropOffTargetTypes><tags><Reference value="'.$tag['uuid'].'" /></tags></dropOffTargetTypes><deliveryOrderInput value="ObjectiveProperty_Referenced[1002]" /></HaulingOrder_MissionItemDropOff>'
+            .'</haulingOrders></ObjectiveHandler_Hauling></objectiveHandler>'
+            .'</ObjectiveToken>'
+            .'</objectiveTokens>'
+            .'</ContractTemplate.TestDropOff>'
+        );
+
+        $this->writeCacheFiles(uuidToPathMap: [
+            'cccc0000-0000-0000-0000-000000000950' => $templatePath,
+        ]);
+        $this->initializeMinimalItemServices(tags: [$tag]);
+        $foundryService = new FoundryLookupService($this->tempDir);
+        $foundryService->initialize();
+        $this->addServiceToFactory('FoundryLookupService', $foundryService);
+
+        $handlerXml = '<ContractGeneratorHandler_Recovery debugName="DropTest"><contractParams /><contracts><Contract id="e1" debugName="DropEntry" template="cccc0000-0000-0000-0000-000000000950"><paramOverrides /><generationParams><ContractGenerationParams_Legacy maxInstances="1" maxInstancesPerPlayer="1" respawnTime="0" respawnTimeVariation="0" /></generationParams><contractResults contractBuyInAmount="0" timeToComplete="-1" /></Contract></contracts></ContractGeneratorHandler_Recovery>';
+
+        $dom = new DOMDocument;
+        $dom->loadXML($handlerXml);
+        $handler = ContractHandler::fromNode($dom->documentElement);
+        $entry = $handler->getContracts()[0];
+
+        $contract = new Contract($entry, $handler, new ContractGeneratorRecord);
+        $orders = $this->invokeMethod($contract, 'buildTemplateObjectiveHaulingOrders');
+
+        self::assertCount(1, $orders);
+        self::assertSame('MissionItemDropOff', $orders[0]['kind']);
+        self::assertArrayHasKey('drop_off_target_types', $orders[0]);
+        self::assertSame('FreightElevator', $orders[0]['drop_off_target_types'][0]['name']);
+        self::assertSame('ObjectiveProperty_Referenced[1002]', $orders[0]['delivery_order_input']);
+    }
 }

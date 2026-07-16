@@ -24,7 +24,7 @@ final class ShipSpawnDescriptionsValueTest extends ScDataTestCase
     public function test_to_array_resolves_ship_models_from_selection_tags(): void
     {
         $this->writeFixtures();
-        (new ServiceFactory($this->tempDir))->initialize();
+        new ServiceFactory($this->tempDir)->initialize();
 
         $value = new ShipSpawnDescriptionsValue;
         $value->loadXML($this->spawnXml());
@@ -42,6 +42,22 @@ final class ShipSpawnDescriptionsValueTest extends ScDataTestCase
         );
     }
 
+    public function test_entity_tags_are_surfaced_in_to_array(): void
+    {
+        $entityTag = 'f1f1f1f1-0000-0000-0000-0000000000ee';
+
+        $this->writeFixtures();
+        new ServiceFactory($this->tempDir)->initialize();
+
+        $value = new ShipSpawnDescriptionsValue;
+        $value->loadXML($this->spawnXmlWithEntityTags($entityTag));
+
+        $rows = $value->toArray('Hostile');
+
+        self::assertCount(1, $rows);
+        self::assertSame([$entityTag], $rows[0]['entity_tags']);
+    }
+
     private function spawnXml(): string
     {
         return '<MissionPropertyValue_ShipSpawnDescriptions allowedForMissionRestrictedDeliveries="0">'
@@ -56,6 +72,27 @@ final class ShipSpawnDescriptionsValueTest extends ScDataTestCase
             .'<negativeTags><tags>'
             .'<Reference value="'.self::NINETALES.'" />'
             .'</tags></negativeTags>'
+            .'</SpawnDescription_Ship>'
+            .'</options></SpawnDescription_ShipOptions>'
+            .'</ships></SpawnDescription_ShipGroup>'
+            .'</spawnDescriptions>'
+            .'</MissionPropertyValue_ShipSpawnDescriptions>';
+    }
+
+    private function spawnXmlWithEntityTags(string $entityTag): string
+    {
+        return '<MissionPropertyValue_ShipSpawnDescriptions allowedForMissionRestrictedDeliveries="0">'
+            .'<spawnDescriptions>'
+            .'<SpawnDescription_ShipGroup Name="Target"><ships>'
+            .'<SpawnDescription_ShipOptions><options>'
+            .'<SpawnDescription_Ship concurrentAmount="1" weight="1">'
+            .'<tags><tags>'
+            .'<Reference value="'.self::CRIMINAL.'" />'
+            .'<Reference value="'.self::VERY_EASY.'" />'
+            .'</tags></tags>'
+            .'<entityTags><tags>'
+            .'<Reference value="'.$entityTag.'" />'
+            .'</tags></entityTags>'
             .'</SpawnDescription_Ship>'
             .'</options></SpawnDescription_ShipOptions>'
             .'</ships></SpawnDescription_ShipGroup>'
@@ -85,7 +122,7 @@ final class ShipSpawnDescriptionsValueTest extends ScDataTestCase
 
     /**
      * @param  list<string>  $tagUuids
-     * @param  string        $className base-hull ClassName emitted as the link key
+     * @param  string  $className  base-hull ClassName emitted as the link key
      */
     private function writeShipEntity(string $slug, array $tagUuids, string $nameKey, string $className): string
     {

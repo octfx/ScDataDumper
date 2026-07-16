@@ -227,6 +227,9 @@ final class Contract extends BaseFormat
             'reputation_scope' => $resolvedReputation['reputation_scope']['scope_name'] ?? null,
             'time_trial_splits' => $this->buildTimeTrialSplits(),
             'property_overrides' => $this->buildPropertyOverrides(),
+            'rental_ship_modifiers' => $this->buildRentShipModifiers(),
+            'contract_plugins' => $this->buildContractPlugins(),
+            'objective_tokens' => $this->buildObjectiveTokens(),
             'npc_names' => $this->buildNPCNames(),
             'item_counts' => $itemCounts,
         ]));
@@ -1018,6 +1021,7 @@ final class Contract extends BaseFormat
                 'HaulingOrder_EntityClasses' => 'Entities',
                 'HaulingOrder_Resource', 'HaulingOrder_ResourceUnlimitedDropOff' => 'Resource',
                 'HaulingOrder_MissionItem' => 'MissionItem',
+                'HaulingOrder_MissionItemDropOff' => 'MissionItemDropOff',
                 default => str_starts_with($type, 'HaulingOrder_') ? substr($type, strlen('HaulingOrder_')) : $type,
             };
 
@@ -1061,6 +1065,7 @@ final class Contract extends BaseFormat
         $items = null;
         $multiItems = null;
         $tagTerms = null;
+        $dropOffTargetTypes = null;
 
         if ($kind === 'Entity') {
             $entityClass = $node->get('@entityClass');
@@ -1089,6 +1094,19 @@ final class Contract extends BaseFormat
                     ? $localization->translateValue($resourceRecord->getDisplayName(), true)
                     : null;
             }
+        } elseif ($kind === 'MissionItemDropOff') {
+            // Drop-off mechanism for mission items like freight elevators, kiosks, etc.
+            $dropOffTargets = [];
+
+            foreach ($node->getAll('dropOffTargetTypes/tags/Reference@value') as $tag) {
+                if (is_string($tag) && $tag !== '') {
+                    $dropOffTargets[] = $tag;
+                }
+            }
+
+            $dropOffTargetTypes = $dropOffTargets !== []
+                ? ServiceFactory::getTagDatabaseService()->resolveUuidsToNameObjects($dropOffTargets)
+                : null;
         } elseif ($kind === 'MissionItem') {
             // <item value="ObjectiveProperty_Referenced[hex]"/> -> template variable -> entry override.
             $resolved = $this->resolveTemplateMissionItemOrder($node, $overrides, $itemService, $lookup);
@@ -1127,6 +1145,11 @@ final class Contract extends BaseFormat
 
         if ($tagTerms !== null) {
             $baseOrder['tag_search_terms'] = $tagTerms;
+        }
+
+        if ($dropOffTargetTypes !== null) {
+            $baseOrder['drop_off_target_types'] = $dropOffTargetTypes;
+            $baseOrder['delivery_order_input'] = $node->get('deliveryOrderInput@value');
         }
 
         if ($multiItems === null) {
@@ -2379,5 +2402,175 @@ final class Contract extends BaseFormat
         $tokenMap = $this->normalizeMissionTokenMap($tokenMap);
 
         return $tokenMap !== [] ? $tokenMap : null;
+    }
+
+    /**
+     * Rent-ship modifiers merged from entry paramOverrides and the template's modifiers section.
+     *
+     * @return list<array{modifier_name: ?string, enabled: bool, item_record_guid: ?string, item_name: ?string, duration_seconds: ?int, clear_rental_on_fail: bool, source: string}>|null
+     */
+    private function buildRentShipModifiers(): ?array
+    {
+        $results = [];
+        $itemService = ServiceFactory::getItemService();
+
+        foreach ($this->entry->getRentShipModifiers() as $mod) {
+            $results[] = $this->formatRentShipModifier($mod, 'entry', $itemService);
+        }
+
+        $template = $this->getContractTemplate();
+
+        if ($template !== null) {
+            $nodes = $template->getAll('modifiers/MissionModifier_RequestRentShip');
+
+            foreach ($nodes as $node) {
+                $results[] = $this->formatRentShipModifier([
+                    'modifierName' => $node->get('@modifierName'),
+                    'enabled' => (int) ($node->get('@enabled') ?? 1) === 1,
+                    'itemRecordGUID' => $node->get('@itemRecordGUID'),
+                    'durationSeconds' => $node->get('@durationSeconds') !== null ? (int) $node->get('@durationSeconds') : null,
+                    'clearRentalOnFail' => (int) ($node->get('@clearRentalOnFail') ?? 0) === 1,
+                ], 'template', $itemService);
+            }
+        }
+
+        return $results !== [] ? $results : null;
+    }
+
+    /**
+     * @param  array{modifierName: ?string, enabled: bool, itemRecordGUID: ?string, durationSeconds: ?int, clearRentalOnFail: bool}  $mod
+     * @return array{modifier_name: ?string, enabled: bool, item_record_guid: ?string, item_name: ?string, duration_seconds: ?int, clear_rental_on_fail: bool, source: string}
+     */
+    private function formatRentShipModifier(array $mod, string $source, ItemService $itemService): array
+    {
+        $itemUuid = $mod['itemRecordGUID'];
+        $itemName = $itemUuid !== null ? $itemService->getByReference($itemUuid)?->getDisplayName() : null;
+
+        return [
+            'modifier_name' => $mod['modifierName'],
+            'enabled' => $mod['enabled'],
+            'item_record_guid' => $itemUuid,
+            'item_name' => $itemName,
+            'duration_seconds' => $mod['durationSeconds'],
+            'clear_rental_on_fail' => $mod['clearRentalOnFail'],
+            'source' => $source,
+        ];
+    }
+
+    /**
+     * @return list<array{plugin_type: string, tag: ?string, storyline_mission: bool, available_to_accept_from_contract_manager: bool}>|null
+     */
+    private function buildContractPlugins(): ?array
+    {
+        $plugins = $this->entry->getContractPlugins();
+
+        if ($plugins === []) {
+            return null;
+        }
+
+        return array_map(static fn (array $p): array => [
+            'plugin_type' => $p['pluginType'],
+            'tag' => $p['tag'],
+            'storyline_mission' => $p['storylineMission'],
+            'available_to_accept_from_contract_manager' => $p['availableToAcceptFromContractManager'],
+        ], $plugins);
+    }
+
+    /**
+     * Objective token metadata from the ContractTemplate
+     * phase identifiers, objective handlers (e.g. MeetAndTalk), and objective property values (Output/Input)
+     *
+     * @return list<array{id: ?string, debug_name: ?string, phase_identifier_tag: ?string, handler_type: ?string, meet_and_talk: ?array}>|null
+     */
+    private function buildObjectiveTokens(): ?array
+    {
+        $template = $this->getContractTemplate();
+
+        if ($template === null) {
+            return null;
+        }
+
+        $tokens = $template->getAll('objectiveTokens/ObjectiveToken');
+
+        if ($tokens === []) {
+            return null;
+        }
+
+        $results = [];
+
+        foreach ($tokens as $token) {
+            $handler = $token->get('objectiveHandler');
+            $handlerType = null;
+            $meetAndTalk = null;
+
+            if ($handler !== null) {
+                foreach ($handler->children() as $child) {
+                    $handlerType = $child->nodeName;
+
+                    if ($handlerType === 'ObjectiveHandler_MeetAndTalk') {
+                        $meetAndTalk = $this->parseMeetAndTalkHandler($child);
+                    }
+
+                    break;
+                }
+            }
+
+            $results[] = $this->removeNullValues([
+                'id' => $token->get('@id'),
+                'debug_name' => $token->get('@debugName'),
+                'phase_identifier_tag' => $token->get('@missionPhaseIdentifierTag'),
+                'handler_type' => $handlerType,
+                'meet_and_talk' => $meetAndTalk,
+            ]);
+
+        }
+
+        return $results !== [] ? $results : null;
+    }
+
+    /**
+     * @return array{travel_radius_km: ?float, marker_label: ?string, location_ref: ?string, oc_tags: list<string>, travel_objective_info: ?array}
+     */
+    private function parseMeetAndTalkHandler(Element $handler): array
+    {
+        $travelInfoNode = $handler->get('travelObjectiveInfo');
+        $travelInfo = null;
+
+        if ($travelInfoNode !== null) {
+            $travelInfo = $this->removeNullValues([
+                'short_description' => $this->translateLocalizationValue($travelInfoNode->get('@shortDescription')),
+                'long_description' => $this->translateLocalizationValue($travelInfoNode->get('@longDescription')),
+                'objective_marker_label' => $this->translateLocalizationValue($travelInfoNode->get('@objectiveMarkerLabel')),
+                'category' => $travelInfoNode->get('@category'),
+                'hide_on_hud' => (int) ($travelInfoNode->get('@hideOnHUD') ?? 0) === 1 ?: null,
+            ]);
+        }
+
+        $ocTags = [];
+
+        foreach ($handler->getAll('ocTagsToSearch/tags/Reference@value') as $tag) {
+            if (is_string($tag) && $tag !== '') {
+                $ocTags[] = $tag;
+            }
+        }
+
+        return [
+            'travel_radius_km' => $handler->get('@travelRadiusKM') !== null ? (float) $handler->get('@travelRadiusKM') : null,
+            'marker_label' => $this->translateLocalizationValue($handler->get('@meetAndTalkObjectiveMarkerLabel')),
+            'location_ref' => $handler->get('location@value'),
+            'oc_tags' => $ocTags,
+            'travel_objective_info' => $travelInfo,
+        ];
+    }
+
+    private function getContractTemplate(): ?FoundryRecord
+    {
+        $templateRef = $this->entry->getTemplateReference();
+
+        if ($templateRef === null) {
+            return null;
+        }
+
+        return ServiceFactory::getFoundryLookupService()->getContractTemplateByReference($templateRef);
     }
 }

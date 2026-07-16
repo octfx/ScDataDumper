@@ -72,7 +72,7 @@ final class ShipPoolResolver extends BaseService
     /**
      * @param  list<string>  $positiveTags
      * @param  list<string>  $negativeTags
-     * @return list<array{name: string, className: ?string}>  deduped by className, sorted by name
+     * @return list<array{name: string, className: ?string}> deduped by className, sorted by name
      */
     public function resolve(array $positiveTags, array $negativeTags): array
     {

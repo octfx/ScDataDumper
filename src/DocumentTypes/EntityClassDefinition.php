@@ -116,6 +116,39 @@ class EntityClassDefinition extends RootDocument
         return $magazine instanceof self ? $magazine : null;
     }
 
+    /**
+     * Whether this item (e.g. an ammo-feeder backpack) carries an SCItemAmmoContainerFeederComponentParams that feeds an external ammo container.
+     *
+     * @since 4.9.0 (cds_combat_superheavy_backpack)
+     */
+    public function hasAmmoContainerFeeder(): bool
+    {
+        return $this->get('Components/SCItemAmmoContainerFeederComponentParams') !== null;
+    }
+
+    public function getAmmoFeedMagazineReference(): ?string
+    {
+        return $this->get('Components/SCItemAmmoContainerFeederComponentParams@ammoContainerRecord');
+    }
+
+    /**
+     * The magazine/ammo-container entity this feeder points at,
+     * or null when the item has no feeder or the reference cannot be resolved.
+     *
+     * @since 4.9.0
+     */
+    public function getAmmoFeedMagazine(): ?self
+    {
+        $reference = $this->getAmmoFeedMagazineReference();
+        if ($reference === null || ! ServiceFactory::isInitialized()) {
+            return null;
+        }
+
+        $magazine = ServiceFactory::getItemService()->getByReference($reference);
+
+        return $magazine instanceof self ? $magazine : null;
+    }
+
     public function getAmmoParamsReference(): ?string
     {
         return $this->get('Components/SAmmoContainerComponentParams@ammoParamsRecord');
