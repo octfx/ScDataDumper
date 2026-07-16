@@ -45,6 +45,9 @@ final class ManufacturerService extends BaseService
     /** Set once loadDataJson runs, even on missing/empty file: avoid re-stat per call. */
     private static bool $dataJsonLoaded = false;
 
+    /** Override the wiki data path (tests inject a committed fixture; config survives reset). */
+    private static ?string $wikiDataPath = null;
+
     /**
      * Cross-code aliases for XML codes whose name won't normalize-match data.json
      * (prefix / plural gaps). Uuid stays from the original XML code -- the
@@ -188,7 +191,7 @@ final class ManufacturerService extends BaseService
 
         self::$dataJsonLoaded = true;
 
-        $path = dirname(__DIR__, 2).'/import/wiki_manufacturers.json';
+        $path = self::$wikiDataPath ?? dirname(__DIR__, 2).'/import/wiki_manufacturers.json';
 
         if (! is_file($path)) {
             return;
@@ -236,6 +239,12 @@ final class ManufacturerService extends BaseService
         self::$nameToCode = [];
         self::$codeToName = [];
         self::$dataJsonLoaded = false;
+    }
+
+    /** Point the wiki lookup at a fixture path. Pass null to restore the default import/ location. */
+    public static function useWikiDataPath(?string $path): void
+    {
+        self::$wikiDataPath = $path;
     }
 
     /**

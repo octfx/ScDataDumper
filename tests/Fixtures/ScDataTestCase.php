@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Tests\Fixtures;
 
 use JsonException;
+use Octfx\ScDataDumper\Services\DataOverrideService;
 use Octfx\ScDataDumper\Services\InventoryContainerService;
 use Octfx\ScDataDumper\Services\ItemClassifierService;
 use Octfx\ScDataDumper\Services\ItemService;
@@ -33,6 +34,10 @@ abstract class ScDataTestCase extends TestCase
         }
 
         $this->resetServiceState();
+
+        ManufacturerService::useWikiDataPath(null);
+        DataOverrideService::useItemsPath(null);
+        DataOverrideService::useVehiclesPath(null);
     }
 
     protected function tearDown(): void
@@ -65,6 +70,40 @@ abstract class ScDataTestCase extends TestCase
         }
 
         return str_replace('\\', '/', $realPath);
+    }
+
+    /**
+     * Seed the manufacturer wiki table (code -> name) for this test and point
+     * ManufacturerService at it. The live import/ table is volatile and not
+     * committed, so each test asserts against data it provides itself.
+     *
+     * @param  array<string, string>  $codeToName
+     */
+    protected function useWikiManufacturers(array $codeToName): void
+    {
+        $payload = array_map(static function ($name) {
+            return ['name' => $name];
+        }, $codeToName);
+
+        $path = $this->tempDir.DIRECTORY_SEPARATOR.'wiki_manufacturers.json';
+        file_put_contents($path, json_encode($payload, JSON_THROW_ON_ERROR));
+
+        ManufacturerService::useWikiDataPath($path);
+        ManufacturerService::resetDataOverrideCache();
+    }
+
+    /**
+     * Seed item wiki facts (uuid -> fact bag) for this test.
+     *
+     * @param  array<string, array<string, mixed>>  $uuidToFacts
+     */
+    protected function useWikiItems(array $uuidToFacts): void
+    {
+        $path = $this->tempDir.DIRECTORY_SEPARATOR.'wiki_items.json';
+        file_put_contents($path, json_encode($uuidToFacts, JSON_THROW_ON_ERROR));
+
+        DataOverrideService::useItemsPath($path);
+        DataOverrideService::reset();
     }
 
     /**

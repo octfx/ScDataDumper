@@ -40,6 +40,8 @@ final class ContractTest extends ScDataTestCase
         // "Crusader Industries" is both a faction and a manufacturer. The faction
         // entity has its own uuid; the override must collapse to the manufacturer
         // primary uuid while keeping the canonical name.
+        $this->useWikiManufacturers(['CRUS' => 'Crusader Industries']);
+
         $crus = $this->writeFile(
             'records/scitemmanufacturer/scitemmanufacturer.crus.xml',
             <<<'XML'

@@ -8,7 +8,6 @@ use JsonException;
 
 /**
  * Loads the wiki override tables (import/wiki_items.json, wiki_vehicles.json) and answers fact lookups by UUID
- * Missing files degrade to []
  */
 final class DataOverrideService
 {
@@ -18,8 +17,25 @@ final class DataOverrideService
     /** @var array<string, array<string, mixed>> uuid -> vehicle facts */
     private static array $vehicles = [];
 
-    /** Set once files are read (or confirmed missing): avoid re-stat per call. */
+    /** Set once files are read (or confirmed missing) */
     private static bool $loaded = false;
+
+    /** Override paths (tests inject their own data; config survives reset). */
+    private static ?string $itemsPath = null;
+
+    private static ?string $vehiclesPath = null;
+
+    /** Point the item facts lookup at a custom path. Null restores the default import/ location. */
+    public static function useItemsPath(?string $path): void
+    {
+        self::$itemsPath = $path;
+    }
+
+    /** Point the vehicle facts lookup at a custom path. Null restores the default import/ location. */
+    public static function useVehiclesPath(?string $path): void
+    {
+        self::$vehiclesPath = $path;
+    }
 
     public static function reset(): void
     {
@@ -50,7 +66,12 @@ final class DataOverrideService
     /** @return array<string, array<string, mixed>> */
     private function readFile(string $name): array
     {
-        $path = dirname(__DIR__, 2).'/import/'.$name;
+        $path = match ($name) {
+            'wiki_items.json' => self::$itemsPath,
+            'wiki_vehicles.json' => self::$vehiclesPath,
+            default => null,
+        } ?? dirname(__DIR__, 2).'/import/'.$name;
+
         if (! is_file($path)) {
             return [];
         }

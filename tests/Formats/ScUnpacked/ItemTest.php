@@ -208,6 +208,8 @@ final class ItemTest extends ScDataTestCase
             ]
         );
 
+        $this->useWikiManufacturers(['AEGS' => 'Aegis Dynamics', 'FSKI' => 'FireStorm Kinetics']);
+
         $this->initializeMinimalItemServices([
             'LOC_EMPTY' => '',
             'manufacturer_NameAEGS' => 'Aegis Dynamics',
@@ -419,6 +421,9 @@ final class ItemTest extends ScDataTestCase
             uuidToPathMap: ['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' => $manufacturerPath]
         );
 
+        $this->useWikiItems(['047ae622-d622-4d72-9482-008ab7d9600d' => ['manufacturer' => 'GRIN']]);
+        $this->useWikiManufacturers(['ANVL' => 'Anvil Aerospace', 'GRIN' => 'Greycat Industrial']);
+
         $this->initializeMinimalItemServices([
             'LOC_EMPTY' => '',
             'manufacturer_anvl' => 'Anvil Aerospace',
@@ -476,6 +481,9 @@ final class ItemTest extends ScDataTestCase
             classToUuidMap: ['GRIN' => 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'],
             uuidToPathMap: ['bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' => $manufacturerPath]
         );
+
+        $this->useWikiItems(['047ae622-d622-4d72-9482-008ab7d9600d' => ['manufacturer' => 'GRIN', 'name' => 'MXC Moonstone Livery']]);
+        $this->useWikiManufacturers(['GRIN' => 'Greycat Industrial']);
 
         $this->initializeMinimalItemServices([
             'LOC_EMPTY' => '',

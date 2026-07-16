@@ -30,6 +30,8 @@ final class ResolvesEventSourceTest extends ScDataTestCase
     public function test_curated_uuid_returns_wiki_event(): void
     {
         // 1782c749.. is curated as Foundation Festival in wiki_items.json.
+        $this->useWikiItems(['1782c749-a756-4244-96f9-26362c81abeb' => ['event' => 'Foundation Festival']]);
+
         $result = $this->resolve('Paint_Anything', [], '1782c749-a756-4244-96f9-26362c81abeb');
 
         self::assertSame(['Foundation Festival'], $result);
@@ -39,6 +41,8 @@ final class ResolvesEventSourceTest extends ScDataTestCase
     {
         // Unity paints carry _invictus (heuristic would say Invictus Launch
         // Week) but are curated Foundation Festival. Wiki must win.
+        $this->useWikiItems(['1782c749-a756-4244-96f9-26362c81abeb' => ['event' => 'Foundation Festival']]);
+
         $result = $this->resolve(
             'Paint_100i_Invictus_Unity_Metal_Teal',
             [],

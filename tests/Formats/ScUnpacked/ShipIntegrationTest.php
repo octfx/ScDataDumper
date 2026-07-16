@@ -125,6 +125,8 @@ final class ShipIntegrationTest extends ScDataTestCase
      */
     public function test_to_array_uses_attachdef_localization_for_actor_vehicles_without_vehicle_component_params(): void
     {
+        $this->useWikiManufacturers(['BANU' => 'Banu Souli']);
+
         $manufacturerPath = $this->writeManufacturerFile();
         $this->writeBanuManufacturerFile();
         $this->writeShipTestCacheFiles($manufacturerPath, extraManufacturers: [
@@ -169,6 +171,8 @@ final class ShipIntegrationTest extends ScDataTestCase
         // The XML manufacturer name is "Banu" (truncated variant), which misses
         // the name->code reverse map. The wiki code forward-resolves to the
         // canonical "Banu Souli" -- code is identity, name follows.
+        $this->useWikiManufacturers(['BANU' => 'Banu Souli']);
+
         $manufacturerPath = $this->writeBanuManufacturerFile();
         $this->writeShipTestCacheFiles($manufacturerPath, extraManufacturers: [
             '22222222-2222-2222-2222-222222222222' => [
