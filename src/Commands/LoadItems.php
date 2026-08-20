@@ -63,7 +63,6 @@ class LoadItems extends AbstractDataCommand
         $indexFirst = true;
         $fpsFirst = true;
         $shipFirst = true;
-        $jsonFlags = JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES;
 
         $start = microtime(true);
 
@@ -75,7 +74,7 @@ class LoadItems extends AbstractDataCommand
 
             $stdItem = $itemExport['formatted'];
 
-            $encodedItem = json_encode($stdItem, $jsonFlags);
+            $encodedItem = json_encode($stdItem, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
 
             if (! $indexFirst) {
                 fwrite($indexHandle, ",\n");
@@ -118,7 +117,7 @@ class LoadItems extends AbstractDataCommand
                         ],
                     ],
                     'Item' => $stdItem,
-                ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+                ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
 
                 if (! $this->writeJsonFile($filePath, $json, $io)) {
                     $io->warning(sprintf('Skipping item %s due to write failure', $fileName));

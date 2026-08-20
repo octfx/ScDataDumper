@@ -129,7 +129,7 @@ final class LoadStarmap extends AbstractDataCommand
             return Command::SUCCESS;
         }
 
-        $encoded = json_encode($exports, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        $encoded = json_encode($exports, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
 
         if (! $this->writeJsonFile($outPath, $encoded, $io)) {
             return Command::FAILURE;
@@ -181,7 +181,7 @@ final class LoadStarmap extends AbstractDataCommand
 
         usort($exports, static fn (array $a, array $b): int => [$a['ClassName'], $a['UUID']] <=> [$b['ClassName'], $b['UUID']]);
 
-        $encoded = json_encode($exports, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        $encoded = json_encode($exports, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
 
         if (! $this->writeJsonFile($outPath, $encoded, $io)) {
             return Command::FAILURE;
@@ -258,7 +258,7 @@ final class LoadStarmap extends AbstractDataCommand
         $encoded = json_encode([
             'entities' => $entities,
             'connections' => $connections,
-        ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
 
         if (! $this->writeJsonFile($outPath, $encoded, $io)) {
             return Command::FAILURE;

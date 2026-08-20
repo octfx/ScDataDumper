@@ -839,9 +839,9 @@ class BaseFormatTest extends TestCase
         $decodedData = json_decode($jsonOutput, true, 512, JSON_THROW_ON_ERROR);
         $this->assertIsArray($decodedData, 'Should decode to array');
 
-        // Verify pretty formatting (contains newlines and indentation)
-        $this->assertStringContainsString("\n", $jsonOutput, 'Should contain newlines for pretty formatting');
-        $this->assertStringContainsString('    ', $jsonOutput, 'Should contain spaces for indentation');
+        // Verify compact formatting (no newlines or indentation)
+        $this->assertStringNotContainsString("\n", $jsonOutput, 'Should not contain newlines');
+        $this->assertStringNotContainsString('    ', $jsonOutput, 'Should not contain indentation');
 
         // Test 2: Given JSON output from toJson(),
         // When decoding back to array,

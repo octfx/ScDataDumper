@@ -190,7 +190,7 @@ class LoadContracts extends AbstractDataCommand
             $data = $format->toArray();
             $data['entry_type'] = $type;
 
-            $json = json_encode($data, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+            $json = json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
 
             if (! $this->writeJsonFile($filePath, $json, $io)) {
                 $io->warning(sprintf('Skipping contract %s due to write failure', $fileName));
@@ -233,7 +233,7 @@ class LoadContracts extends AbstractDataCommand
                 $data = $format->toArray();
                 $data['entry_type'] = 'mission_broker';
 
-                $json = json_encode($data, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+                $json = json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
 
                 if (! $this->writeJsonFile($filePath, $json, $io)) {
                     $io->warning(sprintf('Skipping mission broker entry %s due to write failure', $uuid));

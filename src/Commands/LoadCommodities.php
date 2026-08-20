@@ -77,7 +77,7 @@ class LoadCommodities extends AbstractDataCommand
 
         $bytesWritten = file_put_contents(
             $indexFilePath,
-            json_encode($resourceTypes, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)
+            json_encode($resourceTypes, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)
         );
 
         if ($bytesWritten === false) {

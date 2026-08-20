@@ -52,7 +52,6 @@ class LoadVehicles extends AbstractDataCommand
 
         fwrite($indexHandle, "[\n");
         $indexFirst = true;
-        $jsonFlags = JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT;
 
         $start = microtime(true);
 
@@ -72,7 +71,7 @@ class LoadVehicles extends AbstractDataCommand
 
             $needsWrite = $overwrite || ! file_exists($filePathShip);
 
-            $encodedShip = json_encode($vehicleExport['formatted'], $jsonFlags);
+            $encodedShip = json_encode($vehicleExport['formatted'], JSON_THROW_ON_ERROR);
             if (! $indexFirst) {
                 fwrite($indexHandle, ",\n");
             }
@@ -87,7 +86,7 @@ class LoadVehicles extends AbstractDataCommand
 
             try {
                 if ($withRaw) {
-                    $jsonRaw = json_encode($out, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
+                    $jsonRaw = json_encode($out, JSON_THROW_ON_ERROR);
                     if (! $this->writeJsonFile($filePathRaw, $jsonRaw, $io)) {
                         $io->warning(sprintf('Skipping vehicle %s due to write failure', $fileName));
                         $io->progressAdvance();

@@ -52,7 +52,6 @@ class LoadBlueprints extends AbstractDataCommand
 
         fwrite($indexHandle, "[\n");
         $indexFirst = true;
-        $jsonFlags = JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES;
 
         $start = microtime(true);
 
@@ -66,8 +65,7 @@ class LoadBlueprints extends AbstractDataCommand
             $outDir,
             $io,
             $indexHandle,
-            &$indexFirst,
-            $jsonFlags
+            &$indexFirst
         ): void {
             foreach ($this->iterateBlueprintExports($nameFilter) as $blueprintExport) {
                 $formatted = $blueprintExport['formatted'];
@@ -80,7 +78,7 @@ class LoadBlueprints extends AbstractDataCommand
                 $fileName = strtolower((string) $blueprintExport['className']);
                 $filePath = sprintf('%s%s%s.json', $outDir, DIRECTORY_SEPARATOR, $fileName);
 
-                $encodedBlueprint = json_encode($formatted, JSON_THROW_ON_ERROR | $jsonFlags);
+                $encodedBlueprint = json_encode($formatted, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
                 if (! $indexFirst) {
                     fwrite($indexHandle, ",\n");
                 }
@@ -99,7 +97,7 @@ class LoadBlueprints extends AbstractDataCommand
                             'Blueprint' => $blueprintExport['rawBlueprint'],
                         ],
                         'Blueprint' => $formatted,
-                    ], JSON_THROW_ON_ERROR | $jsonFlags);
+                    ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
 
                     if (! $this->writeJsonFile($filePath, $json, $io)) {
                         $io->warning(sprintf('Skipping blueprint %s due to write failure', $fileName));

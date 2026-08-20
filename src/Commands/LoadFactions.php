@@ -112,7 +112,7 @@ class LoadFactions extends AbstractDataCommand
         SymfonyStyle $io,
     ): void {
         try {
-            $json = json_encode(new ScUnpackedFaction($document)->toArray(), JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+            $json = json_encode(new ScUnpackedFaction($document)->toArray(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
 
             if ($json === 'null' || $json === 'false') {
                 return;

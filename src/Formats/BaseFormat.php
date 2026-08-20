@@ -202,7 +202,7 @@ abstract class BaseFormat
      */
     public function toJson(): string
     {
-        return json_encode($this->toArray(), JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        return json_encode($this->toArray(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
     }
 
     protected function translateLocalizationValue(mixed $value, bool $excludePlaceholder = false): string
