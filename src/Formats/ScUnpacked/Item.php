@@ -119,6 +119,7 @@ final class Item extends BaseFormat
                 'Ports' => $this->buildPortsList(),
 
                 'Ammunition' => new LazyFormat(fn () => new Ammunition($this->item)),
+                'SecondaryAmmunition' => new LazyFormat(fn () => new Ammunition($this->item, secondary: true)),
                 'Armor' => new LazyFormat(fn () => new Armor($this->item)),
                 'Bomb' => new LazyFormat(fn () => new Bomb($this->item)),
                 'CargoGrid' => new LazyFormat(fn () => new CargoGrid($this->item)),

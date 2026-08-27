@@ -43,97 +43,105 @@ abstract class AbstractWeapon extends BaseFormat
         ];
 
         foreach ($weapon->get('fireActions')?->children() as $action) {
-            $mode = new WeaponMode($action);
-            if (! $mode->canTransform()) {
-                continue;
-            }
+            foreach ($this->expandFireAction($action) as $fireAction) {
+                $mode = new WeaponMode($fireAction);
+                if (! $mode->canTransform()) {
+                    continue;
+                }
 
-            $mode = $mode->toArray();
+                $mode = $mode->toArray();
 
-            $isBeam = in_array($action->nodeName, [
-                'SWeaponActionFireBeamParams',
-                'SWeaponActionFireHealingBeamParams',
-                'SWeaponActionFireSalvageRepairParams',
-                'SWeaponActionGatheringBeamParams',
-                'SWeaponActionFireTractorBeamParams',
-            ], true);
-            $chargeContext = ['Timings' => [], 'Modifier' => []];
+                $isBeam = in_array($fireAction->nodeName, [
+                    'SWeaponActionFireBeamParams',
+                    'SWeaponActionFireHealingBeamParams',
+                    'SWeaponActionFireSalvageRepairParams',
+                    'SWeaponActionGatheringBeamParams',
+                    'SWeaponActionFireTractorBeamParams',
+                ], true);
+                $chargeContext = ['Timings' => [], 'Modifier' => []];
+                $capacity = $out['Capacity'] ?? ($ammunitionArray['Capacity'] ?? null);
 
-            if ($isBeam) {
-                if ($action->nodeName === 'SWeaponActionFireBeamParams') {
-                    $damage = $this->calculateBeamDamage($action);
-                    $mode['DamagePerShot'] = 0;
-                    $mode['DamagePerSecond'] = $this->roundStat($damage['Total']);
-                    $mode['Alpha'] = 0;
+                if ($isBeam) {
+                    if ($fireAction->nodeName === 'SWeaponActionFireBeamParams') {
+                        $damage = $this->calculateBeamDamage($fireAction);
+                        $mode['DamagePerShot'] = 0;
+                        $mode['DamagePerSecond'] = $this->roundStat($damage['Total']);
+                        $mode['Alpha'] = 0;
+                        $mode['Dps'] = $mode['DamagePerSecond'];
+
+                        if ($capacity !== null) {
+                            $mode['MaxDamagePerMagazine'] = $this->roundStat($damage['Total'] * (float) $capacity);
+                        }
+
+                        foreach ($damage['ByType'] as $type => $value) {
+                            $mode['Dps'.$type] = $this->roundStat($value);
+                        }
+
+                        foreach ($damage['ByType'] as $type => $value) {
+                            $mode['Alpha'.$type] = 0;
+                        }
+                    }
+                } else {
+                    $launchParams = $this->extractLauncherParams($fireAction);
+                    $chargeContext = $this->extractChargeContext($fireAction);
+                    $damageMultiplier = $this->extractDamageMultiplier($launchParams, $chargeContext['Modifier']);
+
+                    $pellets = (float) ($mode['PelletsPerShot'] ?? 0);
+
+                    // Fire actions carrying projectileType="Secondary" draw their damage from the magazine's secondary ammo record
+                    $modeAmmunition = $ammunitionArray;
+                    if ($launchParams?->get('@projectileType') === 'Secondary') {
+                        $modeAmmunition = new Ammunition($this->item, secondary: true)->toArray() ?? $ammunitionArray;
+                    }
+
+                    $damage = $this->calculateDamage($modeAmmunition, $pellets, $damageMultiplier);
+
+                    $rpm = $this->calculateEffectiveRpm($mode['RoundsPerMinute'] ?? null, $fireAction, $chargeContext['Modifier']);
+                    if ($rpm !== null) {
+                        $mode['RoundsPerMinute'] = $this->roundStat($rpm);
+                    }
+
+                    $mode['DamagePerShot'] = $this->roundStat($damage['Total'], 3);
+                    $mode['DamagePerSecond'] = $this->roundStat($this->calculateDamagePerSecond($damage['Total'], $mode['RoundsPerMinute'] ?? null));
+                    $mode['Alpha'] = $this->roundStat($damage['Total']);
                     $mode['Dps'] = $mode['DamagePerSecond'];
 
-                    $capacity = $out['Capacity'] ?? ($ammunitionArray['Capacity'] ?? null);
                     if ($capacity !== null) {
                         $mode['MaxDamagePerMagazine'] = $this->roundStat($damage['Total'] * (float) $capacity);
                     }
 
-                    foreach ($damage['ByType'] as $type => $value) {
+                    foreach ($this->buildDamagePerSecondByType($damage['ByType'], $mode['RoundsPerMinute'] ?? null) as $type => $value) {
                         $mode['Dps'.$type] = $this->roundStat($value);
                     }
 
                     foreach ($damage['ByType'] as $type => $value) {
-                        $mode['Alpha'.$type] = 0;
+                        $mode['Alpha'.$type] = $this->roundStat($value, 3);
                     }
                 }
-            } else {
-                $launchParams = $this->extractLauncherParams($action);
-                $chargeContext = $this->extractChargeContext($action);
-                $damageMultiplier = $this->extractDamageMultiplier($launchParams, $chargeContext['Modifier']);
 
-                $pellets = (float) ($mode['PelletsPerShot'] ?? 0);
-                $damage = $this->calculateDamage($ammunitionArray, $pellets, $damageMultiplier);
-
-                $rpm = $this->calculateEffectiveRpm($mode['RoundsPerMinute'] ?? null, $action, $chargeContext['Modifier']);
-                if ($rpm !== null) {
-                    $mode['RoundsPerMinute'] = $this->roundStat($rpm);
+                $spread = $this->extractSpread($fireAction);
+                if ($spread !== []) {
+                    $mode['Spread'] = $spread;
+                    $mode['AdsSpread'] = $this->extractAdsSpread($weapon, $spread);
                 }
 
-                $mode['DamagePerShot'] = $this->roundStat($damage['Total'], 3);
-                $mode['DamagePerSecond'] = $this->roundStat($this->calculateDamagePerSecond($damage['Total'], $mode['RoundsPerMinute'] ?? null));
-                $mode['Alpha'] = $this->roundStat($damage['Total']);
-                $mode['Dps'] = $mode['DamagePerSecond'];
-
-                $capacity = $out['Capacity'] ?? ($ammunitionArray['Capacity'] ?? null);
-                if ($capacity !== null) {
-                    $mode['MaxDamagePerMagazine'] = $this->roundStat($damage['Total'] * (float) $capacity);
+                $spin = $this->extractSpinTimes($fireAction);
+                if ($spin !== []) {
+                    $mode['BarrelSpinTime'] = $spin;
                 }
 
-                foreach ($this->buildDamagePerSecondByType($damage['ByType'], $mode['RoundsPerMinute'] ?? null) as $type => $value) {
-                    $mode['Dps'.$type] = $this->roundStat($value);
+                if ($chargeContext['Timings'] !== []) {
+                    $mode['Charge'] = $chargeContext['Timings'];
                 }
 
-                foreach ($damage['ByType'] as $type => $value) {
-                    $mode['Alpha'.$type] = $this->roundStat($value, 3);
+                if ($chargeContext['Modifier'] !== []) {
+                    $mode['ChargeModifier'] = $chargeContext['Modifier'];
                 }
+
+                $out['RateOfFire'] ??= $mode['RoundsPerMinute'] ?? null;
+
+                $out['Modes'][] = $mode;
             }
-
-            $spread = $this->extractSpread($action);
-            if ($spread !== []) {
-                $mode['Spread'] = $spread;
-                $mode['AdsSpread'] = $this->extractAdsSpread($weapon, $spread);
-            }
-
-            $spin = $this->extractSpinTimes($action);
-            if ($spin !== []) {
-                $mode['BarrelSpinTime'] = $spin;
-            }
-
-            if ($chargeContext['Timings'] !== []) {
-                $mode['Charge'] = $chargeContext['Timings'];
-            }
-
-            if ($chargeContext['Modifier'] !== []) {
-                $mode['ChargeModifier'] = $chargeContext['Modifier'];
-            }
-
-            $out['RateOfFire'] ??= $mode['RoundsPerMinute'] ?? null;
-
-            $out['Modes'][] = $mode;
         }
 
         $consumption = $out['Consumption'];
@@ -142,6 +150,33 @@ abstract class AbstractWeapon extends BaseFormat
         }
 
         return $this->removeNullValues($out);
+    }
+
+    /**
+     * Dynamic-condition wrappers like Volt weapons hide the real fire actions inside conditionalWeaponActions ... weaponAction and defaultWeaponAction.
+     * This flattens them so each inner action becomes its own mode.
+     *
+     * @return list<Element>
+     */
+    private function expandFireAction(Element $action): array
+    {
+        if ($action->nodeName !== 'SWeaponActionDynamicConditionParams') {
+            return [$action];
+        }
+
+        $actions = [];
+
+        foreach ($action->get('conditionalWeaponActions')?->children() ?? [] as $conditional) {
+            foreach ($conditional->get('weaponAction')?->children() ?? [] as $inner) {
+                $actions[] = $inner;
+            }
+        }
+
+        foreach ($action->get('defaultWeaponAction')?->children() ?? [] as $inner) {
+            $actions[] = $inner;
+        }
+
+        return $actions;
     }
 
     private function extractLauncherParams(Element $action): ?Element

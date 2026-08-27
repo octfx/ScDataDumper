@@ -4,11 +4,18 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
+use DOMNode;
+use Octfx\ScDataDumper\DocumentTypes\RootDocument;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 use Octfx\ScDataDumper\Helper\Element;
 
 final class Ammunition extends BaseFormat
 {
+    public function __construct(RootDocument|Element|DOMNode|null $item, private readonly bool $secondary = false)
+    {
+        parent::__construct($item);
+    }
+
     public function toArray(): ?array
     {
         if (! $this->canTransform()) {
@@ -16,7 +23,9 @@ final class Ammunition extends BaseFormat
         }
 
         $magazine = $this->item->getMagazine();
-        $ammo = $this->item->getAmmoParams() ?? $magazine?->getAmmoParams();
+        $ammo = $this->secondary
+            ? ($this->item->getSecondaryAmmoParams() ?? $magazine?->getSecondaryAmmoParams())
+            : ($this->item->getAmmoParams() ?? $magazine?->getAmmoParams());
 
         if ($ammo === null) {
             return null;
@@ -98,7 +107,9 @@ final class Ammunition extends BaseFormat
 
     public function canTransform(): bool
     {
-        if ($this->has('Components/SAmmoContainerComponentParams@ammoParamsRecord')) {
+        if ($this->has($this->secondary
+            ? 'Components/SAmmoContainerComponentParams@secondaryAmmoParamsRecord'
+            : 'Components/SAmmoContainerComponentParams@ammoParamsRecord')) {
             return true;
         }
 
