@@ -421,6 +421,36 @@ final class ManufacturerServiceResolverTest extends ScDataTestCase
         self::assertSame('xx-uuid', $result['uuid']);
     }
 
+    public function test_resolve_for_entity_returns_null_for_uncurated_paint_logo(): void
+    {
+        // Paints reference paintcolorlogos icon-holder records that manufacturers.json
+        // deliberately drops. Uncurated -> null (unknown manufacturer), never the
+        // imposter uuid -- and never a resolution via a copy-pasted name token
+        // (paint_basher_*_logo.xml carries @manufacturer_NameRSI on a Greycat paint).
+        $placeholder = $this->writeManufacturerXml('paintcolorlogos/paint_x_logo.xml', 'Paint_X_Logo', '', 'logo-uuid', '@LOC_PLACEHOLDER');
+        $copied = $this->writeManufacturerXml('paintcolorlogos/paint_y_logo.xml', 'Paint_Y_Logo', '', 'logo2-uuid', '@manufacturer_NameRSI');
+        $service = $this->bootServiceWithManufacturers(['logo-uuid' => $placeholder, 'logo2-uuid' => $copied]);
+
+        self::assertNull($service->resolveForEntity($service->load($placeholder), null));
+        self::assertNull($service->resolveForEntity($service->load($copied), null));
+    }
+
+    public function test_resolve_for_entity_curated_fact_overrides_paint_logo(): void
+    {
+        $this->useWikiManufacturers(['KRIG' => 'Kruger Intergalactic']);
+
+        $krig = $this->writeManufacturerXml('scitemmanufacturer.krig.xml', 'KRIG', 'KRIG', 'krig-uuid', '@manufacturer_NameKRIG');
+        $logo = $this->writeManufacturerXml('paintcolorlogos/paint_x_logo.xml', 'Paint_X_Logo', '', 'logo-uuid', '@LOC_PLACEHOLDER');
+        $service = $this->bootServiceWithManufacturers(['krig-uuid' => $krig, 'logo-uuid' => $logo]);
+        $mfr = $service->load($logo);
+
+        $result = $service->resolveForEntity($mfr, 'KRIG');
+
+        self::assertSame('KRIG', $result['code']);
+        self::assertSame('Kruger Intergalactic', $result['name']);
+        self::assertSame('krig-uuid', $result['uuid']);
+    }
+
     public function test_canonical_iterator_yields_manufacturers_with_non_manufacturer_name_tokens(): void
     {
         // Hangar/shop brands (Revel & York, Self-Land) carry code + uuid but use

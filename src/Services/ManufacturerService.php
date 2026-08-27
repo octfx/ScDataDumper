@@ -36,6 +36,9 @@ final class ManufacturerService extends BaseService
     /** Primary record path per code (mirrors codeToUuid's winner). */
     private array $codeToPrimaryPath = [];
 
+    /** Uuids of paintcolorlogos icon-holder records (paints reference these as "manufacturer"). */
+    private array $paintLogoUuids = [];
+
     /** @var array<string, string> normalized display name -> canonical code */
     private static array $nameToCode = [];
 
@@ -103,6 +106,10 @@ final class ManufacturerService extends BaseService
             // uuid is required; code may be absent on codeless alias records (stor.xml).
             if ($uuid === '') {
                 continue;
+            }
+
+            if (str_contains($path, 'paintcolorlogos')) {
+                $this->paintLogoUuids[$uuid] = true;
             }
 
             $nameKey = $manufacturer->get('Localization@Name', raw: true);
@@ -352,6 +359,13 @@ final class ManufacturerService extends BaseService
             && str_starts_with($rawNameKey, '@manufacturer_')
         ) {
             $canonicalByToken = $this->getCanonicalByNameKey($rawNameKey);
+        }
+
+        // Paints point their manufacturer ref at paintcolorlogos icon-holder records.
+        // Those carry either @LOC_PLACEHOLDER or a copy-pasted real manufacturer token.
+        // Resolve these only via the curated wiki sync
+        if (isset($this->paintLogoUuids[$manufacturer->getUuid()])) {
+            return $wikiCode !== null ? $this->resolveCanonicalByCode($wikiCode) : null;
         }
 
         $canonical = $this->resolveCanonicalFor(
