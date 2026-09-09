@@ -318,7 +318,11 @@ final class VehicleService extends BaseService
 
         /** @var SplFileInfo $file */
         foreach ($iterator as $file) {
-            if ($file->isFile() && $file->getExtension() === 'xml') {
+            if (
+                $file->isFile() && $file->getExtension() === 'xml'
+                // Modifications are not real vehicles + collides with vanduul stinger
+                && ! str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'Modifications'.DIRECTORY_SEPARATOR)
+            ) {
                 $parts = explode('/', $file->getBasename());
                 $name = array_pop($parts);
 
