@@ -44,7 +44,13 @@ trait ItemResolutionTrait
             $entity = $this->itemService->getByClassName($classReference);
         }
 
-        // Cache the result
+        // Loadout entries may point at non-item entities (e.g. UI screen props like "16x9_Screen"
+        // installed on showroom "_display" vehicles). Those have no SAttachableComponentParams and
+        // cannot be formatted as ScUnpacked items, so treat them as unresolved.
+        if ($entity !== null && $entity->getAttachDef() === null) {
+            return null;
+        }
+
         if ($entity !== null && $cacheKey !== null) {
             $this->itemCache[$cacheKey] = $entity;
         }

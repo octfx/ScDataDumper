@@ -341,6 +341,67 @@ final class LoadoutBuilderTest extends ScDataTestCase
         self::assertSame('BED_DEFAULT', $result[0]['Item']['stdItem']['Ports'][0]['InstalledItem']['stdItem']['ClassName']);
     }
 
+    /**
+     * Loadout entries may reference non-item entities (UI screen props like "16x9_Screen")
+     * that have no SAttachableComponentParams. Those must be skipped, not crash Item::toArray().
+     *
+     * @throws JsonException
+     */
+    public function test_build_skips_entities_without_attach_def(): void
+    {
+        $propPath = $this->writeFile(
+            'records/entity/16x9_screen.xml',
+            <<<'XML'
+            <EntityClassDefinition.16X9_SCREEN __type="EntityClassDefinition" __ref="uuid-screen-prop" __path="libs/foundry/records/entityclassdefinition/16x9_screen.xml">
+                <Components>
+                    <SGeometryResourceParams />
+                    <UIOwnerEntityComponentParams />
+                </Components>
+            </EntityClassDefinition.16X9_SCREEN>
+            XML
+        );
+        $seatPath = $this->writeItemFixture('SEAT_DEFAULT', 'uuid-seat-default', 'Seat', 'Pilot', 'Default Seat', 10.0);
+
+        $this->writeCacheFiles(
+            classToPathMap: [
+                'EntityClassDefinition' => [
+                    '16x9_Screen' => $propPath,
+                    'SEAT_DEFAULT' => $seatPath,
+                ],
+            ],
+            uuidToClassMap: [
+                'uuid-screen-prop' => '16x9_Screen',
+                'uuid-seat-default' => 'SEAT_DEFAULT',
+            ],
+            classToUuidMap: [
+                '16x9_Screen' => 'uuid-screen-prop',
+                'SEAT_DEFAULT' => 'uuid-seat-default',
+            ],
+            uuidToPathMap: [
+                'uuid-screen-prop' => $propPath,
+                'uuid-seat-default' => $seatPath,
+            ],
+        );
+        $this->initializeMinimalItemServices();
+
+        $builder = new LoadoutBuilder(ServiceFactory::getItemService(), new ItemClassifierService);
+        $result = $builder->build($this->loadXmlDocument(<<<'XML'
+            <SItemPortLoadoutManualParams>
+                <entries>
+                    <SItemPortLoadoutEntryParams itemPortName="hardpoint_screen" entityClassName="16x9_Screen" />
+                    <SItemPortLoadoutEntryParams itemPortName="seat_mount" entityClassName="SEAT_DEFAULT" />
+                </entries>
+            </SItemPortLoadoutManualParams>
+            XML));
+
+        self::assertCount(2, $result);
+        self::assertSame('hardpoint_screen', $result[0]['portName']);
+        self::assertSame('16x9_Screen', $result[0]['className']);
+        self::assertArrayNotHasKey('Item', $result[0]);
+        self::assertArrayNotHasKey('ItemRaw', $result[0]);
+        self::assertSame('SEAT_DEFAULT', $result[1]['Item']['stdItem']['ClassName']);
+    }
+
     private function loadXmlDocument(string $xml): TestRootDocument
     {
         $path = $this->writeFile('fixtures/loadout.xml', $xml);
