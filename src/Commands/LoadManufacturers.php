@@ -56,7 +56,16 @@ class LoadManufacturers extends AbstractDataCommand
                 // data.json is the label authority: its code+name win over the XML
                 // values so the export matches item output (items emit data.json codes).
                 $xmlCode = (string) ($entry['Code'] ?? '');
-                $canonical = $service->resolveCanonicalByNameOrCode($entry['Name'] ?? null, $xmlCode);
+                $canonical = $service->resolveCanonicalByNameOrCode($entry['Name'] ?? null, $xmlCode !== '' ? $xmlCode : null);
+
+                // Codeless placeholder records (lbco.xml) also have a placeholder
+                // name, so the element suffix is the last identity handle left.
+                if ($canonical === null && $xmlCode === '') {
+                    $elementCode = $manufacturer->getElementCode();
+                    if ($elementCode !== null) {
+                        $canonical = $service->resolveCanonicalByNameOrCode($entry['Name'] ?? null, $elementCode);
+                    }
+                }
                 $entry = $this->applyCanonicalOverride($entry, $canonical);
 
                 // Collapse records sharing a canonical code (GHEX+ARCC -> ARCC).
@@ -115,7 +124,7 @@ class LoadManufacturers extends AbstractDataCommand
         $description = Arr::get($manufacturerArray, 'Localization.Description');
         if (is_string($description)) {
             $description = trim($description);
-            if ($description !== '' && ! str_starts_with($description, '@')) {
+            if ($description !== '' && ! str_starts_with($description, '@') && $description !== '<= PLACEHOLDER =>') {
                 $entry['Description'] = $description;
             }
         }

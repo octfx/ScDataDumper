@@ -139,6 +139,13 @@ final class ManufacturerService extends BaseService
                 $identityCode = $code;
             }
 
+            if ($identityCode === null) {
+                $elementCode = $manufacturer->getElementCode();
+                if ($elementCode !== null && isset(self::$codeToName[$elementCode])) {
+                    $identityCode = $elementCode;
+                }
+            }
+
             $basename = basename($path);
             $isPrimary = str_starts_with($basename, 'scitemmanufacturer.');
 
@@ -374,10 +381,30 @@ final class ManufacturerService extends BaseService
             $wikiCode,
         );
 
+        if ($canonical === null && ($code === null || $code === '')) {
+            $elementCode = $manufacturer->getElementCode();
+            if ($elementCode !== null && isset(self::$codeToName[$elementCode])) {
+                $canonical = [
+                    'code' => $elementCode,
+                    'name' => self::$codeToName[$elementCode],
+                    'uuid' => $this->canonicalUuidForCode($elementCode),
+                ];
+            }
+        }
+
+        $finalCode = $canonical['code'] ?? $canonicalByToken['code'] ?? $code;
+
+        if ($finalCode === null || $finalCode === '') {
+            return null;
+        }
+
         return [
-            'code' => $canonical['code'] ?? $canonicalByToken['code'] ?? $code,
+            'code' => $finalCode,
             'name' => $canonical['name'] ?? $manufacturer->get('Localization@Name'),
-            'uuid' => $canonical['uuid'] ?? $canonicalByToken['uuid'] ?? $manufacturer->getUuid(),
+            'uuid' => $this->canonicalUuidForCode($finalCode)
+                ?? $canonical['uuid']
+                ?? $canonicalByToken['uuid']
+                ?? $manufacturer->getUuid(),
         ];
     }
 

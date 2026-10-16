@@ -530,17 +530,144 @@ final class ManufacturerServiceResolverTest extends ScDataTestCase
         self::assertSame('banu-xml-uuid', $result['uuid']);
     }
 
+    // -- Codeless placeholder records (element-suffix identity) --
+
+    public function test_canonical_iterator_yields_codeless_placeholder_record_with_curated_element_code(): void
+    {
+        // lbco.xml shape: no Code attribute, @LOC_PLACEHOLDER name. The element
+        // suffix LBCO is curated in data.json, so the record must join the
+        // canonical export instead of being dropped (items reference its uuid).
+        $this->useWikiManufacturers(['LBCO' => 'Lightning Bolt Co.']);
+
+        $path = $this->writeManufacturerXml(
+            'lbco.xml',
+            'LBCO',
+            null,
+            'lbco-placeholder-uuid',
+            '@LOC_PLACEHOLDER',
+        );
+
+        $service = $this->bootServiceWithManufacturers(['lbco-placeholder-uuid' => $path]);
+
+        $yielded = array_map(
+            static fn ($doc) => $doc->getUuid(),
+            iterator_to_array($service->canonicalIterator(), false),
+        );
+
+        self::assertContains('lbco-placeholder-uuid', $yielded);
+    }
+
+    public function test_resolve_for_entity_canonicalizes_codeless_placeholder_record(): void
+    {
+        $this->useWikiManufacturers(['LBCO' => 'Lightning Bolt Co.']);
+
+        $path = $this->writeManufacturerXml(
+            'lbco.xml',
+            'LBCO',
+            null,
+            'lbco-placeholder-uuid',
+            '@LOC_PLACEHOLDER',
+        );
+
+        $service = $this->bootServiceWithManufacturers(['lbco-placeholder-uuid' => $path]);
+
+        $result = $service->resolveForEntity($service->load($path), null);
+
+        self::assertSame('LBCO', $result['code']);
+        self::assertSame('Lightning Bolt Co.', $result['name']);
+        self::assertSame('lbco-placeholder-uuid', $result['uuid']);
+    }
+
+    public function test_identity_less_placeholder_record_resolves_to_null_for_entities(): void
+    {
+        // placeholder.xml shape (uuid 9daed090 in live data): no Code, no
+        // @manufacturer_ token, uncurated element suffix. Items referencing it
+        // must fall back to their Unknown default instead of a dangling uuid.
+        $path = $this->writeManufacturerXml(
+            'placeholder.xml',
+            'PLACEHOLDER',
+            null,
+            'placeholder-uuid',
+            '@LOC_PLACEHOLDER',
+        );
+
+        $service = $this->bootServiceWithManufacturers(['placeholder-uuid' => $path]);
+
+        self::assertNull($service->resolveForEntity($service->load($path), null));
+    }
+
+    public function test_alias_record_joins_on_primary_record_uuid(): void
+    {
+        // asd_lo.xml shape: Code=ASD (aliased to ASAD) while a primary ASAD
+        // record exists. The entity must reference the exported primary uuid,
+        // not the alias's own -- the canonical export collapses the alias away.
+        $this->useWikiManufacturers(['ASAD' => 'Associated Sciences & Development']);
+
+        $primary = $this->writeManufacturerXml(
+            'scitemmanufacturer.asad.xml',
+            'ASAD',
+            'ASAD',
+            'primary-asad-uuid',
+        );
+        $alias = $this->writeManufacturerXml(
+            'asd_lo.xml',
+            'ASD_LO',
+            'ASD',
+            'alias-asd-uuid',
+        );
+
+        $service = $this->bootServiceWithManufacturers([
+            'primary-asad-uuid' => $primary,
+            'alias-asd-uuid' => $alias,
+        ]);
+
+        $result = $service->resolveForEntity($service->load($alias), null);
+
+        self::assertSame('ASAD', $result['code']);
+        self::assertSame('primary-asad-uuid', $result['uuid']);
+    }
+
+    public function test_uncurated_element_suffix_stays_dropped_from_canonical_iterator(): void
+    {
+        // Shop/paint-logo shape: same codeless placeholder form, but the suffix is
+        // not curated -- must stay dropped so canonical exports stay clean.
+        $this->useWikiManufacturers(['LBCO' => 'Lightning Bolt Co.']);
+
+        $path = $this->writeManufacturerXml(
+            'shop_kelto.xml',
+            'Shop_KelTo',
+            null,
+            'shop-kelto-uuid',
+            '@LOC_PLACEHOLDER',
+        );
+
+        $service = $this->bootServiceWithManufacturers(['shop-kelto-uuid' => $path]);
+
+        $yielded = array_map(
+            static fn ($doc) => $doc->getUuid(),
+            iterator_to_array($service->canonicalIterator(), false),
+        );
+
+        self::assertNotContains('shop-kelto-uuid', $yielded);
+
+        // Same contract as placeholder.xml: no identity -> null, callers use
+        // their Unknown default.
+        self::assertNull($service->resolveForEntity($service->load($path), null));
+    }
+
     private function writeManufacturerXml(
         string $fileName,
         string $className,
-        string $code,
+        ?string $code,
         string $uuid,
         string $nameKey = '@manufacturer_NameRSI',
     ): string {
+        $codeAttr = $code === null ? '' : sprintf(' Code="%s"', $code);
+
         return $this->writeFile(
             "records/scitemmanufacturer/{$fileName}",
             <<<XML
-            <SCItemManufacturer.{$className} Code="{$code}" __type="SCItemManufacturer" __ref="{$uuid}" __path="libs/foundry/records/scitemmanufacturer/{$fileName}">
+            <SCItemManufacturer.{$className}{$codeAttr} __type="SCItemManufacturer" __ref="{$uuid}" __path="libs/foundry/records/scitemmanufacturer/{$fileName}">
                 <Localization Name="{$nameKey}" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY" __type="SCItemLocalization">
                     <displayFeatures __type="SCExtendedLocalizationLevelParams" />
                 </Localization>
