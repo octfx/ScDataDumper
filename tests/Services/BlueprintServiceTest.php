@@ -208,7 +208,7 @@ final class BlueprintServiceTest extends ScDataTestCase
         $service = new BlueprintService($this->tempDir);
         $service->initialize();
 
-        $blueprints = iterator_to_array($service->iterator());
+        $blueprints = array_values(iterator_to_array($service->iterator()));
 
         self::assertSame(1, $service->count());
         self::assertCount(1, $blueprints);

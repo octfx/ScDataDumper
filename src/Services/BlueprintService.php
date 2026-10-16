@@ -4,27 +4,24 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Services;
 
-use Generator;
-use JsonException;
 use Octfx\ScDataDumper\DocumentTypes\BlueprintPoolRecord;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingBlueprintRecord;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingGlobalParams;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
-use RuntimeException;
 use SplFileInfo;
 
-final class BlueprintService extends BaseService
+/**
+ * @extends DocumentPathService<CraftingBlueprintRecord>
+ */
+final class BlueprintService extends DocumentPathService
 {
-    /**
-     * @var array<string, string>
-     */
-    private array $blueprintPathsByClass = [];
+    protected const CACHE_LIMIT = 200;
 
     /**
-     * @var array<string, string>
+     * @var array<string, CraftingBlueprintRecord>
      */
-    private array $blueprintPathsByUuid = [];
+    protected static array $documentCache = [];
 
     /**
      * @var array<string, true>
@@ -50,31 +47,10 @@ final class BlueprintService extends BaseService
      */
     private array $dismantleBlacklistEntityClasses = [];
 
-    /**
-     * LRU document cache keyed by file path.     *
-     *
-     * @var array<string, CraftingBlueprintRecord>
-     */
-    protected static array $documentCache = [];
-
-    private const CACHE_LIMIT = 200;
-
-    public static function resetDocumentCache(): void
-    {
-        self::$documentCache = [];
-    }
-
-    public function count(): int
-    {
-        return count($this->blueprintPathsByUuid);
-    }
-
-    /**
-     * @throws JsonException
-     */
     public function initialize(): void
     {
-        $this->loadBlueprintPaths();
+        parent::initialize();
+
         $this->loadDismantleBlueprint();
         $this->loadDefaultBlueprintWhitelist();
         $this->loadDismantleBlacklists();
@@ -94,48 +70,6 @@ final class BlueprintService extends BaseService
             'efficiency' => $this->dismantleEfficiency,
             'time_seconds' => $this->dismantleTimeSeconds,
         ];
-    }
-
-    public function iterator(): Generator
-    {
-        foreach ($this->blueprintPathsByClass as $path) {
-            yield $this->load($path);
-        }
-    }
-
-    public function getByReference(?string $uuid): ?CraftingBlueprintRecord
-    {
-        $normalizedUuid = $this->normalizeUuid($uuid);
-
-        if ($normalizedUuid === null || ! isset($this->blueprintPathsByUuid[$normalizedUuid])) {
-            return null;
-        }
-
-        return $this->load($this->blueprintPathsByUuid[$normalizedUuid]);
-    }
-
-    public function load(string $filePath): CraftingBlueprintRecord
-    {
-        if (! file_exists($filePath)) {
-            throw new RuntimeException(sprintf('File %s does not exist or is not readable.', $filePath));
-        }
-
-        $cacheKey = sprintf(
-            '%d:%s',
-            $this->isReferenceHydrationEnabled() ? 1 : 0,
-            $filePath
-        );
-
-        $document = self::cacheGet(self::$documentCache, $cacheKey);
-        if ($document instanceof CraftingBlueprintRecord) {
-            return $document;
-        }
-
-        $document = $this->loadDocument($filePath, CraftingBlueprintRecord::class);
-        $document->checkValidity();
-        self::cachePut(self::$documentCache, $cacheKey, $document, self::CACHE_LIMIT);
-
-        return $document;
     }
 
     public function isDefaultBlueprint(string $uuid): bool
@@ -159,34 +93,19 @@ final class BlueprintService extends BaseService
         return $this->rewardPoolsByBlueprint[$normalizedUuid] ?? [];
     }
 
-    /**
-     * @throws JsonException
-     */
-    private function loadBlueprintPaths(): void
+    protected function documentClass(): string
     {
-        $classToPathMap = json_decode(file_get_contents($this->classToPathMapPath), true, 512, JSON_THROW_ON_ERROR);
-        $blueprintPaths = $classToPathMap['CraftingBlueprintRecord'] ?? [];
+        return CraftingBlueprintRecord::class;
+    }
 
-        $this->blueprintPathsByClass = [];
-        $this->blueprintPathsByUuid = [];
+    protected function cacheMapKey(): string
+    {
+        return 'CraftingBlueprintRecord';
+    }
 
-        foreach ($blueprintPaths as $className => $path) {
-            if (! is_string($className) || ! is_string($path) || ! $this->isModernCreationBlueprintPath($path)) {
-                continue;
-            }
-
-            $uuid = self::$classToUuidMap[$className] ?? null;
-            $normalizedUuid = $this->normalizeUuid($uuid);
-
-            if ($normalizedUuid === null) {
-                continue;
-            }
-
-            $this->blueprintPathsByClass[$className] = $path;
-            $this->blueprintPathsByUuid[$normalizedUuid] = $path;
-        }
-
-        ksort($this->blueprintPathsByClass);
+    protected function acceptsPath(string $path, ?string $normalizedUuid): bool
+    {
+        return $normalizedUuid !== null && $this->isModernCreationBlueprintPath($path);
     }
 
     private function loadDismantleBlueprint(): void
@@ -373,16 +292,5 @@ final class BlueprintService extends BaseService
         $document->checkValidity();
 
         return $document;
-    }
-
-    private function normalizeUuid(?string $uuid): ?string
-    {
-        if (! is_string($uuid)) {
-            return null;
-        }
-
-        $normalizedUuid = strtolower(trim($uuid));
-
-        return $normalizedUuid === '' ? null : $normalizedUuid;
     }
 }

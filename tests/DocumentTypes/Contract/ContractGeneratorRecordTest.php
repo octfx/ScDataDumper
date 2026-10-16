@@ -264,7 +264,7 @@ final class ContractGeneratorRecordTest extends ScDataTestCase
         $service = ServiceFactory::getContractGeneratorService();
         self::assertSame(1, $service->count());
 
-        $generators = iterator_to_array($service->iterator());
+        $generators = array_values(iterator_to_array($service->iterator()));
         self::assertCount(1, $generators);
         self::assertInstanceOf(ContractGeneratorRecord::class, $generators[0]);
         self::assertSame(self::GENERATOR_UUID, $generators[0]->getUuid());

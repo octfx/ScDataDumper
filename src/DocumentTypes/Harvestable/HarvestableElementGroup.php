@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\DocumentTypes\Harvestable;
 
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
-use Octfx\ScDataDumper\Helper\Element;
 
 final class HarvestableElementGroup extends RootDocument
 {
@@ -24,21 +23,7 @@ final class HarvestableElementGroup extends RootDocument
      */
     public function getHarvestableElements(): array
     {
-        $elements = [];
-
-        foreach ($this->getAll('harvestables/HarvestableElement') as $node) {
-            if (! $node instanceof Element) {
-                continue;
-            }
-
-            $element = HarvestableElement::fromNode($node->getNode(), $this->isReferenceHydrationEnabled());
-
-            if ($element instanceof HarvestableElement) {
-                $elements[] = $element;
-            }
-        }
-
-        return $elements;
+        return $this->hydrateAll('harvestables/HarvestableElement', HarvestableElement::class, $this->isReferenceHydrationEnabled());
     }
 
     public function getTotalRelativeProbability(): ?float

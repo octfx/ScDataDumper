@@ -128,19 +128,7 @@ class StarMapObject extends RootDocument
      */
     public function getAmenities(): array
     {
-        $amenities = [];
-
-        foreach ($this->getAll('amenities/Reference/Amenity') as $amenityNode) {
-            if (! $amenityNode instanceof Element) {
-                continue;
-            }
-
-            $amenity = StarMapAmenityTypeEntry::fromNode($amenityNode->getNode());
-
-            if ($amenity instanceof StarMapAmenityTypeEntry) {
-                $amenities[] = $amenity;
-            }
-        }
+        $amenities = $this->hydrateAll('amenities/Reference/Amenity', StarMapAmenityTypeEntry::class);
 
         return $this->resolveRelatedDocuments(
             $amenities,

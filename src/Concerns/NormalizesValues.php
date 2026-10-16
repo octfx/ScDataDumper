@@ -9,13 +9,43 @@ use Octfx\ScDataDumper\Formats\BaseFormat;
 
 trait NormalizesValues
 {
-    protected static array $pascalCaseAcronyms = [
+    protected const PASCAL_CASE_ACRONYMS = [
         'Uuid' => 'UUID',
         'Scu' => 'SCU',
         'Ifcs' => 'IFCS',
         'Emp' => 'EMP',
         'StdItem' => 'stdItem',
     ];
+
+    protected function removeNullValues(array $data): array
+    {
+        foreach ($data as $key => &$value) {
+            if (is_array($value)) {
+                $value = $this->removeNullValues($value);
+
+                if ($value === []) {
+                    unset($data[$key]);
+
+                    continue;
+                }
+            }
+
+            if ($value === null) {
+                unset($data[$key]);
+            }
+        }
+
+        return $data;
+    }
+
+    protected function castBool(mixed $value): ?bool
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        return (bool) $value;
+    }
 
     protected function normalizeString(mixed $value): ?string
     {
@@ -71,12 +101,12 @@ trait NormalizesValues
         }
 
         if (ctype_upper($value[0]) && ! str_contains($value, '_') && ! str_contains($value, '-')) {
-            return self::$pascalCaseAcronyms[$value] ?? $value;
+            return self::PASCAL_CASE_ACRONYMS[$value] ?? $value;
         }
 
         $result = Str::pascal($value);
 
-        $result = self::$pascalCaseAcronyms[$result] ?? $result;
+        $result = self::PASCAL_CASE_ACRONYMS[$result] ?? $result;
 
         if (str_ends_with($result, 'Uuid')) {
             $result = substr($result, 0, -4).'UUID';

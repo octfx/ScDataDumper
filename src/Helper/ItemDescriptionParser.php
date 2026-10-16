@@ -5,9 +5,45 @@ namespace Octfx\ScDataDumper\Helper;
 class ItemDescriptionParser
 {
     /**
-     * Configuration instance for the parser
+     * Manufacturer name normalizations: description text => canonical name
      */
-    private static ?ItemDescriptionParserConfig $config = null;
+    private const MANUFACTURER_FIXES = [
+        'Lighting Power Ltd.' => 'Lightning Power Ltd.',
+        'MISC' => 'Musashi Industrial & Starflight Concern',
+        'Nav-E7' => 'Nav-E7 Gadgets',
+        'RSI' => 'Roberts Space Industries',
+        'YORM' => 'Yorm',
+    ];
+
+    /**
+     * Patterns that indicate placeholder descriptions
+     */
+    private const PLACEHOLDER_PATTERNS = [
+        '/^<= PLACEHOLDER =>$/i',
+        '/\[PH\]/i',
+        '/\{PH\}/i',
+        '/PLACEHOLDER/i',
+    ];
+
+    /**
+     * Newline sequences to normalize to \n
+     */
+    private const NEWLINE_FORMATS = ["\r\n", "\r", '\n', '\\n'];
+
+    /**
+     * Unicode character replacements
+     */
+    private const UNICODE_REPLACEMENTS = [
+        "\u{2018}" => "'",
+        "\u{2019}" => "'",
+        "\u{201C}" => '"',
+        "\u{201D}" => '"',
+        '`' => "'",
+        "\u{00B4}" => "'",
+        "\u{00A0}" => ' ',
+        "\u{2013}" => '-',
+        "\u{2014}" => '-',
+    ];
 
     /**
      * Standard keywords extracted from SC item descriptions
@@ -84,22 +120,6 @@ class ItemDescriptionParser
     ];
 
     /**
-     * Set custom configuration for the parser
-     */
-    public static function setConfig(ItemDescriptionParserConfig $config): void
-    {
-        self::$config = $config;
-    }
-
-    /**
-     * Get parser configuration (lazy initialization)
-     */
-    private static function getConfig(): ItemDescriptionParserConfig
-    {
-        return self::$config ??= new ItemDescriptionParserConfig;
-    }
-
-    /**
      * Parse structured data from item description text
      * Automatically applies manufacturer name corrections
      *
@@ -111,13 +131,14 @@ class ItemDescriptionParser
      *                                Can be:
      *                                - Array of strings: ['Size', 'Grade'] => outputs same keys
      *                                - Associative array: ['Temp. Rating' => 'temp_rating'] => maps to custom keys
+     * @param  array|null  $manufacturerFixes  Override for MANUFACTURER_FIXES (used by tests)
      * @return array {
      *
      * @type array|null $data Extracted key-value pairs (null if no data found)
      * @type string $description Cleaned description with data section removed
      *              }
      */
-    public static function parse(string $description, ?array $keywords = null): array
+    public static function parse(string $description, ?array $keywords = null, ?array $manufacturerFixes = null): array
     {
         if ($keywords === null) {
             $keywords = self::STANDARD_KEYWORDS;
@@ -155,7 +176,7 @@ class ItemDescriptionParser
         );
 
         if ($match === false || $match === 0) {
-            if (self::getConfig()->isPlaceholder($description)) {
+            if (self::isPlaceholder($description)) {
                 return [
                     'description' => '',
                     'data' => null,
@@ -179,9 +200,15 @@ class ItemDescriptionParser
         }
 
         // manufacturer name corrections
+        $manufacturerFixes ??= self::MANUFACTURER_FIXES;
+
         foreach (['manufacturer', 'Manufacturer'] as $key) {
             if (! empty($out[$key])) {
-                $fixed = self::getConfig()->getManufacturerFix($out[$key]);
+                $name = $out[$key];
+                $fixed = $manufacturerFixes[$name] ?? array_find(
+                    $manufacturerFixes,
+                    fn ($value, $fixKey) => strcasecmp($fixKey, $name) === 0
+                );
                 if ($fixed !== null) {
                     $out[$key] = $fixed;
                 }
@@ -286,6 +313,16 @@ class ItemDescriptionParser
     }
 
     /**
+     * Check if description is a placeholder
+     *
+     * @param  string  $description  Description text to check
+     */
+    private static function isPlaceholder(string $description): bool
+    {
+        return array_any(self::PLACEHOLDER_PATTERNS, fn ($pattern) => preg_match($pattern, $description));
+    }
+
+    /**
      * Normalize description text
      * - Converts all newline formats to \n
      * - Normalizes Unicode quotes, dashes, and spaces
@@ -293,9 +330,7 @@ class ItemDescriptionParser
      */
     private static function normalizeText(string $description): string
     {
-        $config = self::getConfig();
-
-        foreach ($config->newlineFormats as $format) {
+        foreach (self::NEWLINE_FORMATS as $format) {
             $description = str_replace($format, "\n", $description);
         }
 
@@ -306,8 +341,8 @@ class ItemDescriptionParser
         $description = preg_replace('/\n[ \t\x{00A0}]+\n/u', "\n\n", $description);
 
         $description = str_replace(
-            array_keys($config->unicodeReplacements),
-            array_values($config->unicodeReplacements),
+            array_keys(self::UNICODE_REPLACEMENTS),
+            array_values(self::UNICODE_REPLACEMENTS),
             $description
         );
 

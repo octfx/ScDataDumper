@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\DocumentTypes\Mining;
 
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
-use Octfx\ScDataDumper\Helper\Element;
 
 final class MineableComposition extends RootDocument
 {
@@ -24,20 +23,6 @@ final class MineableComposition extends RootDocument
      */
     public function getParts(): array
     {
-        $parts = [];
-
-        foreach ($this->getAll('compositionArray/MineableCompositionPart') as $node) {
-            if (! $node instanceof Element) {
-                continue;
-            }
-
-            $part = MineableCompositionPart::fromNode($node->getNode(), $this->isReferenceHydrationEnabled());
-
-            if ($part instanceof MineableCompositionPart) {
-                $parts[] = $part;
-            }
-        }
-
-        return $parts;
+        return $this->hydrateAll('compositionArray/MineableCompositionPart', MineableCompositionPart::class, $this->isReferenceHydrationEnabled());
     }
 }

@@ -270,23 +270,35 @@ final class Item extends BaseFormat
         ];
     }
 
-    public static function convertToScu(EntityClassDefinition|Element|null $item): ?float
+    /**
+     * @return array{value: mixed, exponent: int}|null Null when the node carries no cargo unit element
+     */
+    public static function cargoUnitConversion(EntityClassDefinition|Element|null $node): ?array
     {
-        if (! $item) {
+        if (! $node) {
             return null;
         }
 
-        $scu = null;
+        foreach ([
+            ['SStandardCargoUnit@standardCargoUnits', 0],
+            ['SCentiCargoUnit@centiSCU', 2],
+            ['SMicroCargoUnit@microSCU', 6],
+        ] as [$path, $exponent]) {
+            $value = $node->get($path);
 
-        if ($item->get('SStandardCargoUnit@standardCargoUnits') !== null) {
-            $scu = $item->get('SStandardCargoUnit@standardCargoUnits');
-        } elseif ($item->get('SCentiCargoUnit@centiSCU') !== null) {
-            $scu = $item->get('SCentiCargoUnit@centiSCU') * (10 ** -2);
-        } elseif ($item->get('SMicroCargoUnit@microSCU') !== null) {
-            $scu = $item->get('SMicroCargoUnit@microSCU') * (10 ** -6);
+            if ($value !== null) {
+                return ['value' => $value, 'exponent' => $exponent];
+            }
         }
 
-        return $scu;
+        return null;
+    }
+
+    public static function convertToScu(EntityClassDefinition|Element|null $item): ?float
+    {
+        $conversion = self::cargoUnitConversion($item);
+
+        return $conversion === null ? null : $conversion['value'] * (10 ** -$conversion['exponent']);
     }
 
     public static function buildTypeName(?string $major, ?string $minor): string

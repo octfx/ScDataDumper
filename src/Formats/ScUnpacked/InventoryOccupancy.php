@@ -113,38 +113,22 @@ final class InventoryOccupancy extends BaseFormat
 
     private function buildVolume(Element|EntityClassDefinition|null $node): ?array
     {
-        if ($node === null) {
+        $conversion = Item::cargoUnitConversion($node);
+
+        if ($conversion === null) {
             return null;
         }
 
-        $scu = null;
-        $source = null;
-        $raw = null;
-
-        if ($node->get('SStandardCargoUnit@standardCargoUnits') !== null) {
-            $raw = $node->get('SStandardCargoUnit@standardCargoUnits');
-            $source = 'SCU';
-            $scu = $raw;
-        } elseif ($node->get('SCentiCargoUnit@centiSCU') !== null) {
-            $raw = $node->get('SCentiCargoUnit@centiSCU');
-            $source = 'cSCU';
-            $scu = $raw * (10 ** -2);
-        } elseif ($node->get('SMicroCargoUnit@microSCU') !== null) {
-            $raw = $node->get('SMicroCargoUnit@microSCU');
-            $source = 'µSCU';
-            $scu = $raw * (10 ** -6);
-        }
-
-        if ($scu === null) {
-            return null;
-        }
-
-        $scu = round($scu, 4);
+        $scu = round($conversion['value'] * (10 ** -$conversion['exponent']), 4);
 
         return [
             'SCU' => $scu,
-            'SCUConverted' => $raw,
-            'Unit' => $source,
+            'SCUConverted' => $conversion['value'],
+            'Unit' => match ($conversion['exponent']) {
+                0 => 'SCU',
+                2 => 'cSCU',
+                6 => 'µSCU',
+            },
         ];
     }
 

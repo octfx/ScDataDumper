@@ -42,45 +42,41 @@ class LoadManufacturers extends AbstractDataCommand
 
         $byCanonicalCode = [];
 
-        try {
-            foreach ($service->canonicalIterator() as $manufacturer) {
-                try {
-                    $entry = $this->buildManufacturerExportEntry($manufacturer->toArray());
-                } catch (RuntimeException $e) {
-                    $io->warning(sprintf('Skipped manufacturer: %s', $e->getMessage()));
-                    $io->progressAdvance();
-
-                    continue;
-                }
-
-                // data.json is the label authority: its code+name win over the XML
-                // values so the export matches item output (items emit data.json codes).
-                $xmlCode = (string) ($entry['Code'] ?? '');
-                $canonical = $service->resolveCanonicalByNameOrCode($entry['Name'] ?? null, $xmlCode !== '' ? $xmlCode : null);
-
-                // Codeless placeholder records (lbco.xml) also have a placeholder
-                // name, so the element suffix is the last identity handle left.
-                if ($canonical === null && $xmlCode === '') {
-                    $elementCode = $manufacturer->getElementCode();
-                    if ($elementCode !== null) {
-                        $canonical = $service->resolveCanonicalByNameOrCode($entry['Name'] ?? null, $elementCode);
-                    }
-                }
-                $entry = $this->applyCanonicalOverride($entry, $canonical);
-
-                // Collapse records sharing a canonical code (GHEX+ARCC -> ARCC).
-                // Priority: a record that canonicalizes beats one that doesn't;
-                $canonicalCode = $canonical['code'] ?? $xmlCode;
-                $priority = $canonical === null ? 0 : ($xmlCode === $canonicalCode ? 2 : 1);
-
-                if (! isset($byCanonicalCode[$canonicalCode]) || $priority > $byCanonicalCode[$canonicalCode]['priority']) {
-                    $byCanonicalCode[$canonicalCode] = ['entry' => $entry, 'priority' => $priority];
-                }
-
+        foreach ($service->canonicalIterator() as $manufacturer) {
+            try {
+                $entry = $this->buildManufacturerExportEntry($manufacturer->toArray());
+            } catch (RuntimeException $e) {
+                $io->warning(sprintf('Skipped manufacturer: %s', $e->getMessage()));
                 $io->progressAdvance();
+
+                continue;
             }
-        } catch (RuntimeException $e) {
-            // Ignore
+
+            // data.json is the label authority: its code+name win over the XML
+            // values so the export matches item output (items emit data.json codes).
+            $xmlCode = (string) ($entry['Code'] ?? '');
+            $canonical = $service->resolveCanonicalByNameOrCode($entry['Name'] ?? null, $xmlCode !== '' ? $xmlCode : null);
+
+            // Codeless placeholder records (lbco.xml) also have a placeholder
+            // name, so the element suffix is the last identity handle left.
+            if ($canonical === null && $xmlCode === '') {
+                $elementCode = $manufacturer->getElementCode();
+                if ($elementCode !== null) {
+                    $canonical = $service->resolveCanonicalByNameOrCode($entry['Name'] ?? null, $elementCode);
+                }
+            }
+            $entry = $this->applyCanonicalOverride($entry, $canonical);
+
+            // Collapse records sharing a canonical code (GHEX+ARCC -> ARCC).
+            // Priority: a record that canonicalizes beats one that doesn't;
+            $canonicalCode = $canonical['code'] ?? $xmlCode;
+            $priority = $canonical === null ? 0 : ($xmlCode === $canonicalCode ? 2 : 1);
+
+            if (! isset($byCanonicalCode[$canonicalCode]) || $priority > $byCanonicalCode[$canonicalCode]['priority']) {
+                $byCanonicalCode[$canonicalCode] = ['entry' => $entry, 'priority' => $priority];
+            }
+
+            $io->progressAdvance();
         }
 
         $io->progressFinish();

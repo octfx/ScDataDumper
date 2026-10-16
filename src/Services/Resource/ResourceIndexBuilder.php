@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Services\Resource;
 
+use Octfx\ScDataDumper\Concerns\NormalizesValues;
 use Octfx\ScDataDumper\DocumentTypes\Crafting\CraftingQualityQuantizationRecord;
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\DocumentTypes\Harvestable\HarvestablePreset;
@@ -18,6 +19,8 @@ use RuntimeException;
 
 final readonly class ResourceIndexBuilder
 {
+    use NormalizesValues;
+
     public function __construct(
         private LocalizationService $localizationService,
         private FoundryLookupService $foundryLookupService,
@@ -401,28 +404,5 @@ final readonly class ResourceIndexBuilder
         }
 
         return $this->extractIdentity($resourceType);
-    }
-
-    private function removeNullValues(array $data): array
-    {
-        foreach ($data as $key => &$value) {
-            if (is_array($value)) {
-                $value = $this->removeNullValues($value);
-
-                if ($value === []) {
-                    unset($data[$key]);
-
-                    continue;
-                }
-            }
-
-            if ($value === null) {
-                unset($data[$key]);
-            }
-        }
-
-        unset($value);
-
-        return $data;
     }
 }

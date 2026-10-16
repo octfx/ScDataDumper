@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\DocumentTypes\Reputation;
 
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
-use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class SReputationScopeParams extends RootDocument
@@ -48,19 +47,7 @@ final class SReputationScopeParams extends RootDocument
      */
     public function getStandings(): array
     {
-        $standings = [];
-
-        foreach ($this->getAll('standingMap/standings/Reference/Standing') as $standingNode) {
-            if (! $standingNode instanceof Element) {
-                continue;
-            }
-
-            $standing = SReputationStandingParams::fromNode($standingNode->getNode());
-
-            if ($standing instanceof SReputationStandingParams) {
-                $standings[] = $standing;
-            }
-        }
+        $standings = $this->hydrateAll('standingMap/standings/Reference/Standing', SReputationStandingParams::class);
 
         return $this->resolveRelatedDocuments(
             $standings,

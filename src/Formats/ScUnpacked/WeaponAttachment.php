@@ -362,15 +362,6 @@ final class WeaponAttachment extends BaseFormat
         return $parsed['data']['UtilityClass'] ?? null;
     }
 
-    private function castBool(mixed $value): ?bool
-    {
-        if ($value === null) {
-            return null;
-        }
-
-        return (bool) $value;
-    }
-
     private function normalizeRgbToCssRange(array $rgb): ?array
     {
         if ($rgb === []) {

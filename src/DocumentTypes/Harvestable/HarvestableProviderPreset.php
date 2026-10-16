@@ -121,21 +121,7 @@ final class HarvestableProviderPreset extends RootDocument
      */
     public function getHarvestableGroups(): array
     {
-        $groups = [];
-
-        foreach ($this->getAll('harvestableGroups/HarvestableElementGroup') as $node) {
-            if (! $node instanceof Element) {
-                continue;
-            }
-
-            $group = HarvestableElementGroup::fromNode($node->getNode(), $this->isReferenceHydrationEnabled());
-
-            if ($group instanceof HarvestableElementGroup) {
-                $groups[] = $group;
-            }
-        }
-
-        return $groups;
+        return $this->hydrateAll('harvestableGroups/HarvestableElementGroup', HarvestableElementGroup::class, $this->isReferenceHydrationEnabled());
     }
 
     /**

@@ -6,7 +6,6 @@ namespace Octfx\ScDataDumper\DocumentTypes\Harvestable;
 
 use Octfx\ScDataDumper\DocumentTypes\EntityClassDefinition;
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
-use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class HarvestablePreset extends RootDocument
@@ -48,20 +47,6 @@ final class HarvestablePreset extends RootDocument
      */
     public function getSubHarvestableSlots(): array
     {
-        $slots = [];
-
-        foreach ($this->getAll('subConfigBase/SubHarvestableConfigManual/subConfigManual/subHarvestables/SubHarvestableSlot') as $node) {
-            if (! $node instanceof Element) {
-                continue;
-            }
-
-            $slot = SubHarvestableSlot::fromNode($node->getNode(), $this->isReferenceHydrationEnabled());
-
-            if ($slot instanceof SubHarvestableSlot) {
-                $slots[] = $slot;
-            }
-        }
-
-        return $slots;
+        return $this->hydrateAll('subConfigBase/SubHarvestableConfigManual/subConfigManual/subHarvestables/SubHarvestableSlot', SubHarvestableSlot::class, $this->isReferenceHydrationEnabled());
     }
 }

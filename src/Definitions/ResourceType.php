@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\Definitions;
 
 use DOMDocument;
+use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 
 final class ResourceType extends Element

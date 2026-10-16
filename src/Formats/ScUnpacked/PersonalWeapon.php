@@ -22,23 +22,9 @@ final class PersonalWeapon extends AbstractWeapon
             return $base;
         }
 
-        $alpha = $this->removeNullValues([
-            'Physical' => Arr::get($mode, 'AlphaPhysical'),
-            'Energy' => Arr::get($mode, 'AlphaEnergy'),
-            'Distortion' => Arr::get($mode, 'AlphaDistortion'),
-            'Thermal' => Arr::get($mode, 'AlphaThermal'),
-            'Biochemical' => Arr::get($mode, 'AlphaBiochemical'),
-            'Stun' => Arr::get($mode, 'AlphaStun'),
-        ]);
+        $alpha = $this->removeNullValues($this->damageMapByMode($mode, 'Alpha'));
 
-        $dps = $this->removeNullValues([
-            'Physical' => Arr::get($mode, 'DpsPhysical'),
-            'Energy' => Arr::get($mode, 'DpsEnergy'),
-            'Distortion' => Arr::get($mode, 'DpsDistortion'),
-            'Thermal' => Arr::get($mode, 'DpsThermal'),
-            'Biochemical' => Arr::get($mode, 'DpsBiochemical'),
-            'Stun' => Arr::get($mode, 'DpsStun'),
-        ]);
+        $dps = $this->removeNullValues($this->damageMapByMode($mode, 'Dps'));
 
         $capacity = $base['Capacity'] ?? null;
         $maxPerMag = ($capacity !== null && Arr::get($mode, 'Alpha') !== null)

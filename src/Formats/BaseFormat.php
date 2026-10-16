@@ -211,34 +211,6 @@ abstract class BaseFormat
     }
 
     /**
-     * Recursively removes null values and empty arrays from a data structure
-     * Modifies the array in-place for efficiency
-     *
-     * @param  array  $data  The array to clean
-     * @return array The cleaned array with null and empty array values removed
-     */
-    protected function removeNullValues(array $data): array
-    {
-        foreach ($data as $key => &$value) {
-            if (is_array($value)) {
-                $value = $this->removeNullValues($value);
-
-                if ($value === []) {
-                    unset($data[$key]);
-
-                    continue;
-                }
-            }
-
-            if ($value === null) {
-                unset($data[$key]);
-            }
-        }
-
-        return $data;
-    }
-
-    /**
      * Recursively removes only null values while preserving empty arrays.
      */
     protected function removeNullValuesPreservingEmptyArrays(array $data): array

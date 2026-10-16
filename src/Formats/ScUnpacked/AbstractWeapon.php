@@ -3,6 +3,7 @@
 namespace Octfx\ScDataDumper\Formats\ScUnpacked;
 
 use Exception;
+use Illuminate\Support\Arr;
 use Octfx\ScDataDumper\Formats\BaseFormat;
 use Octfx\ScDataDumper\Helper\Element;
 use Octfx\ScDataDumper\Services\ServiceFactory;
@@ -13,6 +14,23 @@ use Octfx\ScDataDumper\Services\ServiceFactory;
 abstract class AbstractWeapon extends BaseFormat
 {
     protected ?string $elementKey = 'Components/SCItemWeaponComponentParams';
+
+    /**
+     * Six-key damage map pulled from a fire mode via an attribute prefix (Alpha, Dps, ...).
+     *
+     * @param  array<string, mixed>  $mode
+     * @return array<string, mixed>
+     */
+    protected function damageMapByMode(array $mode, string $prefix): array
+    {
+        $result = [];
+
+        foreach (self::$resistanceKeys as $key) {
+            $result[$key] = Arr::get($mode, $prefix.$key);
+        }
+
+        return $result;
+    }
 
     protected function buildBaseWeaponArray(): array
     {

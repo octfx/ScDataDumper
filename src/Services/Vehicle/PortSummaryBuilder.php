@@ -4,7 +4,6 @@ namespace Octfx\ScDataDumper\Services\Vehicle;
 
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
-use Octfx\ScDataDumper\ValueObjects\PortFinderOptions;
 
 /**
  * Build port summary with categorized ports
@@ -218,19 +217,12 @@ final class PortSummaryBuilder
     {
         $predicate = $this->buildPredicate($config);
 
-        $stopPredicate = null;
+        $stop = null;
         if (! empty($config['excludeChildren'])) {
-            $stopPredicate = static fn ($x) => in_array($x['Category'] ?? '', $config['excludeChildren'], true);
+            $stop = static fn ($x) => in_array($x['Category'] ?? '', $config['excludeChildren'], true);
         }
 
-        $options = new PortFinderOptions(
-            stopOnFind: true,
-            stopPredicate: $stopPredicate
-        );
-
-        return $this->portFinder
-            ->findInParts($parts, $predicate, $options)
-            ->map(fn ($x) => $x[0]);
+        return $this->portFinder->findInParts($parts, $predicate, $stop);
     }
 
     /**

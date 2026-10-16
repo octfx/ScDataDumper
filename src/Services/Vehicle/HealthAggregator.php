@@ -3,24 +3,19 @@
 namespace Octfx\ScDataDumper\Services\Vehicle;
 
 use Illuminate\Support\Collection;
-use Octfx\ScDataDumper\ValueObjects\HealthAggregationConfig;
 
 /**
  * Aggregate health data for vehicles
  *
  * Calculates total health, damage before destruction, and damage before detach
- * with configurable filtering for structural vs non-structural parts.
+ * with filtering for structural vs non-structural parts.
  */
 final class HealthAggregator implements VehicleDataCalculator
 {
-    private HealthAggregationConfig $config;
+    /** Port flags marking an ItemPort as non-structural (thrusters, fuel intakes, etc.) */
+    private const EXCLUDED_PORT_FLAGS = ['uneditable', '$uneditable', 'invisible'];
 
-    public function __construct(
-        private readonly StandardisedPartWalker $walker,
-        ?HealthAggregationConfig $config = null
-    ) {
-        $this->config = $config ?? new HealthAggregationConfig;
-    }
+    public function __construct(private readonly StandardisedPartWalker $walker) {}
 
     /**
      * Aggregate health data from parts
@@ -86,9 +81,9 @@ final class HealthAggregator implements VehicleDataCalculator
         $flags = array_map('strtolower', $port['Flags'] ?? []);
         $isItemPort = ! empty($port['PortName']) || ! empty($port['Types']);
 
-        $hasExcludedFlag = ! empty(array_intersect($flags, $this->config->excludedPortFlags));
+        $hasExcludedFlag = ! empty(array_intersect($flags, self::EXCLUDED_PORT_FLAGS));
 
-        return ! ($this->config->skipItemPorts && $isItemPort && $hasExcludedFlag);
+        return ! ($isItemPort && $hasExcludedFlag);
     }
 
     public function canCalculate(VehicleDataContext $context): bool

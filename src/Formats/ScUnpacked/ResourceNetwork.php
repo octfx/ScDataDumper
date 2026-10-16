@@ -35,7 +35,7 @@ final class ResourceNetwork extends BaseFormat
             'Generation' => $this->buildGeneration(),
         ];
 
-        $data = $this->clean($data);
+        $data = $this->removeNullValues($data);
 
         return $data === [] ? null : $data;
     }
@@ -71,7 +71,7 @@ final class ResourceNetwork extends BaseFormat
             ),
         ];
 
-        $data = $this->clean($data);
+        $data = $this->removeNullValues($data);
 
         return $data === [] ? null : $data;
     }
@@ -113,7 +113,7 @@ final class ResourceNetwork extends BaseFormat
             ],
         };
 
-        $parsed = $this->clean($parsed);
+        $parsed = $this->removeNullValues($parsed);
 
         return $parsed === [] ? null : $parsed;
     }
@@ -200,7 +200,7 @@ final class ResourceNetwork extends BaseFormat
             $data += $rate;
         }
 
-        return $this->clean($data);
+        return $this->removeNullValues($data);
     }
 
     private function parseResourceRate(?Element $element): ?array
@@ -327,27 +327,6 @@ final class ResourceNetwork extends BaseFormat
         }
 
         return $data === [] ? null : $data;
-    }
-
-    private function clean($value)
-    {
-        if (is_array($value)) {
-            foreach ($value as $key => $item) {
-                $cleaned = $this->clean($item);
-
-                $isEmptyArray = is_array($cleaned) && $cleaned === [];
-
-                if ($cleaned === null || $isEmptyArray) {
-                    unset($value[$key]);
-                } else {
-                    $value[$key] = $cleaned;
-                }
-            }
-
-            return $value;
-        }
-
-        return $value;
     }
 
     private function buildUsage(): ?array

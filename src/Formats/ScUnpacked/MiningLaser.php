@@ -80,7 +80,6 @@ final class MiningLaser extends BaseFormat
                 'AllChargeRates' => $laserParams?->get('filterParams/filterModifier/FloatModifierMultiplicative@value'),
                 'InertMaterials' => $inertMaterials,
                 'Instability' => $laserParams?->get('miningLaserModifiers/laserInstability/FloatModifierMultiplicative@value'),
-                'Module' => $data['module'] ?? null,
                 'OptimalChargeRate' => $laserParams?->get('miningLaserModifiers/optimalChargeWindowRateModifier/FloatModifierMultiplicative@value'),
                 'OptimalChargeWindow' => $laserParams?->get('miningLaserModifiers/optimalChargeWindowSizeModifier/FloatModifierMultiplicative@value'),
                 'OverchargeRate' => $laserParams?->get('miningLaserModifiers/catastrophicChargeWindowRateModifier/FloatModifierMultiplicative@value'),

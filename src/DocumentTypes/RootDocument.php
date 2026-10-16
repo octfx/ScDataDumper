@@ -158,6 +158,33 @@ abstract class RootDocument extends DOMDocument
         return $values;
     }
 
+    /**
+     * Hydrate every matching child element into the given document class.
+     *
+     * @template TDocument of RootDocument
+     *
+     * @param  class-string<TDocument>  $class
+     * @return list<TDocument>
+     */
+    protected function hydrateAll(string $path, string $class, bool $referenceHydrationEnabled = false): array
+    {
+        $documents = [];
+
+        foreach ($this->getAll($path) as $node) {
+            if (! $node instanceof Element) {
+                continue;
+            }
+
+            $document = $class::fromNode($node->getNode(), $referenceHydrationEnabled);
+
+            if ($document !== null) {
+                $documents[] = $document;
+            }
+        }
+
+        return $documents;
+    }
+
     protected function getString(string $path): ?string
     {
         $this->assertAttributePath($path);

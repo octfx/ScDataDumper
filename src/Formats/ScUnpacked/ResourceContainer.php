@@ -35,7 +35,7 @@ final class ResourceContainer extends BaseFormat
             'DefaultComposition' => $this->parseDefaultComposition($component->get('defaultComposition')),
         ];
 
-        $data = $this->clean($data);
+        $data = $this->removeNullValues($data);
 
         return $data === [] ? null : $data;
     }
@@ -51,7 +51,7 @@ final class ResourceContainer extends BaseFormat
                 ?? $unit->get('@centiSCU')
                 ?? $unit->get('@microSCU');
 
-            return $this->clean([
+            return $this->removeNullValues([
                 'Unit' => $unit->nodeName,
                 'Value' => $value,
                 'UnitName' => self::UNIT_NAMES[$unit->nodeName] ?? null,
@@ -90,31 +90,12 @@ final class ResourceContainer extends BaseFormat
         $out = [];
 
         foreach ($composition->children() as $entry) {
-            $out[] = $this->clean([
+            $out[] = $this->removeNullValues([
                 'Entry' => $entry->get('@entry'),
                 'Weight' => $entry->get('@weight'),
             ]);
         }
 
         return $out;
-    }
-
-    private function clean($value)
-    {
-        if (is_array($value)) {
-            foreach ($value as $key => $item) {
-                $cleaned = $this->clean($item);
-
-                if ($cleaned === null || (is_array($cleaned) && $cleaned === [])) {
-                    unset($value[$key]);
-                } else {
-                    $value[$key] = $cleaned;
-                }
-            }
-
-            return $value;
-        }
-
-        return $value;
     }
 }

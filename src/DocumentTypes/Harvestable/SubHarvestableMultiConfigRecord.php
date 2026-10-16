@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Octfx\ScDataDumper\DocumentTypes\Harvestable;
 
 use Octfx\ScDataDumper\DocumentTypes\RootDocument;
-use Octfx\ScDataDumper\Helper\Element;
 
 final class SubHarvestableMultiConfigRecord extends RootDocument
 {
@@ -14,20 +13,6 @@ final class SubHarvestableMultiConfigRecord extends RootDocument
      */
     public function getTaggedConfigs(): array
     {
-        $configs = [];
-
-        foreach ($this->getAll('multiConfig/taggedConfigs/TaggedSubHarvestableConfig') as $node) {
-            if (! $node instanceof Element) {
-                continue;
-            }
-
-            $config = TaggedSubHarvestableConfig::fromNode($node->getNode(), $this->isReferenceHydrationEnabled());
-
-            if ($config instanceof TaggedSubHarvestableConfig) {
-                $configs[] = $config;
-            }
-        }
-
-        return $configs;
+        return $this->hydrateAll('multiConfig/taggedConfigs/TaggedSubHarvestableConfig', TaggedSubHarvestableConfig::class, $this->isReferenceHydrationEnabled());
     }
 }

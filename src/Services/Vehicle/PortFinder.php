@@ -4,7 +4,6 @@ namespace Octfx\ScDataDumper\Services\Vehicle;
 
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
-use Octfx\ScDataDumper\ValueObjects\PortFinderOptions;
 
 /**
  * Finds item ports in parts and items matching predicates
@@ -16,47 +15,41 @@ final class PortFinder
     /**
      * Find item ports in parts that match the predicate
      *
+     * Matched parts are not traversed any deeper; $stop skips a node and its
+     * children entirely.
+     *
      * @param  array  $parts  List of parts to search
      * @param  callable  $predicate  Function(array $part): bool to match ports
-     * @param  PortFinderOptions  $options  Search options
-     * @param  int  $depth  Current recursion depth
-     * @return Collection<int, array{0: array, 1: int}> Collection of [port, depth] tuples
+     * @param  callable|null  $stop  Function(array $node): bool, skip node and subtree
+     * @return Collection<int, array> Matched parts / wrapped ports
      */
-    public function findInParts(array $parts, callable $predicate, PortFinderOptions $options, int $depth = 0): Collection
+    public function findInParts(array $parts, callable $predicate, ?callable $stop = null): Collection
     {
         $results = collect();
 
         foreach ($parts as $part) {
             if (isset($part['Port'])) {
-                // Check stop predicate
-                if ($options->shouldStop($part)) {
+                if ($stop !== null && $stop($part)) {
                     continue;
                 }
 
-                // Check if matches predicate
                 if ($predicate($part)) {
-                    $results->push([$part, $depth]);
-                    if ($options->stopOnFind) {
-                        continue;
-                    }
+                    $results->push($part);
+
+                    continue;
                 }
 
                 // Search in installed item
                 if (isset($part['Port']['InstalledItem'])) {
-                    $itemMatches = $this->findInItem(
-                        $part['Port']['InstalledItem'],
-                        $predicate,
-                        $options,
-                        $depth + 1
+                    $results = $results->merge(
+                        $this->findInItem($part['Port']['InstalledItem'], $predicate, $stop)
                     );
-                    $results = $results->merge($itemMatches);
                 }
             }
 
             // Search child parts
             if (isset($part['Parts'])) {
-                $partMatches = $this->findInParts($part['Parts'], $predicate, $options, $depth + 1);
-                $results = $results->merge($partMatches);
+                $results = $results->merge($this->findInParts($part['Parts'], $predicate, $stop));
             }
         }
 
@@ -68,11 +61,10 @@ final class PortFinder
      *
      * @param  array  $item  The item to search
      * @param  callable  $predicate  Function(array $port): bool to match ports
-     * @param  PortFinderOptions  $options  Search options
-     * @param  int  $depth  Current recursion depth
-     * @return Collection<int, array{0: array, 1: int}> Collection of [port, depth] tuples
+     * @param  callable|null  $stop  Function(array $node): bool, skip node and subtree
+     * @return Collection<int, array> Matched ports wrapped as ['Port' => ...]
      */
-    private function findInItem(array $item, callable $predicate, PortFinderOptions $options, int $depth): Collection
+    private function findInItem(array $item, callable $predicate, ?callable $stop): Collection
     {
         $results = collect();
 
@@ -81,20 +73,18 @@ final class PortFinder
         }
 
         foreach (Arr::get($item, 'stdItem.Ports') as $port) {
-            if ($options->shouldStop($port)) {
+            if ($stop !== null && $stop($port)) {
                 continue;
             }
 
             if ($predicate($port)) {
-                $results->push([['Port' => $port], $depth]);
-                if ($options->stopOnFind) {
-                    continue;
-                }
+                $results->push(['Port' => $port]);
+
+                continue;
             }
 
             if (isset($port['InstalledItem'])) {
-                $matches = $this->findInItem($port['InstalledItem'], $predicate, $options, $depth + 1);
-                $results = $results->merge($matches);
+                $results = $results->merge($this->findInItem($port['InstalledItem'], $predicate, $stop));
             }
         }
 

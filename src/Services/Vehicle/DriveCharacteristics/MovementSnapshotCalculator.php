@@ -7,28 +7,36 @@ use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 use Octfx\ScDataDumper\Helper\Element;
 
 /**
- * Capture MovementParams snapshot for arcade wheeled vehicles
+ * Capture a MovementParams snapshot for a wheeled movement type
+ * (ArcadeWheeled, PhysicalWheeled, TrackWheeled)
  */
-final class ArcadeWheeledCalculator implements DriveCalculatorStrategy
+final class MovementSnapshotCalculator
 {
     use NormalizesValues;
 
+    public function __construct(private readonly string $movementKey) {}
+
+    public function movementKey(): string
+    {
+        return $this->movementKey;
+    }
+
     public function supports(?Vehicle $vehicle): bool
     {
-        return $vehicle?->get('MovementParams/ArcadeWheeled') !== null;
+        return $vehicle?->get('MovementParams/'.$this->movementKey) !== null;
     }
 
     public function calculate(Vehicle $vehicle, float $mass): array
     {
-        $arcadeWheeled = $vehicle->get('MovementParams/ArcadeWheeled');
+        $movement = $vehicle->get('MovementParams/'.$this->movementKey);
 
-        if (! $arcadeWheeled instanceof Element) {
+        if (! $movement instanceof Element) {
             return [];
         }
 
         return [
             'Movement' => [
-                'ArcadeWheeled' => $this->elementToArray($arcadeWheeled),
+                $this->movementKey => $this->elementToArray($movement),
             ],
         ];
     }
@@ -40,12 +48,10 @@ final class ArcadeWheeledCalculator implements DriveCalculatorStrategy
     {
         $result = [];
 
-        // Add attributes
         foreach ($element->attributes as $attr) {
             $result[$this->toPascalCase($attr->name)] = $this->convertValue($attr->value);
         }
 
-        // Add child elements
         foreach ($element->children() as $child) {
             $childName = $this->toPascalCase($child->nodeName);
             $childArray = $this->elementToArray($child);
@@ -66,17 +72,14 @@ final class ArcadeWheeledCalculator implements DriveCalculatorStrategy
 
     private function convertValue(string $value): mixed
     {
-        // Check for float
         if (is_numeric($value) && str_contains($value, '.')) {
             return (float) $value;
         }
 
-        // Check for integer
         if (is_numeric($value)) {
             return (int) $value;
         }
 
-        // Check for boolean
         if (strtolower($value) === 'true') {
             return true;
         }

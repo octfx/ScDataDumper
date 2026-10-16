@@ -75,13 +75,4 @@ final class TractorBeam extends BaseFormat
 
         return parent::canTransform();
     }
-
-    private function castBool(mixed $value): ?bool
-    {
-        if ($value === null) {
-            return null;
-        }
-
-        return (bool) $value;
-    }
 }

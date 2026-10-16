@@ -53,18 +53,10 @@ class Grenade extends BaseFormat
 
     protected function extractDamageData($damageInfo): array
     {
-        if ($damageInfo === null) {
-            return [null, null];
-        }
-
-        $damageValues = array_filter([
-            'Physical' => $damageInfo->get('@DamagePhysical'),
-            'Energy' => $damageInfo->get('@DamageEnergy'),
-            'Distortion' => $damageInfo->get('@DamageDistortion'),
-            'Thermal' => $damageInfo->get('@DamageThermal'),
-            'Biochemical' => $damageInfo->get('@DamageBiochemical'),
-            'Stun' => $damageInfo->get('@DamageStun'),
-        ], static fn ($value) => $value !== null);
+        $damageValues = array_filter(
+            Damage::fromDamageInfo($damageInfo)?->toArray() ?? [],
+            static fn ($value) => $value !== null
+        );
 
         if ($damageValues === []) {
             return [null, null];

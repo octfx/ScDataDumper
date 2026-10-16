@@ -3,18 +3,11 @@
 namespace Tests\Helper;
 
 use Octfx\ScDataDumper\Helper\ItemDescriptionParser;
-use Octfx\ScDataDumper\Helper\ItemDescriptionParserConfig;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class ItemDescriptionParserTest extends TestCase
 {
-    protected function setUp(): void
-    {
-        // Reset config for each test
-        ItemDescriptionParser::setConfig(new ItemDescriptionParserConfig);
-    }
-
     #[Test]
     public function it_parses_standard_format()
     {
@@ -141,11 +134,11 @@ class ItemDescriptionParserTest extends TestCase
     #[Test]
     public function it_allows_custom_manufacturer_fixes()
     {
-        $config = new ItemDescriptionParserConfig;
-        $config->addManufacturerFix('TEST', 'Test Corporation');
-        ItemDescriptionParser::setConfig($config);
-
-        $result = ItemDescriptionParser::parse("Manufacturer: TEST\n\nDesc", ['Manufacturer']);
+        $result = ItemDescriptionParser::parse(
+            "Manufacturer: TEST\n\nDesc",
+            ['Manufacturer'],
+            ['TEST' => 'Test Corporation']
+        );
         $this->assertEquals('Test Corporation', $result['data']['Manufacturer']);
     }
 

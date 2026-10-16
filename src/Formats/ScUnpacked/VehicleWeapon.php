@@ -93,22 +93,8 @@ final class VehicleWeapon extends AbstractWeapon
                 'AlphaTotal' => $mode['Alpha'] ?? $mode['DamagePerShot'] ?? null,
                 'DpsTotal' => $mode['Dps'] ?? null,
                 'Maximum' => $isInfiniteMaximum ? 'Infinite' : $maximumDamage,
-                'Alpha' => [
-                    'Physical' => Arr::get($mode, 'AlphaPhysical'),
-                    'Energy' => Arr::get($mode, 'AlphaEnergy'),
-                    'Distortion' => Arr::get($mode, 'AlphaDistortion'),
-                    'Thermal' => Arr::get($mode, 'AlphaThermal'),
-                    'Biochemical' => Arr::get($mode, 'AlphaBiochemical'),
-                    'Stun' => Arr::get($mode, 'AlphaStun'),
-                ],
-                'Dps' => [
-                    'Physical' => Arr::get($mode, 'DpsPhysical'),
-                    'Energy' => Arr::get($mode, 'DpsEnergy'),
-                    'Distortion' => Arr::get($mode, 'DpsDistortion'),
-                    'Thermal' => Arr::get($mode, 'DpsThermal'),
-                    'Biochemical' => Arr::get($mode, 'DpsBiochemical'),
-                    'Stun' => Arr::get($mode, 'DpsStun'),
-                ],
+                'Alpha' => $this->damageMapByMode($mode, 'Alpha'),
+                'Dps' => $this->damageMapByMode($mode, 'Dps'),
             ],
         ];
 

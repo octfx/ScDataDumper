@@ -26,32 +26,17 @@ final class DamageResistance extends BaseFormat
 
         $resistance = $this->get();
 
+        $resistances = [];
+        foreach (self::$resistanceKeys as $key) {
+            $resistances[$key] = [
+                'Multiplier' => $resistance->get($key.'Resistance@Multiplier'),
+                'Threshold' => $resistance->get($key.'Resistance@Threshold'),
+            ];
+        }
+
         return [
             'Impact' => $this->item->get('impactForceResistance@impactForceResistance'),
-            'Physical' => [
-                'Multiplier' => $resistance->get('PhysicalResistance@Multiplier'),
-                'Threshold' => $resistance->get('PhysicalResistance@Threshold'),
-            ],
-            'Energy' => [
-                'Multiplier' => $resistance->get('EnergyResistance@Multiplier'),
-                'Threshold' => $resistance->get('EnergyResistance@Threshold'),
-            ],
-            'Distortion' => [
-                'Multiplier' => $resistance->get('DistortionResistance@Multiplier'),
-                'Threshold' => $resistance->get('DistortionResistance@Threshold'),
-            ],
-            'Thermal' => [
-                'Multiplier' => $resistance->get('ThermalResistance@Multiplier'),
-                'Threshold' => $resistance->get('ThermalResistance@Threshold'),
-            ],
-            'Biochemical' => [
-                'Multiplier' => $resistance->get('BiochemicalResistance@Multiplier'),
-                'Threshold' => $resistance->get('BiochemicalResistance@Threshold'),
-            ],
-            'Stun' => [
-                'Multiplier' => $resistance->get('StunResistance@Multiplier'),
-                'Threshold' => $resistance->get('StunResistance@Threshold'),
-            ],
+            ...$resistances,
         ];
     }
 }

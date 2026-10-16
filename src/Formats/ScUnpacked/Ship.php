@@ -911,11 +911,10 @@ final class Ship extends BaseFormat
             return null;
         }
 
-        $damageTypes = ['Physical', 'Energy', 'Distortion', 'Thermal', 'Biochemical', 'Stun'];
         $result = [];
         $count = count($shields);
 
-        foreach ($damageTypes as $type) {
+        foreach (self::$resistanceKeys as $type) {
             $minSum = 0.0;
             $maxSum = 0.0;
             $hasData = false;

@@ -92,7 +92,7 @@ final class Ammunition extends BaseFormat
                 'FarRadius' => $activePenetrationParams?->get('@farRadius'),
                 'Angle' => $activePenetrationParams?->get('@angle'),
             ],
-            'ConversionRateMicroScu' => $ammo->get('./conversionRate/SMicroCargoUnit@microSCU') ?? ($ammo->get('./conversionRate/SCenteCargoUnit@centiSCU') !== null ? (int) $ammo->get('./conversionRate/SCenteCargoUnit@centiSCU') * 100 : null),
+            'ConversionRateMicroScu' => $this->conversionRateMicroScu($ammo),
         ];
 
         // Tachyon-specific: range-based damage falloff parameters
@@ -103,6 +103,22 @@ final class Ammunition extends BaseFormat
         }
 
         return $this->removeNullValues($data);
+    }
+
+    /**
+     * Ammo conversion rate normalized to microSCU.
+     */
+    private function conversionRateMicroScu(Element|RootDocument $ammo): mixed
+    {
+        $conversion = Item::cargoUnitConversion($ammo->get('./conversionRate'));
+
+        if ($conversion === null) {
+            return null;
+        }
+
+        return $conversion['exponent'] === 6
+            ? $conversion['value']
+            : $conversion['value'] * (10 ** (6 - $conversion['exponent']));
     }
 
     public function canTransform(): bool
@@ -120,14 +136,5 @@ final class Ammunition extends BaseFormat
         }
 
         return false;
-    }
-
-    private function castBool(mixed $value): ?bool
-    {
-        if ($value === null) {
-            return null;
-        }
-
-        return (bool) $value;
     }
 }

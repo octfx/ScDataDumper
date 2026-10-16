@@ -20,21 +20,26 @@ final class Armor extends BaseFormat
 
         $armor = $this->get();
 
+        $damageMultipliers = [];
+        foreach (self::$resistanceKeys as $key) {
+            $damageMultipliers[$key] = $armor->get('damageMultiplier/DamageInfo@Damage'.$key);
+            $damageMultipliers[$key.'Change'] = round($armor->get('damageMultiplier/DamageInfo@Damage'.$key, 1) - 1, 2);
+        }
+
+        $penetrationResistance = [
+            'Base' => $armor->get('armorPenetrationResistance@basePenetrationReduction'),
+        ];
+        foreach (self::$resistanceKeys as $key) {
+            $penetrationResistance[$key] = $armor->get('armorPenetrationResistance/penetrationAbsorptionForType@Damage'.$key);
+        }
+
+        $deflection = [];
+        foreach (self::$resistanceKeys as $key) {
+            $deflection[$key] = $armor->get('armorDeflection/deflectionValue@Damage'.$key);
+        }
+
         return [
-            'DamageMultipliers' => [
-                'Physical' => $armor->get('damageMultiplier/DamageInfo@DamagePhysical'),
-                'PhysicalChange' => round($armor->get('damageMultiplier/DamageInfo@DamagePhysical', 1) - 1, 2),
-                'Energy' => $armor->get('damageMultiplier/DamageInfo@DamageEnergy'),
-                'EnergyChange' => round($armor->get('damageMultiplier/DamageInfo@DamageEnergy', 1) - 1, 2),
-                'Distortion' => $armor->get('damageMultiplier/DamageInfo@DamageDistortion'),
-                'DistortionChange' => round($armor->get('damageMultiplier/DamageInfo@DamageDistortion', 1) - 1, 2),
-                'Thermal' => $armor->get('damageMultiplier/DamageInfo@DamageThermal'),
-                'ThermalChange' => round($armor->get('damageMultiplier/DamageInfo@DamageThermal', 1) - 1, 2),
-                'Biochemical' => $armor->get('damageMultiplier/DamageInfo@DamageBiochemical'),
-                'BiochemicalChange' => round($armor->get('damageMultiplier/DamageInfo@DamageBiochemical', 1) - 1, 2),
-                'Stun' => $armor->get('damageMultiplier/DamageInfo@DamageStun'),
-                'StunChange' => round($armor->get('damageMultiplier/DamageInfo@DamageStun', 1) - 1, 2),
-            ],
+            'DamageMultipliers' => $damageMultipliers,
             'SignalMultipliers' => [
                 'CrossSection' => $armor->get('@signalCrossSection'),
                 'CrossSectionChange' => round($armor->get('@signalCrossSection', 1) - 1, 2),
@@ -43,23 +48,8 @@ final class Armor extends BaseFormat
                 'Electromagnetic' => $armor->get('@signalElectromagnetic'),
                 'ElectromagneticChange' => round($armor->get('@signalElectromagnetic', 1) - 1, 2),
             ],
-            'PenetrationResistance' => [
-                'Base' => $armor->get('armorPenetrationResistance@basePenetrationReduction'),
-                'Physical' => $armor->get('armorPenetrationResistance/penetrationAbsorptionForType@DamagePhysical'),
-                'Energy' => $armor->get('armorPenetrationResistance/penetrationAbsorptionForType@DamageEnergy'),
-                'Distortion' => $armor->get('armorPenetrationResistance/penetrationAbsorptionForType@DamageDistortion'),
-                'Thermal' => $armor->get('armorPenetrationResistance/penetrationAbsorptionForType@DamageThermal'),
-                'Biochemical' => $armor->get('armorPenetrationResistance/penetrationAbsorptionForType@DamageBiochemical'),
-                'Stun' => $armor->get('armorPenetrationResistance/penetrationAbsorptionForType@DamageStun'),
-            ],
-            'Deflection' => [
-                'Physical' => $armor->get('armorDeflection/deflectionValue@DamagePhysical'),
-                'Energy' => $armor->get('armorDeflection/deflectionValue@DamageEnergy'),
-                'Distortion' => $armor->get('armorDeflection/deflectionValue@DamageDistortion'),
-                'Thermal' => $armor->get('armorDeflection/deflectionValue@DamageThermal'),
-                'Biochemical' => $armor->get('armorDeflection/deflectionValue@DamageBiochemical'),
-                'Stun' => $armor->get('armorDeflection/deflectionValue@DamageStun'),
-            ],
+            'PenetrationResistance' => $penetrationResistance,
+            'Deflection' => $deflection,
         ];
     }
 

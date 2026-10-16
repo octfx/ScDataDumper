@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\Services\Vehicle;
 
+use Octfx\ScDataDumper\Concerns\NormalizesValues;
+
 /**
  * Builds the Systems object from an annotated loadout.
  *
@@ -12,6 +14,8 @@ namespace Octfx\ScDataDumper\Services\Vehicle;
  */
 final class SystemsBuilder
 {
+    use NormalizesValues;
+
     /**
      * Build the complete Systems object from an annotated loadout.
      *
@@ -55,14 +59,14 @@ final class SystemsBuilder
     private function populateSummaries(array &$systems, array $calculatedData): void
     {
         if (! empty($calculatedData['shields_total'])) {
-            $filtered = $this->filterNullValues($calculatedData['shields_total']);
+            $filtered = $this->removeNullValues($calculatedData['shields_total']);
             if (! empty($filtered)) {
                 $systems['Shields']['Summary'] = $calculatedData['shields_total'];
             }
         }
 
         if (! empty($calculatedData['QuantumTravel'])) {
-            $filtered = $this->filterNullValues($calculatedData['QuantumTravel']);
+            $filtered = $this->removeNullValues($calculatedData['QuantumTravel']);
             if (! empty($filtered)) {
                 $systems['QuantumDrives']['Summary'] = $calculatedData['QuantumTravel'];
             }
@@ -145,31 +149,5 @@ final class SystemsBuilder
                 $systems[$systemKey]['Summary'] = [$field => $portCount];
             }
         }
-    }
-
-    /**
-     * Recursively strip null values, preserving structure.
-     *
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    private function filterNullValues(array $data): array
-    {
-        $result = [];
-        foreach ($data as $key => $value) {
-            if ($value === null) {
-                continue;
-            }
-            if (is_array($value)) {
-                $filtered = $this->filterNullValues($value);
-                if (! empty($filtered)) {
-                    $result[$key] = $filtered;
-                }
-            } else {
-                $result[$key] = $value;
-            }
-        }
-
-        return $result;
     }
 }

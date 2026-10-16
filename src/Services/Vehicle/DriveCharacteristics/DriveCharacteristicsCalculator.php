@@ -9,7 +9,7 @@ use Octfx\ScDataDumper\DocumentTypes\Vehicle;
  */
 final class DriveCharacteristicsCalculator
 {
-    /** @var DriveCalculatorStrategy[] */
+    /** @var MovementSnapshotCalculator[] */
     private array $strategies;
 
     private readonly TrackDetector $trackDetector;
@@ -25,9 +25,9 @@ final class DriveCharacteristicsCalculator
     public function __construct()
     {
         $this->strategies = [
-            new ArcadeWheeledCalculator,
-            new PhysicalWheeledCalculator,
-            new TrackWheeledCalculator,
+            new MovementSnapshotCalculator('ArcadeWheeled'),
+            new MovementSnapshotCalculator('PhysicalWheeled'),
+            new MovementSnapshotCalculator('TrackWheeled'),
         ];
         $this->trackDetector = new TrackDetector;
         $this->wheelParametersExtractor = new WheelParametersExtractor;
@@ -106,17 +106,12 @@ final class DriveCharacteristicsCalculator
     /**
      * Resolve the vehicle type string from the matched strategy
      *
-     * @param  DriveCalculatorStrategy|null  $strategy  The matched strategy
+     * @param  MovementSnapshotCalculator|null  $strategy  The matched strategy
      * @return string Vehicle type: "PhysicalWheeled", "ArcadeWheeled", "TrackWheeled", or "Unknown"
      */
-    private function resolveVehicleType(?DriveCalculatorStrategy $strategy): string
+    private function resolveVehicleType(?MovementSnapshotCalculator $strategy): string
     {
-        return match (true) {
-            $strategy instanceof PhysicalWheeledCalculator => 'PhysicalWheeled',
-            $strategy instanceof ArcadeWheeledCalculator => 'ArcadeWheeled',
-            $strategy instanceof TrackWheeledCalculator => 'TrackWheeled',
-            default => 'Unknown',
-        };
+        return $strategy?->movementKey() ?? 'Unknown';
     }
 
     /**
