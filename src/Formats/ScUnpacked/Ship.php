@@ -735,15 +735,18 @@ final class Ship extends BaseFormat
             }
         }
 
-        // Inject paint RequiredTags for ships without an explicit paint port definition.
-        // Derives the base paint tag from SGeometryResourceParams SubGeometry tags.
+        // Port definitions can lag a hull generation behind (the Constellation Mk V port kept the Mk IV tag), and virtual paint ports carry no tag at all.
         $paintIndex = array_find_key($loadout, static fn (array $e): bool => ($e['HardpointName'] ?? '') === 'hardpoint_paint');
 
-        if ($paintIndex !== null && ! isset($loadout[$paintIndex]['RequiredTags'])) {
-            $paintTag = $this->extractPaintTagFromGeometry();
+        if ($paintIndex !== null) {
+            $current = $loadout[$paintIndex]['RequiredTags'] ?? null;
 
-            if ($paintTag !== null) {
-                $loadout[$paintIndex]['RequiredTags'] = [$paintTag];
+            if ($current === null || count($current) === 1) {
+                $hullTag = $this->extractPaintTagFromGeometry($current === null);
+
+                if ($hullTag !== null && ($current === null || str_starts_with($hullTag, $current[0].'_'))) {
+                    $loadout[$paintIndex]['RequiredTags'] = [$hullTag];
+                }
             }
         }
 
@@ -762,18 +765,12 @@ final class Ship extends BaseFormat
      * To handle this, we look up an actual paint item by class name and prefer its
      * RequiredTags value when available.
      */
-    private function extractPaintTagFromGeometry(): ?string
+    private function extractPaintTagFromGeometry(bool $allowLiveryLookup): ?string
     {
-        $subGeometry = $this->vehicleWrapper->entity->get('Components/SGeometryResourceParams/Geometry/SubGeometry');
-
-        if ($subGeometry === null) {
-            return null;
-        }
-
         $paintTags = [];
 
-        foreach ($subGeometry->children() as $node) {
-            $tags = trim((string) ($node->get('@Tags') ?? ''));
+        foreach ($this->vehicleWrapper->entity->getAll('Components/SGeometryResourceParams/Geometry/SubGeometry/SGeometryNodeParams@Tags', raw: true) as $tags) {
+            $tags = trim((string) $tags);
 
             if (str_starts_with($tags, 'Paint_')) {
                 $paintTags[] = $tags;
@@ -794,7 +791,7 @@ final class Ship extends BaseFormat
         // Resolve the actual paint compatibility tag from a paint item.
         // Geometry tags use the platform codename (e.g. Paint_Atlas) but paint
         // items may use the ship name (e.g. Paint_Centurion) as their RequiredTags.
-        $resolved = $this->resolvePaintTagFromItem($baseTag);
+        $resolved = $this->resolvePaintTagFromItem($baseTag, $allowLiveryLookup);
 
         if ($resolved !== null) {
             return $resolved;
@@ -806,7 +803,7 @@ final class Ship extends BaseFormat
         $className = $this->item->getClassName();
         if ($className !== '') {
             $classBase = 'Paint_'.implode('_', array_slice(explode('_', $className), 1));
-            $classResolved = $this->resolvePaintTagFromItem($classBase);
+            $classResolved = $this->resolvePaintTagFromItem($classBase, $allowLiveryLookup);
 
             if ($classResolved !== null) {
                 return $classResolved;
@@ -829,11 +826,14 @@ final class Ship extends BaseFormat
             return $lastUnderscore !== false ? substr($paintTags[0], 0, $lastUnderscore) : $paintTags[0];
         }
 
-        // Multiple variants: find the longest common prefix, then strip trailing underscore
-        $prefix = $paintTags[0];
+        // CIG ships miscased SubGeometry tags ("..._Mk5_..." next to "..._mk5_..."):
+        // compare case-insensitively and vote per character so neither the base nor its casing depends on tag order.
+        $prefix = strtolower($paintTags[0]);
 
         for ($i = 1, $count = count($paintTags); $i < $count; $i++) {
-            while (! str_starts_with($paintTags[$i], $prefix)) {
+            $tag = strtolower($paintTags[$i]);
+
+            while (! str_starts_with($tag, $prefix)) {
                 $prefix = substr($prefix, 0, -1);
 
                 if ($prefix === '') {
@@ -842,18 +842,32 @@ final class Ship extends BaseFormat
             }
         }
 
-        return rtrim($prefix, '_');
+        $voted = '';
+
+        for ($pos = 0, $length = strlen($prefix); $pos < $length; $pos++) {
+            $votes = [];
+
+            foreach ($paintTags as $tag) {
+                $char = $tag[$pos];
+                $votes[$char] = ($votes[$char] ?? 0) + 1;
+            }
+
+            ksort($votes);
+            arsort($votes);
+
+            $voted .= (string) array_key_first($votes);
+        }
+
+        return rtrim($voted, '_');
     }
 
     /**
      * Look up a paint item by class name and return its RequiredTags.
      *
      * Paint items carry the authoritative compatibility tag in their AttachDef@RequiredTags.
-     * The geometry-derived base tag is used as a class name prefix to find any matching
-     * paint item. We try exact class names first (_Template, _Base, _Default), then fall
-     * back to scanning class names for a prefix match.
+     * Promotion of explicit port tags requires a template because geometry lists may be incomplete.
      */
-    private function resolvePaintTagFromItem(string $baseTag): ?string
+    private function resolvePaintTagFromItem(string $baseTag, bool $allowLiveryLookup): ?string
     {
         $itemService = ServiceFactory::getItemService();
 
@@ -861,7 +875,7 @@ final class Ship extends BaseFormat
         // Some templates (e.g. Paint_Gladius_Default) exist but have no
         // RequiredTags - continue searching for a better match.
         foreach (['_Template', '_Base', '_Default'] as $suffix) {
-            $item = $itemService->getByClassName($baseTag.$suffix);
+            $item = $itemService->getByClassNameIgnoringCase($baseTag.$suffix);
 
             if ($item !== null) {
                 $tag = $item->getRequiredTagList()[0] ?? null;
@@ -872,25 +886,13 @@ final class Ship extends BaseFormat
             }
         }
 
-        // Prefix scan when the base tag has enough specificity.
-        // Bare "Paint" (0 underscores) would match the first item in the
-        // entire paint index - an arbitrary, unrelated paint.
-        // Skip items with empty RequiredTags (e.g. Paint_Gladius_Default).
-        if (substr_count($baseTag, '_') >= 1) {
-            $candidate = $itemService->getFirstByClassNamePrefix($baseTag.'_');
-
-            while ($candidate !== null) {
-                $tag = $candidate->getRequiredTagList()[0] ?? null;
+        if ($allowLiveryLookup && substr_count($baseTag, '_') >= 1) {
+            foreach ($itemService->getByClassNamePrefix($baseTag.'_') as $item) {
+                $tag = $item->getRequiredTagList()[0] ?? null;
 
                 if ($tag !== null) {
                     return $tag;
                 }
-
-                // Get next candidate with same prefix
-                $candidate = $itemService->getNextByClassNamePrefix(
-                    $baseTag.'_',
-                    $candidate->getClassName(),
-                );
             }
         }
 

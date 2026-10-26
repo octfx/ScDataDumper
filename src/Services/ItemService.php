@@ -12,6 +12,8 @@ final class ItemService extends BaseService
 {
     private array $entityPaths;
 
+    private ?array $caseInsensitiveEntityPaths = null;
+
     /**
      * LRU document cache keyed by file path.
      * Most-recently-used entries are at the end; oldest at the front.
@@ -45,6 +47,7 @@ final class ItemService extends BaseService
         // $items = array_filter($items, static fn ($path) => str_contains($path, 'rsi_bengal_scitem_remote_turret_main_gun'));
 
         $this->entityPaths = $items;
+        $this->caseInsensitiveEntityPaths = null;
     }
 
     public function iterator(): Generator
@@ -63,41 +66,27 @@ final class ItemService extends BaseService
         return $this->load($this->entityPaths[$className]);
     }
 
-    /**
-     * Find the first class name that starts with the given prefix and load it.
-     */
-    public function getFirstByClassNamePrefix(string $prefix): ?EntityClassDefinition
+    public function getByClassNameIgnoringCase(string $className): ?EntityClassDefinition
     {
-        foreach ($this->entityPaths as $className => $path) {
-            if (str_starts_with($className, $prefix)) {
-                return $this->load($path);
-            }
+        if ($this->caseInsensitiveEntityPaths === null) {
+            $paths = $this->entityPaths;
+            ksort($paths);
+            $this->caseInsensitiveEntityPaths = array_change_key_case($paths);
         }
 
-        return null;
+        $path = $this->caseInsensitiveEntityPaths[strtolower($className)] ?? null;
+
+        return $path === null ? null : $this->load($path);
     }
 
-    /**
-     * Find the next class name after $afterClassName that starts with $prefix.
-     */
-    public function getNextByClassNamePrefix(string $prefix, string $afterClassName): ?EntityClassDefinition
+    /** @return Generator<EntityClassDefinition> */
+    public function getByClassNamePrefix(string $prefix): Generator
     {
-        $found = false;
         foreach ($this->entityPaths as $className => $path) {
-            if (! $found) {
-                if ($className === $afterClassName) {
-                    $found = true;
-                }
-
-                continue;
-            }
-
-            if (str_starts_with($className, $prefix)) {
-                return $this->load($path);
+            if (str_starts_with(strtolower($className), strtolower($prefix))) {
+                yield $this->load($path);
             }
         }
-
-        return null;
     }
 
     public function getByReference(?string $reference): ?EntityClassDefinition
