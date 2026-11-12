@@ -12,6 +12,9 @@ final class QuantumDrive extends BaseFormat
 
     private const float CONSUMPTION_MICRO_TO_SCU_PER_GM = 1000.0;
 
+    /** 1 SCU = 1e6 micro units. */
+    private const float MICRO_UNITS_PER_SCU = 1_000_000.0;
+
     /** 1 Gm = 1e9 meters. */
     private const float METERS_PER_GM = 1_000_000_000.0;
 
@@ -25,6 +28,7 @@ final class QuantumDrive extends BaseFormat
 
         $rawRequirement = $quantum->get('@quantumFuelRequirement');
         $consumptionPerGm = $this->getFuelConsumptionPerGm($rawRequirement);
+        $microRatePerSecond = $this->getQuantumFuelMicroUnitsPerSecond();
 
         $standardParams = $quantum->get('params');
         $splineParams = $quantum->get('splineJumpParams');
@@ -42,7 +46,7 @@ final class QuantumDrive extends BaseFormat
             'Boost' => $this->formatBoost($quantum->get('quantumBoostParams')),
 
             'FuelConsumptionSCUPerGM' => $consumptionPerGm,
-            'FuelEfficiencyGMPerSCU' => $this->formatFuelEfficiencyGmPerScu($consumptionPerGm, $driveSpeed),
+            'FuelEfficiencyGMPerSCU' => $this->formatFuelEfficiencyGmPerScu($microRatePerSecond, $driveSpeed, $consumptionPerGm),
             'FuelRequirement10GM' => $this->formatFuelForDistanceGm($consumptionPerGm, self::DEFAULT_DISTANCE_GM),
             'TravelTime10GMSeconds' => $standardTravelSeconds10Gm !== null ? round($standardTravelSeconds10Gm) : null,
             'TravelTime10GM' => $this->formatDuration($standardTravelSeconds10Gm),
@@ -108,17 +112,28 @@ final class QuantumDrive extends BaseFormat
     }
 
     /**
-     * Normalized efficiency derived from drive speed and consumption (10 GM baseline).
+     * Fuel efficiency in Gm travelable per SCU.
+     * Derived from the raw per-second rate and drive speed, not from FuelConsumptionSCUPerGM, whose per-Gm conversion ignores drive speed (BUGS.md #3).
+     * Only the quantumFuelRequirement fallback is already a per-Gm quantity, so the reciprocal of consumption applies there.
      */
-    private function formatFuelEfficiencyGmPerScu(?float $consumptionPerGm, ?float $driveSpeed): ?float
+    private function formatFuelEfficiencyGmPerScu(?float $microRatePerSecond, ?float $driveSpeed, ?float $consumptionPerGm): ?float
     {
-        if ($consumptionPerGm === null || $consumptionPerGm <= 0 || $driveSpeed === null || $driveSpeed <= 0) {
+        if ($microRatePerSecond !== null && $microRatePerSecond > 0) {
+            if ($driveSpeed === null || $driveSpeed <= 0) {
+                return null;
+            }
+
+            $gmPerSecond = $driveSpeed / self::METERS_PER_GM;
+            $scuPerSecond = $microRatePerSecond / self::MICRO_UNITS_PER_SCU;
+
+            return round($gmPerSecond / $scuPerSecond, 2);
+        }
+
+        if ($consumptionPerGm === null || $consumptionPerGm <= 0) {
             return null;
         }
 
-        $gmPerSecond = $driveSpeed / self::METERS_PER_GM;
-
-        return round($gmPerSecond / ($consumptionPerGm * self::DEFAULT_DISTANCE_GM), 2);
+        return round(1.0 / $consumptionPerGm, 2);
     }
 
     /**

@@ -57,14 +57,41 @@ final class QuantumDriveTest extends TestCase
 
     public function test_fuel_efficiency_computed(): void
     {
-        // driveSpeed = 200,000,000 m/s
-        // consumption = 50.0 SCU/GM (from micro units 50000)
-        // gmPerSecond = 200_000_000 / 1_000_000_000 = 0.2
-        // efficiency = 0.2 / (50.0 * 10) = 0.0004 -> round to 0.0
+        // driveSpeed = 200,000,000 m/s = 0.2 Gm/s, burn rate = 50,000 u/s = 0.05 SCU/s
+        // efficiency = 0.2 / 0.05 = 4.0 Gm/SCU
         $qd = $this->makeDrive(driveSpeed: 200000000, microResourceUnits: 50000);
         $result = $qd->toArray();
 
-        self::assertEqualsWithDelta(0.0, $result['FuelEfficiencyGMPerSCU'], 0.01);
+        self::assertEqualsWithDelta(4.0, $result['FuelEfficiencyGMPerSCU'], 0.0001);
+    }
+
+    public function test_fuel_efficiency_matches_source_xml_for_wanderer(): void
+    {
+        // qdrv_tars_s03_wanderer_scitem.xml: microResourceUnits = 39 (line 127), driveSpeed = 459,859,400 m/s (line 183).
+        // efficiency = 0.4598594 Gm/s / 0.000039 SCU/s = 11,791.27 Gm/SCU.
+        $qd = $this->makeDrive(driveSpeed: 459859400, microResourceUnits: 39);
+        $result = $qd->toArray();
+
+        self::assertEqualsWithDelta(11791.27, $result['FuelEfficiencyGMPerSCU'], 0.01);
+    }
+
+    public function test_fuel_efficiency_depends_on_drive_speed(): void
+    {
+        // qdrv_arcc_s03_impulse_scitem.xml burns the same 39 u/s but flies 559,092,200 m/s.
+        // efficiency = 0.5590922 / 0.000039 = 14,335.7 Gm/SCU, unlike the Wanderer's 11,791.27.
+        $qd = $this->makeDrive(driveSpeed: 559092200, microResourceUnits: 39);
+        $result = $qd->toArray();
+
+        self::assertEqualsWithDelta(14335.7, $result['FuelEfficiencyGMPerSCU'], 0.01);
+    }
+
+    public function test_fuel_efficiency_falls_back_to_reciprocal_of_requirement(): void
+    {
+        // No per-second rate: the quantumFuelRequirement fallback is already per-Gm, so 1 / 0.05 = 20.0.
+        $qd = $this->makeDrive(quantumFuelRequirement: 0.05, driveSpeed: 200000000);
+        $result = $qd->toArray();
+
+        self::assertEqualsWithDelta(20.0, $result['FuelEfficiencyGMPerSCU'], 0.001);
     }
 
     public function test_fuel_efficiency_null_when_zero_consumption(): void
