@@ -136,7 +136,7 @@ final class MissionBrokerEntry extends RootDocument
             'completion_time' => $completionTime > 0 ? $completionTime : null,
             'auto_end' => (int) ($node->get('@missionAutoEnd') ?? 0) === 1 ?: null,
             'result_after_timer' => $node->get('@missionResultAfterTimerEnd'),
-            'show_timer' => (int) ($node->get('@remainingTimeToShowTimer') ?? 0) === 1 ?: null,
+            'show_timer' => (int) ($node->get('@remainingTimeToShowTimer') ?? 0) ?: null,
             'end_reason' => $node->get('@missionEndReason'),
         ], static fn ($v) => $v !== null) ?: null;
     }
