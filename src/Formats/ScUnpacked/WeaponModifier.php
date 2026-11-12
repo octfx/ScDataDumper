@@ -177,6 +177,7 @@ final class WeaponModifier extends BaseFormat
         ]);
 
         $data['AimRecoil'] = $this->buildAimRecoil($recoil->get('aimRecoilModifier'));
+        $data['CurveRecoil'] = $this->buildRecoilCurve($recoil->get('curveRecoil'));
 
         return $this->removeNullValues($data);
     }
@@ -221,6 +222,56 @@ final class WeaponModifier extends BaseFormat
 
         $data['MinLimitsModifier'] = $this->buildVector($curve->get('minLimitsModifier'), ['@x' => 'X', '@y' => 'Y', '@z' => 'Z']);
         $data['MaxLimitsModifier'] = $this->buildVector($curve->get('maxLimitsModifier'), ['@x' => 'X', '@y' => 'Y', '@z' => 'Z']);
+        $data['NoiseCurvesModifier'] = $this->buildVector($curve->get('noiseCurvesModifier'), [
+            '@yawNoiseMaxValueModifier' => 'YawNoiseMaxValueModifier',
+            '@pitchNoiseMaxValueModifier' => 'PitchNoiseMaxValueModifier',
+            '@rollNoiseMaxValueModifier' => 'RollNoiseMaxValueModifier',
+        ]);
+
+        return $this->removeNullValues($data);
+    }
+
+    private function buildRecoilCurve(?Element $curve): array
+    {
+        if ($curve === null) {
+            return [];
+        }
+
+        $data = $this->mapAttributes($curve, [
+            '@recoilTimeModifier' => 'RecoilTimeModifier',
+            '@minDecayTimeModifier' => 'MinDecayTimeModifier',
+            '@maxDecayTimeModifier' => 'MaxDecayTimeModifier',
+        ]);
+        $axes = ['@x' => 'X', '@y' => 'Y', '@z' => 'Z'];
+
+        foreach (['positionModifiers' => 'PositionModifiers', 'rotationModifiers' => 'RotationModifiers'] as $element => $key) {
+            $node = $curve->get($element);
+            if ($node === null) {
+                continue;
+            }
+            $data[$key] = $this->mapAttributes($node, [
+                '@xMaxValueModifier' => 'XMaxValueModifier',
+                '@yMaxValueModifier' => 'YMaxValueModifier',
+                '@zMaxValueModifier' => 'ZMaxValueModifier',
+            ]);
+            $data[$key]['MinLimitsModifier'] = $this->buildVector($node->get('minLimitsModifier'), $axes);
+            $data[$key]['MaxLimitsModifier'] = $this->buildVector($node->get('maxLimitsModifier'), $axes);
+            $data[$key]['NoiseModifier'] = $this->buildVector($node->get('noiseModifier'), [
+                '@xNoiseModifier' => 'XNoiseModifier',
+                '@yNoiseModifier' => 'YNoiseModifier',
+                '@zNoiseModifier' => 'ZNoiseModifier',
+            ]);
+        }
+
+        foreach (['positionDecayModifiers' => 'PositionDecayModifiers', 'rotationDecayModifiers' => 'RotationDecayModifiers'] as $element => $key) {
+            $node = $curve->get($element);
+            if ($node === null) {
+                continue;
+            }
+            foreach (['decayTimeMultiplierModifier' => 'DecayTimeMultiplierModifier', 'decayMaxValueModifier' => 'DecayMaxValueModifier', 'decayMinScalingFactorModifier' => 'DecayMinScalingFactorModifier'] as $child => $childKey) {
+                $data[$key][$childKey] = $this->buildVector($node->get($child), $axes);
+            }
+        }
 
         return $this->removeNullValues($data);
     }
