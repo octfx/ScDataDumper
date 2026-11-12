@@ -186,22 +186,29 @@ final class MissionBroker extends BaseFormat
         $allTagTerms = [];
 
         foreach ($itemProperties as $property) {
+            $specificItemUuids = $property['specificItems'] ?? [];
+
+            // MissionItem properties can also encode dropoff/pickup method selectors (RandomDropoff,
+            // DeadDrop, race classes): their references point at MissionItem records without an
+            // entityClass. Those markers describe no hauled cargo and must not inflate the counts.
+            if ($specificItemUuids !== [] && $this->isSelectorMarkerProperty($specificItemUuids)) {
+                continue;
+            }
+
             $min = $property['minItemsToFind'] ?? 0;
             $max = $property['maxItemsToFind'] ?? 0;
 
+            // Mission variables are independent requirements (find N of A AND M of B),
+            // so the merged counts accumulate instead of the last property winning.
             if ($min > 0) {
-                $merged['min_items'] = $min;
+                $merged['min_items'] = ($merged['min_items'] ?? 0) + $min;
             }
 
             if ($max > 0) {
-                $merged['max_items'] = $max;
+                $merged['max_items'] = ($merged['max_items'] ?? 0) + $max;
             }
 
-            $specificItemUuids = $property['specificItems'] ?? [];
-
             if ($specificItemUuids !== []) {
-                $resolved = [];
-
                 foreach ($specificItemUuids as $uuid) {
                     $entityClassUuid = $lookup->resolveMissionItemEntityClass($uuid);
 
@@ -209,19 +216,20 @@ final class MissionBroker extends BaseFormat
                         continue;
                     }
 
-                    $resolved[] = [
+                    $merged['items'][$entityClassUuid] ??= [
                         'uuid' => $entityClassUuid,
                         'name' => $itemService->getByReference($entityClassUuid)?->getDisplayName(),
                     ];
                 }
-
-                $merged['items'] = $resolved;
             }
 
-            $tagTerms = $property['tagSearchTerms'] ?? [];
-            if ($tagTerms !== []) {
-                $allTagTerms = $tagTerms;
+            foreach ($property['tagSearchTerms'] ?? [] as $term) {
+                $allTagTerms[] = $term;
             }
+        }
+
+        if (isset($merged['items'])) {
+            $merged['items'] = array_values($merged['items']);
         }
 
         if ($allTagTerms !== []) {
@@ -229,5 +237,30 @@ final class MissionBroker extends BaseFormat
         }
 
         return $merged !== [] ? $merged : null;
+    }
+
+    /**
+     * A MissionItem property is a selector marker when every referenced MissionItem record
+     * exists but carries no entityClass (e.g. DeliveryRandomTarget, DeliveryDeadDrop): it picks
+     * a dropoff/pickup method instead of describing cargo.
+     *
+     * @param  list<string>  $specificItemUuids
+     */
+    private function isSelectorMarkerProperty(array $specificItemUuids): bool
+    {
+        $lookup = ServiceFactory::getFoundryLookupService();
+
+        foreach ($specificItemUuids as $uuid) {
+            if ($lookup->resolveMissionItemEntityClass($uuid) !== null) {
+                return false;
+            }
+
+            // Records that fail to load are unresolved data, not intentional markers.
+            if ($lookup->resolveMissionItemClassName($uuid) === null) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

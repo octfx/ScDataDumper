@@ -17,7 +17,7 @@ use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
  */
 final class MissionItemCountsTest extends ScDataTestCase
 {
-    private function bootServices(): void
+    private function bootServices(array $tags = []): void
     {
         $this->initializeMinimalItemServices(
             translations: [
@@ -26,6 +26,7 @@ final class MissionItemCountsTest extends ScDataTestCase
                 'item_display_DataChip' => 'Data Chip',
                 'item_display_MedPen' => 'MedPen',
             ],
+            tags: $tags,
         );
 
         $foundryService = new FoundryLookupService($this->tempDir);
@@ -228,6 +229,148 @@ final class MissionItemCountsTest extends ScDataTestCase
         self::assertSame('Covalex Personal Package', $order['Name']);
         self::assertSame('aaaa0000-0000-0000-0000-000000000001', $order['UUID']);
         self::assertSame([], $order['Items']);
+    }
+
+    // ---------------------------------------------------------- //
+    //  4. MissionBroker with multiple MissionItem properties
+    // ---------------------------------------------------------- //
+
+    public function test_mission_broker_item_counts_merge_items_across_properties(): void
+    {
+        $this->setupMissionBrokerWithMultipleMissionItemProperties();
+        $this->bootServices(tags: [
+            ['name' => 'TagOne', 'uuid' => 'cc00cc00-0000-0000-000000000001'],
+            ['name' => 'TagTwo', 'uuid' => 'cc00cc00-0000-0000-000000000002'],
+        ]);
+
+        $result = $this->buildMissionBrokerOutput('test_mbe_multi_collect.xml');
+
+        self::assertArrayHasKey('ItemCounts', $result);
+        $items = $result['ItemCounts']['Items'];
+
+        self::assertCount(2, $items, 'Items must be the union of all MissionItem properties, not just the last one');
+
+        $uuids = array_map(static fn (array $item): string => $item['UUID'], $items);
+        sort($uuids);
+        self::assertSame(
+            ['aaaa0000-0000-0000-0000-000000000001', 'aaaa0000-0000-0000-0000-000000000002'],
+            $uuids,
+        );
+    }
+
+    public function test_mission_broker_item_counts_accumulate_min_max_across_properties(): void
+    {
+        $this->setupMissionBrokerWithMultipleMissionItemProperties();
+        $this->bootServices(tags: [
+            ['name' => 'TagOne', 'uuid' => 'cc00cc00-0000-0000-000000000001'],
+            ['name' => 'TagTwo', 'uuid' => 'cc00cc00-0000-0000-000000000002'],
+        ]);
+
+        $result = $this->buildMissionBrokerOutput('test_mbe_multi_collect.xml');
+
+        $itemCounts = $result['ItemCounts'];
+        self::assertSame(5, $itemCounts['MinItems'], '1 + 2 + 1 + 1 across the four MissionItem properties');
+        self::assertSame(6, $itemCounts['MaxItems'], '1 + 3 + 1 + 1 across the four MissionItem properties');
+    }
+
+    public function test_mission_broker_item_counts_merge_tag_search_terms_across_properties(): void
+    {
+        $this->setupMissionBrokerWithMultipleMissionItemProperties();
+        $this->bootServices(tags: [
+            ['name' => 'TagOne', 'uuid' => 'cc00cc00-0000-0000-000000000001'],
+            ['name' => 'TagTwo', 'uuid' => 'cc00cc00-0000-0000-000000000002'],
+        ]);
+
+        $result = $this->buildMissionBrokerOutput('test_mbe_multi_collect.xml');
+
+        $terms = $result['ItemCounts']['TagSearchTerms'];
+        self::assertCount(
+            2,
+            $terms,
+            'Tag search terms of all MissionItem properties must be kept, not just the last one',
+        );
+
+        self::assertSame('TagOne', $terms[0]['PositiveTags'][0]['Name']);
+        self::assertSame('TagTwo', $terms[1]['PositiveTags'][0]['Name']);
+    }
+
+    public function test_mission_broker_merged_item_counts_generate_hauling_order_with_all_items(): void
+    {
+        $this->setupMissionBrokerWithMultipleMissionItemProperties();
+        $this->bootServices(tags: [
+            ['name' => 'TagOne', 'uuid' => 'cc00cc00-0000-0000-000000000001'],
+            ['name' => 'TagTwo', 'uuid' => 'cc00cc00-0000-0000-000000000002'],
+        ]);
+
+        $result = $this->buildMissionBrokerOutput('test_mbe_multi_collect.xml');
+
+        self::assertCount(1, $result['HaulingOrders']);
+        $order = $result['HaulingOrders'][0];
+
+        self::assertSame('MissionItem', $order['Kind']);
+        self::assertCount(2, $order['Items']);
+        self::assertSame(5, $order['MinAmount']);
+        self::assertSame(6, $order['MaxAmount']);
+    }
+
+    public function test_mission_broker_item_counts_exclude_dropoff_method_markers(): void
+    {
+        $this->setupMissionBrokerWithDropoffMethodMarkers();
+        $this->bootServices(tags: [
+            ['name' => 'TagThree', 'uuid' => 'cc00cc00-0000-0000-000000000003'],
+        ]);
+
+        $result = $this->buildMissionBrokerOutput('test_mbe_dropoff_markers.xml');
+
+        $itemCounts = $result['ItemCounts'];
+
+        // RandomDropoff and DeadDrop select a dropoff method, they are not hauled cargo:
+        // only Item1, Item2 and the tag-based Item3 (mirroring PickupItemsOrder_BP) count.
+        self::assertSame(3, $itemCounts['MinItems']);
+        self::assertSame(3, $itemCounts['MaxItems']);
+
+        $uuids = array_map(static fn (array $item): string => $item['UUID'], $itemCounts['Items']);
+        sort($uuids);
+        self::assertSame(
+            ['aaaa0000-0000-0000-0000-000000000001', 'aaaa0000-0000-0000-0000-000000000002'],
+            $uuids,
+            'Marker references without an entityClass must not leak into Items',
+        );
+
+        self::assertCount(1, $itemCounts['TagSearchTerms'], 'Only the tag-based cargo property contributes tag terms');
+        self::assertSame('TagThree', $itemCounts['TagSearchTerms'][0]['PositiveTags'][0]['Name']);
+    }
+
+    public function test_mission_broker_marker_exclusion_keeps_hauling_order_amounts_at_cargo_level(): void
+    {
+        $this->setupMissionBrokerWithDropoffMethodMarkers();
+        $this->bootServices(tags: [
+            ['name' => 'TagThree', 'uuid' => 'cc00cc00-0000-0000-000000000003'],
+        ]);
+
+        $result = $this->buildMissionBrokerOutput('test_mbe_dropoff_markers.xml');
+
+        self::assertCount(1, $result['HaulingOrders']);
+        $order = $result['HaulingOrders'][0];
+
+        self::assertSame('MissionItem', $order['Kind']);
+        self::assertCount(2, $order['Items']);
+        self::assertSame(3, $order['MinAmount']);
+        self::assertSame(3, $order['MaxAmount']);
+    }
+
+    public function test_mission_broker_item_counts_deduplicate_shared_item_across_properties(): void
+    {
+        $this->setupMissionBrokerWithSharedItemProperties();
+        $this->bootServices();
+
+        $result = $this->buildMissionBrokerOutput('test_mbe_shared_item.xml');
+
+        $itemCounts = $result['ItemCounts'];
+        self::assertCount(1, $itemCounts['Items'], 'The same mission item referenced twice must appear once');
+        self::assertSame('aaaa0000-0000-0000-0000-000000000001', $itemCounts['Items'][0]['UUID']);
+        self::assertSame(2, $itemCounts['MinItems'], 'Both properties still require their own copy');
+        self::assertSame(2, $itemCounts['MaxItems']);
     }
 
     // ---------------------------------------------------------- //
@@ -459,13 +602,319 @@ final class MissionItemCountsTest extends ScDataTestCase
         return $contract->toArray() ?? [];
     }
 
-    private function buildMissionBrokerOutput(): array
+    private function buildMissionBrokerOutput(string $fileName = 'test_mbe_collect.xml'): array
     {
         $mbe = new MissionBrokerEntry;
-        $mbe->load($this->tempDir.'/Data/Libs/Foundry/Records/missionbroker/pu_missions/test_mbe_collect.xml');
+        $mbe->load($this->tempDir.'/Data/Libs/Foundry/Records/missionbroker/pu_missions/'.$fileName);
 
         $format = new MissionBroker($mbe);
 
         return $format->toArray() ?? [];
+    }
+
+    private function setupMissionBrokerWithMultipleMissionItemProperties(): void
+    {
+        $item1Path = $this->writeFile(
+            'Data/Libs/Foundry/Records/entities/scitem/covalex_box.xml',
+            '<EntityClassDefinition.TestCovalexBox __type="EntityClassDefinition" __ref="aaaa0000-0000-0000-0000-000000000001" __path="libs/foundry/records/entities/scitem/covalex_box.xml"><entityClass entityClass="aaaa0000-0000-0000-0000-000000000001" /><Components><SAttachableComponentParams><AttachDef Type="Weapon" SubType="Undefined" Size="1"><Localization Name="@item_display_CovalexBox" /></AttachDef></SAttachableComponentParams></Components></EntityClassDefinition.TestCovalexBox>'
+        );
+
+        $item2Path = $this->writeFile(
+            'Data/Libs/Foundry/Records/entities/scitem/data_chip.xml',
+            '<EntityClassDefinition.TestDataChip __type="EntityClassDefinition" __ref="aaaa0000-0000-0000-0000-000000000002" __path="libs/foundry/records/entities/scitem/data_chip.xml"><entityClass entityClass="aaaa0000-0000-0000-0000-000000000002" /><Components><SAttachableComponentParams><AttachDef Type="Weapon" SubType="Undefined" Size="1"><Localization Name="@item_display_DataChip" /></AttachDef></SAttachableComponentParams></Components></EntityClassDefinition.TestDataChip>'
+        );
+
+        $missionItem1Path = $this->writeFile(
+            'Data/Libs/Foundry/Records/missions/covalex_item.xml',
+            '<MissionItem.CovalexPersonal entityClass="aaaa0000-0000-0000-0000-000000000001" __type="MissionItem" __ref="d4ca6b3f-1d53-45b8-ab2a-2b0d87c66951" __path="libs/foundry/records/missions/covalex_item.xml" />'
+        );
+
+        $missionItem2Path = $this->writeFile(
+            'Data/Libs/Foundry/Records/missions/data_chip_item.xml',
+            '<MissionItem.DataChip entityClass="aaaa0000-0000-0000-0000-000000000002" __type="MissionItem" __ref="d4ca6b3f-1d53-45b8-ab2a-2b0d87c66952" __path="libs/foundry/records/missions/data_chip_item.xml" />'
+        );
+
+        $mbePath = $this->writeFile(
+            'Data/Libs/Foundry/Records/missionbroker/pu_missions/test_mbe_multi_collect.xml',
+            <<<'XML'
+            <MissionBrokerEntry.Test_MBE_Multi_Collect __type="MissionBrokerEntry" __ref="fd504984-8667-4eca-839e-bbf3e72ff5ad" __path="libs/foundry/records/missionbroker/pu_missions/test_mbe_multi_collect.xml">
+                <properties>
+                    <MissionProperty missionVariableName="Item1" extendedTextToken="Item1">
+                        <value>
+                            <MissionPropertyValue_MissionItem minItemsToFind="1" maxItemsToFind="1">
+                                <matchConditions>
+                                    <DataSetMatchCondition_SpecificItemsDef>
+                                        <items>
+                                            <Reference value="d4ca6b3f-1d53-45b8-ab2a-2b0d87c66951" />
+                                        </items>
+                                    </DataSetMatchCondition_SpecificItemsDef>
+                                </matchConditions>
+                            </MissionPropertyValue_MissionItem>
+                        </value>
+                    </MissionProperty>
+                    <MissionProperty missionVariableName="Item2" extendedTextToken="Item2">
+                        <value>
+                            <MissionPropertyValue_MissionItem minItemsToFind="2" maxItemsToFind="3">
+                                <matchConditions>
+                                    <DataSetMatchCondition_SpecificItemsDef>
+                                        <items>
+                                            <Reference value="d4ca6b3f-1d53-45b8-ab2a-2b0d87c66952" />
+                                        </items>
+                                    </DataSetMatchCondition_SpecificItemsDef>
+                                </matchConditions>
+                            </MissionPropertyValue_MissionItem>
+                        </value>
+                    </MissionProperty>
+                    <MissionProperty missionVariableName="Item3" extendedTextToken="Item3">
+                        <value>
+                            <MissionPropertyValue_MissionItem minItemsToFind="1" maxItemsToFind="1">
+                                <matchConditions>
+                                    <DataSetMatchCondition_TagSearch tagType="General">
+                                        <tagSearch>
+                                            <TagSearchTerm>
+                                                <positiveTags>
+                                                    <Reference value="cc00cc00-0000-0000-000000000001" />
+                                                </positiveTags>
+                                                <negativeTags />
+                                            </TagSearchTerm>
+                                        </tagSearch>
+                                    </DataSetMatchCondition_TagSearch>
+                                </matchConditions>
+                            </MissionPropertyValue_MissionItem>
+                        </value>
+                    </MissionProperty>
+                    <MissionProperty missionVariableName="Item4" extendedTextToken="Item4">
+                        <value>
+                            <MissionPropertyValue_MissionItem minItemsToFind="1" maxItemsToFind="1">
+                                <matchConditions>
+                                    <DataSetMatchCondition_TagSearch tagType="General">
+                                        <tagSearch>
+                                            <TagSearchTerm>
+                                                <positiveTags>
+                                                    <Reference value="cc00cc00-0000-0000-000000000002" />
+                                                </positiveTags>
+                                                <negativeTags />
+                                            </TagSearchTerm>
+                                        </tagSearch>
+                                    </DataSetMatchCondition_TagSearch>
+                                </matchConditions>
+                            </MissionPropertyValue_MissionItem>
+                        </value>
+                    </MissionProperty>
+                </properties>
+            </MissionBrokerEntry.Test_MBE_Multi_Collect>
+            XML
+        );
+
+        $this->writeCacheFiles(
+            uuidToClassMap: [
+                'aaaa0000-0000-0000-0000-000000000001' => 'TestCovalexBox',
+                'aaaa0000-0000-0000-0000-000000000002' => 'TestDataChip',
+                'd4ca6b3f-1d53-45b8-ab2a-2b0d87c66951' => 'CovalexPersonal',
+                'd4ca6b3f-1d53-45b8-ab2a-2b0d87c66952' => 'DataChipItem',
+                'fd504984-8667-4eca-839e-bbf3e72ff5ad' => 'Test_MBE_Multi_Collect',
+            ],
+            uuidToPathMap: [
+                'aaaa0000-0000-0000-0000-000000000001' => $item1Path,
+                'aaaa0000-0000-0000-0000-000000000002' => $item2Path,
+                'd4ca6b3f-1d53-45b8-ab2a-2b0d87c66951' => $missionItem1Path,
+                'd4ca6b3f-1d53-45b8-ab2a-2b0d87c66952' => $missionItem2Path,
+                'fd504984-8667-4eca-839e-bbf3e72ff5ad' => $mbePath,
+            ],
+        );
+    }
+
+    private function setupMissionBrokerWithDropoffMethodMarkers(): void
+    {
+        $item1Path = $this->writeFile(
+            'Data/Libs/Foundry/Records/entities/scitem/covalex_box.xml',
+            '<EntityClassDefinition.TestCovalexBox __type="EntityClassDefinition" __ref="aaaa0000-0000-0000-0000-000000000001" __path="libs/foundry/records/entities/scitem/covalex_box.xml"><entityClass entityClass="aaaa0000-0000-0000-0000-000000000001" /><Components><SAttachableComponentParams><AttachDef Type="Weapon" SubType="Undefined" Size="1"><Localization Name="@item_display_CovalexBox" /></AttachDef></SAttachableComponentParams></Components></EntityClassDefinition.TestCovalexBox>'
+        );
+
+        $item2Path = $this->writeFile(
+            'Data/Libs/Foundry/Records/entities/scitem/data_chip.xml',
+            '<EntityClassDefinition.TestDataChip __type="EntityClassDefinition" __ref="aaaa0000-0000-0000-0000-000000000002" __path="libs/foundry/records/entities/scitem/data_chip.xml"><entityClass entityClass="aaaa0000-0000-0000-0000-000000000002" /><Components><SAttachableComponentParams><AttachDef Type="Weapon" SubType="Undefined" Size="1"><Localization Name="@item_display_DataChip" /></AttachDef></SAttachableComponentParams></Components></EntityClassDefinition.TestDataChip>'
+        );
+
+        $missionItem1Path = $this->writeFile(
+            'Data/Libs/Foundry/Records/missions/covalex_item.xml',
+            '<MissionItem.CovalexPersonal entityClass="aaaa0000-0000-0000-0000-000000000001" __type="MissionItem" __ref="d4ca6b3f-1d53-45b8-ab2a-2b0d87c66951" __path="libs/foundry/records/missions/covalex_item.xml" />'
+        );
+
+        $missionItem2Path = $this->writeFile(
+            'Data/Libs/Foundry/Records/missions/data_chip_item.xml',
+            '<MissionItem.DataChip entityClass="aaaa0000-0000-0000-0000-000000000002" __type="MissionItem" __ref="d4ca6b3f-1d53-45b8-ab2a-2b0d87c66952" __path="libs/foundry/records/missions/data_chip_item.xml" />'
+        );
+
+        // Marker MissionItems: records exist but carry no entityClass, like the real
+        // deliverytarget/deliveryrandomtarget.xml and deliverydeaddrop.xml.
+        $randomDropoffPath = $this->writeFile(
+            'Data/Libs/Foundry/Records/missiondata/pu_items/deliverytarget/test_random_dropoff.xml',
+            '<MissionItem.TestDeliveryRandomTarget weighting="1" __type="MissionItem" __ref="eeee0000-0000-0000-0000-000000000001" __path="libs/foundry/records/missiondata/pu_items/deliverytarget/test_random_dropoff.xml" />'
+        );
+
+        $deadDropPath = $this->writeFile(
+            'Data/Libs/Foundry/Records/missiondata/pu_items/deliverytarget/test_dead_drop.xml',
+            '<MissionItem.TestDeliveryDeadDrop weighting="1" __type="MissionItem" __ref="eeee0000-0000-0000-0000-000000000002" __path="libs/foundry/records/missiondata/pu_items/deliverytarget/test_dead_drop.xml" />'
+        );
+
+        $mbePath = $this->writeFile(
+            'Data/Libs/Foundry/Records/missionbroker/pu_missions/test_mbe_dropoff_markers.xml',
+            <<<'XML'
+            <MissionBrokerEntry.Test_MBE_Dropoff_Markers __type="MissionBrokerEntry" __ref="fd504984-8667-4eca-839e-bbf3e72ff5af" __path="libs/foundry/records/missionbroker/pu_missions/test_mbe_dropoff_markers.xml">
+                <properties>
+                    <MissionProperty missionVariableName="RandomDropoff">
+                        <value>
+                            <MissionPropertyValue_MissionItem minItemsToFind="1" maxItemsToFind="1">
+                                <matchConditions>
+                                    <DataSetMatchCondition_SpecificItemsDef>
+                                        <items>
+                                            <Reference value="eeee0000-0000-0000-0000-000000000001" />
+                                        </items>
+                                    </DataSetMatchCondition_SpecificItemsDef>
+                                </matchConditions>
+                            </MissionPropertyValue_MissionItem>
+                        </value>
+                    </MissionProperty>
+                    <MissionProperty missionVariableName="DeadDrop">
+                        <value>
+                            <MissionPropertyValue_MissionItem minItemsToFind="1" maxItemsToFind="1">
+                                <matchConditions>
+                                    <DataSetMatchCondition_SpecificItemsDef>
+                                        <items>
+                                            <Reference value="eeee0000-0000-0000-0000-000000000002" />
+                                        </items>
+                                    </DataSetMatchCondition_SpecificItemsDef>
+                                </matchConditions>
+                            </MissionPropertyValue_MissionItem>
+                        </value>
+                    </MissionProperty>
+                    <MissionProperty missionVariableName="Item1" extendedTextToken="Item1">
+                        <value>
+                            <MissionPropertyValue_MissionItem minItemsToFind="1" maxItemsToFind="1">
+                                <matchConditions>
+                                    <DataSetMatchCondition_SpecificItemsDef>
+                                        <items>
+                                            <Reference value="d4ca6b3f-1d53-45b8-ab2a-2b0d87c66951" />
+                                        </items>
+                                    </DataSetMatchCondition_SpecificItemsDef>
+                                </matchConditions>
+                            </MissionPropertyValue_MissionItem>
+                        </value>
+                    </MissionProperty>
+                    <MissionProperty missionVariableName="Item2" extendedTextToken="Item2">
+                        <value>
+                            <MissionPropertyValue_MissionItem minItemsToFind="1" maxItemsToFind="1">
+                                <matchConditions>
+                                    <DataSetMatchCondition_SpecificItemsDef>
+                                        <items>
+                                            <Reference value="d4ca6b3f-1d53-45b8-ab2a-2b0d87c66952" />
+                                        </items>
+                                    </DataSetMatchCondition_SpecificItemsDef>
+                                </matchConditions>
+                            </MissionPropertyValue_MissionItem>
+                        </value>
+                    </MissionProperty>
+                    <MissionProperty missionVariableName="Item3" extendedTextToken="Item3">
+                        <value>
+                            <MissionPropertyValue_MissionItem minItemsToFind="1" maxItemsToFind="1">
+                                <matchConditions>
+                                    <DataSetMatchCondition_TagSearch tagType="General">
+                                        <tagSearch>
+                                            <TagSearchTerm>
+                                                <positiveTags>
+                                                    <Reference value="cc00cc00-0000-0000-000000000003" />
+                                                </positiveTags>
+                                                <negativeTags />
+                                            </TagSearchTerm>
+                                        </tagSearch>
+                                    </DataSetMatchCondition_TagSearch>
+                                </matchConditions>
+                            </MissionPropertyValue_MissionItem>
+                        </value>
+                    </MissionProperty>
+                </properties>
+            </MissionBrokerEntry.Test_MBE_Dropoff_Markers>
+            XML
+        );
+
+        $this->writeCacheFiles(
+            uuidToClassMap: [
+                'aaaa0000-0000-0000-0000-000000000001' => 'TestCovalexBox',
+                'aaaa0000-0000-0000-0000-000000000002' => 'TestDataChip',
+                'd4ca6b3f-1d53-45b8-ab2a-2b0d87c66951' => 'CovalexPersonal',
+                'd4ca6b3f-1d53-45b8-ab2a-2b0d87c66952' => 'DataChipItem',
+                'eeee0000-0000-0000-0000-000000000001' => 'TestDeliveryRandomTarget',
+                'eeee0000-0000-0000-0000-000000000002' => 'TestDeliveryDeadDrop',
+                'fd504984-8667-4eca-839e-bbf3e72ff5af' => 'Test_MBE_Dropoff_Markers',
+            ],
+            uuidToPathMap: [
+                'aaaa0000-0000-0000-0000-000000000001' => $item1Path,
+                'aaaa0000-0000-0000-0000-000000000002' => $item2Path,
+                'd4ca6b3f-1d53-45b8-ab2a-2b0d87c66951' => $missionItem1Path,
+                'd4ca6b3f-1d53-45b8-ab2a-2b0d87c66952' => $missionItem2Path,
+                'eeee0000-0000-0000-0000-000000000001' => $randomDropoffPath,
+                'eeee0000-0000-0000-0000-000000000002' => $deadDropPath,
+                'fd504984-8667-4eca-839e-bbf3e72ff5af' => $mbePath,
+            ],
+        );
+    }
+
+    private function setupMissionBrokerWithSharedItemProperties(): void
+    {
+        $itemPath = $this->writeFile(
+            'Data/Libs/Foundry/Records/entities/scitem/covalex_box.xml',
+            '<EntityClassDefinition.TestCovalexBox __type="EntityClassDefinition" __ref="aaaa0000-0000-0000-0000-000000000001" __path="libs/foundry/records/entities/scitem/covalex_box.xml"><entityClass entityClass="aaaa0000-0000-0000-0000-000000000001" /><Components><SAttachableComponentParams><AttachDef Type="Weapon" SubType="Undefined" Size="1"><Localization Name="@item_display_CovalexBox" /></AttachDef></SAttachableComponentParams></Components></EntityClassDefinition.TestCovalexBox>'
+        );
+
+        $missionItemPath = $this->writeFile(
+            'Data/Libs/Foundry/Records/missions/covalex_personal_item.xml',
+            '<MissionItem.CovalexPersonal entityClass="aaaa0000-0000-0000-0000-000000000001" __type="MissionItem" __ref="d4ca6b3f-1d53-45b8-ab2a-2b0d87c66951" __path="libs/foundry/records/missions/covalex_personal_item.xml" />'
+        );
+
+        $specificItems = <<<'XML'
+        <MissionPropertyValue_MissionItem minItemsToFind="1" maxItemsToFind="1">
+            <matchConditions>
+                <DataSetMatchCondition_SpecificItemsDef>
+                    <items>
+                        <Reference value="d4ca6b3f-1d53-45b8-ab2a-2b0d87c66951" />
+                    </items>
+                </DataSetMatchCondition_SpecificItemsDef>
+            </matchConditions>
+        </MissionPropertyValue_MissionItem>
+        XML;
+
+        $mbePath = $this->writeFile(
+            'Data/Libs/Foundry/Records/missionbroker/pu_missions/test_mbe_shared_item.xml',
+            <<<XML
+            <MissionBrokerEntry.Test_MBE_Shared_Item __type="MissionBrokerEntry" __ref="fd504984-8667-4eca-839e-bbf3e72ff5ae" __path="libs/foundry/records/missionbroker/pu_missions/test_mbe_shared_item.xml">
+                <properties>
+                    <MissionProperty missionVariableName="Item1" extendedTextToken="Item1">
+                        <value>
+                            {$specificItems}
+                        </value>
+                    </MissionProperty>
+                    <MissionProperty missionVariableName="Item2" extendedTextToken="Item2">
+                        <value>
+                            {$specificItems}
+                        </value>
+                    </MissionProperty>
+                </properties>
+            </MissionBrokerEntry.Test_MBE_Shared_Item>
+            XML
+        );
+
+        $this->writeCacheFiles(
+            uuidToClassMap: [
+                'aaaa0000-0000-0000-0000-000000000001' => 'TestCovalexBox',
+                'd4ca6b3f-1d53-45b8-ab2a-2b0d87c66951' => 'CovalexPersonal',
+                'fd504984-8667-4eca-839e-bbf3e72ff5ae' => 'Test_MBE_Shared_Item',
+            ],
+            uuidToPathMap: [
+                'aaaa0000-0000-0000-0000-000000000001' => $itemPath,
+                'd4ca6b3f-1d53-45b8-ab2a-2b0d87c66951' => $missionItemPath,
+                'fd504984-8667-4eca-839e-bbf3e72ff5ae' => $mbePath,
+            ],
+        );
     }
 }
