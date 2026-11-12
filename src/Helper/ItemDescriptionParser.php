@@ -248,9 +248,12 @@ class ItemDescriptionParser
         $keywordPattern = '/^('.implode('|', $escapedKeywords).')\s*[：:]/m';
 
         // General data-line pattern: catches unknown keywords like "G-Force Tolerance"
-        // Pattern: line starts with short uppercase label (letters, spaces, dots, hyphens)
+        // Pattern: line starts with short label (letters, spaces, dots, hyphens)
         // followed by colon and a non-empty value. Max label length ~35 chars.
-        $generalDataPattern = '/^[A-Z\d][A-Za-z\s.\-]{0,33}[：:]\s*\S/m';
+        // The lookahead keeps prose sentences whose prefix before the colon is fully
+        // uppercase (e.g. "MUST BUY BASE MULTI-TOOL TO USE: \"Pyro RYT Multi-Tool\"")
+        // intact: real data labels are Title Case ("G-Force Tolerance"), never all caps.
+        $generalDataPattern = '/^(?![A-Z\s.\-]+[：:])[A-Z\d][A-Za-z\s.\-]{0,33}[：:]\s*\S/m';
 
         $cleaned = [];
 

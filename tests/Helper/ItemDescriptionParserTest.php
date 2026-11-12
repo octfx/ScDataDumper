@@ -246,4 +246,34 @@ class ItemDescriptionParserTest extends TestCase
         $this->assertEquals('Light Fighter', $result['data']['Focus']);
         $this->assertStringContainsString('hyperpillows here: the Bucc', $result['description']);
     }
+
+    #[Test]
+    public function it_keeps_uppercase_prose_sentences_that_precede_a_colon()
+    {
+        // Real text from item_Descgrin_multitool_01_mining: the leading warning sentence
+        // looks like a data line ("LABEL: value") but is prose and must survive
+        $input = "MUST BUY BASE MULTI-TOOL TO USE: \"Pyro RYT Multi-Tool\"\n\nManufacturer: Greycat Industrial\nItem Type: Multi-Tool Attachment\nClass: Mining\n\nThe OreBit attachment turns it on.";
+        $result = ItemDescriptionParser::parse($input);
+
+        $this->assertEquals('Greycat Industrial', $result['data']['Manufacturer']);
+        $this->assertEquals('Multi-Tool Attachment', $result['data']['Item Type']);
+        $this->assertEquals('Mining', $result['data']['Class']);
+        $this->assertStringContainsString('MUST BUY BASE MULTI-TOOL TO USE: "Pyro RYT Multi-Tool"', $result['description']);
+        $this->assertStringContainsString('The OreBit attachment turns it on.', $result['description']);
+        $this->assertStringNotContainsString('Manufacturer:', $result['description']);
+    }
+
+    #[Test]
+    public function it_strips_unknown_title_case_data_lines()
+    {
+        // Unknown keywords like "G-Force Tolerance" (undersuit descriptions) are not
+        // extracted as data but must still be removed from the clean description text
+        $input = "Item Type: Racing Flight Suit\nDamage Reduction: 5%\nG-Force Tolerance: +100%\n\nFeaturing a deceptively simple design.";
+        $result = ItemDescriptionParser::parse($input);
+
+        $this->assertEquals('Racing Flight Suit', $result['data']['Item Type']);
+        $this->assertEquals('5%', $result['data']['Damage Reduction']);
+        $this->assertArrayNotHasKey('G-Force Tolerance', $result['data']);
+        $this->assertEquals('Featuring a deceptively simple design.', $result['description']);
+    }
 }
