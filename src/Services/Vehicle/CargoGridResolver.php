@@ -113,19 +113,38 @@ final class CargoGridResolver
      */
     public function calculateCargoGridSizeLimits(Collection $cargoGrids): array
     {
+        // Producers differ in casing: strategy grids use 'MinSize' with lowercase
+        // sub-keys, fallback container grids are fully PascalCase.
+        $size = static function (array $grid, string $key): ?array {
+            foreach ([$key, strtolower($key)] as $k) {
+                $value = $grid[$k] ?? null;
+                if (is_array($value) && isset($value['x'], $value['y'], $value['z'])) {
+                    return ['x' => $value['x'], 'y' => $value['y'], 'z' => $value['z']];
+                }
+
+                if (is_array($value) && isset($value['X'], $value['Y'], $value['Z'])) {
+                    return ['x' => $value['X'], 'y' => $value['Y'], 'z' => $value['Z']];
+                }
+            }
+
+            return null;
+        };
+
         $minVolumeGrid = $cargoGrids
-            ->filter(fn ($grid) => isset($grid['minSize']['x'], $grid['minSize']['y'], $grid['minSize']['z']))
-            ->sortBy(fn ($grid) => $grid['minSize']['x'] * $grid['minSize']['y'] * $grid['minSize']['z'])
-            ->first();
+            ->map(fn ($grid) => ['grid' => $grid, 'size' => $size((array) $grid, 'MinSize')])
+            ->filter(fn ($entry) => $entry['size'] !== null)
+            ->sortBy(fn ($entry) => $entry['size']['x'] * $entry['size']['y'] * $entry['size']['z'])
+            ->first()['size'] ?? null;
 
         $maxVolumeGrid = $cargoGrids
-            ->filter(fn ($grid) => isset($grid['maxSize']['x'], $grid['maxSize']['y'], $grid['maxSize']['z']))
-            ->sortByDesc(fn ($grid) => $grid['maxSize']['x'] * $grid['maxSize']['y'] * $grid['maxSize']['z'])
-            ->first();
+            ->map(fn ($grid) => ['grid' => $grid, 'size' => $size((array) $grid, 'MaxSize')])
+            ->filter(fn ($entry) => $entry['size'] !== null)
+            ->sortByDesc(fn ($entry) => $entry['size']['x'] * $entry['size']['y'] * $entry['size']['z'])
+            ->first()['size'] ?? null;
 
         return [
-            'MinSize' => $minVolumeGrid['minSize'] ?? null,
-            'MaxSize' => $maxVolumeGrid['maxSize'] ?? null,
+            'MinSize' => $minVolumeGrid,
+            'MaxSize' => $maxVolumeGrid,
         ];
     }
 }
