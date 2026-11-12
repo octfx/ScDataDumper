@@ -26,6 +26,13 @@ final class LoadoutFileService extends BaseService
 
     private array $loadoutPaths = [];
 
+    /**
+     * Lowercased relative path => original relative path.
+     * Entity XML references the same file with mixed casing (e.g. "scripts/loadouts/..."),
+     * while the keys of $loadoutPaths keep the on-disk casing.
+     */
+    private array $loadoutPathsLower = [];
+
     public static function resetDocumentCache(): void
     {
         self::$documentCache = [];
@@ -75,6 +82,7 @@ final class LoadoutFileService extends BaseService
                 $relativePath = substr($fullPath, $basePathLength);
                 $relativePath = str_replace(DIRECTORY_SEPARATOR, '/', $relativePath);
                 $files[$relativePath] = $fullPath;
+                $this->loadoutPathsLower[strtolower($relativePath)] = $relativePath;
             }
         }
 
@@ -94,6 +102,11 @@ final class LoadoutFileService extends BaseService
 
         if (isset($this->loadoutPaths[$loadoutPath])) {
             return $this->load($this->loadoutPaths[$loadoutPath]);
+        }
+
+        $lowered = strtolower($loadoutPath);
+        if (isset($this->loadoutPathsLower[$lowered])) {
+            return $this->load($this->loadoutPaths[$this->loadoutPathsLower[$lowered]]);
         }
 
         return null;

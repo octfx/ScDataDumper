@@ -28,7 +28,8 @@ final class LoadoutEntry extends RootDocument
         $entries = [];
 
         foreach ($entriesNode->children() as $child) {
-            if (! in_array($child->nodeName, ['SItemPortLoadoutEntryParams', 'item'], true)) {
+            // Real loadout files use capital <Item>; entity XML uses SItemPortLoadoutEntryParams.
+            if (! in_array($child->nodeName, ['SItemPortLoadoutEntryParams', 'item', 'Item'], true)) {
                 continue;
             }
 
@@ -86,8 +87,11 @@ final class LoadoutEntry extends RootDocument
      */
     public function getNestedEntries(): array
     {
+        // Inline entity form nests under loadout/.../entries; file form nests under a child <Items>.
+        $nested = $this->get('loadout/SItemPortLoadoutManualParams/entries') ?? $this->get('Items');
+
         return self::fromEntriesNode(
-            $this->get('loadout/SItemPortLoadoutManualParams/entries'),
+            $nested,
             $this->isReferenceHydrationEnabled()
         );
     }
