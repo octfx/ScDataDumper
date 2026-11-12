@@ -55,6 +55,9 @@ final class ServiceFactory
             )
         ) {
             self::$services = [];
+            // BaseService reloads its static maps only when empty; without this reset
+            // the new dir's services keep resolving paths from the old dump.
+            BaseService::resetSharedState();
         }
 
         self::$activeScDataPath = $this->scDataPath;
