@@ -251,11 +251,11 @@ abstract class AbstractWeapon extends BaseFormat
         };
 
         $ads = [
-            'Minimum' => $apply($baseSpread['Min'] ?? null, $modifier->get('minMultiplier'), $modifier->get('additiveModifier')),
-            'Maximum' => $apply($baseSpread['Max'] ?? null, $modifier->get('maxMultiplier'), $modifier->get('additiveModifier')),
-            'FirstAttack' => $apply($baseSpread['FirstAttack'] ?? null, $modifier->get('firstAttackMultiplier'), $modifier->get('additiveModifier')),
-            'Attack' => $apply($baseSpread['Attack'] ?? null, $modifier->get('attackMultiplier'), $modifier->get('additiveModifier')),
-            'Decay' => $apply($baseSpread['Decay'] ?? null, $modifier->get('decayMultiplier')),
+            'Minimum' => $apply($baseSpread['Minimum'] ?? null, $modifier->get('@minMultiplier'), $modifier->get('@additiveModifier')),
+            'Maximum' => $apply($baseSpread['Maximum'] ?? null, $modifier->get('@maxMultiplier'), $modifier->get('@additiveModifier')),
+            'FirstAttack' => $apply($baseSpread['FirstAttack'] ?? null, $modifier->get('@firstAttackMultiplier'), $modifier->get('@additiveModifier')),
+            'Attack' => $apply($baseSpread['Attack'] ?? null, $modifier->get('@attackMultiplier'), $modifier->get('@additiveModifier')),
+            'Decay' => $apply($baseSpread['Decay'] ?? null, $modifier->get('@decayMultiplier')),
         ];
 
         return $this->removeNullValues($ads);
