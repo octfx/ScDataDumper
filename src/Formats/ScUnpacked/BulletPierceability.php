@@ -17,10 +17,10 @@ final class BulletPierceability extends BaseFormat
         $pierce = $this->get();
 
         return [
-            'DamageFalloffLevel1' => $pierce->get('damageFalloffLevel1'),
-            'DamageFalloffLevel2' => $pierce->get('damageFalloffLevel2'),
-            'DamageFalloffLevel3' => $pierce->get('damageFalloffLevel3'),
-            'MaxPenetrationThickness' => $pierce->get('maxPenetrationThickness'),
+            'DamageFalloffLevel1' => $pierce->get('@damageFalloffLevel1'),
+            'DamageFalloffLevel2' => $pierce->get('@damageFalloffLevel2'),
+            'DamageFalloffLevel3' => $pierce->get('@damageFalloffLevel3'),
+            'MaxPenetrationThickness' => $pierce->get('@maxPenetrationThickness'),
         ];
     }
 }
