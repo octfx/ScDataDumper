@@ -17,11 +17,11 @@ final class QuantumDriveTest extends TestCase
 
     public function test_fuel_rate_from_micro_units(): void
     {
-        $qd = $this->makeDrive(microResourceUnits: 50000);
+        $qd = $this->makeDrive(microResourceUnits: 50000, driveSpeed: 200000000);
         $result = $qd->toArray();
 
-        // 50000 / 1000 = 50.0
-        self::assertSame(50.0, $result['FuelConsumptionSCUPerGM']);
+        self::assertEqualsWithDelta(0.25, $result['FuelConsumptionSCUPerGM'], 0.000001);
+        self::assertEqualsWithDelta(1, $result['FuelConsumptionSCUPerGM'] * $result['FuelEfficiencyGMPerSCU'], 0.000001);
     }
 
     public function test_fuel_rate_from_raw_requirement_fallback(): void
@@ -51,6 +51,15 @@ final class QuantumDriveTest extends TestCase
         self::assertNull($result['FuelConsumptionSCUPerGM']);
     }
 
+    public function test_cruise_consumption_requires_speed_when_rate_is_present(): void
+    {
+        $result = $this->makeDrive(quantumFuelRequirement: 0.05, microResourceUnits: 39)->toArray();
+
+        self::assertNull($result['FuelConsumptionSCUPerGM']);
+        self::assertNull($result['FuelEfficiencyGMPerSCU']);
+        self::assertSame(0.39, $result['FuelRequirement10GM']);
+    }
+
     // ------------------------------------------------------------------ //
     //  Fuel Efficiency                                                    //
     // ------------------------------------------------------------------ //
@@ -72,7 +81,9 @@ final class QuantumDriveTest extends TestCase
         $qd = $this->makeDrive(driveSpeed: 459859400, microResourceUnits: 39);
         $result = $qd->toArray();
 
+        self::assertEqualsWithDelta(39e-6 / 0.4598594, $result['FuelConsumptionSCUPerGM'], 1e-12);
         self::assertEqualsWithDelta(11791.27, $result['FuelEfficiencyGMPerSCU'], 0.01);
+        self::assertSame(0.39, $result['FuelRequirement10GM']);
     }
 
     public function test_fuel_efficiency_depends_on_drive_speed(): void
@@ -82,6 +93,7 @@ final class QuantumDriveTest extends TestCase
         $qd = $this->makeDrive(driveSpeed: 559092200, microResourceUnits: 39);
         $result = $qd->toArray();
 
+        self::assertEqualsWithDelta(39e-6 / 0.5590922, $result['FuelConsumptionSCUPerGM'], 1e-12);
         self::assertEqualsWithDelta(14335.7, $result['FuelEfficiencyGMPerSCU'], 0.01);
     }
 
@@ -108,6 +120,8 @@ final class QuantumDriveTest extends TestCase
         $result = $qd->toArray();
 
         self::assertNull($result['FuelEfficiencyGMPerSCU']);
+        self::assertNull($result['FuelConsumptionSCUPerGM']);
+        self::assertSame(500.0, $result['FuelRequirement10GM']);
     }
 
     // ------------------------------------------------------------------ //
@@ -116,7 +130,7 @@ final class QuantumDriveTest extends TestCase
 
     public function test_fuel_for_10gm(): void
     {
-        // consumption = 50.0 SCU/GM -> 50.0 * 10 = 500.0
+        // The 10 Gm field retains its legacy calculation, independently of cruise consumption.
         $qd = $this->makeDrive(microResourceUnits: 50000, driveSpeed: 200000000);
         $result = $qd->toArray();
 

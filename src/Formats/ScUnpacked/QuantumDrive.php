@@ -27,12 +27,15 @@ final class QuantumDrive extends BaseFormat
         $quantum = $this->get();
 
         $rawRequirement = $quantum->get('@quantumFuelRequirement');
-        $consumptionPerGm = $this->getFuelConsumptionPerGm($rawRequirement);
         $microRatePerSecond = $this->getQuantumFuelMicroUnitsPerSecond();
 
         $standardParams = $quantum->get('params');
         $splineParams = $quantum->get('splineJumpParams');
         $driveSpeed = $standardParams?->get('@driveSpeed');
+        $legacyConsumption = $this->getLegacyFuelConsumption($rawRequirement, $microRatePerSecond);
+        $consumptionPerGm = $microRatePerSecond !== null && $microRatePerSecond > 0
+            ? ($driveSpeed !== null && $driveSpeed > 0 ? ($microRatePerSecond / self::MICRO_UNITS_PER_SCU) / ($driveSpeed / self::METERS_PER_GM) : null)
+            : $legacyConsumption;
 
         $standardTravelSeconds10Gm = $this->estimateTravelTimeSeconds($standardParams, self::DEFAULT_DISTANCE_GM);
 
@@ -47,7 +50,8 @@ final class QuantumDrive extends BaseFormat
 
             'FuelConsumptionSCUPerGM' => $consumptionPerGm,
             'FuelEfficiencyGMPerSCU' => $this->formatFuelEfficiencyGmPerScu($microRatePerSecond, $driveSpeed, $consumptionPerGm),
-            'FuelRequirement10GM' => $this->formatFuelForDistanceGm($consumptionPerGm, self::DEFAULT_DISTANCE_GM),
+            // shortcut: retain the legacy 10 Gm estimate until fuel-state timing and units are verified.
+            'FuelRequirement10GM' => $this->formatFuelForDistanceGm($legacyConsumption, self::DEFAULT_DISTANCE_GM),
             'TravelTime10GMSeconds' => $standardTravelSeconds10Gm !== null ? round($standardTravelSeconds10Gm) : null,
             'TravelTime10GM' => $this->formatDuration($standardTravelSeconds10Gm),
         ];
@@ -95,9 +99,8 @@ final class QuantumDrive extends BaseFormat
         return (float) $rawRequirement / 1e6;
     }
 
-    private function getFuelConsumptionPerGm(?float $rawRequirement): ?float
+    private function getLegacyFuelConsumption(?float $rawRequirement, ?float $microRate): ?float
     {
-        $microRate = $this->getQuantumFuelMicroUnitsPerSecond();
         if ($microRate !== null && $microRate > 0) {
             return $microRate / self::CONSUMPTION_MICRO_TO_SCU_PER_GM;
         }
@@ -113,8 +116,7 @@ final class QuantumDrive extends BaseFormat
 
     /**
      * Fuel efficiency in Gm travelable per SCU.
-     * Derived from the raw per-second rate and drive speed, not from FuelConsumptionSCUPerGM, whose per-Gm conversion ignores drive speed (BUGS.md #3).
-     * Only the quantumFuelRequirement fallback is already a per-Gm quantity, so the reciprocal of consumption applies there.
+     * The per-second conversion uses the same unit assumptions as the cruise consumption.
      */
     private function formatFuelEfficiencyGmPerScu(?float $microRatePerSecond, ?float $driveSpeed, ?float $consumptionPerGm): ?float
     {
