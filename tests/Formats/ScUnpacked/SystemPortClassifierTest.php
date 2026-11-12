@@ -731,6 +731,104 @@ final class SystemPortClassifierTest extends TestCase
     }
 
     // ------------------------------------------------------------------ //
+    //  Fixture 11: Docked vehicle behind a docking tube (Aquila pattern)
+    // ------------------------------------------------------------------ //
+
+    /**
+     * Mirrors rsi_constellation_aquila_gs.xml: fuel tube and rear docking tube
+     * (Type DockingCollar), dock door (Type DockingAnimator), and the snub
+     * fighter KRIG_P52_Merlin attached on itemport_vehicle_attach.
+     */
+    private function dockedVehicleFixture(): array
+    {
+        return [
+            [
+                'HardpointName' => 'hardpoint_fuel_port',
+                'Type' => 'DockingCollar.UNDEFINED',
+                'ClassName' => 'DockingTube_Fuel_Ports_RSI_Constellation_GS',
+                'UUID' => 'fuel-tube-1',
+                'Loadout' => [],
+            ],
+            [
+                'HardpointName' => 'hardpoint_docking_collar_merlin',
+                'Type' => 'DockingCollar.UNDEFINED',
+                'ClassName' => 'RSI_Constellation_Rear_DockingTube',
+                'UUID' => 'docking-tube-1',
+                'Loadout' => [
+                    [
+                        'HardpointName' => 'itemport_vehicle_attach',
+                        'Type' => 'NOITEM_Vehicle.Vehicle_Spaceship',
+                        'ClassName' => 'KRIG_P52_Merlin',
+                        'UUID' => 'merlin-1',
+                        'Loadout' => [],
+                    ],
+                ],
+            ],
+            [
+                'HardpointName' => 'hardpoint_merlin_dock_door',
+                'Type' => 'DockingAnimator.UNDEFINED',
+                'ClassName' => 'Door_RN_NoRoomConnector_RSI_Constellation_GS_Merlin_Bay',
+                'UUID' => 'dock-door-1',
+                'Loadout' => [],
+            ],
+        ];
+    }
+
+    public function test_docked_vehicle_in_docked_vehicles_bucket(): void
+    {
+        $result = $this->classify($this->dockedVehicleFixture());
+
+        $this->assertBucketContainsUuid($result, 'DockedVehicles', 'merlin-1');
+    }
+
+    public function test_docked_vehicles_bucket_contains_only_the_vehicle(): void
+    {
+        $result = $this->classify($this->dockedVehicleFixture());
+
+        self::assertArrayHasKey('DockedVehicles', $result);
+        self::assertCount(1, $result['DockedVehicles']);
+        self::assertSame('KRIG_P52_Merlin', $result['DockedVehicles'][0]['ClassName']);
+    }
+
+    public function test_fuel_tube_not_in_docked_vehicles(): void
+    {
+        $result = $this->classify($this->dockedVehicleFixture());
+
+        $this->assertBucketDoesNotContainUuid($result, 'DockedVehicles', 'fuel-tube-1',
+            'Fuel tubes are docking hardware, not docked vehicles');
+    }
+
+    public function test_rear_docking_tube_not_in_docked_vehicles(): void
+    {
+        $result = $this->classify($this->dockedVehicleFixture());
+
+        $this->assertBucketDoesNotContainUuid($result, 'DockedVehicles', 'docking-tube-1',
+            'Docking tubes are docking hardware, not docked vehicles');
+    }
+
+    public function test_dock_door_not_in_docked_vehicles(): void
+    {
+        $result = $this->classify($this->dockedVehicleFixture());
+
+        $this->assertBucketDoesNotContainUuid($result, 'DockedVehicles', 'dock-door-1',
+            'Dock doors are docking hardware, not docked vehicles');
+    }
+
+    public function test_docking_hardware_not_classified_into_any_bucket(): void
+    {
+        $result = $this->classify($this->dockedVehicleFixture());
+
+        foreach (['fuel-tube-1', 'docking-tube-1', 'dock-door-1'] as $uuid) {
+            foreach ($result as $ports) {
+                foreach ($ports as $ref) {
+                    self::assertNotSame($uuid, $ref['UUID'],
+                        "Port '{$uuid}' must not be classified into any system bucket");
+                }
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ //
     //  Empty loadout
     // ------------------------------------------------------------------ //
 

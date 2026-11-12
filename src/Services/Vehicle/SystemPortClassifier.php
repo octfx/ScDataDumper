@@ -81,6 +81,10 @@ final class SystemPortClassifier
             'Missile' => 'Missiles',
             'MissileLauncher' => 'MissileRacks',
 
+            // Docked vehicles are attached as NOITEM_Vehicle entities (e.g. the
+            // P-52 Merlin on a Constellation), never as docking hardware.
+            'NOITEM_Vehicle' => 'DockedVehicles',
+
             default => $this->classifyByComplexRules($type, $subType, $className, $ref, $index),
         };
     }
@@ -162,10 +166,6 @@ final class SystemPortClassifier
             if (! str_contains((string) $type, 'Ai')) {
                 return 'Modules';
             }
-        }
-
-        if (str_contains((string) $type, 'Dock') || str_contains((string) $subType ?? '', 'Dock')) {
-            return 'DockedVehicles';
         }
 
         return null;
