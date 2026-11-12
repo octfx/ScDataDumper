@@ -45,6 +45,13 @@ abstract class AbstractWeapon extends BaseFormat
             $capacity = $magazine['MaxAmmoCount'] ?? null;
         }
 
+        // Regen-fed weapons report maxAmmoCount=0; derive the real capacity from
+        // the consumption params before the mode loop so MaxDamagePerMagazine uses it.
+        $consumption = (new WeaponConsumption($weapon))->toArray();
+        if (empty($capacity) && ! empty($consumption['RequestedAmmoLoad']) && ! empty($consumption['CostPerBullet'])) {
+            $capacity = (int) floor($consumption['RequestedAmmoLoad'] / $consumption['CostPerBullet']);
+        }
+
         $out = [
             'Size' => $this->item->getAttachSize(),
             'WeaponType' => $this->item->getAttachType(),
@@ -56,7 +63,7 @@ abstract class AbstractWeapon extends BaseFormat
             // 'Ammunition' => $ammunitionArray, // Deprecated: Use stdItem.Ammunition
             'Attachments' => $this->buildAttachments(),
             'Modes' => [],
-            'Consumption' => new WeaponConsumption($weapon)->toArray(),
+            'Consumption' => $consumption,
             'Knife' => new MeleeWeapon($this->item),
         ];
 
@@ -160,11 +167,6 @@ abstract class AbstractWeapon extends BaseFormat
 
                 $out['Modes'][] = $mode;
             }
-        }
-
-        $consumption = $out['Consumption'];
-        if (empty($out['Capacity']) && ! empty($consumption['RequestedAmmoLoad']) && ! empty($consumption['CostPerBullet'])) {
-            $out['Capacity'] = (int) floor($consumption['RequestedAmmoLoad'] / $consumption['CostPerBullet']);
         }
 
         return $this->removeNullValues($out);
