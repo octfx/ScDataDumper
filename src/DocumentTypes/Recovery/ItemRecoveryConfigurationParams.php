@@ -212,15 +212,16 @@ final class ItemRecoveryConfigurationParams extends RootDocument
     /**
      * Get all cooldown override groups.
      *
+     * Groups live in the single `economyParams/overrides` container; the cooldown
+     * multiplier is the group's `claimCooldownMultiplier` attribute.
+     *
      * @return list<array{multiplier: float, classReferences: list<string>}>
      */
     public function getCooldownOverrides(): array
     {
-        if ($this->cooldownOverrides !== null) {
-            return $this->cooldownOverrides;
+        if ($this->cooldownOverrides === null) {
+            $this->cooldownOverrides = $this->parseOverrideGroups('claimCooldownMultiplier');
         }
-
-        $this->cooldownOverrides = $this->parseOverrideGroups('economyParams/cooldownOverrides/ItemRecoveryOverrideGroupDef');
 
         return $this->cooldownOverrides;
     }
@@ -228,29 +229,30 @@ final class ItemRecoveryConfigurationParams extends RootDocument
     /**
      * Get all cost override groups.
      *
+     * Same `economyParams/overrides` groups; the cost multiplier is the group's
+     * `claimCostMultiplier` attribute.
+     *
      * @return list<array{multiplier: float, classReferences: list<string>}>
      */
     public function getCostOverrides(): array
     {
-        if ($this->costOverrides !== null) {
-            return $this->costOverrides;
+        if ($this->costOverrides === null) {
+            $this->costOverrides = $this->parseOverrideGroups('claimCostMultiplier');
         }
-
-        $this->costOverrides = $this->parseOverrideGroups('economyParams/costOverrides/ItemRecoveryOverrideGroupDef');
 
         return $this->costOverrides;
     }
 
     /**
-     * Parse override group elements from a given XPath.
+     * Parse the shared override groups, keyed by the given multiplier attribute.
      *
      * @return list<array{multiplier: float, classReferences: list<string>}>
      */
-    private function parseOverrideGroups(string $path): array
+    private function parseOverrideGroups(string $multiplierAttribute): array
     {
         $groups = [];
 
-        foreach ($this->getAll($path) as $groupNode) {
+        foreach ($this->getAll('economyParams/overrides/ItemRecoveryOverrideGroupDef') as $groupNode) {
             $refs = [];
 
             $classesNode = $groupNode->get('classes');
@@ -265,7 +267,7 @@ final class ItemRecoveryConfigurationParams extends RootDocument
             }
 
             $groups[] = [
-                'multiplier' => (float) ($groupNode->get('@multiplier') ?? 1.0),
+                'multiplier' => (float) ($groupNode->get('@'.$multiplierAttribute) ?? 1.0),
                 'classReferences' => $refs,
             ];
         }

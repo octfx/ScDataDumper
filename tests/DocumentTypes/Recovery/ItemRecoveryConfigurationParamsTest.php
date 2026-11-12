@@ -52,26 +52,20 @@ final class ItemRecoveryConfigurationParamsTest extends ScDataTestCase
                 <ItemRecoveryCondition_ItemType type="Char_Clothing_Torso_0" subType="UNDEFINED" />
               </DontEquipWhenBricked>
               <economyParams globalBrickTimer="10" baseReclaimTime="0" scalingPriceFloor="0" aUECperSecond="1E-06" defaultLoadoutCooldownMultiplier="200" claimCostMultiplier="0.003">
-                <cooldownOverrides>
-                  <ItemRecoveryOverrideGroupDef multiplier="1">
+                <overrides>
+                  <ItemRecoveryOverrideGroupDef claimCooldownMultiplier="1" claimCostMultiplier="1">
                     <classes>
                       <Reference value="aaaaaaaa-1111-1111-1111-111111111111" />
                     </classes>
                   </ItemRecoveryOverrideGroupDef>
-                  <ItemRecoveryOverrideGroupDef multiplier="0.6">
+                  <ItemRecoveryOverrideGroupDef claimCooldownMultiplier="0.6" claimCostMultiplier="0.8">
                     <classes>
                       <Reference value="bbbbbbbb-2222-2222-2222-222222222222" />
                       <Reference value="cccccccc-3333-3333-3333-333333333333" />
-                    </classes>
-                  </ItemRecoveryOverrideGroupDef>
-                </cooldownOverrides>
-                <costOverrides>
-                  <ItemRecoveryOverrideGroupDef multiplier="0.8">
-                    <classes>
                       <Reference value="dddddddd-4444-4444-4444-444444444444" />
                     </classes>
                   </ItemRecoveryOverrideGroupDef>
-                </costOverrides>
+                </overrides>
               </economyParams>
             </ItemRecoveryConfigurationParams.GlobalItemRecovery>
             XML
@@ -240,6 +234,13 @@ final class ItemRecoveryConfigurationParamsTest extends ScDataTestCase
         self::assertSame(0.8, $this->document->getCostMultiplierForClass('dddddddd-4444-4444-4444-444444444444'));
     }
 
+    public function test_cost_multiplier_differs_from_cooldown_multiplier_for_same_class(): void
+    {
+        // The shared overrides group defines 0.6 cooldown but 0.8 cost
+        self::assertSame(0.6, $this->document->getCooldownMultiplierForClass('bbbbbbbb-2222-2222-2222-222222222222'));
+        self::assertSame(0.8, $this->document->getCostMultiplierForClass('bbbbbbbb-2222-2222-2222-222222222222'));
+    }
+
     public function test_cost_multiplier_for_unknown_uuid(): void
     {
         self::assertNull($this->document->getCostMultiplierForClass('00000000-0000-0000-0000-000000000000'));
@@ -254,7 +255,8 @@ final class ItemRecoveryConfigurationParamsTest extends ScDataTestCase
 
     public function test_cost_override_group_count(): void
     {
-        self::assertCount(1, $this->document->getCostOverrides());
+        // Cooldown and cost multipliers come from the same shared override groups
+        self::assertCount(2, $this->document->getCostOverrides());
     }
 
     // --- Category entries ---
