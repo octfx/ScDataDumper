@@ -135,18 +135,21 @@ class Food extends BaseFormat
             $ratio = $content['ratio'];
 
             if ($stats['Hunger'] !== null) {
-                $hungerPerMicroSCU = $stats['Hunger'] * $ratio;
-                $hungerTotal += $hungerPerMicroSCU * $volume;
+                $contribution = $stats['Hunger'] * $ratio;
+                $hungerPerMicroSCU = ($hungerPerMicroSCU ?? 0.0) + $contribution;
+                $hungerTotal += $contribution * $volume;
             }
 
             if ($stats['Thirst'] !== null) {
-                $thirstPerMicroSCU = $stats['Thirst'] * $ratio;
-                $thirstTotal += $thirstPerMicroSCU * $volume;
+                $contribution = $stats['Thirst'] * $ratio;
+                $thirstPerMicroSCU = ($thirstPerMicroSCU ?? 0.0) + $contribution;
+                $thirstTotal += $contribution * $volume;
             }
 
             if ($stats['BloodDrugLevel'] !== null) {
-                $bloodDrugLevelPerMicroSCU = $stats['BloodDrugLevel'] * $ratio;
-                $bloodDrugLevelTotal += $bloodDrugLevelPerMicroSCU * $volume;
+                $contribution = $stats['BloodDrugLevel'] * $ratio;
+                $bloodDrugLevelPerMicroSCU = ($bloodDrugLevelPerMicroSCU ?? 0.0) + $contribution;
+                $bloodDrugLevelTotal += $contribution * $volume;
             }
         }
 
