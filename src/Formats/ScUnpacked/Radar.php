@@ -108,22 +108,7 @@ final class Radar extends BaseFormat
     private function findSensitivityAdditionForContactGroup(): ?float
     {
         $basePath = 'Components/SCItemRadarComponentParams/sensitivityModifiers';
-        $mods = $this->get($basePath.'/SCItemRadarSensitivityModifier')?->children() ?? [];
-
-        if ($mods === null) {
-            return $this->toFloatOrNull(
-                $this->get($basePath.'/SCItemRadarSensitivityModifier@sensitivityAddition')
-            );
-        }
-
-        $modList = [];
-        if (is_iterable($mods)) {
-            foreach ($mods as $m) {
-                $modList[] = $m;
-            }
-        } else {
-            $modList[] = $mods;
-        }
+        $modList = $this->item->getAll($basePath.'/SCItemRadarSensitivityModifier');
 
         foreach ($modList as $mod) {
             $ref = $mod->get(
