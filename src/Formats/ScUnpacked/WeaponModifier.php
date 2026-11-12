@@ -219,8 +219,8 @@ final class WeaponModifier extends BaseFormat
             '@maxDecayTimeModifier' => 'MaxDecayTimeModifier',
         ]);
 
-        $data['MinLimitsModifier'] = $this->buildVector($curve->get('minLim0tsModifier'), ['@x' => 'X', '@y' => 'Y', '@z' => 'Z']);
-        $data['MaxLimitsModifier'] = $this->buildVector($curve->get('maxLim0tsModifier'), ['@x' => 'X', '@y' => 'Y', '@z' => 'Z']);
+        $data['MinLimitsModifier'] = $this->buildVector($curve->get('minLimitsModifier'), ['@x' => 'X', '@y' => 'Y', '@z' => 'Z']);
+        $data['MaxLimitsModifier'] = $this->buildVector($curve->get('maxLimitsModifier'), ['@x' => 'X', '@y' => 'Y', '@z' => 'Z']);
 
         return $this->removeNullValues($data);
     }
