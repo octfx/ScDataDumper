@@ -415,6 +415,47 @@ final class ItemClassifierServiceTest extends TestCase
         self::assertNull($this->service->classify($item));
     }
 
+    public function test_fps_barrel_classified_first_does_not_poison_ship_mounted_barrel(): void
+    {
+        // Real shapes: arma_barrel_flhd_s2.xml (FPS barrel) vs
+        // gats_ballisticgatling_mounted_barrel_s1.xml (ship-mounted barrel, no FPS tag).
+        // Both share the nonship path bucket, so the cache key must split on the FPS_Barrel tag.
+        $fpsBarrel = $this->makeClassifiable(
+            'WeaponAttachment',
+            'Barrel',
+            path: 'entities/scitem/weapons/weapon_modifier/arma_barrel_flhd_s2.xml',
+            tags: 'FPS_Barrel ballistic_attach energy_attach',
+        );
+        $shipMountedBarrel = $this->makeClassifiable(
+            'WeaponAttachment',
+            'Barrel',
+            path: 'entities/scitem/weapons/weapon_mounted/parts/gats_ballisticgatling_mounted_barrel_s1.xml',
+            tags: 'uneditable',
+        );
+
+        self::assertSame('FPS.WeaponAttachment.BarrelAttachment', $this->service->classify($fpsBarrel));
+        self::assertNull($this->service->classify($shipMountedBarrel));
+    }
+
+    public function test_ship_mounted_barrel_classified_first_does_not_poison_fps_barrel(): void
+    {
+        $shipMountedBarrel = $this->makeClassifiable(
+            'WeaponAttachment',
+            'Barrel',
+            path: 'entities/scitem/weapons/weapon_mounted/parts/gats_ballisticgatling_mounted_barrel_s1.xml',
+            tags: 'uneditable',
+        );
+        $fpsBarrel = $this->makeClassifiable(
+            'WeaponAttachment',
+            'Barrel',
+            path: 'entities/scitem/weapons/weapon_modifier/arma_barrel_flhd_s2.xml',
+            tags: 'FPS_Barrel ballistic_attach energy_attach',
+        );
+
+        self::assertNull($this->service->classify($shipMountedBarrel));
+        self::assertSame('FPS.WeaponAttachment.BarrelAttachment', $this->service->classify($fpsBarrel));
+    }
+
     public function test_classify_ship_firing_mechanism(): void
     {
         self::assertSame(
@@ -611,6 +652,26 @@ final class ItemClassifierServiceTest extends TestCase
         $item = $this->makeClassifiable('Gadget', 'Gadget', tags: 'other_tag');
 
         self::assertNull($this->service->classify($item));
+    }
+
+    public function test_non_mining_gadget_classified_first_does_not_poison_mining_gadget(): void
+    {
+        // Real shapes: fps_device_test_miningbase.xml (Tags="REPLACEME") vs
+        // mining_gadget_thcn_boremax.xml (Tags="mining_gadget THCN BoreMax").
+        $nonMiningGadget = $this->makeClassifiable('Gadget', 'Gadget', tags: 'REPLACEME');
+        $miningGadget = $this->makeClassifiable('Gadget', 'Gadget', tags: 'mining_gadget THCN BoreMax');
+
+        self::assertNull($this->service->classify($nonMiningGadget));
+        self::assertSame('Mining.Gadget', $this->service->classify($miningGadget));
+    }
+
+    public function test_mining_gadget_classified_first_does_not_poison_non_mining_gadget(): void
+    {
+        $miningGadget = $this->makeClassifiable('Gadget', 'Gadget', tags: 'mining_gadget THCN BoreMax');
+        $nonMiningGadget = $this->makeClassifiable('Gadget', 'Gadget', tags: 'REPLACEME');
+
+        self::assertSame('Mining.Gadget', $this->service->classify($miningGadget));
+        self::assertNull($this->service->classify($nonMiningGadget));
     }
 
     public function test_classify_mining_module(): void

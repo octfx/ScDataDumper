@@ -477,8 +477,15 @@ final class ItemClassifierService
         // Some matchers depend on tags or paths, so the cache key must include that context.
         if (strcasecmp((string) $type, 'WeaponAttachment') === 0 && strcasecmp((string) $subType, 'Barrel') === 0) {
             $isShipPath = self::pathMatch($entity, 'ships/') ? 'ship' : 'nonship';
+            $hasFpsTag = self::tagMatch($entity, 'FPS_Barrel') ? 'fps' : 'nonfps';
 
-            return $base.'|'.$isShipPath;
+            return $base.'|'.$isShipPath.'|'.$hasFpsTag;
+        }
+
+        if (strcasecmp((string) $type, 'Gadget') === 0 && strcasecmp((string) $subType, 'Gadget') === 0) {
+            $isMiningGadget = self::tagMatch($entity, 'mining_gadget') ? 'mining' : 'generic';
+
+            return $base.'|'.$isMiningGadget;
         }
 
         if (strcasecmp((string) $type, 'DockingCollar') === 0 && strcasecmp((string) $subType, 'UNDEFINED') === 0) {
