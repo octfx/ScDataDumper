@@ -100,7 +100,8 @@ final readonly class ResourceAggregator implements VehicleDataCalculator
             $type = $this->itemTypeResolver->resolveSemanticType($item);
             $typeLower = is_string($type) ? strtolower($type) : null;
 
-            if (is_string($typeLower) && str_starts_with($typeLower, 'missile')) {
+            // Count actual ordnance only; racks and controllers also lowercase to 'missile*'
+            if (is_string($typeLower) && (str_starts_with($typeLower, 'missile.') || str_starts_with($typeLower, 'bomb.'))) {
                 $missileCount++;
             }
 

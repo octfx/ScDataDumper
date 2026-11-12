@@ -326,8 +326,20 @@ final class ResourceAggregatorTest extends TestCase
 
         self::assertSame(16.0, $result['mass_loadout']);
         self::assertSame(25.0, $result['distortion']['pool']);
-        self::assertEquals(2.0, $result['ammo']['missiles']);
+        self::assertEquals(1.0, $result['ammo']['missiles']);
         self::assertSame(6.0, $result['ammo']['missile_rack_capacity']);
+    }
+
+    public function test_ammo_missiles_count_only_ordnance_not_racks_or_controllers(): void
+    {
+        $missile = $this->makeItem(['Type' => 'Missile.Missile']);
+        $bomb = $this->makeItem(['Type' => 'Bomb.Torpedo']);
+        $rack = $this->makeItem(['Type' => 'MissileLauncher.MissileRack']);
+        $controller = $this->makeItem(['Type' => 'MissileController.UNDEFINED']);
+
+        $result = $this->calculateForItems([$missile, $bomb, $rack, $controller]);
+
+        self::assertEquals(2.0, $result['ammo']['missiles']);
     }
 
     public function test_weapon_lockers_and_slots_are_counted_from_std_item_ports(): void
