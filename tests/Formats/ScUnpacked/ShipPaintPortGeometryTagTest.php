@@ -271,6 +271,96 @@ final class ShipPaintPortGeometryTagTest extends ScDataTestCase
         );
     }
 
+    public function test_camel_case_implementation_port_tags_are_read(): void
+    {
+        // Vehicle implementation files spell the attributes requiredTags/portTags
+        // (e.g. ORIG_400i.xml); only item SItemPortDef elements use the
+        // PascalCase variants. Both spellings must produce identical output.
+        $camelCase = $this->buildShipArrayWithAttributes(
+            'requiredTags="Paint_Constellation" portTags="Paint_Constellation"',
+            subGeometryTags: self::mk5SubGeometryTags(),
+            seedMk5Template: true,
+        );
+
+        $paintPort = $this->findPaintPort($camelCase);
+        self::assertSame(['Paint_Constellation_Mk5'], $paintPort['RequiredTags'] ?? null);
+        self::assertSame(['Paint_Constellation'], $paintPort['PortTags'] ?? null);
+
+        // The PascalCase spelling used by item SItemPortDef elements still works.
+        $pascalCase = $this->buildShipArrayWithAttributes(
+            'RequiredPortTags="Paint_Constellation"',
+            subGeometryTags: self::mk5SubGeometryTags(),
+            seedMk5Template: true,
+        );
+
+        self::assertSame(['Paint_Constellation_Mk5'], $this->findPaintPort($pascalCase)['RequiredTags'] ?? null);
+    }
+
+    /**
+     * @param  list<string>  $subGeometryTags
+     */
+    private function buildShipArrayWithAttributes(string $portAttributes, array $subGeometryTags, bool $seedMk5Template): array
+    {
+        $manufacturerPath = $this->writeFallbackManufacturerFile();
+
+        $entityClassDefinitions = [];
+
+        if ($seedMk5Template) {
+            $mk5TemplatePath = $this->writePaintItemFile(
+                'Paint_Constellation_Mk5_Template',
+                'paint_constellation_mk5_template',
+                '00000000-0000-0000-0000-00000000mk5t',
+                'Paint_Constellation_Mk5',
+            );
+            $entityClassDefinitions['Paint_Constellation_Mk5_Template'] = $mk5TemplatePath;
+        }
+
+        $this->writeCacheFiles(
+            classToPathMap: [
+                'EntityClassDefinition' => $entityClassDefinitions,
+                'SCItemManufacturer' => ['FALLBACK' => $manufacturerPath],
+            ],
+            uuidToClassMap: [
+                '11111111-1111-1111-1111-111111111111' => 'FALLBACK',
+            ],
+            classToUuidMap: ['FALLBACK' => '11111111-1111-1111-1111-111111111111'],
+            uuidToPathMap: ['11111111-1111-1111-1111-111111111111' => $manufacturerPath],
+        );
+
+        $this->configureServiceFactory();
+
+        $entity = new VehicleDefinition;
+        $entity->load($this->writeVehicleEntityFile($subGeometryTags));
+
+        $vehicle = new Vehicle;
+        $vehicle->load($this->writeVehicleImplementationFileWithAttributes($portAttributes));
+
+        $ship = new Ship(new VehicleWrapper($vehicle, $entity, []));
+
+        return $ship->toArray();
+    }
+
+    private function writeVehicleImplementationFileWithAttributes(string $portAttributes): string
+    {
+        return $this->writeFile(
+            'records/vehicles/test_ship_impl.xml',
+            <<<XML
+            <?xml version="1.0" encoding="UTF-8"?>
+            <Vehicle.TEST_SHIP_IMPL>
+                <Parts>
+                    <Part name="hardpoint_paint" mass="100" damageMax="500">
+                        <ItemPort maxSize="1" minSize="1" flags="\$editable" {$portAttributes}>
+                            <Types>
+                                <Type type="Paints" />
+                            </Types>
+                        </ItemPort>
+                    </Part>
+                </Parts>
+            </Vehicle.TEST_SHIP_IMPL>
+            XML,
+        );
+    }
+
     private function writeVehicleImplementationFile(?string $portTags): string
     {
         $portTagsAttribute = $portTags !== null ? sprintf(' RequiredPortTags="%s"', $portTags) : '';

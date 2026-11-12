@@ -439,7 +439,7 @@ final class StandardisedPartBuilder
      */
     private function extractRequiredTags(Element $itemPort): array
     {
-        $rawTags = trim((string) ($itemPort->get('@RequiredPortTags') ?? ''));
+        $rawTags = trim((string) ($itemPort->get('@RequiredPortTags') ?? $itemPort->get('@requiredTags') ?? ''));
 
         return $rawTags === '' ? [] : array_map(static fn (string $tag): string => ltrim($tag, '$'), array_filter(explode(' ', $rawTags)));
     }
@@ -451,7 +451,7 @@ final class StandardisedPartBuilder
      */
     private function extractPortTags(Element $itemPort): array
     {
-        $rawTags = trim((string) ($itemPort->get('@PortTags') ?? ''));
+        $rawTags = trim((string) ($itemPort->get('@PortTags') ?? $itemPort->get('@portTags') ?? ''));
 
         return $rawTags === '' ? [] : array_values(array_filter(explode(' ', $rawTags)));
     }
