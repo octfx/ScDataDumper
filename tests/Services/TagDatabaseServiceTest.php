@@ -101,6 +101,29 @@ final class TagDatabaseServiceTest extends ScDataTestCase
         ], $service->getTagMap());
     }
 
+    public function test_initialize_rebuilds_when_cache_is_valid_but_empty_object(): void
+    {
+        $this->writeCacheFiles();
+        $this->writeExtractedTagFiles([
+            ['name' => 'ArmouryItem', 'uuid' => self::ARMOURY_UUID, 'legacyGUID' => '4294967295'],
+        ]);
+        // Interrupted cache generation can leave a valid-but-empty {}; it must self-heal
+        file_put_contents($this->getCachePath(), '{}');
+
+        $service = new TagDatabaseService($this->tempDir);
+        $service->initialize();
+
+        self::assertSame('ArmouryItem', $service->getTagName(self::ARMOURY_UUID));
+        self::assertSame([
+            strtolower(self::ARMOURY_UUID) => [
+                'name' => 'ArmouryItem',
+                'legacyGUID' => '4294967295',
+                'children' => [],
+            ],
+        ], $service->getTagMap());
+        self::assertStringContainsString('ArmouryItem', file_get_contents($this->getCachePath()));
+    }
+
     public function test_initialize_returns_empty_map_when_tag_section_is_missing(): void
     {
         $this->writeCacheFiles();

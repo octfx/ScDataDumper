@@ -277,6 +277,14 @@ final class TagDatabaseService extends BaseService
             JSON_THROW_ON_ERROR
         );
 
+        // An empty-but-valid cache (e.g. a truncated write) would otherwise stick forever
+        // and null every tag name; rebuild from classToPathMap so it self-heals.
+        if ($this->tagByUuid === []) {
+            $this->buildCache();
+
+            return;
+        }
+
         $needsRebuild = false;
         foreach ($this->tagByUuid as $tag) {
             if (! array_key_exists('children', $tag)) {
