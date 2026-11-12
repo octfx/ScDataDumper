@@ -665,4 +665,57 @@ final class ItemTest extends ScDataTestCase
 
         self::assertArrayNotHasKey('ammo_feed', $result);
     }
+
+    public function test_std_item_volume_exports_inventory_occupancy_volume_element(): void
+    {
+        $manufacturerUuid = '11111111-1111-1111-1111-111111111111';
+
+        $manufacturerPath = $this->writeFile(
+            'records/scitemmanufacturer/fallback.xml',
+            <<<'XML'
+            <SCItemManufacturer.FALLBACK Code="FALL" __type="SCItemManufacturer" __ref="11111111-1111-1111-1111-111111111111" __path="libs/foundry/records/scitemmanufacturer/fallback.xml">
+                <Localization Name="@manufacturer_name" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY" />
+            </SCItemManufacturer.FALLBACK>
+            XML
+        );
+
+        $path = $this->writeFile(
+            'records/entities/scitem/shield_volume_item.xml',
+            sprintf(
+                <<<'XML'
+                <EntityClassDefinition.SHLD_TEST __type="EntityClassDefinition" __ref="cccccccc-cccc-cccc-cccc-cccccccccccc" __path="libs/foundry/records/entities/scitem/shield_volume_item.xml">
+                    <Components>
+                        <SAttachableComponentParams>
+                            <AttachDef Type="Shield" SubType="UNDEFINED" Size="2" Grade="4" Manufacturer="%s">
+                                <Localization Name="@item_name" ShortName="@LOC_EMPTY" Description="@LOC_EMPTY" />
+                                <inventoryOccupancyVolume>
+                                    <SMicroCargoUnit microSCU="252000" />
+                                </inventoryOccupancyVolume>
+                            </AttachDef>
+                        </SAttachableComponentParams>
+                    </Components>
+                </EntityClassDefinition.SHLD_TEST>
+                XML,
+                $manufacturerUuid,
+            )
+        );
+
+        $this->writeCacheFiles(
+            uuidToClassMap: [$manufacturerUuid => 'FALLBACK'],
+            classToUuidMap: ['FALLBACK' => $manufacturerUuid],
+            uuidToPathMap: [$manufacturerUuid => $manufacturerPath],
+        );
+
+        $this->initializeMinimalItemServices([
+            'LOC_EMPTY' => '',
+            'item_name' => 'Volume Test Shield',
+        ]);
+
+        $item = new EntityClassDefinition;
+        $item->load($path);
+
+        $result = (new Item($item))->toArray();
+
+        self::assertSame(0.252, $result['stdItem']['Volume']);
+    }
 }

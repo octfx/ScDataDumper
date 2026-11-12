@@ -98,7 +98,7 @@ final class Item extends BaseFormat
                 'Height' => $attach->get('inventoryOccupancyDimensions@z', 0),
                 'Length' => $attach->get('inventoryOccupancyDimensions@y', 0),
                 // @deprecated use InventoryOccupancy.Volume.SCU
-                'Volume' => self::convertToScu($attach->get('@inventoryOccupancyVolume')),
+                'Volume' => self::convertToScu($attach->get('inventoryOccupancyVolume')),
                 'InventoryOccupancy' => new LazyFormat(fn () => new InventoryOccupancy($this->item)),
                 'Mass' => $this->item->getMass(),
                 'Type' => self::buildTypeName($attach->get('@Type', 'UNKNOWN'), $attach->get('@SubType', 'UNKNOWN')),
