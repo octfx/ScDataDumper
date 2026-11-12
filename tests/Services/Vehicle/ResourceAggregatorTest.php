@@ -313,7 +313,7 @@ final class ResourceAggregatorTest extends TestCase
             'Type' => 'MissileLauncher.MissileRack',
             'Mass' => 7.0,
             'Distortion' => ['Maximum' => 3.0],
-            'MissileRack' => ['Count' => 6.0],
+            'MissileRack' => ['MissileCount' => 6.0],
         ]);
 
         $genericComponent = $this->makeItem([

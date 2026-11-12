@@ -106,7 +106,7 @@ final readonly class ResourceAggregator implements VehicleDataCalculator
 
             // Missile rack capacity
             if (is_string($typeLower) && str_starts_with($typeLower, 'missilelauncher')) {
-                $missileRackAmmo += (float) Arr::get($stdItem ?? [], 'MissileRack.Count', 0.0);
+                $missileRackAmmo += (float) Arr::get($stdItem ?? [], 'MissileRack.MissileCount', 0.0);
             }
 
             // Weapon racks / lockers (capacity overview)
