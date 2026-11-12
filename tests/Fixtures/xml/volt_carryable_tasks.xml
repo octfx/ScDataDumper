@@ -1,0 +1,24 @@
+<EntityClassDefinition.Volt_SMG_Energy_01 __type="EntityClassDefinition" __ref="10000000-0000-0000-0000-000000000019" __path="libs/foundry/records/entities/scitem/weapons/fps_weapons/volt_smg_energy_01_tint03.xml">
+  <Components>
+    <SEntityComponentCarryableParams>
+      <carryableTasks>
+        <SSequencerMoveToAnimateCarryableTaskParams fragmentId="Take" bForceExactPositioning="0" />
+        <SSequencerBespokeTakeCarryableTaskParams fragmentId="Take" />
+        <SSequencerMoveToAnimateCarryableTaskParams fragmentId="Place" bForceExactPositioning="0" />
+        <SSequencerBespokePlaceCarryableTaskParams fragmentId="Place" />
+        <SSequencerSetInteractionStateCarryableTaskParams>
+          <state value="SInteractionState[928B]" />
+        </SSequencerSetInteractionStateCarryableTaskParams>
+        <SSequencerMoveToAnimateCarryableTaskParams fragmentId="Take" fragTag="first_select" bForceExactPositioning="0" />
+        <SSequencerBespokeTakeCarryableTaskParams fragmentId="Take" fragTag="first_select" />
+      </carryableTasks>
+      <adjacentTasks>
+        <SSequencerMoveToAnimateCarryableTaskParams fragmentId="Take" />
+        <SSequencerMoveToAnimateCarryableTaskParams fragmentId="Place" />
+      </adjacentTasks>
+      <singleTask>
+        <SSequencerBespokePlaceCarryableTaskParams fragmentId="Place" />
+      </singleTask>
+    </SEntityComponentCarryableParams>
+  </Components>
+</EntityClassDefinition.Volt_SMG_Energy_01>

@@ -310,11 +310,20 @@ abstract class RootDocument extends DOMDocument
         $data = $element->attributesToArray();
 
         if ($element->childNodes->length > 0) {
+            // Count tag names across all siblings, not just adjacent ones: same-named
+            // elements separated by other elements must also aggregate into the
+            // numeric list, otherwise the keyed assignment overwrites earlier
+            // occurrences (e.g. interleaved carryableTasks sequences).
+            $childNameCounts = [];
+
+            foreach ($element->childNodes as $node) {
+                if ($node->nodeType === XML_ELEMENT_NODE) {
+                    $childNameCounts[$node->nodeName] = ($childNameCounts[$node->nodeName] ?? 0) + 1;
+                }
+            }
+
             foreach ($element->children() as $child) {
-                if (
-                    ($child->getNode()->previousSibling && $child->getNode()->nodeName === $child->getNode()->previousSibling->nodeName) ||
-                    ($child->getNode()->nextSibling && $child->getNode()->nodeName === $child->getNode()->nextSibling->nodeName)
-                ) {
+                if ($childNameCounts[$child->nodeName] > 1) {
                     $data[] = $this->toArrayRecursive($child);
                 } else {
                     $data[$child->nodeName] = $this->toArrayRecursive($child);
