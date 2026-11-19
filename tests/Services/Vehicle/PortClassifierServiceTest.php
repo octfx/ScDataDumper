@@ -135,6 +135,24 @@ final class PortClassifierServiceTest extends TestCase
         }
     }
 
+    public function test_adapter_evidence_distinguishes_one_gun_adapter_from_tagged_housing(): void
+    {
+        $gun = ['Types' => ['WeaponGun.Gun'], 'InstalledItem' => ['stdItem' => ['Type' => 'WeaponGun.Gun']]];
+        $emptyGunPort = ['Types' => ['WeaponGun.Gun']];
+        foreach ([
+            ['Mount_Gimbal_S4_Wolf', ['gimbalMount'], [$gun], ['Turret.GunTurret', 'WeaponGun.Gun'], 'Weapon hardpoints'],
+            ['GMNT_MISC_S03_PL01', [], [$gun], ['Turret.GunTurret'], 'Weapon hardpoints'],
+            ['MISC_Starlancer_Dual_Gimbal', ['gimbalMount'], [$gun, $emptyGunPort], ['Turret.NoseMounted'], 'Remote turrets'],
+            ['Tagged_Dual_Housing', ['gimbalMount'], [$gun, $emptyGunPort], ['Turret.GunTurret', 'WeaponGun.Gun'], 'Remote turrets'],
+            ['Untagged_Single_Housing', [], [$gun], ['Turret.GunTurret', 'WeaponGun.Gun'], 'Remote turrets'],
+        ] as [$className, $tags, $ports, $types, $category]) {
+            $item = ['stdItem' => ['Type' => $types[0], 'ClassName' => $className, 'Tags' => $tags, 'Ports' => $ports]];
+            $port = $this->makePort(types: $types, installedItem: $item);
+
+            self::assertSame(['Weapons', $category], $this->service->classifyPort($port, $item), $className);
+        }
+    }
+
     public function test_nested_weapon_adapter_is_not_promoted_to_turret(): void
     {
         $item = ['stdItem' => ['Type' => 'Turret.GunTurret', 'Ports' => [
