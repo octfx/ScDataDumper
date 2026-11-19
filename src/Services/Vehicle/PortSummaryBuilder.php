@@ -27,7 +27,7 @@ final class PortSummaryBuilder
             ],
             'weaponHardpoints' => [
                 'category' => 'Weapon hardpoints',
-                'excludeChildren' => ['Manned turrets', 'Remote turrets', 'Mining turrets', 'Utility turrets'],
+                'excludeChildren' => ['Manned turrets', 'Remote turrets', 'Autonomous turrets', 'Mining turrets', 'Utility turrets'],
             ],
             'miningHardpoints' => [
                 'category' => 'Mining hardpoints',
