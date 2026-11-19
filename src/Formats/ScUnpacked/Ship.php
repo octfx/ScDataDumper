@@ -416,53 +416,29 @@ final class Ship extends BaseFormat
             $data['Agility'] = $calculatedData['Agility'];
         }
 
-        if (! empty($calculatedData['MannedTurrets'])) {
-            $summary['MannedTurrets'] = $calculatedData['MannedTurrets'];
-        }
-
-        if (! empty($calculatedData['PdcTurrets'])) {
-            $summary['PdcTurrets'] = $calculatedData['PdcTurrets'];
-        }
-
-        if (! empty($calculatedData['RemoteTurrets'])) {
-            $summary['RemoteTurrets'] = $calculatedData['RemoteTurrets'];
-        }
-
-        // Merge Weaponry.Turrets DPS data into typed turret arrays
-        $weaponryTurrets = $calculatedData['Weaponry']['Turrets'] ?? [];
-        if (! empty($weaponryTurrets)) {
-            $turretDpsMap = [];
-            foreach ($weaponryTurrets as $turret) {
-                $turretDpsMap[$turret['HardpointName']] = $turret;
+        $turretDpsMap = array_column($calculatedData['Weaponry']['Turrets'] ?? [], null, 'HardpointName');
+        $bridgeControllableTurrets = array_flip($turretControlMap);
+        foreach (['MannedTurrets', 'PdcTurrets', 'RemoteTurrets'] as $key) {
+            if (empty($calculatedData[$key])) {
+                continue;
             }
-
-            foreach (['MannedTurrets', 'PdcTurrets', 'RemoteTurrets'] as $key) {
-                if (empty($calculatedData[$key])) {
-                    continue;
+            foreach ($calculatedData[$key] as $i => $turret) {
+                $hardpoint = $turret['HardpointName'] ?? null;
+                $dps = $turretDpsMap[$hardpoint] ?? null;
+                if ($dps !== null) {
+                    $turret['DpsTotal'] = $dps['DpsTotal'] ?? null;
+                    $turret['SustainedDpsTotal'] = $dps['SustainedDpsTotal'] ?? null;
+                    $turret['AlphaTotal'] = $dps['AlphaTotal'] ?? null;
+                    $turret['Weapons'] = $dps['Weapons'] ?? [];
                 }
-                foreach ($calculatedData[$key] as $i => $turret) {
-                    $hp = $turret['HardpointName'] ?? null;
-                    if ($hp !== null && isset($turretDpsMap[$hp])) {
-                        $dps = $turretDpsMap[$hp];
-                        $calculatedData[$key][$i]['DpsTotal'] = $dps['DpsTotal'] ?? null;
-                        $calculatedData[$key][$i]['SustainedDpsTotal'] = $dps['SustainedDpsTotal'] ?? null;
-                        $calculatedData[$key][$i]['AlphaTotal'] = $dps['AlphaTotal'] ?? null;
-                        $calculatedData[$key][$i]['Weapons'] = $dps['Weapons'] ?? [];
-                        $calculatedData[$key][$i]['IsPilotSlaveable'] = $dps['IsPilotSlaveable'] ?? false;
-                    }
-                }
-            }
 
-            // Re-assign merged turret arrays to summary
-            if (! empty($calculatedData['MannedTurrets'])) {
-                $summary['MannedTurrets'] = $calculatedData['MannedTurrets'];
+                $isPilotSlaveable = isset($bridgeControllableTurrets[$hardpoint]);
+                if ($isPilotSlaveable || $dps !== null) {
+                    $turret['IsPilotSlaveable'] = $isPilotSlaveable;
+                }
+                $calculatedData[$key][$i] = $turret;
             }
-            if (! empty($calculatedData['PdcTurrets'])) {
-                $summary['PdcTurrets'] = $calculatedData['PdcTurrets'];
-            }
-            if (! empty($calculatedData['RemoteTurrets'])) {
-                $summary['RemoteTurrets'] = $calculatedData['RemoteTurrets'];
-            }
+            $summary[$key] = $calculatedData[$key];
         }
         if (! empty($calculatedData['Propulsion'])) {
             $summary['Propulsion'] = $calculatedData['Propulsion'];
