@@ -43,6 +43,36 @@ final class WeaponDpsAggregatorTest extends TestCase
         self::assertSame(600.0, $weaponry['PilotSustainedDps']);
     }
 
+    public function test_beam_modes_contribute_to_fixed_weapon_summary(): void
+    {
+        $beams = [
+            'HRST_LaserBeam_Tiburon' => 18000.0,
+            'VNCL_Gen2_TachyonBeam_S10' => 200000.0,
+            'VNCL_Gen2_LaserBeam_S9' => 27500.0,
+            'HRST_LaserBeam_Bespoke' => 15000.0,
+            'Vanduul_LaserBeam_S12_TSG' => 200000.0,
+        ];
+
+        foreach ($beams as $className => $dps) {
+            $beam = $this->makeItem('WeaponGun.Gun', [
+                'ClassName' => $className,
+                'Weapon' => ['Modes' => [
+                    ['FireType' => 'beam', 'Dps' => 1000, 'DamagePerSecond' => 300000, 'Alpha' => 0],
+                    ['FireType' => 'beam', 'DamagePerSecond' => $dps, 'Alpha' => 0],
+                ]],
+            ]);
+            $weaponry = $this->calculateForItems([$beam])['Weaponry'] ?? [];
+
+            self::assertArrayHasKey('FixedWeapons', $weaponry, $className);
+            $row = $weaponry['FixedWeapons']['Weapons'][0];
+            self::assertSame($className, $row['ClassName']);
+            self::assertSame($dps, $row['Dps']);
+            self::assertSame(0.0, $row['Alpha']);
+            self::assertNull($row['SustainedDps']);
+            self::assertSame($dps, $weaponry['PilotDps']);
+        }
+    }
+
     public function test_turret_weapons_grouped_by_hardpoint(): void
     {
         $parts = [
@@ -129,6 +159,7 @@ final class WeaponDpsAggregatorTest extends TestCase
     {
         $result = $this->calculateForItems([
             $this->makeItem('WeaponGun.Gun', ['Weapon' => null]),
+            $this->makeItem('WeaponGun.Gun', ['Weapon' => ['Modes' => [['Alpha' => 100]]]]),
         ]);
 
         self::assertSame([], $result);
