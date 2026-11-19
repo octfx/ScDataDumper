@@ -15,12 +15,11 @@ final class PortFinder
     /**
      * Find item ports in parts that match the predicate
      *
-     * Matched parts are not traversed any deeper; $stop skips a node and its
-     * children entirely.
+     * Matched parts are not traversed any deeper; $stop skips a port and its installed item.
      *
      * @param  array  $parts  List of parts to search
      * @param  callable  $predicate  Function(array $part): bool to match ports
-     * @param  callable|null  $stop  Function(array $node): bool, skip node and subtree
+     * @param  callable|null  $stop  Function(array $port): bool, skip port and installed item
      * @return Collection<int, array> Matched parts / wrapped ports
      */
     public function findInParts(array $parts, callable $predicate, ?callable $stop = null): Collection
@@ -28,11 +27,7 @@ final class PortFinder
         $results = collect();
 
         foreach ($parts as $part) {
-            if (isset($part['Port'])) {
-                if ($stop !== null && $stop($part)) {
-                    continue;
-                }
-
+            if (isset($part['Port']) && ($stop === null || ! $stop($part['Port']))) {
                 if ($predicate($part)) {
                     $results->push($part);
 
@@ -61,7 +56,7 @@ final class PortFinder
      *
      * @param  array  $item  The item to search
      * @param  callable  $predicate  Function(array $port): bool to match ports
-     * @param  callable|null  $stop  Function(array $node): bool, skip node and subtree
+     * @param  callable|null  $stop  Function(array $port): bool, skip port and installed item
      * @return Collection<int, array> Matched ports wrapped as ['Port' => ...]
      */
     private function findInItem(array $item, callable $predicate, ?callable $stop): Collection

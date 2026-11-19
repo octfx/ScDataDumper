@@ -371,7 +371,7 @@ final class StandardisedPartBuilder
             $port['Loadout'] = $loadoutEntry['className'] ?? null;
             $port['InstalledItem'] = $this->buildInstalledItem($loadoutEntry);
 
-            $category = $this->portClassifier->classifyPort($port, $port['InstalledItem'] ?? null);
+            $category = $this->portClassifier->classifyPort($port, $port['InstalledItem'] ?? null, isTopLevelPort: false);
             $port['Category'] = $category[1] ?? null;
         }
 
