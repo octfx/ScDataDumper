@@ -118,6 +118,33 @@ final class PortClassifierServiceTest extends TestCase
         self::assertSame(['Weapons', 'Remote turrets'], $this->service->classifyPort($port, $item));
     }
 
+    public function test_weapon_bearing_housings_on_ship_ports(): void
+    {
+        $gun = ['InstalledItem' => ['stdItem' => ['Type' => 'WeaponGun.Gun']]];
+        foreach ([
+            ['ANVL_Valkyrie_Nose_Turret_S3', 'Turret.GunTurret', 'Remote turrets'],
+            ['AEGS_Idris_SCItem_AI_Turret_Top_Left', 'Turret.GunTurret', 'Autonomous turrets'],
+            ['Manned_Housing', 'TurretBase.MannedTurret', 'Manned turrets'],
+            ['Mount_Gimbal_S3', 'Turret.GunTurret', 'Weapon hardpoints'],
+            ['XNAA_SanTokYai_Mount_Gimbal_S3', 'Turret.GunTurret', 'Weapon hardpoints'],
+        ] as [$className, $type, $category]) {
+            $item = ['stdItem' => ['Type' => $type, 'ClassName' => $className, 'Ports' => [$gun]]];
+            $port = $this->makePort(types: ['Turret.GunTurret', 'WeaponGun.Gun'], installedItem: $item);
+
+            self::assertSame(['Weapons', $category], $this->service->classifyPort($port, $item), $className);
+        }
+    }
+
+    public function test_nested_weapon_adapter_is_not_promoted_to_turret(): void
+    {
+        $item = ['stdItem' => ['Type' => 'Turret.GunTurret', 'Ports' => [
+            ['InstalledItem' => ['stdItem' => ['Type' => 'WeaponGun.Gun']]],
+        ]]];
+        $port = $this->makePort(types: ['Turret.GunTurret'], installedItem: $item);
+
+        self::assertSame(['Weapons', 'Weapon hardpoints'], $this->service->classifyPort($port, $item, isTopLevelPort: false));
+    }
+
     public function test_remote_camera_does_not_become_a_weapon_turret(): void
     {
         $item = ['stdItem' => ['Type' => 'Turret.GunTurret', 'ClassName' => 'AEGS_Idris_Remote_Camera_Turret_Upper', 'Ports' => [
@@ -206,7 +233,7 @@ final class PortClassifierServiceTest extends TestCase
         ]]];
         $port = $this->makePort(types: ['Turret.GunTurret'], portName: 'pdc_mount', installedItem: $item);
 
-        self::assertSame(['Weapons', 'Weapon hardpoints'], $this->service->classifyPort($port, $item));
+        self::assertSame(['Weapons', 'Remote turrets'], $this->service->classifyPort($port, $item));
     }
 
     public function test_pdc_turret_uses_installed_semantic_type_with_uuid_only_loadout(): void
