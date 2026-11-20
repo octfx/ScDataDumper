@@ -74,6 +74,94 @@ final class ShipIntegrationTest extends ScDataTestCase
     /**
      * @throws JsonException
      */
+    public function test_to_array_exports_pilot_slaveability_for_gun_and_missile_turrets(): void
+    {
+        $this->writeShipTestCacheFiles($this->writeManufacturerFile());
+        $this->configureServiceFactory();
+
+        $entity = new VehicleDefinition;
+        $entity->load($this->writeVehicleEntityFile());
+        $vehicle = new Vehicle;
+        $vehicle->load($this->writeFile('records/vehicles/test_ship_impl.xml', <<<'XML'
+            <Vehicle.TEST_SHIP_IMPL>
+                <Parts>
+                    <Part name="hardpoint_seat_driver">
+                        <ItemPort>
+                            <Types><Type type="Seat"/></Types>
+                            <ControllerDef controllableTags="pilotSeat">
+                                <UserDef><PriorityGroups>
+                                    <PriorityGroup itemType="WeaponController" defaultPriority="no_control">
+                                        <tags tag="remote_turret"><Priority value="exclusive_control"/></tags>
+                                    </PriorityGroup>
+                                </PriorityGroups></UserDef>
+                            </ControllerDef>
+                        </ItemPort>
+                    </Part>
+                    <Part name="gun_turret">
+                        <ItemPort>
+                            <Types><Type type="Turret"/></Types>
+                            <ControllerDef controllableTags="remote_turret"/>
+                        </ItemPort>
+                    </Part>
+                    <Part name="missile_turret">
+                        <ItemPort>
+                            <Types><Type type="Turret"/></Types>
+                            <ControllerDef controllableTags="remote_turret"/>
+                        </ItemPort>
+                    </Part>
+                    <Part name="crew_missile_turret">
+                        <ItemPort>
+                            <Types><Type type="Turret"/></Types>
+                            <ControllerDef controllableTags="crew_turret"/>
+                        </ItemPort>
+                    </Part>
+                </Parts>
+            </Vehicle.TEST_SHIP_IMPL>
+            XML));
+
+        $loadout = [];
+        $payloadTypes = [
+            'gun_turret' => 'WeaponGun.Gun',
+            'missile_turret' => 'MissileLauncher.MissileRack',
+            'crew_missile_turret' => 'MissileLauncher.MissileRack',
+        ];
+        foreach ($payloadTypes as $hardpoint => $type) {
+            $payload = ['ClassName' => $type, 'Type' => $type];
+            if ($hardpoint === 'gun_turret') {
+                $payload['Weapon']['Damage'] = ['DpsTotal' => 100];
+            }
+            $loadout[] = [
+                'portName' => $hardpoint,
+                'className' => 'remote_'.$hardpoint,
+                'Item' => ['type' => 'Turret', 'stdItem' => [
+                    'ClassName' => 'remote_'.$hardpoint,
+                    'Type' => 'TurretBase.RemoteTurret',
+                    'Ports' => [[
+                        'PortName' => 'payload',
+                        'Types' => [$type],
+                        'Uneditable' => false,
+                        'InstalledItem' => ['stdItem' => $payload],
+                    ]],
+                ]],
+                'entries' => [[
+                    'portName' => 'payload',
+                    'className' => $type,
+                    'Item' => ['type' => explode('.', $type)[0], 'stdItem' => $payload],
+                    'entries' => [],
+                ]],
+            ];
+        }
+
+        $result = new Ship(new VehicleWrapper($vehicle, $entity, $loadout))->toArray();
+        $turrets = array_column($result['RemoteTurrets'], null, 'HardpointName');
+
+        self::assertSame(100.0, $turrets['gun_turret']['DpsTotal']);
+        self::assertNull($turrets['missile_turret']['DpsTotal'] ?? null);
+        self::assertTrue($turrets['gun_turret']['IsPilotSlaveable']);
+        self::assertTrue($turrets['missile_turret']['IsPilotSlaveable'] ?? null);
+        self::assertArrayNotHasKey('IsPilotSlaveable', $turrets['crew_missile_turret']);
+    }
+
     public function test_to_array_strips_trailing_newline_from_localized_vehicle_name(): void
     {
         $manufacturerPath = $this->writeManufacturerFile();
