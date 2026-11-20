@@ -228,22 +228,33 @@ final readonly class WeaponDpsAggregator implements VehicleDataCalculator
     }
 
     /**
-     * Extract weapon damage data from stdItem.Weapon.Damage.
+     * Extract weapon damage from the aggregate block or alternate fire modes.
      *
      * @return array{ClassName: string|null, Dps: float, SustainedDps: float|null, Alpha: float}|null
      */
     private function extractWeaponData(array $stdItem): ?array
     {
         $damage = Arr::get($stdItem, 'Weapon.Damage');
-        if ($damage === null) {
-            return null;
-        }
-
         $dps = (float) ($damage['DpsTotal'] ?? $damage['Burst'] ?? 0.0);
         $alpha = (float) ($damage['AlphaTotal'] ?? 0.0);
         $sustained = isset($damage['Sustained']) && is_numeric($damage['Sustained'])
             ? (float) $damage['Sustained']
             : null;
+
+        if ($damage === null) {
+            $dps = null;
+            foreach (Arr::get($stdItem, 'Weapon.Modes') ?? [] as $mode) {
+                $modeDps = $mode['Dps'] ?? $mode['DamagePerSecond'] ?? null;
+                if (is_numeric($modeDps)) {
+                    $dps = max($dps ?? 0.0, (float) $modeDps);
+                }
+                $alpha = max($alpha, (float) ($mode['Alpha'] ?? 0.0));
+            }
+
+            if ($dps === null) {
+                return null;
+            }
+        }
 
         if ($dps <= 0 && $alpha <= 0) {
             return null;
