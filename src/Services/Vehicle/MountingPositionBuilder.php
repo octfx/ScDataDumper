@@ -19,15 +19,18 @@ final class MountingPositionBuilder
         'emp' => 'Device', 'salvagefieldemitter' => 'Tool',
     ];
 
+    public function __construct(
+        private readonly WeaponDpsAggregator $weaponStats = new WeaponDpsAggregator(new StandardisedPartWalker),
+    ) {}
+
     /**
-     * @param  array  $combat  WeaponDpsAggregator turret rows keyed for attribution
      * @param  array  $routes  Installed controller routes by hardpoint name
      * @param  array  $moduleRoutes  Installed module routes by snapshot port ID
      * @param  array<string, list<array<string, mixed>>>  $legacyBuckets  Exported legacy turret
      *                                                                    summaries (MannedTurrets, RemoteTurrets,
      *                                                                    PdcTurrets) in export order
      */
-    public function build(array &$loadout, array $sourcePorts, array $combat, array $routes, array $legacyBuckets = [], array $moduleRoutes = []): array
+    public function build(array &$loadout, array $sourcePorts, array $routes, array $legacyBuckets = [], array $moduleRoutes = []): array
     {
         $positions = [];
         $issues = [];
@@ -68,21 +71,6 @@ final class MountingPositionBuilder
             }
         }
         unset($position);
-
-        foreach ($combat as $stats) {
-            $name = $stats['HardpointName'];
-            $ids = $statSources[$name] ?? [];
-            if (count($ids) !== 1 || ! isset($positions[$ids[0]])) {
-                $issues[$name] = [
-                    'Reason' => count($ids) > 1 ? 'AmbiguousCombatStats' : 'UnresolvedCombatStats',
-                    'HardpointName' => $name, 'PortIds' => $ids,
-                ];
-
-                continue;
-            }
-            unset($stats['HardpointName']);
-            $positions[$ids[0]]['CombatStats'] = $stats;
-        }
 
         $this->attributeLegacyBuckets($positions, $loadout, $legacyBuckets, $issues);
 
@@ -177,6 +165,16 @@ final class MountingPositionBuilder
             'IsPilotSlaveable' => $entry['IsPilotSlaveable'] ?? null,
             'Payload' => $payload,
         ];
+
+        $totals = [];
+        foreach (array_column($payload, 'CombatStats', 'PortId') as $stats) {
+            foreach ($stats as $metric => $value) {
+                $totals[$metric] = ($totals[$metric] ?? 0) + $value;
+            }
+        }
+        if ($totals !== []) {
+            $positions[$id]['CombatStats'] = $totals;
+        }
     }
 
     private function indexStatSources(array $entry, array $port, array &$ids, bool $isHullPort): void
@@ -319,6 +317,11 @@ final class MountingPositionBuilder
                 ...array_intersect_key($entry, array_flip(['PortId', 'HardpointName', 'UUID', 'ClassName', 'Name', 'Type'])),
                 'Size' => $item['Size'] ?? null,
             ];
+            // The paired source port carries the same installation as this exported PortId, independent of the stat walk's path.
+            $stats = $this->weaponStats->installedCombatStats($port['InstalledItem'] ?? []);
+            if ($stats !== []) {
+                $payload[0]['CombatStats'] = $stats;
+            }
         }
         $children = array_values($item['Ports'] ?? []);
         foreach ($entry['Loadout'] ?? [] as $i => $child) {

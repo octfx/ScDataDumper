@@ -505,7 +505,7 @@ final class Ship extends BaseFormat
         $controlMapper = new TurretControlMapper;
         $routes = $controlMapper->getInstalledControllerRoutes($this->vehicleWrapper->vehicle, $loadout);
         [$data['MountingPositions'], $issues] = (new MountingPositionBuilder)->build(
-            $loadout, $sourcePorts, $calculatedData['Weaponry']['Turrets'] ?? [], $routes,
+            $loadout, $sourcePorts, $routes,
             [
                 'MannedTurrets' => $calculatedData['MannedTurrets'] ?? [],
                 'RemoteTurrets' => $calculatedData['RemoteTurrets'] ?? [],

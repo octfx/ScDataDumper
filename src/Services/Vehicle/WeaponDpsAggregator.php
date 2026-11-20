@@ -180,6 +180,42 @@ final readonly class WeaponDpsAggregator implements VehicleDataCalculator
         return ['Weaponry' => $result];
     }
 
+    public function installedCombatStats(array $item): array
+    {
+        $type = $this->itemTypeResolver->resolveSemanticType($item);
+        $stdItem = $item['stdItem'] ?? [];
+
+        if ($this->isWeaponType($type)) {
+            $damage = Arr::get($stdItem, 'Weapon.Damage');
+            $metrics = [
+                'Dps' => $damage['DpsTotal'] ?? $damage['Burst'] ?? null,
+                'SustainedDps' => $damage['Sustained'] ?? null,
+                'Alpha' => $damage['AlphaTotal'] ?? null,
+            ];
+            if ($damage === null) {
+                foreach (Arr::get($stdItem, 'Weapon.Modes') ?? [] as $mode) {
+                    foreach (['Dps' => $mode['Dps'] ?? $mode['DamagePerSecond'] ?? null, 'Alpha' => $mode['Alpha'] ?? null] as $key => $value) {
+                        if (is_numeric($value)) {
+                            $metrics[$key] = max($metrics[$key] ?? 0.0, (float) $value);
+                        }
+                    }
+                }
+            }
+
+            return array_map(static fn ($value): float => round((float) $value, 1), array_filter($metrics, 'is_numeric'));
+        }
+
+        if ($this->isMissileType($type)) {
+            $damage = Arr::get($stdItem, 'Missile.Damage') ?? Arr::get($stdItem, 'Bomb.Damage');
+            $reported = array_filter(array_intersect_key((array) $damage, array_flip(self::DAMAGE_TYPES)), 'is_numeric');
+            if ($reported !== []) {
+                return ['MissileDamage' => array_sum($reported)];
+            }
+        }
+
+        return [];
+    }
+
     public function getPriority(): int
     {
         return 40;

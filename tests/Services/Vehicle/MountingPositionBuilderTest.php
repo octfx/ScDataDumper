@@ -21,7 +21,7 @@ final class MountingPositionBuilderTest extends ScDataTestCase
         $rackPort = $this->port(['BombLauncher.BombRack'], ['stdItem' => ['Type' => 'BombLauncher.BombRack', 'Ports' => [$bombPort]]], null);
         $modulePort = $this->port(['Container.CargoGrid', 'TurretBase.MannedTurret'], ['stdItem' => ['Type' => 'Container.Cargo', 'Ports' => [$rackPort]]], 'Manned turrets');
 
-        [$positions, $issues] = (new MountingPositionBuilder)->build($loadout, [$modulePort], [], []);
+        [$positions, $issues] = (new MountingPositionBuilder)->build($loadout, [$modulePort], []);
 
         self::assertSame([], $issues);
         self::assertCount(2, $positions);
@@ -32,6 +32,39 @@ final class MountingPositionBuilderTest extends ScDataTestCase
         self::assertSame('Rack', $byId[$rackId]['MountType']);
         self::assertSame('Rack', $loadout[0]['Loadout'][0]['MountType']);
         self::assertSame([$bombId], array_column($byId[$rackId]['Payload'], 'PortId'));
+    }
+
+    public function test_combat_stats_belong_to_installed_ports_and_preserve_reported_zero(): void
+    {
+        $gun = 'WeaponGun.Gun';
+        $rack = 'MissileLauncher.Rack';
+        $missile = 'Missile.Guided';
+        $directId = 'loadout.0';
+        $rackId = 'loadout.1';
+        $loadedId = "$rackId.loadout.0";
+        $unknownId = "$rackId.loadout.1";
+        $loadout = [
+            $this->entry($directId, 'gun', $gun, 'Gun'),
+            $this->entry($rackId, 'rack', $rack, 'Rack', ['Loadout' => [
+                $this->entry($loadedId, 'missile', $missile, 'Missile'),
+                $this->entry($unknownId, 'missile', $missile, 'Missile'),
+                $this->entry("$rackId.loadout.2", 'missile', $missile, 'Missile'),
+            ]]),
+        ];
+        $gunPort = $this->port([$gun], ['stdItem' => ['Type' => $gun, 'Weapon' => ['Damage' => ['DpsTotal' => 683.6, 'Sustained' => 0]]]], null);
+        $loaded = $this->port([$missile], ['stdItem' => ['Type' => $missile, 'Missile' => ['Damage' => ['Physical' => 1600]]]], null);
+        $unknown = $this->port([$missile], ['stdItem' => ['Type' => $missile]], null);
+        $rackPort = $this->port([$rack], ['stdItem' => ['Type' => $rack, 'Ports' => [$loaded, $unknown, $loaded]]], null);
+
+        [[$gunPosition, $rackPosition]] = (new MountingPositionBuilder)->build($loadout, [$gunPort, $rackPort], []);
+
+        self::assertSame($directId, $gunPosition['Payload'][0]['PortId']);
+        self::assertSame(['Dps' => 683.6, 'SustainedDps' => 0.0], $gunPosition['Payload'][0]['CombatStats']);
+        self::assertSame(['Dps' => 683.6, 'SustainedDps' => 0.0], $gunPosition['CombatStats']);
+        self::assertSame($loadedId, $rackPosition['Payload'][0]['PortId']);
+        self::assertSame(['MissileDamage' => 1600], $rackPosition['Payload'][0]['CombatStats']);
+        self::assertArrayNotHasKey('CombatStats', $rackPosition['Payload'][1]);
+        self::assertSame(['MissileDamage' => 3200], $rackPosition['CombatStats']);
     }
 
     public function test_empty_remote_housing_is_classified_without_inventing_a_route(): void
@@ -60,7 +93,7 @@ final class MountingPositionBuilderTest extends ScDataTestCase
         $loadout = [$this->entry('loadout.0', 'housing', $type, 'Housing') + ['UUID' => $uuid]];
         $port = $this->port([$type], ['stdItem' => ['Type' => $type, 'Ports' => []]], null);
 
-        [[$position]] = (new MountingPositionBuilder)->build($loadout, [$port], [], []);
+        [[$position]] = (new MountingPositionBuilder)->build($loadout, [$port], []);
 
         self::assertSame('Turret', $position['MountType']);
         self::assertSame('Remote', $position['TurretRole']);
@@ -76,7 +109,7 @@ final class MountingPositionBuilderTest extends ScDataTestCase
             ['HardpointName' => 'turret_top', 'PartName' => 'turret_top', 'TurretClassName' => 'TURR_TOP', 'Size' => 5],
         ]];
 
-        [$positions, $issues] = (new MountingPositionBuilder)->build($loadout, $sourcePorts, [], [], $legacy);
+        [$positions, $issues] = (new MountingPositionBuilder)->build($loadout, $sourcePorts, [], $legacy);
 
         self::assertSame([], $issues);
         self::assertCount(1, $positions);
@@ -93,7 +126,7 @@ final class MountingPositionBuilderTest extends ScDataTestCase
             ['HardpointName' => 'hardpoint_rear_turret_tail', 'PartName' => 'hardpoint_rear_turret_tail', 'TurretClassName' => null, 'Size' => 5],
         ]];
 
-        [$positions, $issues] = (new MountingPositionBuilder)->build($loadout, $sourcePorts, [], [], $legacy);
+        [$positions, $issues] = (new MountingPositionBuilder)->build($loadout, $sourcePorts, [], $legacy);
 
         self::assertSame([], $issues);
         self::assertFalse($positions[0]['Occupied']);
@@ -120,14 +153,14 @@ final class MountingPositionBuilderTest extends ScDataTestCase
             ['HardpointName' => 'hardpoint_turret', 'PartName' => 'hardpoint_turret', 'TurretClassName' => 'TURR_NOSE', 'Size' => 6],
         ]];
 
-        [$positions, $issues] = (new MountingPositionBuilder)->build($loadout, [$turretPort], [], [], $legacy);
+        [$positions, $issues] = (new MountingPositionBuilder)->build($loadout, [$turretPort], [], $legacy);
 
         self::assertSame([], $issues);
         self::assertArrayNotHasKey('LegacySize', $positions[0], 'a derivable legacy size must not be duplicated');
 
         // A legacy size no position field can reproduce is carried explicitly.
         $legacy['MannedTurrets'][0]['Size'] = 9;
-        [$positions, $issues] = (new MountingPositionBuilder)->build($loadout, [$turretPort], [], [], $legacy);
+        [$positions, $issues] = (new MountingPositionBuilder)->build($loadout, [$turretPort], [], $legacy);
         self::assertSame([], $issues);
         self::assertSame(9, $positions[0]['LegacySize']);
     }
@@ -139,7 +172,7 @@ final class MountingPositionBuilderTest extends ScDataTestCase
         $sourcePorts = [$this->port(['TurretBase.MannedTurret'], ['Size' => 3, 'stdItem' => ['ClassName' => 'TURR_TOP', 'Type' => 'TurretBase.MannedTurret']], 'Manned turrets')];
         $legacy = ['MannedTurrets' => [['HardpointName' => 'turret_top', 'TurretClassName' => 'TURR_TOP', 'Size' => 3]]];
 
-        [$positions, $issues] = (new MountingPositionBuilder)->build($loadout, $sourcePorts, [], [], $legacy);
+        [$positions, $issues] = (new MountingPositionBuilder)->build($loadout, $sourcePorts, [], $legacy);
 
         self::assertSame([], $issues);
         self::assertNull($positions[0]['InstalledSize']);
@@ -160,7 +193,7 @@ final class MountingPositionBuilderTest extends ScDataTestCase
             ['HardpointName' => 'turret_top', 'PartName' => 'turret_top', 'TurretClassName' => 'TURR_TOP', 'Size' => 5],
         ]];
 
-        [$positions, $issues] = (new MountingPositionBuilder)->build($loadout, $sourcePorts, [], [], $legacy);
+        [$positions, $issues] = (new MountingPositionBuilder)->build($loadout, $sourcePorts, [], $legacy);
 
         self::assertSame([[
             'Reason' => 'UnresolvedLegacyTurret',
@@ -182,7 +215,7 @@ final class MountingPositionBuilderTest extends ScDataTestCase
             ['HardpointName' => 'turret_tail', 'PartName' => 'turret_tail', 'TurretClassName' => 'TURR_TAIL', 'Size' => 2],
         ]];
 
-        [$positions, $issues] = (new MountingPositionBuilder)->build($loadout, $sourcePorts, [], [], $legacy);
+        [$positions, $issues] = (new MountingPositionBuilder)->build($loadout, $sourcePorts, [], $legacy);
 
         self::assertSame([[
             'Reason' => 'UnresolvedLegacyTurret',
@@ -200,7 +233,7 @@ final class MountingPositionBuilderTest extends ScDataTestCase
         $sourcePorts = [$this->port(['TurretBase.MannedTurret'], null, 'Manned turrets')];
         $legacy = ['MannedTurrets' => [['HardpointName' => 'turret_top', 'Size' => 0]]];
 
-        [$positions, $issues] = (new MountingPositionBuilder)->build($loadout, $sourcePorts, [], [], $legacy);
+        [$positions, $issues] = (new MountingPositionBuilder)->build($loadout, $sourcePorts, [], $legacy);
 
         self::assertArrayNotHasKey('LegacyBucket', $positions[0]);
         self::assertSame([[
@@ -219,7 +252,7 @@ final class MountingPositionBuilderTest extends ScDataTestCase
         $row = ['HardpointName' => 'turret_top', 'PartName' => 'turret_top', 'TurretClassName' => 'TURR_TOP', 'Size' => 5];
         $legacy = ['MannedTurrets' => [$row], 'RemoteTurrets' => [$row]];
 
-        [$positions, $issues] = (new MountingPositionBuilder)->build($loadout, $sourcePorts, [], [], $legacy);
+        [$positions, $issues] = (new MountingPositionBuilder)->build($loadout, $sourcePorts, [], $legacy);
 
         self::assertArrayNotHasKey('LegacyBucket', $positions[0]);
         self::assertCount(2, $issues);
