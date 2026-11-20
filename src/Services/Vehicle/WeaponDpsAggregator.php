@@ -62,7 +62,7 @@ final readonly class WeaponDpsAggregator implements VehicleDataCalculator
 
             $depth = count($entry['path'] ?? []);
 
-            if ($this->isTurretBaseType($itemType, $entry['Port'])) {
+            if (self::isTurretBaseType($itemType, $entry['Port'])) {
                 $currentTurretHardpoint = $entry['portName'];
                 $currentTurretDepth = $depth;
 
@@ -190,7 +190,7 @@ final readonly class WeaponDpsAggregator implements VehicleDataCalculator
         return $type !== null && str_starts_with($type, 'WeaponGun');
     }
 
-    private function isTurretBaseType(?string $type, ?array $port = null): bool
+    public static function isTurretBaseType(?string $type, ?array $port = null): bool
     {
         if ($type === null) {
             return false;

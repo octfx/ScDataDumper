@@ -7,6 +7,7 @@ namespace Octfx\ScDataDumper\Services\Vehicle;
 use Octfx\ScDataDumper\DocumentTypes\Vehicle;
 use Octfx\ScDataDumper\DocumentTypes\VehicleDefinition;
 use Octfx\ScDataDumper\Helper\Element;
+use Octfx\ScDataDumper\Services\ServiceFactory;
 
 /**
  * Extracts the seat-to-turret control chain from vehicle implementation scripts
@@ -43,6 +44,142 @@ final class TurretControlMapper
         $chain = $this->buildControlChain($vehicle, $entity);
 
         return $this->resolveBridgeControllable($chain);
+    }
+
+    public function getInstalledControllerRoutes(?Vehicle $vehicle, array $loadout): array
+    {
+        $installed = [];
+        foreach ($loadout as $entry) {
+            $installed[$entry['HardpointName'] ?? null][] = $entry;
+        }
+        $byHardpoint = [];
+        foreach ($vehicle?->getControlBindings() ?? [] as $binding) {
+            $byHardpoint[$binding['HardpointName']][] = $binding;
+        }
+        $seats = $controllers = $turrets = [];
+        foreach ($byHardpoint as $name => $bindings) {
+            if (count($bindings) !== 1 || count($installed[$name] ?? []) !== 1) {
+                continue;
+            }
+            $entry = $installed[$name][0];
+            $type = strtolower(explode('.', $entry['Type'] ?? '', 2)[0]);
+            $binding = $bindings[0] + ['Entry' => $entry, 'Type' => $type];
+            match ($type) {
+                'seat' => $seats[] = $binding,
+                'weaponcontroller', 'salvagecontroller' => $controllers[] = $binding,
+                'turret', 'turretbase', 'utilityturret', 'weapongun' => $turrets[] = $binding,
+                default => null,
+            };
+        }
+
+        $routes = [];
+        foreach ($turrets as $turret) {
+            $name = $turret['HardpointName'];
+            if ($this->grants($turret['User'][$turret['Type']] ?? [], $turret['Tag'])
+                && $this->grants($turret['Usable'][$turret['Type']] ?? [], $turret['Tag'])
+                && ServiceFactory::getItemService()->getByReference($turret['Entry']['UUID'] ?? null)?->hasIntegratedSeat()) {
+                $routes[$name][] = ['Kind' => 'InTurret', 'Operator' => 'Crew', 'SeatPortId' => $turret['Entry']['PortId']];
+            }
+            foreach ($seats as $seat) {
+                $isPilot = strcasecmp($seat['Entry']['Type'], 'Seat.Pilot') === 0
+                    || ($seat['Tag'] === 'pilotSeat' && $this->grants($seat['User']['seat'] ?? [], 'pilotSeat'));
+                foreach ($controllers as $controller) {
+                    if ($this->hasControllerRoute($seat, $controller, $turret)) {
+                        $routes[$name][] = [
+                            'Kind' => 'Controller', 'Operator' => $isPilot ? 'Pilot' : 'Crew',
+                            'SeatPortId' => $seat['Entry']['PortId'], 'ControllerPortId' => $controller['Entry']['PortId'],
+                        ];
+                    }
+                }
+            }
+        }
+
+        return $routes;
+    }
+
+    public function getInstalledModuleRoutes(array $loadout): array
+    {
+        $routes = [];
+        foreach ($loadout as $module) {
+            if (! in_array(strtolower($module['Type'] ?? ''), ['attachedpart.undefined', 'container.cargo', 'module.undefined'], true)
+                || ! isset($module['UUID'], $module['Loadout'])) {
+                continue;
+            }
+
+            $entity = ServiceFactory::getItemService()->getByReference($module['UUID']);
+            $sourcePorts = $entity?->getPortControlBindings() ?? [];
+            $installed = [];
+            foreach ($module['Loadout'] as $entry) {
+                $installed[$entry['HardpointName'] ?? ''][] = $entry;
+            }
+
+            $seats = $controllers = $turrets = [];
+            foreach ($installed as $name => $entries) {
+                if (count($entries) !== 1 || count($sourcePorts[$name] ?? []) !== 1 || ! isset($entries[0]['UUID'])) {
+                    continue;
+                }
+                $entry = $entries[0];
+                $source = $sourcePorts[$name][0];
+                if ($source['Tag'] === '') {
+                    continue;
+                }
+                $type = strtolower(explode('.', $entry['Type'] ?? '', 2)[0]);
+                $binding = $source + ['Entry' => $entry, 'Type' => $type];
+                match ($type) {
+                    'seat' => $seats[] = $binding,
+                    'weaponcontroller', 'salvagecontroller' => $controllers[] = $binding,
+                    'turret', 'turretbase', 'utilityturret' => $turrets[] = $binding,
+                    default => null,
+                };
+            }
+
+            foreach ($seats as $seat) {
+                if (strtolower($seat['Entry']['Type']) === 'seat.pilot') {
+                    continue;
+                }
+                foreach ($controllers as $controller) {
+                    if (! isset($seat['Grants'][$controller['Type']][$controller['Tag']])) {
+                        continue;
+                    }
+                    foreach ($turrets as $turret) {
+                        $aim = $controller['Type'] === 'weaponcontroller';
+                        if (! $aim && ! array_any($turret['Entry']['Loadout'] ?? [], static fn (array $child) => str_starts_with(strtolower($child['Type'] ?? ''), 'tractorbeam.'))) {
+                            continue;
+                        }
+                        if (isset($controller['Targets'][$aim ? $turret['Type'] : 'tractorbeam'][$turret['Tag']])) {
+                            $routes[$turret['Entry']['PortId']][] = [
+                                'Kind' => 'Controller', 'Operator' => 'Crew', 'SeatPortId' => $seat['Entry']['PortId'],
+                                'ControllerPortId' => $controller['Entry']['PortId'], 'Control' => $aim ? 'Aim' : 'Payload',
+                            ];
+                        }
+                    }
+                }
+            }
+            $routes += $this->getInstalledModuleRoutes($module['Loadout']);
+        }
+
+        return $routes;
+    }
+
+    private function hasControllerRoute(array $seat, array $controller, array $turret): bool
+    {
+        $type = $controller['Type'];
+        $seatGroups = [...($seat['User'][$type] ?? []), ...($seat['Usable'][$type] ?? [])];
+        if ($type === 'weaponcontroller') {
+            return $this->grants($seatGroups, $controller['Tag'])
+                && $this->grants($controller['Usable'][$turret['Type']] ?? [], $turret['Tag']);
+        }
+
+        // The Nomad's default tractor groups scope the installed salvage controller and turret to one seat tag.
+        return $seat['Tag'] === $controller['Tag'] && $controller['Tag'] === $turret['Tag']
+            && array_any($seatGroups, static fn (array $group) => $group['DefaultOnly'])
+            && array_any($controller['Usable']['tractorbeam'] ?? [], static fn (array $group) => $group['DefaultOnly'])
+            && array_any($turret['Entry']['Loadout'] ?? [], static fn (array $child) => str_starts_with(strtolower($child['Type'] ?? ''), 'tractorbeam.'));
+    }
+
+    private function grants(array $groups, string $tag): bool
+    {
+        return array_any($groups, static fn (array $group) => isset($group['Grants'][$tag]));
     }
 
     /**

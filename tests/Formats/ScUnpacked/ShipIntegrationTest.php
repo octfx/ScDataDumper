@@ -15,6 +15,7 @@ use Octfx\ScDataDumper\Services\LocalizationService;
 use Octfx\ScDataDumper\Services\ManufacturerService;
 use Octfx\ScDataDumper\Services\ServiceFactory;
 use Octfx\ScDataDumper\Tests\Fixtures\ScDataTestCase;
+use PHPUnit\Framework\Attributes\TestWith;
 
 final class ShipIntegrationTest extends ScDataTestCase
 {
@@ -35,7 +36,11 @@ final class ShipIntegrationTest extends ScDataTestCase
         $vehicle = new Vehicle;
         $vehicle->load($this->writeVehicleImplementationFile());
 
-        $ship = new Ship(new VehicleWrapper($vehicle, $entity, $this->makeLoadout()));
+        $loadout = $this->makeLoadout();
+        $loadout[0]['Item']['stdItem']['Ports'][] = [
+            'PortName' => 'internal_attachment', 'Types' => ['WeaponGun.Gun'], 'Uneditable' => true,
+        ];
+        $ship = new Ship(new VehicleWrapper($vehicle, $entity, $loadout));
         $result = $ship->toArray();
 
         self::assertSame(self::MANUFACTURER_UUID, $result['Manufacturer']['UUID']);
@@ -54,6 +59,7 @@ final class ShipIntegrationTest extends ScDataTestCase
         self::assertSame(1, $result['Seating']['TotalBeds']);
         self::assertArrayNotHasKey('MedicalBeds', $result['Seating']);
 
+        self::assertSame([], $result['MountingPositions']);
         self::assertArrayHasKey('Loadout', $result);
         self::assertCount(1, $result['Loadout']);
 
@@ -63,7 +69,8 @@ final class ShipIntegrationTest extends ScDataTestCase
         self::assertTrue($seatEntry['Editable']);
         self::assertFalse($seatEntry['EditableChildren']);
         self::assertArrayHasKey('Loadout', $seatEntry);
-        self::assertCount(1, $seatEntry['Loadout']);
+        self::assertCount(2, $seatEntry['Loadout']);
+        self::assertSame('internal_attachment', $seatEntry['Loadout'][1]['HardpointName']);
 
         $bedEntry = $seatEntry['Loadout'][0];
         self::assertSame('BedPort', $bedEntry['HardpointName']);
@@ -74,7 +81,9 @@ final class ShipIntegrationTest extends ScDataTestCase
     /**
      * @throws JsonException
      */
-    public function test_to_array_exports_pilot_slaveability_for_gun_and_missile_turrets(): void
+    #[TestWith([false])]
+    #[TestWith([true])]
+    public function test_to_array_exports_pilot_slaveability_for_gun_and_missile_turrets(bool $repeatHardpoint): void
     {
         $this->writeShipTestCacheFiles($this->writeManufacturerFile());
         $this->configureServiceFactory();
@@ -82,7 +91,7 @@ final class ShipIntegrationTest extends ScDataTestCase
         $entity = new VehicleDefinition;
         $entity->load($this->writeVehicleEntityFile());
         $vehicle = new Vehicle;
-        $vehicle->load($this->writeFile('records/vehicles/test_ship_impl.xml', <<<'XML'
+        $implementation = <<<'XML'
             <Vehicle.TEST_SHIP_IMPL>
                 <Parts>
                     <Part name="hardpoint_seat_driver">
@@ -97,6 +106,11 @@ final class ShipIntegrationTest extends ScDataTestCase
                             </ControllerDef>
                         </ItemPort>
                     </Part>
+                    <Part name="vacant_gun"><ItemPort><Types><Type type="WeaponGun"/></Types></ItemPort></Part>
+                    <Part name="vacant_rack"><ItemPort><Types><Type type="MissileLauncher"/></Types></ItemPort></Part>
+                    <Part name="vacant_tool"><ItemPort><Types><Type type="ToolArm"/></Types></ItemPort></Part>
+                    <Part name="weapon_shield"><ItemPort><Types><Type type="Shield"/></Types></ItemPort></Part>
+                    <Part name="weapon_locker"><ItemPort><Types><Type type="WeaponPersonal"/></Types></ItemPort></Part>
                     <Part name="gun_turret">
                         <ItemPort>
                             <Types><Type type="Turret"/></Types>
@@ -117,7 +131,11 @@ final class ShipIntegrationTest extends ScDataTestCase
                     </Part>
                 </Parts>
             </Vehicle.TEST_SHIP_IMPL>
-            XML));
+            XML;
+        if ($repeatHardpoint) {
+            $implementation = str_replace('</Parts>', '<Part name="gun_turret"><ItemPort><Types><Type type="Turret"/></Types></ItemPort></Part></Parts>', $implementation);
+        }
+        $vehicle->load($this->writeFile('records/vehicles/test_ship_impl.xml', $implementation));
 
         $loadout = [];
         $payloadTypes = [
@@ -155,7 +173,37 @@ final class ShipIntegrationTest extends ScDataTestCase
         $result = new Ship(new VehicleWrapper($vehicle, $entity, $loadout))->toArray();
         $turrets = array_column($result['RemoteTurrets'], null, 'HardpointName');
 
-        self::assertSame(100.0, $turrets['gun_turret']['DpsTotal']);
+        $positions = array_column($result['MountingPositions'], null, 'HardpointName');
+        self::assertSame(['vacant_gun', 'vacant_rack', 'vacant_tool', 'gun_turret', 'missile_turret', 'crew_missile_turret'], array_keys($positions));
+        $ports = array_column($result['Loadout'], null, 'PortId');
+        foreach ($positions as $position) {
+            $port = $ports[$position['PortId']];
+            self::assertSame($port['HardpointName'], $position['HardpointName']);
+            self::assertSame($port['MountType'] ?? null, $position['MountType'] ?? null);
+            self::assertSame($port['TurretRole'] ?? null, $position['TurretRole'] ?? null);
+        }
+        self::assertArrayNotHasKey('MountType', $positions['vacant_gun']);
+        self::assertSame('Turret', $positions['gun_turret']['MountType']);
+        self::assertSame('Remote', $positions['gun_turret']['TurretRole']);
+        self::assertSame('WeaponGun.Gun', $positions['gun_turret']['Payload'][0]['Type']);
+        self::assertArrayNotHasKey('ControlRoutes', $positions['missile_turret']);
+        if ($repeatHardpoint) {
+            $gunPositions = array_values(array_filter($result['MountingPositions'], static fn ($position) => $position['HardpointName'] === 'gun_turret'));
+            self::assertCount(2, $gunPositions);
+            self::assertNotSame($gunPositions[0]['PortId'], $gunPositions[1]['PortId']);
+            foreach ($gunPositions as $position) {
+                self::assertArrayNotHasKey('CombatStats', $position);
+                self::assertArrayNotHasKey('LegacyTurret', $position);
+            }
+            $issue = array_column($result['MountingPositionIssues'], null, 'Reason')['AmbiguousCombatStats'];
+            self::assertSame(array_column($gunPositions, 'PortId'), $issue['PortIds']);
+            self::assertSame(200.0, $turrets['gun_turret']['DpsTotal']);
+        } else {
+            self::assertArrayNotHasKey('LegacyTurret', $positions['gun_turret']);
+            self::assertSame($turrets['gun_turret']['DpsTotal'], $positions['gun_turret']['CombatStats']['DpsTotal']);
+            self::assertSame($turrets['gun_turret']['Weapons'], $positions['gun_turret']['CombatStats']['Weapons']);
+            self::assertSame(100.0, $turrets['gun_turret']['DpsTotal']);
+        }
         self::assertNull($turrets['missile_turret']['DpsTotal'] ?? null);
         self::assertTrue($turrets['gun_turret']['IsPilotSlaveable']);
         self::assertTrue($turrets['missile_turret']['IsPilotSlaveable'] ?? null);

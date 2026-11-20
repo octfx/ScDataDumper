@@ -4,8 +4,59 @@ declare(strict_types=1);
 
 namespace Octfx\ScDataDumper\DocumentTypes;
 
+use Generator;
+use Octfx\ScDataDumper\Helper\Element;
+
 final class Vehicle extends RootDocument
 {
+    /** @return Generator<array{HardpointName: string, Tag: string, User: array, Usable: array}> */
+    public function getControlBindings(): Generator
+    {
+        if (($parts = $this->get('Parts')) !== null) {
+            yield from $this->walkControlBindings($parts);
+        }
+    }
+
+    private function walkControlBindings(Element $parts): Generator
+    {
+        foreach ($parts->children() as $part) {
+            $controller = $part->get('./ItemPort/ControllerDef');
+            $tag = $controller?->get('@controllableTags');
+            $name = $part->get('@name');
+            if (is_string($tag) && $tag !== '' && is_string($name)) {
+                yield [
+                    'HardpointName' => $name, 'Tag' => $tag,
+                    'User' => $this->readControlGroups($controller->get('./UserDef/PriorityGroups')),
+                    'Usable' => $this->readControlGroups($controller->get('./UsableDef/PriorityGroups')),
+                ];
+            }
+            if (($children = $part->get('./Parts')) !== null) {
+                yield from $this->walkControlBindings($children);
+            }
+        }
+    }
+
+    private function readControlGroups(?Element $groups): array
+    {
+        $result = [];
+        foreach ($groups?->children() ?? [] as $group) {
+            $type = strtolower((string) $group->get('@itemType'));
+            $grants = [];
+            $hasTargets = false;
+            foreach ($group->children() as $target) {
+                $hasTargets = true;
+                $tag = $target->get('@tag');
+                $priority = $target->get('./Priority@value');
+                if (is_string($tag) && ($priority === 'exclusive_control' || (is_numeric($priority) && (float) $priority > 0))) {
+                    $grants[$tag] = true;
+                }
+            }
+            $result[$type][] = ['Grants' => $grants, 'DefaultOnly' => ! $hasTargets && $group->get('@defaultPriority') === null];
+        }
+
+        return $result;
+    }
+
     /**
      * Returns the vehicle-level identity tags from the itemPortTags attribute.
      *

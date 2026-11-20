@@ -20,6 +20,7 @@ use Octfx\ScDataDumper\Services\Vehicle\FlightCharacteristicsCalculator;
 use Octfx\ScDataDumper\Services\Vehicle\HealthAggregator;
 use Octfx\ScDataDumper\Services\Vehicle\InventoryContainerResolver;
 use Octfx\ScDataDumper\Services\Vehicle\LoadoutPortIdentityAnnotator;
+use Octfx\ScDataDumper\Services\Vehicle\MountingPositionBuilder;
 use Octfx\ScDataDumper\Services\Vehicle\PortFinder;
 use Octfx\ScDataDumper\Services\Vehicle\PortSummaryBuilder;
 use Octfx\ScDataDumper\Services\Vehicle\PropulsionSystemAggregator;
@@ -457,7 +458,8 @@ final class Ship extends BaseFormat
             $summary['DriveCharacteristics'] = $calculatedData['DriveCharacteristics'];
         }
 
-        $loadout = $this->buildLoadout($standardisedParts);
+        $sourcePorts = [];
+        $loadout = $this->buildLoadout($standardisedParts, $sourcePorts);
 
         if (! empty($loadout)) {
             if (! empty($turretControlMap)) {
@@ -500,11 +502,30 @@ final class Ship extends BaseFormat
         );
         $data['systems'] = $systems;
 
+        $controlMapper = new TurretControlMapper;
+        $routes = $controlMapper->getInstalledControllerRoutes($this->vehicleWrapper->vehicle, $loadout);
+        [$data['MountingPositions'], $issues] = (new MountingPositionBuilder)->build(
+            $loadout, $sourcePorts, $calculatedData['Weaponry']['Turrets'] ?? [], $routes,
+            [
+                'MannedTurrets' => $calculatedData['MannedTurrets'] ?? [],
+                'RemoteTurrets' => $calculatedData['RemoteTurrets'] ?? [],
+                'PdcTurrets' => $calculatedData['PdcTurrets'] ?? [],
+            ],
+            $controlMapper->getInstalledModuleRoutes($loadout),
+        );
+        if ($loadout !== []) {
+            // Keep the existing loadout key order after adding position classifications.
+            $data['loadout'] = $loadout;
+        }
+        if ($issues !== []) {
+            $data['MountingPositionIssues'] = $issues;
+        }
+
         $this->processArray($data);
 
         $data = $this->transformArrayKeysToPascalCase($data);
 
-        return $this->removeNullValuesPreservingEmptyArrays($data);
+        return $this->removeNullValuesPreservingEmptyArrays($data, ['PortDisplayName', 'PartDisplayName']);
     }
 
     private function processArray(&$array): void
@@ -596,8 +617,10 @@ final class Ship extends BaseFormat
 
     /**
      * Build a single loadout entry from port data.
+     *
+     * @param  array|null  $part  Owning standardised part for root ports; nested item ports have none
      */
-    private function buildLoadoutEntry(array $port): ?array
+    private function buildLoadoutEntry(array $port, ?array $part = null): ?array
     {
         $portName = $port['PortName'] ?? null;
 
@@ -609,6 +632,19 @@ final class Ship extends BaseFormat
         $entry = [
             'HardpointName' => $portName,
         ];
+
+        if (isset($port['DisplayName'])) {
+            $entry['PortDisplayName'] = ServiceFactory::getLocalizationService()->translateValue($port['DisplayName']);
+        }
+
+        // Legacy picks the raw part label before translation, even when it translates to null.
+        if (isset($part['DisplayName'])) {
+            $entry['PartDisplayName'] = ServiceFactory::getLocalizationService()->translateValue($part['DisplayName']);
+        }
+
+        if (isset($part['Name'])) {
+            $entry['PartName'] = $part['Name'];
+        }
 
         if ($installedItem) {
             $entry['ClassName'] = $installedItem['ClassName'] ?? null;
@@ -633,6 +669,15 @@ final class Ship extends BaseFormat
         $entry['CompatibleTypes'] = $this->buildCompatibleTypes($port['Types'] ?? []);
         $entry['MaxSize'] = (int) ($port['MaxSize'] ?? 0);
         $entry['MinSize'] = (int) ($port['MinSize'] ?? 0);
+
+        // Declared installed item size, separate from port capacity so oversized
+        // adapters (e.g. Mount_Gimbal_S3 on a size-2 port) stay reconstructable.
+        if (is_array($installedItemPayload)) {
+            $installedSize = $installedItem['Size'] ?? $installedItemPayload['Size'] ?? null;
+            if (is_numeric($installedSize)) {
+                $entry['InstalledSize'] = (int) $installedSize;
+            }
+        }
         $requiredTags = $port['RequiredTags'] ?? [];
 
         if (empty($requiredTags) && is_array($installedItem)) {
@@ -692,7 +737,7 @@ final class Ship extends BaseFormat
      * Build loadout array from standardised parts.
      * Flattens all categories into a single loadout array.
      */
-    private function buildLoadout(array $standardisedParts): array
+    private function buildLoadout(array $standardisedParts, array &$sourcePorts): array
     {
         $loadout = [];
         $walker = new StandardisedPartWalker;
@@ -705,9 +750,10 @@ final class Ship extends BaseFormat
                 continue;
             }
 
-            $loadoutEntry = $this->buildLoadoutEntry($port);
+            $loadoutEntry = $this->buildLoadoutEntry($port, $part);
             if ($loadoutEntry !== null) {
                 $loadout[] = $loadoutEntry;
+                $sourcePorts[] = $port;
             }
         }
 

@@ -60,7 +60,7 @@ final readonly class PortClassifierService
             return match (true) {
                 $type === 'turret.pdcturret' => ['Weapons', 'PDC turrets'],
                 $type === 'turretbase.mannedturret' => ['Weapons', 'Manned turrets'],
-                $this->isGimbalAdapter($port, $installedItem['stdItem'], $className) => ['Weapons', 'Weapon hardpoints'],
+                $this->isGimbalAdapter($port, $installedItem['stdItem']) => ['Weapons', 'Weapon hardpoints'],
                 str_starts_with($className, 'aegs_idris_scitem_ai_turret_') => ['Weapons', 'Autonomous turrets'],
                 default => ['Weapons', 'Remote turrets'],
             };
@@ -404,8 +404,10 @@ final readonly class PortClassifierService
         return false;
     }
 
-    private function isGimbalAdapter(array $port, array $item, string $className): bool
+    public function isGimbalAdapter(array $port, array $item): bool
     {
+        $className = strtolower($item['ClassName'] ?? '');
+
         // Keep known adapters on turret-only ports, including the disputed Reliant Tana mount.
         if ($className === 'gmnt_misc_s03_pl01' || preg_match('/(?:^|_)mount_gimbal_s\d+$/', $className) === 1) {
             return true;
@@ -413,7 +415,7 @@ final readonly class PortClassifierService
 
         return ItemPort::accepts($port, 'WeaponGun')
             && in_array('gimbalmount', array_map(strtolower(...), $item['Tags'] ?? []), true)
-            && count(array_filter($item['Ports'], static fn (array $port): bool => ItemPort::accepts($port, 'WeaponGun'))) === 1;
+            && count(array_filter($item['Ports'] ?? [], static fn (array $port): bool => ItemPort::accepts($port, 'WeaponGun'))) === 1;
     }
 
     private function turretPayload(array $ports): ?string

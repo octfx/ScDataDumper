@@ -14,6 +14,80 @@ class EntityClassDefinition extends RootDocument
 {
     private const int RS_SIGNATURE_INDEX = 4;
 
+    public function hasIntegratedSeat(): bool
+    {
+        return $this->get('Components/SCItemSeatParams') !== null;
+    }
+
+    public function hasRemoteTurretArticulation(): bool
+    {
+        $turret = $this->get('Components/SCItemTurretParams');
+        if ($turret?->get('remoteTurret/SCItemTurretRemoteParams') === null) {
+            return false;
+        }
+
+        $yaw = 'yawAxis/SCItemTurretJointMovementAxisParams';
+        $pitch = 'pitchAxis/SCItemTurretJointMovementAxisParams';
+        $joint = 'SCItemTurretJointMovementParams';
+
+        return $turret->get("movementList/{$joint}[$pitch and normalize-space(@jointName) and @jointName != ../{$joint}[$yaw and normalize-space(@jointName)]/@jointName]") !== null;
+    }
+
+    public function hasTurretParameters(): bool
+    {
+        return $this->get('Components/SCItemTurretParams') !== null;
+    }
+
+    public function hasDoorParameters(): bool
+    {
+        return $this->get('Components/SCItemDoorParams') !== null;
+    }
+
+    public function hasFixedWeaponMountGeometry(): bool
+    {
+        return $this->get('Components/SGeometryResourceParams/Geometry/Geometry/Geometry[contains(@path, "/weapon_mounts/fixed/")]') !== null;
+    }
+
+    /** @return array<string, list<array{Tag: string, Grants: array, Targets: array}>> */
+    public function getPortControlBindings(): array
+    {
+        $bindings = [];
+        foreach ($this->get('Components/SItemPortContainerComponentParams/Ports')?->children() ?? [] as $port) {
+            $tag = (string) $port->get('@controllableTag');
+            $grants = $targets = [];
+            if ($tag !== '') {
+                // Default and conditional priorities cannot prove a route between installed ports.
+                $groups = $port->get('control/SCItemControlSeatParams/userControl/SCItemControllableGroupParams/priorityGroups');
+                foreach ($groups?->children() ?? [] as $group) {
+                    if ($group->get('self::SCItemPriorityGroupParam[not(@*[name() != "itemType" and name() != "defaultPriority"]) and count(*) = 1]') === null) {
+                        continue;
+                    }
+                    $type = strtolower((string) $group->get('@itemType'));
+                    foreach ($group->get('tags')?->children() ?? [] as $target) {
+                        if ($target->get('self::SCItemPriorityTagParam[count(@*) = 2 and @tag and not(*) and @priority >= 0 and @priority < 255]') !== null) {
+                            $grants[$type][$target->get('@tag')] = true;
+                        }
+                    }
+                }
+                $tables = $port->get('control/SCItemControlPriorities/itemControlPriorities');
+                foreach ($tables?->children() ?? [] as $table) {
+                    if ($table->get('self::SCItemControlPriorityTable[count(@*) = 1 and @itemType and count(*) = 1]') === null) {
+                        continue;
+                    }
+                    $type = strtolower((string) $table->get('@itemType'));
+                    foreach ($table->get('tagPrioritiesTable')?->children() ?? [] as $target) {
+                        if ($target->get('self::SCItemControlPriorityTag[count(@*) = 1 and @tag and not(*)]') !== null) {
+                            $targets[$type][$target->get('@tag')] = true;
+                        }
+                    }
+                }
+            }
+            $bindings[$port->get('@Name')][] = ['Tag' => $tag, 'Grants' => $grants, 'Targets' => $targets];
+        }
+
+        return $bindings;
+    }
+
     public function getAttachDef(): ?Element
     {
         return $this->get('Components/SAttachableComponentParams/AttachDef');

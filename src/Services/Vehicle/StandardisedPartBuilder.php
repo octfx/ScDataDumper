@@ -260,6 +260,7 @@ final class StandardisedPartBuilder
             'PortName' => $portName,
             'DisplayName' => $itemPort->get('@display_name') ?? $itemPort->get('@DisplayName'),
             'Size' => (int) ($itemPort->get('@maxSize') ?? $itemPort->get('@MaxSize') ?? 0),
+            'HasTurretArticulation' => $itemPort->get('./Pitch') !== null && $itemPort->get('./Yaw') !== null,
             'MinSize' => (int) ($itemPort->get('@minSize') ?? $itemPort->get('@MinSize') ?? $itemPort->get('@minsize') ?? 0),
             'MaxSize' => (int) ($itemPort->get('@maxSize') ?? $itemPort->get('@MaxSize') ?? $itemPort->get('@maxsize') ?? 0),
             'Types' => $this->extractTypes($itemPort),
