@@ -16,7 +16,7 @@ final class MountingPositionBuilder
         'missilelauncher' => 'Rack', 'groundvehiclemissilelauncher' => 'Rack', 'bomblauncher' => 'Rack', 'missile' => 'Missile',
         'weaponmining' => 'Tool', 'miningarm' => 'Tool', 'toolarm' => 'Tool',
         'tractorbeam' => 'Tool', 'salvagehead' => 'Tool', 'towingbeam' => 'Tool',
-        'emp' => 'Device', 'quantuminterdictiongenerator' => 'Device',
+        'emp' => 'Device', 'salvagefieldemitter' => 'Tool',
     ];
 
     /**
@@ -32,10 +32,16 @@ final class MountingPositionBuilder
         $positions = [];
         $issues = [];
         $statSources = [];
+        $legacyIdentities = [];
+        foreach ($legacyBuckets as $turrets) {
+            foreach ($turrets as $turret) {
+                $legacyIdentities[$this->legacyIdentity($turret['HardpointName'] ?? null, $turret['PartName'] ?? null, $turret['TurretClassName'] ?? null)] = true;
+            }
+        }
         foreach ($loadout as $i => $entry) {
             $port = $sourcePorts[$i];
             $this->indexStatSources($entry, $port, $statSources, true);
-            $this->collect($entry, $port, $positions);
+            $this->collect($entry, $port, $positions, $legacyIdentities);
         }
 
         $byName = [];
@@ -85,21 +91,30 @@ final class MountingPositionBuilder
         return [array_values($positions), array_values($issues)];
     }
 
-    private function collect(array $entry, array $port, array &$positions): void
+    private function collect(array $entry, array $port, array &$positions, array $legacyIdentities): void
     {
         $item = $port['InstalledItem']['stdItem'] ?? [];
         $name = $entry['HardpointName'] ?? null;
         $type = strtolower($entry['Type'] ?? '');
+        if ($type === 'quantuminterdictiongenerator' || str_starts_with($type, 'quantuminterdictiongenerator.')) {
+            return;
+        }
         $mount = $this->mountType($type);
         // Hull extensions host their own ports rather than carrying those assemblies as payload.
         $extendsHull = in_array($type, ['attachedpart.undefined', 'container.cargo', 'module.undefined'], true);
         if ($extendsHull) {
             $children = array_values($item['Ports'] ?? []);
             foreach ($entry['Loadout'] ?? [] as $i => $child) {
-                $this->collect($child, $children[$i], $positions);
+                $this->collect($child, $children[$i], $positions, $legacyIdentities);
             }
         }
         if ($mount === null && ! array_any($port['Types'] ?? [], fn ($type) => $this->mountType($type) !== null)) {
+            return;
+        }
+
+        // Locked empty slots can be inherited from another variant. Keep established legacy coverage.
+        if (! isset($port['InstalledItem']) && ($port['Uneditable'] ?? false)
+            && ! isset($legacyIdentities[$this->legacyIdentity($name, $entry['PartName'] ?? null, $entry['ClassName'] ?? null)])) {
             return;
         }
 

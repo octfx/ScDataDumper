@@ -139,7 +139,6 @@ final class MountingPositionFleetTest extends TestCase
             'misc_prospector' => ['hardpoint_mining_arm' => ['Tool', null, 'WeaponMining.Gun']],
             'rsi_scorpius_antares' => [
                 'hardpoint_EMP' => ['Device', null, 'EMP.UNDEFINED'],
-                'hardpoint_spine' => ['Device', null, 'QuantumInterdictionGenerator.UNDEFINED'],
             ],
             'grin_mdc' => ['hardpoint_mdc_pdc' => ['Turret', 'Pdc', 'WeaponGun.Gun']],
             'misc_starfarer' => ['hardpoint_refuel_arm' => ['Tool', null, 'ToolArm.UNDEFINED']],
@@ -153,6 +152,27 @@ final class MountingPositionFleetTest extends TestCase
                 self::assertTrue(in_array($payloadType, array_column($position['Payload'], 'Type'), true), "$hull: missing payload at $hardpoint");
             }
         }
+
+        foreach ([
+            'aegs_vanguard' => ['hardpoint_weapon_missilelauncher'],
+            'argo_mpuv' => ['hardpoint_arm'],
+            'rsi_scorpius_antares' => ['hardpoint_spine'],
+            'aegs_avenger_stalker' => ['hardpoint_shield_generator_left'],
+            'banu_defender' => ['hardpoint_weapon_rack'],
+            'drak_cutlass_steel' => ['BAR1'],
+        ] as $hull => $excluded) {
+            $names = array_column($this->readDump("$candidate/$hull.json")['MountingPositions'], 'HardpointName');
+            self::assertSame([], array_values(array_intersect($excluded, $names)), "$hull: included an ineligible position");
+        }
+        $harbinger = array_column($this->readDump("$candidate/aegs_vanguard_harbinger.json")['MountingPositions'], null, 'HardpointName');
+        self::assertSame('Rack', $harbinger['hardpoint_weapon_missilelauncher']['MountType']);
+        $mustang = array_column($this->readDump("$candidate/cnou_mustang_alpha.json")['MountingPositions'], null, 'HardpointName');
+        foreach (['hardpoint_weapon_wing_left', 'hardpoint_weapon_wing_right'] as $name) {
+            self::assertFalse($mustang[$name]['Occupied']);
+            self::assertArrayNotHasKey('MountType', $mustang[$name]);
+        }
+        $reclaimer = array_column($this->readDump("$candidate/aegs_reclaimer.json")['MountingPositions'], null, 'HardpointName');
+        self::assertContains('SalvageFieldEmitter.UNDEFINED', array_column($reclaimer['hardpoint_claw']['Payload'], 'Type'));
 
         $controllerRoutes = [
             'aegs_idris_m' => ['hardpoint_front_left_turret', 'Crew', 'hardpoint_seat_rear_bridge_front_left', 'hardpoint_controller_weapon_remote_RLF'],
@@ -188,6 +208,23 @@ final class MountingPositionFleetTest extends TestCase
             $mount = $positions[$hardpoint];
             self::assertTrue(isset($mount['CombatStats']['DpsTotal']), "Starlancer TAC: child gimbal sharing $hardpoint hid the root turret's stats");
         }
+    }
+
+    public function test_mauler_duplicate_source_entries_do_not_double_legacy_stats(): void
+    {
+        $candidate = $this->fleetDirectory('SC_MOUNTING_CANDIDATE');
+        $mauler = $this->readDump("$candidate/vncl_mauler.json");
+        $matches = static fn (array $rows): array => array_values(array_filter($rows,
+            static fn (array $row): bool => ($row['HardpointName'] ?? null) === 'hardpoint_pdc_top_010'));
+        $loadout = $matches($mauler['Loadout']);
+        $legacy = $matches($mauler['PdcTurrets']);
+        $positions = $matches($mauler['MountingPositions']);
+        self::assertCount(1, $loadout);
+        self::assertCount(1, $legacy);
+        self::assertCount(1, $positions);
+        self::assertSame($loadout[0]['PortId'], $positions[0]['PortId']);
+        self::assertEquals(85, $legacy[0]['DpsTotal']);
+        self::assertSame($legacy[0]['DpsTotal'], $positions[0]['CombatStats']['DpsTotal']);
     }
 
     public function test_regenerated_tractor_turrets_keep_their_housing_and_linked_payload(): void
@@ -351,13 +388,20 @@ final class MountingPositionFleetTest extends TestCase
         $baseline = $this->fleetDirectory('SC_MOUNTING_BASELINE');
         $candidate = $this->fleetDirectory('SC_MOUNTING_CANDIDATE');
         $gaps = [];
-        $payloadTypes = ['weapongun', 'weaponmount', 'missile', 'weaponmining', 'miningarm', 'toolarm', 'tractorbeam', 'salvagehead', 'towingbeam', 'emp', 'quantuminterdictiongenerator'];
+        $payloadTypes = ['weapongun', 'weaponmount', 'missile', 'weaponmining', 'miningarm', 'toolarm', 'tractorbeam', 'salvagehead', 'towingbeam', 'emp', 'salvagefieldemitter'];
         $mountTypes = [...$payloadTypes, 'bomblauncher', 'missilelauncher', 'groundvehiclemissilelauncher', 'turret', 'turretbase', 'utilityturret'];
         $baseType = static fn (string $type): string => strtolower(explode('.', $type, 2)[0]);
         foreach (glob("$baseline/*.json") as $path) {
             $file = basename($path);
             $source = [];
-            $this->indexLoadoutForRead($this->readDump($path)['Loadout'] ?? [], $source);
+            $dump = $this->readDump($path);
+            $this->indexLoadoutForRead($dump['Loadout'] ?? [], $source);
+            $legacy = [];
+            foreach (['MannedTurrets', 'RemoteTurrets', 'PdcTurrets'] as $bucket) {
+                foreach ($dump[$bucket] ?? [] as $turret) {
+                    $legacy[$this->turretIdentity($turret['HardpointName'] ?? null, $turret['TurretClassName'] ?? null)] = true;
+                }
+            }
             $positions = [];
             $owners = [];
             foreach ($this->readDump("$candidate/$file")['MountingPositions'] as $position) {
@@ -385,7 +429,10 @@ final class MountingPositionFleetTest extends TestCase
                 if ($isIndependent && $isBoundary) {
                     $independent[$id] = true;
                 }
-                $eligible = $isIndependent && (in_array($base, $mountTypes, true) || array_intersect($compatible, $mountTypes) !== []);
+                $legacyIdentity = $this->turretIdentity($entry['HardpointName'] ?? null, $entry['ClassName'] ?? null);
+                $eligible = $isIndependent && $base !== 'quantuminterdictiongenerator'
+                    && (isset($entry['UUID']) || ($entry['Editable'] ?? false) || isset($legacy[$legacyIdentity]))
+                    && (in_array($base, $mountTypes, true) || array_intersect($compatible, $mountTypes) !== []);
                 $rows = $positions[$id] ?? [];
                 if (count($rows) !== (int) $eligible) {
                     $gaps[] = "$file $id ($type): expected ".(int) $eligible.' position(s), got '.count($rows);
@@ -396,7 +443,7 @@ final class MountingPositionFleetTest extends TestCase
                 }
                 $classification = match ($base) {
                     'bomblauncher', 'missilelauncher', 'groundvehiclemissilelauncher' => 'Rack',
-                    'emp', 'quantuminterdictiongenerator' => 'Device',
+                    'emp' => 'Device',
                     default => null,
                 };
                 if ($eligible && $classification !== null && ($rows[0]['MountType'] ?? null) !== $classification) {

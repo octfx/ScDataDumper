@@ -107,8 +107,10 @@ final class ShipIntegrationTest extends ScDataTestCase
                         </ItemPort>
                     </Part>
                     <Part name="vacant_gun"><ItemPort><Types><Type type="WeaponGun"/></Types></ItemPort></Part>
-                    <Part name="vacant_rack"><ItemPort><Types><Type type="MissileLauncher"/></Types></ItemPort></Part>
-                    <Part name="vacant_tool"><ItemPort><Types><Type type="ToolArm"/></Types></ItemPort></Part>
+                    <Part name="hardpoint_missile_rack_outer"><ItemPort minSize="3" maxSize="3" flags="editable"><Types><Type type="MissileLauncher" subtypes="MissileRack"/><Type type="BombLauncher" subtypes="BombRack"/></Types></ItemPort></Part>
+                    <Part name="unused_locked_rack"><ItemPort minSize="5" maxSize="5" flags="$uneditable"><Types><Type type="MissileLauncher" subtypes="MissileRack"/></Types></ItemPort></Part>
+                    <Part name="hardpoint_ulility_mount"><ItemPort minSize="1" maxSize="2" flags="$editable"><Types><Type type="TractorBeam"/></Types></ItemPort></Part>
+                    <Part name="interdiction"><ItemPort><Types><Type type="QuantumInterdictionGenerator"/></Types></ItemPort></Part>
                     <Part name="weapon_shield"><ItemPort><Types><Type type="Shield"/></Types></ItemPort></Part>
                     <Part name="weapon_locker"><ItemPort><Types><Type type="WeaponPersonal"/></Types></ItemPort></Part>
                     <Part name="gun_turret">
@@ -174,7 +176,7 @@ final class ShipIntegrationTest extends ScDataTestCase
         $turrets = array_column($result['RemoteTurrets'], null, 'HardpointName');
 
         $positions = array_column($result['MountingPositions'], null, 'HardpointName');
-        self::assertSame(['vacant_gun', 'vacant_rack', 'vacant_tool', 'gun_turret', 'missile_turret', 'crew_missile_turret'], array_keys($positions));
+        self::assertSame(['vacant_gun', 'hardpoint_missile_rack_outer', 'hardpoint_ulility_mount', 'gun_turret', 'missile_turret', 'crew_missile_turret'], array_keys($positions));
         $ports = array_column($result['Loadout'], null, 'PortId');
         foreach ($positions as $position) {
             $port = $ports[$position['PortId']];
@@ -182,7 +184,14 @@ final class ShipIntegrationTest extends ScDataTestCase
             self::assertSame($port['MountType'] ?? null, $position['MountType'] ?? null);
             self::assertSame($port['TurretRole'] ?? null, $position['TurretRole'] ?? null);
         }
-        self::assertArrayNotHasKey('MountType', $positions['vacant_gun']);
+        foreach (['vacant_gun' => [0, 0], 'hardpoint_missile_rack_outer' => [3, 3], 'hardpoint_ulility_mount' => [1, 2]] as $name => [$min, $max]) {
+            $vacancy = $positions[$name];
+            self::assertFalse($vacancy['Occupied']);
+            self::assertSame([$min, $max], [$vacancy['MinSize'], $vacancy['MaxSize']]);
+            self::assertArrayNotHasKey('MountType', $vacancy);
+            self::assertSame([], $vacancy['Payload']);
+            self::assertContains($vacancy['PortId'], array_column($result['Loadout'], 'PortId'));
+        }
         self::assertSame('Turret', $positions['gun_turret']['MountType']);
         self::assertSame('Remote', $positions['gun_turret']['TurretRole']);
         self::assertSame('WeaponGun.Gun', $positions['gun_turret']['Payload'][0]['Type']);

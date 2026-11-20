@@ -5,6 +5,8 @@
     "Loadout": [
         {
             "HardpointName": "hardpoint_weapon_gun_nose",
+            "PortDisplayName": "port_NameWeaponNose",
+            "PartName": "hardpoint_weapon_gun_nose",
             "ClassName": "Mount_Gimbal_S5",
             "UUID": "99e0ea17-45fc-4700-8607-ab879d05a284",
             "Name": "VariPuck S5 Gimbal Mount",
@@ -14,6 +16,7 @@
             "Loadout": [
                 {
                     "HardpointName": "hardpoint_class_2",
+                    "PortDisplayName": "Slot",
                     "ClassName": "ESPR_BallisticCannon_S5",
                     "UUID": "76775574-fcf2-493d-859e-337f1267a7ef",
                     "Name": "Deadbolt V Cannon",
@@ -23,6 +26,7 @@
                     "Loadout": [
                         {
                             "HardpointName": "BAR1",
+                            "PortDisplayName": "",
                             "ClassName": "ESPR_BallisticCannon_Barrel_S5",
                             "UUID": "e2d856c4-0ba3-40af-a2c7-a444786bf885",
                             "Name": "<= PLACEHOLDER =>",
@@ -41,6 +45,7 @@
                             ],
                             "MaxSize": 5,
                             "MinSize": 5,
+                            "InstalledSize": 5,
                             "PortId": "loadout.2.loadout.0.loadout.0",
                             "ParentPortId": "loadout.2.loadout.0",
                             "RootPortId": "loadout.2",
@@ -52,6 +57,7 @@
                         },
                         {
                             "HardpointName": "MEC",
+                            "PortDisplayName": "",
                             "ClassName": "ESPR_BallisticCannon_FiringMechanism_S5",
                             "UUID": "f345bdce-1969-4da9-8178-bd83094d14eb",
                             "Name": "<= PLACEHOLDER =>",
@@ -70,6 +76,7 @@
                             ],
                             "MaxSize": 5,
                             "MinSize": 5,
+                            "InstalledSize": 5,
                             "PortId": "loadout.2.loadout.0.loadout.1",
                             "ParentPortId": "loadout.2.loadout.0",
                             "RootPortId": "loadout.2",
@@ -81,6 +88,7 @@
                         },
                         {
                             "HardpointName": "POW",
+                            "PortDisplayName": "",
                             "ClassName": "ESPR_BallisticCannon_PowerArray_S5",
                             "UUID": "2a558e7b-8756-419c-a2e5-c0f9bc72ded4",
                             "Name": "<= PLACEHOLDER =>",
@@ -99,6 +107,7 @@
                             ],
                             "MaxSize": 5,
                             "MinSize": 5,
+                            "InstalledSize": 5,
                             "PortId": "loadout.2.loadout.0.loadout.2",
                             "ParentPortId": "loadout.2.loadout.0",
                             "RootPortId": "loadout.2",
@@ -110,6 +119,7 @@
                         },
                         {
                             "HardpointName": "VEN",
+                            "PortDisplayName": "",
                             "ClassName": "ESPR_BallisticCannon_Ventilation_S5",
                             "UUID": "6594c807-395c-4930-9aa5-9bbc912e7946",
                             "Name": "<= PLACEHOLDER =>",
@@ -128,6 +138,7 @@
                             ],
                             "MaxSize": 5,
                             "MinSize": 5,
+                            "InstalledSize": 5,
                             "PortId": "loadout.2.loadout.0.loadout.3",
                             "ParentPortId": "loadout.2.loadout.0",
                             "RootPortId": "loadout.2",
@@ -150,6 +161,7 @@
                     ],
                     "MaxSize": 5,
                     "MinSize": 5,
+                    "InstalledSize": 5,
                     "PortId": "loadout.2.loadout.0",
                     "ParentPortId": "loadout.2",
                     "RootPortId": "loadout.2",
@@ -178,6 +190,7 @@
             ],
             "MaxSize": 5,
             "MinSize": 5,
+            "InstalledSize": 5,
             "PortId": "loadout.2",
             "RootPortId": "loadout.2",
             "Path": [
@@ -187,6 +200,8 @@
         },
         {
             "HardpointName": "hardpoint_turret",
+            "PortDisplayName": "port_NameTurret02",
+            "PartName": "hardpoint_turret",
             "ClassName": "AEGS_Vanguard_SCItem_Turret",
             "UUID": "171c3bcf-ec19-4a36-b60a-701dbfebc17b",
             "Name": "Manned Turret",
@@ -196,6 +211,7 @@
             "Loadout": [
                 {
                     "HardpointName": "turret_left",
+                    "PortDisplayName": "Weapon - Top Left",
                     "ClassName": "Mount_Gimbal_S3",
                     "UUID": "8197c45b-eaf4-4836-a8f0-837d1875cd9c",
                     "Name": "VariPuck S3 Gimbal Mount",
@@ -205,6 +221,7 @@
                     "Loadout": [
                         {
                             "HardpointName": "hardpoint_class_2",
+                            "PortDisplayName": "Slot",
                             "ClassName": "BEHR_BallisticRepeater_S3",
                             "UUID": "bbfbb4b5-c26e-4bee-9d41-9679e102e860",
                             "Name": "SW16BR3 \u201cShredder\u201d Repeater",
@@ -214,6 +231,7 @@
                             "Loadout": [
                                 {
                                     "HardpointName": "BAR1",
+                                    "PortDisplayName": "",
                                     "ClassName": "BEHR_BallisticRepeater_Barrel_S3",
                                     "UUID": "86ca9f40-5bcf-4f17-8834-2760ef15dd56",
                                     "Name": "<= PLACEHOLDER =>",
@@ -232,6 +250,7 @@
                                     ],
                                     "MaxSize": 1,
                                     "MinSize": 1,
+                                    "InstalledSize": 1,
                                     "PortId": "loadout.36.loadout.0.loadout.0.loadout.0",
                                     "ParentPortId": "loadout.36.loadout.0.loadout.0",
                                     "RootPortId": "loadout.36",
@@ -244,6 +263,7 @@
                                 },
                                 {
                                     "HardpointName": "MEC",
+                                    "PortDisplayName": "",
                                     "ClassName": "BEHR_BallisticRepeater_FiringMechanism_S3",
                                     "UUID": "97c3b5cd-4056-4ffe-97f7-05178b45c7fa",
                                     "Name": "<= PLACEHOLDER =>",
@@ -262,6 +282,7 @@
                                     ],
                                     "MaxSize": 1,
                                     "MinSize": 1,
+                                    "InstalledSize": 1,
                                     "PortId": "loadout.36.loadout.0.loadout.0.loadout.1",
                                     "ParentPortId": "loadout.36.loadout.0.loadout.0",
                                     "RootPortId": "loadout.36",
@@ -274,6 +295,7 @@
                                 },
                                 {
                                     "HardpointName": "POW",
+                                    "PortDisplayName": "",
                                     "ClassName": "BEHR_BallisticRepeater_PowerArray_S3",
                                     "UUID": "95d58b14-28f5-4069-a93b-c4c416386377",
                                     "Name": "<= PLACEHOLDER =>",
@@ -292,6 +314,7 @@
                                     ],
                                     "MaxSize": 1,
                                     "MinSize": 1,
+                                    "InstalledSize": 1,
                                     "PortId": "loadout.36.loadout.0.loadout.0.loadout.2",
                                     "ParentPortId": "loadout.36.loadout.0.loadout.0",
                                     "RootPortId": "loadout.36",
@@ -304,6 +327,7 @@
                                 },
                                 {
                                     "HardpointName": "VEN",
+                                    "PortDisplayName": "",
                                     "ClassName": "BEHR_BallisticRepeater_Ventilation_S3",
                                     "UUID": "97e19cf8-a554-4a1c-b3e1-73d66a593f6a",
                                     "Name": "<= PLACEHOLDER =>",
@@ -322,6 +346,7 @@
                                     ],
                                     "MaxSize": 1,
                                     "MinSize": 1,
+                                    "InstalledSize": 1,
                                     "PortId": "loadout.36.loadout.0.loadout.0.loadout.3",
                                     "ParentPortId": "loadout.36.loadout.0.loadout.0",
                                     "RootPortId": "loadout.36",
@@ -345,6 +370,7 @@
                             ],
                             "MaxSize": 3,
                             "MinSize": 3,
+                            "InstalledSize": 3,
                             "PortId": "loadout.36.loadout.0.loadout.0",
                             "ParentPortId": "loadout.36.loadout.0",
                             "RootPortId": "loadout.36",
@@ -374,6 +400,7 @@
                     ],
                     "MaxSize": 2,
                     "MinSize": 2,
+                    "InstalledSize": 3,
                     "PortId": "loadout.36.loadout.0",
                     "ParentPortId": "loadout.36",
                     "RootPortId": "loadout.36",
@@ -384,6 +411,7 @@
                 },
                 {
                     "HardpointName": "turret_right",
+                    "PortDisplayName": "Weapon - Top Right",
                     "ClassName": "Mount_Gimbal_S3",
                     "UUID": "8197c45b-eaf4-4836-a8f0-837d1875cd9c",
                     "Name": "VariPuck S3 Gimbal Mount",
@@ -393,6 +421,7 @@
                     "Loadout": [
                         {
                             "HardpointName": "hardpoint_class_2",
+                            "PortDisplayName": "Slot",
                             "ClassName": "BEHR_BallisticRepeater_S3",
                             "UUID": "bbfbb4b5-c26e-4bee-9d41-9679e102e860",
                             "Name": "SW16BR3 \u201cShredder\u201d Repeater",
@@ -402,6 +431,7 @@
                             "Loadout": [
                                 {
                                     "HardpointName": "BAR1",
+                                    "PortDisplayName": "",
                                     "ClassName": "BEHR_BallisticRepeater_Barrel_S3",
                                     "UUID": "86ca9f40-5bcf-4f17-8834-2760ef15dd56",
                                     "Name": "<= PLACEHOLDER =>",
@@ -420,6 +450,7 @@
                                     ],
                                     "MaxSize": 1,
                                     "MinSize": 1,
+                                    "InstalledSize": 1,
                                     "PortId": "loadout.36.loadout.1.loadout.0.loadout.0",
                                     "ParentPortId": "loadout.36.loadout.1.loadout.0",
                                     "RootPortId": "loadout.36",
@@ -432,6 +463,7 @@
                                 },
                                 {
                                     "HardpointName": "MEC",
+                                    "PortDisplayName": "",
                                     "ClassName": "BEHR_BallisticRepeater_FiringMechanism_S3",
                                     "UUID": "97c3b5cd-4056-4ffe-97f7-05178b45c7fa",
                                     "Name": "<= PLACEHOLDER =>",
@@ -450,6 +482,7 @@
                                     ],
                                     "MaxSize": 1,
                                     "MinSize": 1,
+                                    "InstalledSize": 1,
                                     "PortId": "loadout.36.loadout.1.loadout.0.loadout.1",
                                     "ParentPortId": "loadout.36.loadout.1.loadout.0",
                                     "RootPortId": "loadout.36",
@@ -462,6 +495,7 @@
                                 },
                                 {
                                     "HardpointName": "POW",
+                                    "PortDisplayName": "",
                                     "ClassName": "BEHR_BallisticRepeater_PowerArray_S3",
                                     "UUID": "95d58b14-28f5-4069-a93b-c4c416386377",
                                     "Name": "<= PLACEHOLDER =>",
@@ -480,6 +514,7 @@
                                     ],
                                     "MaxSize": 1,
                                     "MinSize": 1,
+                                    "InstalledSize": 1,
                                     "PortId": "loadout.36.loadout.1.loadout.0.loadout.2",
                                     "ParentPortId": "loadout.36.loadout.1.loadout.0",
                                     "RootPortId": "loadout.36",
@@ -492,6 +527,7 @@
                                 },
                                 {
                                     "HardpointName": "VEN",
+                                    "PortDisplayName": "",
                                     "ClassName": "BEHR_BallisticRepeater_Ventilation_S3",
                                     "UUID": "97e19cf8-a554-4a1c-b3e1-73d66a593f6a",
                                     "Name": "<= PLACEHOLDER =>",
@@ -510,6 +546,7 @@
                                     ],
                                     "MaxSize": 1,
                                     "MinSize": 1,
+                                    "InstalledSize": 1,
                                     "PortId": "loadout.36.loadout.1.loadout.0.loadout.3",
                                     "ParentPortId": "loadout.36.loadout.1.loadout.0",
                                     "RootPortId": "loadout.36",
@@ -533,6 +570,7 @@
                             ],
                             "MaxSize": 3,
                             "MinSize": 3,
+                            "InstalledSize": 3,
                             "PortId": "loadout.36.loadout.1.loadout.0",
                             "ParentPortId": "loadout.36.loadout.1",
                             "RootPortId": "loadout.36",
@@ -562,6 +600,7 @@
                     ],
                     "MaxSize": 2,
                     "MinSize": 2,
+                    "InstalledSize": 3,
                     "PortId": "loadout.36.loadout.1",
                     "ParentPortId": "loadout.36",
                     "RootPortId": "loadout.36",
@@ -572,6 +611,7 @@
                 },
                 {
                     "HardpointName": "Screen_Radar",
+                    "PortDisplayName": "",
                     "ClassName": "Radar_Display_Screen_Template",
                     "UUID": "7a37dc17-4984-4418-a70d-04bf22fea031",
                     "Name": "<= PLACEHOLDER =>",
@@ -587,6 +627,7 @@
                     ],
                     "MaxSize": 1,
                     "MinSize": 1,
+                    "InstalledSize": 1,
                     "PortId": "loadout.36.loadout.2",
                     "ParentPortId": "loadout.36",
                     "RootPortId": "loadout.36",
@@ -597,6 +638,7 @@
                 },
                 {
                     "HardpointName": "Screen_Right_Top",
+                    "PortDisplayName": "",
                     "ClassName": "Vehicle_Screen_MFD",
                     "UUID": "c08cedfa-fafc-4ea6-9737-59faeb4b1510",
                     "Name": "<= PLACEHOLDER =>",
@@ -612,6 +654,7 @@
                     ],
                     "MaxSize": 1,
                     "MinSize": 1,
+                    "InstalledSize": 1,
                     "PortId": "loadout.36.loadout.3",
                     "ParentPortId": "loadout.36",
                     "RootPortId": "loadout.36",
@@ -622,6 +665,7 @@
                 },
                 {
                     "HardpointName": "Screen_Left_Top",
+                    "PortDisplayName": "",
                     "ClassName": "Vehicle_Screen_MFD",
                     "UUID": "c08cedfa-fafc-4ea6-9737-59faeb4b1510",
                     "Name": "<= PLACEHOLDER =>",
@@ -637,6 +681,7 @@
                     ],
                     "MaxSize": 1,
                     "MinSize": 1,
+                    "InstalledSize": 1,
                     "PortId": "loadout.36.loadout.4",
                     "ParentPortId": "loadout.36",
                     "RootPortId": "loadout.36",
@@ -658,6 +703,7 @@
             ],
             "MaxSize": 6,
             "MinSize": 1,
+            "InstalledSize": 6,
             "PortId": "loadout.36",
             "RootPortId": "loadout.36",
             "Path": [
@@ -692,6 +738,8 @@
         },
         {
             "HardpointName": "hardpoint_weapon_missilerack_right_inner",
+            "PortDisplayName": "port_NameMissileRack01",
+            "PartName": "hardpoint_weapon_missilerack_right_inner",
             "ClassName": "MRCK_S04_AEGS_Vanguard",
             "UUID": "0a38dafc-a21d-4684-bbb6-20b179ba3535",
             "Name": "MSD-442 Missile Rack",
@@ -701,6 +749,7 @@
             "Loadout": [
                 {
                     "HardpointName": "missile_01_attach",
+                    "PortDisplayName": "Missile Slot 1",
                     "ClassName": "MISL_S02_EM_TALN_Dominator",
                     "UUID": "67d6efbd-6b65-49d9-b319-041dc6a2675a",
                     "Name": "Dominator II Missile",
@@ -719,6 +768,7 @@
                     ],
                     "MaxSize": 2,
                     "MinSize": 2,
+                    "InstalledSize": 2,
                     "PortId": "loadout.66.loadout.0",
                     "ParentPortId": "loadout.66",
                     "RootPortId": "loadout.66",
@@ -729,6 +779,7 @@
                 },
                 {
                     "HardpointName": "missile_02_attach",
+                    "PortDisplayName": "Missile Slot 2",
                     "ClassName": "MISL_S02_EM_TALN_Dominator",
                     "UUID": "67d6efbd-6b65-49d9-b319-041dc6a2675a",
                     "Name": "Dominator II Missile",
@@ -747,6 +798,7 @@
                     ],
                     "MaxSize": 2,
                     "MinSize": 2,
+                    "InstalledSize": 2,
                     "PortId": "loadout.66.loadout.1",
                     "ParentPortId": "loadout.66",
                     "RootPortId": "loadout.66",
@@ -757,6 +809,7 @@
                 },
                 {
                     "HardpointName": "missile_03_attach",
+                    "PortDisplayName": "Missile Slot 3",
                     "ClassName": "MISL_S02_EM_TALN_Dominator",
                     "UUID": "67d6efbd-6b65-49d9-b319-041dc6a2675a",
                     "Name": "Dominator II Missile",
@@ -775,6 +828,7 @@
                     ],
                     "MaxSize": 2,
                     "MinSize": 2,
+                    "InstalledSize": 2,
                     "PortId": "loadout.66.loadout.2",
                     "ParentPortId": "loadout.66",
                     "RootPortId": "loadout.66",
@@ -785,6 +839,7 @@
                 },
                 {
                     "HardpointName": "missile_04_attach",
+                    "PortDisplayName": "Missile Slot 4",
                     "ClassName": "MISL_S02_EM_TALN_Dominator",
                     "UUID": "67d6efbd-6b65-49d9-b319-041dc6a2675a",
                     "Name": "Dominator II Missile",
@@ -803,6 +858,7 @@
                     ],
                     "MaxSize": 2,
                     "MinSize": 2,
+                    "InstalledSize": 2,
                     "PortId": "loadout.66.loadout.3",
                     "ParentPortId": "loadout.66",
                     "RootPortId": "loadout.66",
@@ -824,6 +880,7 @@
             ],
             "MaxSize": 4,
             "MinSize": 4,
+            "InstalledSize": 4,
             "PortId": "loadout.66",
             "RootPortId": "loadout.66",
             "Path": [
@@ -915,7 +972,9 @@
                         "IsPilotSlaveable": false
                     }
                 ]
-            }
+            },
+            "LegacyBucket": "MannedTurrets",
+            "LegacyOrdinal": 0
         },
         {
             "PortId": "loadout.66",
