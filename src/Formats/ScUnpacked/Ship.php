@@ -416,6 +416,8 @@ final class Ship extends BaseFormat
             $data['Agility'] = $calculatedData['Agility'];
         }
 
+        $summary['UtilityTurrets'] = $calculatedData['UtilityTurrets'] ?? [];
+
         $turretDpsMap = array_column($calculatedData['Weaponry']['Turrets'] ?? [], null, 'HardpointName');
         $bridgeControllableTurrets = array_flip($turretControlMap);
         foreach (['MannedTurrets', 'PdcTurrets', 'RemoteTurrets'] as $key) {
