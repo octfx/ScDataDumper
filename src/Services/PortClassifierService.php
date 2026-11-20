@@ -45,6 +45,11 @@ final readonly class PortClassifierService
             return ['Avionics', 'Flight controllers'];
         }
 
+        if ((ItemPort::accepts($port, 'Turret.*') || ItemPort::accepts($port, 'TurretBase.MannedTurret'))
+            && $this->turretPayload($installedItem['stdItem']['Ports'] ?? []) === 'utility') {
+            return ['Utility', 'Utility turrets'];
+        }
+
         // Tractor beams
         if (self::fuzzyNameMatch($port, 'tractor')) {
             return ['Utility', 'Utility hardpoints'];
@@ -71,11 +76,24 @@ final readonly class PortClassifierService
         }
 
         if (ItemPort::accepts($port, 'Turret.*')) {
-            if (self::fuzzyNameMatch($port, 'pdc', $installedItem)) {
+            $type = $this->itemTypeResolver->resolveSemanticType($installedItem);
+            if (strcasecmp($type ?? '', 'Turret.PDCTurret') === 0 || ($type === null && self::fuzzyNameMatch($port, 'pdc', $installedItem))) {
                 return ['Weapons', 'PDC turrets'];
             }
 
-            return ['Weapons', self::fuzzyNameMatch($port, 'remote', $installedItem) ? 'Remote turrets' : 'Weapon hardpoints'];
+            $className = $installedItem['stdItem']['ClassName'] ?? '';
+            $ports = $installedItem['stdItem']['Ports'] ?? null;
+            if (is_array($ports)) {
+                $payload = $this->turretPayload($ports);
+                if ($payload === 'utility') {
+                    return ['Utility', 'Utility turrets'];
+                }
+                if ($payload !== 'weapon') {
+                    return ['Weapons', 'Weapon hardpoints'];
+                }
+            }
+
+            return ['Weapons', self::fuzzyNameMatch($port, 'remote', $installedItem) || stripos($className, 'remote') !== false ? 'Remote turrets' : 'Weapon hardpoints'];
         }
 
         if (ItemPort::accepts($port, 'TurretBase.MannedTurret')) {
@@ -375,6 +393,34 @@ final readonly class PortClassifierService
         }
 
         return false;
+    }
+
+    private function turretPayload(array $ports): ?string
+    {
+        $hasUtility = false;
+        foreach ($ports as $port) {
+            $item = $port['InstalledItem'] ?? null;
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $type = strtolower($this->itemTypeResolver->resolveSemanticType($item) ?? '');
+            if (str_starts_with($type, 'tractorbeam') || str_starts_with($type, 'salvagehead')) {
+                $hasUtility = true;
+
+                continue;
+            }
+            if (str_starts_with($type, 'weapongun') || str_starts_with($type, 'missilelauncher') || str_starts_with($type, 'missile.')) {
+                return 'weapon';
+            }
+            $payload = $this->turretPayload($item['stdItem']['Ports'] ?? []);
+            if ($payload === 'weapon') {
+                return 'weapon';
+            }
+            $hasUtility = $hasUtility || $payload === 'utility';
+        }
+
+        return $hasUtility ? 'utility' : null;
     }
 
     /**
