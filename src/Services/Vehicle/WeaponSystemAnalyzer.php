@@ -402,6 +402,26 @@ final class WeaponSystemAnalyzer implements VehicleDataCalculator
         return is_string($className) && $className !== '' ? $className : null;
     }
 
+    private function collectUtilityPayloads(array $port): array
+    {
+        $payloads = [];
+
+        foreach ($this->extractInstalledPorts($port) as $child) {
+            $type = $this->resolveInstalledItemType($child);
+            if (in_array(strtolower(explode('.', $type ?? '', 2)[0]), ['tractorbeam', 'salvagehead', 'towingbeam'], true)) {
+                $payloads[] = [
+                    'HardpointName' => $child['PortName'] ?? null,
+                    'ClassName' => $this->resolveInstalledItemClassName($child),
+                    'Type' => $type,
+                ];
+            } else {
+                $payloads = [...$payloads, ...$this->collectUtilityPayloads($child)];
+            }
+        }
+
+        return $payloads;
+    }
+
     public function canCalculate(VehicleDataContext $context): bool
     {
         return true;
@@ -417,6 +437,15 @@ final class WeaponSystemAnalyzer implements VehicleDataCalculator
             'MannedTurrets' => $this->analyzeTurrets($mannedTurrets),
             'PdcTurrets' => $this->analyzeTurrets($pdcTurrets),
             'RemoteTurrets' => $this->analyzeTurrets($remoteTurrets),
+            'UtilityTurrets' => ($context->portSummary['utilityTurrets'] ?? collect())
+                ->map(fn (array $turret) => [
+                    'HardpointName' => $turret['Port']['PortName'] ?? null,
+                    'TurretClassName' => $this->resolveInstalledItemClassName($turret['Port']),
+                    'TurretType' => $this->resolveInstalledItemType($turret['Port']),
+                    'Payloads' => $this->collectUtilityPayloads($turret['Port']),
+                ])
+                ->values()
+                ->all(),
         ];
     }
 

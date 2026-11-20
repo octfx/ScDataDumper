@@ -74,7 +74,7 @@ final class ShipIntegrationTest extends ScDataTestCase
     /**
      * @throws JsonException
      */
-    public function test_to_array_exports_pilot_slaveability_for_gun_and_missile_turrets(): void
+    public function test_to_array_keeps_utility_turrets_separate_from_pilot_slaveable_weapon_turrets(): void
     {
         $this->writeShipTestCacheFiles($this->writeManufacturerFile());
         $this->configureServiceFactory();
@@ -115,6 +115,8 @@ final class ShipIntegrationTest extends ScDataTestCase
                             <ControllerDef controllableTags="crew_turret"/>
                         </ItemPort>
                     </Part>
+                    <Part name="tractor_turret"><ItemPort><Types><Type type="Turret"/></Types></ItemPort></Part>
+                    <Part name="salvage_turret"><ItemPort><Types><Type type="Turret"/></Types></ItemPort></Part>
                 </Parts>
             </Vehicle.TEST_SHIP_IMPL>
             XML));
@@ -124,6 +126,8 @@ final class ShipIntegrationTest extends ScDataTestCase
             'gun_turret' => 'WeaponGun.Gun',
             'missile_turret' => 'MissileLauncher.MissileRack',
             'crew_missile_turret' => 'MissileLauncher.MissileRack',
+            'tractor_turret' => 'tractorbeam.UNDEFINED',
+            'salvage_turret' => 'SalvageHead.UNDEFINED',
         ];
         foreach ($payloadTypes as $hardpoint => $type) {
             $payload = ['ClassName' => $type, 'Type' => $type];
@@ -135,7 +139,7 @@ final class ShipIntegrationTest extends ScDataTestCase
                 'className' => 'remote_'.$hardpoint,
                 'Item' => ['type' => 'Turret', 'stdItem' => [
                     'ClassName' => 'remote_'.$hardpoint,
-                    'Type' => 'TurretBase.RemoteTurret',
+                    'Type' => $hardpoint === 'salvage_turret' ? 'TurretBase.MannedTurret' : 'TurretBase.RemoteTurret',
                     'Ports' => [[
                         'PortName' => 'payload',
                         'Types' => [$type],
@@ -160,6 +164,16 @@ final class ShipIntegrationTest extends ScDataTestCase
         self::assertTrue($turrets['gun_turret']['IsPilotSlaveable']);
         self::assertTrue($turrets['missile_turret']['IsPilotSlaveable'] ?? null);
         self::assertArrayNotHasKey('IsPilotSlaveable', $turrets['crew_missile_turret']);
+        foreach (['RemoteTurrets', 'MannedTurrets', 'PdcTurrets'] as $key) {
+            self::assertNotContains('tractor_turret', array_column($result[$key] ?? [], 'HardpointName'));
+            self::assertNotContains('salvage_turret', array_column($result[$key] ?? [], 'HardpointName'));
+        }
+
+        $utilityTurrets = array_column($result['UtilityTurrets'], null, 'HardpointName');
+        self::assertSame('remote_tractor_turret', $utilityTurrets['tractor_turret']['TurretClassName']);
+        self::assertSame('remote_salvage_turret', $utilityTurrets['salvage_turret']['TurretClassName']);
+        self::assertSame([['HardpointName' => 'payload', 'ClassName' => 'tractorbeam.UNDEFINED', 'Type' => 'tractorbeam.UNDEFINED']], $utilityTurrets['tractor_turret']['Payloads']);
+        self::assertSame([['HardpointName' => 'payload', 'ClassName' => 'SalvageHead.UNDEFINED', 'Type' => 'SalvageHead.UNDEFINED']], $utilityTurrets['salvage_turret']['Payloads']);
     }
 
     public function test_to_array_strips_trailing_newline_from_localized_vehicle_name(): void
