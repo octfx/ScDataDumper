@@ -21,7 +21,7 @@ final readonly class PortClassifierService
      * @param  array|null  $port  The port to classify
      * @return array An array with two elements - major category and specific category
      */
-    public function classifyPort(?array $port, ?array $installedItem): array
+    public function classifyPort(?array $port, ?array $installedItem, bool $isTopLevelPort = true): array
     {
         /*
             The order here is very important to try and catch obscure corner cases
@@ -45,9 +45,25 @@ final readonly class PortClassifierService
             return ['Avionics', 'Flight controllers'];
         }
 
-        if ((ItemPort::accepts($port, 'Turret.*') || ItemPort::accepts($port, 'TurretBase.MannedTurret'))
-            && $this->turretPayload($installedItem['stdItem']['Ports'] ?? []) === 'utility') {
+        $acceptsTurret = ItemPort::accepts($port, 'Turret.*');
+        $acceptsMannedTurret = ItemPort::accepts($port, 'TurretBase.MannedTurret');
+        $ports = $installedItem['stdItem']['Ports'] ?? null;
+        $payload = ($acceptsTurret || $acceptsMannedTurret) && is_array($ports) ? $this->turretPayload($ports) : null;
+        if ($payload === 'utility') {
             return ['Utility', 'Utility turrets'];
+        }
+
+        if ($isTopLevelPort && $acceptsTurret && $payload === 'weapon') {
+            $className = strtolower($installedItem['stdItem']['ClassName'] ?? '');
+            $type = strtolower($this->itemTypeResolver->resolveSemanticType($installedItem) ?? '');
+
+            return match (true) {
+                $type === 'turret.pdcturret' => ['Weapons', 'PDC turrets'],
+                $type === 'turretbase.mannedturret' => ['Weapons', 'Manned turrets'],
+                $this->isGimbalAdapter($port, $installedItem['stdItem'], $className) => ['Weapons', 'Weapon hardpoints'],
+                str_starts_with($className, 'aegs_idris_scitem_ai_turret_') => ['Weapons', 'Autonomous turrets'],
+                default => ['Weapons', 'Remote turrets'],
+            };
         }
 
         // Tractor beams
@@ -75,28 +91,21 @@ final readonly class PortClassifierService
             return ['Mining', 'Mining arm'];
         }
 
-        if (ItemPort::accepts($port, 'Turret.*')) {
+        if ($acceptsTurret) {
             $type = $this->itemTypeResolver->resolveSemanticType($installedItem);
             if (strcasecmp($type ?? '', 'Turret.PDCTurret') === 0 || ($type === null && self::fuzzyNameMatch($port, 'pdc', $installedItem))) {
                 return ['Weapons', 'PDC turrets'];
             }
 
             $className = $installedItem['stdItem']['ClassName'] ?? '';
-            $ports = $installedItem['stdItem']['Ports'] ?? null;
-            if (is_array($ports)) {
-                $payload = $this->turretPayload($ports);
-                if ($payload === 'utility') {
-                    return ['Utility', 'Utility turrets'];
-                }
-                if ($payload !== 'weapon') {
-                    return ['Weapons', 'Weapon hardpoints'];
-                }
+            if (is_array($ports) && $payload !== 'weapon') {
+                return ['Weapons', 'Weapon hardpoints'];
             }
 
             return ['Weapons', self::fuzzyNameMatch($port, 'remote', $installedItem) || stripos($className, 'remote') !== false ? 'Remote turrets' : 'Weapon hardpoints'];
         }
 
-        if (ItemPort::accepts($port, 'TurretBase.MannedTurret')) {
+        if ($acceptsMannedTurret) {
             if (! empty($port['InstalledItem']['Ports']) &&
                 array_filter($port['InstalledItem']['Ports'], function ($x) {
                     $type = $this->itemTypeResolver->resolveSemanticType(is_array($x) ? $x : null);
@@ -393,6 +402,18 @@ final readonly class PortClassifierService
         }
 
         return false;
+    }
+
+    private function isGimbalAdapter(array $port, array $item, string $className): bool
+    {
+        // Keep known adapters on turret-only ports, including the disputed Reliant Tana mount.
+        if ($className === 'gmnt_misc_s03_pl01' || preg_match('/(?:^|_)mount_gimbal_s\d+$/', $className) === 1) {
+            return true;
+        }
+
+        return ItemPort::accepts($port, 'WeaponGun')
+            && in_array('gimbalmount', array_map(strtolower(...), $item['Tags'] ?? []), true)
+            && count(array_filter($item['Ports'], static fn (array $port): bool => ItemPort::accepts($port, 'WeaponGun'))) === 1;
     }
 
     private function turretPayload(array $ports): ?string
