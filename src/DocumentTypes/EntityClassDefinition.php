@@ -19,9 +19,25 @@ class EntityClassDefinition extends RootDocument
         return $this->get('Components/SCItemSeatParams') !== null;
     }
 
+    public function hasEMPParams(): bool
+    {
+        return $this->get('Components/SCItemEMPParams') !== null;
+    }
+
+    public function isPlayerOperableSeat(): bool
+    {
+        return $this->hasIntegratedSeat() && $this->get("Components/SActorUsableParams/useSlots/UsableUseSlot[@available='1']/useChannelInstances/UsableUseChannelInstance[@isEnabled='1']/alignmentSlots/OperatorSeatAlignmentSlot[@available='1' and @canPlayerUse='1']") !== null;
+    }
+
+    public function requiresRemoteTurretView(): bool
+    {
+        return (string) $this->get('Components/SCItemTurretParams/remoteTurret/SCItemTurretRemoteParams@turretOnlyUsableInRemoteCamera') === '1';
+    }
+
     public function hasRemoteTurretArticulation(): bool
     {
         $turret = $this->get('Components/SCItemTurretParams');
+
         if ($turret?->get('remoteTurret/SCItemTurretRemoteParams') === null) {
             return false;
         }
@@ -52,29 +68,38 @@ class EntityClassDefinition extends RootDocument
     public function getPortControlBindings(): array
     {
         $bindings = [];
+
         foreach ($this->get('Components/SItemPortContainerComponentParams/Ports')?->children() ?? [] as $port) {
             $tag = (string) $port->get('@controllableTag');
             $grants = $targets = [];
+
             if ($tag !== '') {
                 // Default and conditional priorities cannot prove a route between installed ports.
                 $groups = $port->get('control/SCItemControlSeatParams/userControl/SCItemControllableGroupParams/priorityGroups');
+
                 foreach ($groups?->children() ?? [] as $group) {
                     if ($group->get('self::SCItemPriorityGroupParam[not(@*[name() != "itemType" and name() != "defaultPriority"]) and count(*) = 1]') === null) {
                         continue;
                     }
+
                     $type = strtolower((string) $group->get('@itemType'));
+
                     foreach ($group->get('tags')?->children() ?? [] as $target) {
                         if ($target->get('self::SCItemPriorityTagParam[count(@*) = 2 and @tag and not(*) and @priority >= 0 and @priority < 255]') !== null) {
                             $grants[$type][$target->get('@tag')] = true;
                         }
                     }
                 }
+
                 $tables = $port->get('control/SCItemControlPriorities/itemControlPriorities');
+
                 foreach ($tables?->children() ?? [] as $table) {
                     if ($table->get('self::SCItemControlPriorityTable[count(@*) = 1 and @itemType and count(*) = 1]') === null) {
                         continue;
                     }
+
                     $type = strtolower((string) $table->get('@itemType'));
+
                     foreach ($table->get('tagPrioritiesTable')?->children() ?? [] as $target) {
                         if ($target->get('self::SCItemControlPriorityTag[count(@*) = 1 and @tag and not(*)]') !== null) {
                             $targets[$type][$target->get('@tag')] = true;
@@ -82,6 +107,7 @@ class EntityClassDefinition extends RootDocument
                     }
                 }
             }
+
             $bindings[$port->get('@Name')][] = ['Tag' => $tag, 'Grants' => $grants, 'Targets' => $targets];
         }
 
@@ -214,6 +240,7 @@ class EntityClassDefinition extends RootDocument
     public function getAmmoFeedMagazine(): ?self
     {
         $reference = $this->getAmmoFeedMagazineReference();
+
         if ($reference === null || ! ServiceFactory::isInitialized()) {
             return null;
         }

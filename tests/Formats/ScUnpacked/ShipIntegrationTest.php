@@ -201,16 +201,14 @@ final class ShipIntegrationTest extends ScDataTestCase
             self::assertCount(2, $gunPositions);
             self::assertNotSame($gunPositions[0]['PortId'], $gunPositions[1]['PortId']);
             foreach ($gunPositions as $position) {
-                self::assertArrayNotHasKey('CombatStats', $position);
+                self::assertSame(['Dps' => 100.0], $position['CombatStats']);
+                self::assertSame(['Dps' => 100.0], $position['Payload'][0]['CombatStats']);
                 self::assertArrayNotHasKey('LegacyTurret', $position);
             }
-            $issue = array_column($result['MountingPositionIssues'], null, 'Reason')['AmbiguousCombatStats'];
-            self::assertSame(array_column($gunPositions, 'PortId'), $issue['PortIds']);
             self::assertSame(200.0, $turrets['gun_turret']['DpsTotal']);
         } else {
             self::assertArrayNotHasKey('LegacyTurret', $positions['gun_turret']);
-            self::assertSame($turrets['gun_turret']['DpsTotal'], $positions['gun_turret']['CombatStats']['DpsTotal']);
-            self::assertSame($turrets['gun_turret']['Weapons'], $positions['gun_turret']['CombatStats']['Weapons']);
+            self::assertSame(['Dps' => 100.0], $positions['gun_turret']['CombatStats']);
             self::assertSame(100.0, $turrets['gun_turret']['DpsTotal']);
         }
         self::assertNull($turrets['missile_turret']['DpsTotal'] ?? null);

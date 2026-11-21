@@ -940,11 +940,11 @@
                     "Size": 3
                 }
             ],
-            "ControlRoutes": [
+            "OperatingStations": [
                 {
                     "Kind": "InTurret",
-                    "Operator": "Crew",
-                    "SeatPortId": "loadout.36"
+                    "SeatPortId": "loadout.36",
+                    "Name": "Seat inside turret"
                 }
             ],
             "CombatStats": {
