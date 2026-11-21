@@ -600,6 +600,132 @@ final class ShipLoadoutExportRegressionTest extends ScDataTestCase
         self::assertSame(['Ballistic', 'Energy'], $ct[0]['SubTypes']);
     }
 
+    public function test_loadout_entry_carries_localized_port_and_part_labels(): void
+    {
+        $this->writeCacheFiles();
+        $this->initializeMinimalItemServices(['port_labels_turret' => 'Top Turret']);
+        $ship = $this->newShipForInternalInvocation();
+
+        $port = [
+            'PortName' => 'turret_top',
+            'DisplayName' => '@port_labels_turret',
+            'Uneditable' => false,
+            'Types' => ['Turret.MannedTurret'],
+            'MinSize' => 1,
+            'MaxSize' => 3,
+            'InstalledItem' => [
+                'stdItem' => [
+                    'ClassName' => 'TURR_TOP_EXAMPLE',
+                    'UUID' => '00000000-0000-0000-0000-000000000010',
+                    'Name' => 'Example Turret',
+                    'Manufacturer' => ['Name' => 'Example Manufacturer'],
+                    'Type' => 'TurretBase.MannedTurret',
+                    'Ports' => [],
+                ],
+            ],
+        ];
+        $part = ['Name' => 'turret_top', 'DisplayName' => '@port_labels_turret'];
+
+        $entry = $this->invokeMethod($ship, 'buildLoadoutEntry', $port, $part);
+
+        self::assertIsArray($entry);
+        self::assertSame('turret_top', $entry['HardpointName']);
+        self::assertSame('Top Turret', $entry['PortDisplayName']);
+        self::assertSame('Top Turret', $entry['PartDisplayName']);
+        self::assertSame('turret_top', $entry['PartName']);
+    }
+
+    public function test_loadout_preserves_empty_and_untranslated_labels(): void
+    {
+        $this->writeCacheFiles();
+        $this->initializeMinimalItemServices(['empty_mount_label' => '']);
+        $ship = $this->newShipForInternalInvocation();
+        $port = ['PortName' => 'turret_left', 'DisplayName' => '@empty_mount_label'];
+        $part = ['Name' => 'turret_left', 'DisplayName' => '@unknown_part_label'];
+
+        $entry = $this->invokeMethod($ship, 'buildLoadoutEntry', $port, $part);
+        $entry = $this->invokeMethod($ship, 'removeNullValuesPreservingEmptyArrays', $entry, ['PortDisplayName', 'PartDisplayName']);
+
+        self::assertSame('', $entry['PortDisplayName']);
+        self::assertArrayHasKey('PartDisplayName', $entry);
+        self::assertNull($entry['PartDisplayName']);
+    }
+
+    public function test_loadout_entry_without_labels_omits_display_name_fields(): void
+    {
+        $ship = $this->newShipForInternalInvocation();
+
+        $port = [
+            'PortName' => 'hardpoint_cooler',
+            'Uneditable' => false,
+            'Types' => ['Cooler'],
+            'MinSize' => 1,
+            'MaxSize' => 1,
+        ];
+
+        $entry = $this->invokeBuildLoadoutEntry($ship, $port);
+
+        self::assertIsArray($entry);
+        self::assertArrayNotHasKey('PortDisplayName', $entry);
+        self::assertArrayNotHasKey('PartDisplayName', $entry);
+        self::assertArrayNotHasKey('PartName', $entry);
+    }
+
+    public function test_nested_loadout_entry_carries_port_label_and_installed_size(): void
+    {
+        $this->writeCacheFiles();
+        $this->initializeMinimalItemServices(['mount_labels_gun' => 'Weapon - Top Left']);
+        $ship = $this->newShipForInternalInvocation();
+
+        $port = [
+            'PortName' => 'turret_left',
+            'DisplayName' => '@mount_labels_gun',
+            'Uneditable' => false,
+            'Types' => ['WeaponGun.Gun', 'Turret.GunTurret'],
+            'MinSize' => 2,
+            'MaxSize' => 2,
+            'InstalledItem' => [
+                'stdItem' => [
+                    'ClassName' => 'Mount_Gimbal_S3',
+                    'UUID' => '00000000-0000-0000-0000-000000000011',
+                    'Name' => 'Gimbal Mount S3',
+                    'Manufacturer' => ['Name' => 'Example Manufacturer'],
+                    'Type' => 'Turret.GunTurret',
+                    'Size' => 3,
+                    'Ports' => [],
+                ],
+            ],
+        ];
+
+        // Nested entries have no owning part, matching the legacy item-level summary rows.
+        $entry = $this->invokeBuildLoadoutEntry($ship, $port);
+
+        self::assertIsArray($entry);
+        self::assertSame('Weapon - Top Left', $entry['PortDisplayName']);
+        self::assertArrayNotHasKey('PartDisplayName', $entry);
+        self::assertArrayNotHasKey('PartName', $entry);
+        self::assertSame(2, $entry['MaxSize']);
+        self::assertSame(3, $entry['InstalledSize'], 'declared adapter size must survive the smaller port capacity');
+    }
+
+    public function test_loadout_entry_without_installed_item_omits_installed_size(): void
+    {
+        $ship = $this->newShipForInternalInvocation();
+
+        $port = [
+            'PortName' => 'hardpoint_rear_turret_tail',
+            'Uneditable' => false,
+            'Types' => ['TurretBase.MannedTurret'],
+            'MinSize' => 5,
+            'MaxSize' => 5,
+        ];
+
+        $entry = $this->invokeBuildLoadoutEntry($ship, $port);
+
+        self::assertIsArray($entry);
+        self::assertArrayNotHasKey('InstalledSize', $entry);
+    }
+
     private function invokeSeatingAnalyzer(array $standardisedParts, array $socpakObjects = []): array
     {
         $context = new VehicleDataContext(

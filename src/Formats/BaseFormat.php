@@ -211,12 +211,14 @@ abstract class BaseFormat
     }
 
     /**
-     * Recursively removes only null values while preserving empty arrays.
+     * Recursively removes null values while preserving empty arrays and selected null keys.
+     *
+     * @param  list<string>  $preserveNullKeys
      */
-    protected function removeNullValuesPreservingEmptyArrays(array $data): array
+    protected function removeNullValuesPreservingEmptyArrays(array $data, array $preserveNullKeys = []): array
     {
         foreach ($data as $key => $value) {
-            if ($value === null) {
+            if ($value === null && ! in_array($key, $preserveNullKeys, true)) {
                 unset($data[$key]);
 
                 continue;
@@ -226,11 +228,11 @@ abstract class BaseFormat
                 $data[$key] = array_is_list($value)
                     ? array_map(
                         fn (mixed $item): mixed => is_array($item)
-                            ? $this->removeNullValuesPreservingEmptyArrays($item)
+                            ? $this->removeNullValuesPreservingEmptyArrays($item, $preserveNullKeys)
                             : $item,
                         $value
                     )
-                    : $this->removeNullValuesPreservingEmptyArrays($value);
+                    : $this->removeNullValuesPreservingEmptyArrays($value, $preserveNullKeys);
             }
         }
 
