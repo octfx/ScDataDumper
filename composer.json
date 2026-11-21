@@ -9,8 +9,8 @@
         "ext-libxml": "*",
         "ext-xmlreader": "*",
         "ext-zip": "*",
-        "illuminate/collections": "^v12.40.2",
-        "illuminate/support": "^12.43"
+        "illuminate/collections": "^13.0",
+        "illuminate/support": "^13.0"
     },
     "license": "MIT",
     "autoload": {
