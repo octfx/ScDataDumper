@@ -21,6 +21,7 @@ use Octfx\ScDataDumper\Services\Vehicle\HealthAggregator;
 use Octfx\ScDataDumper\Services\Vehicle\InventoryContainerResolver;
 use Octfx\ScDataDumper\Services\Vehicle\LoadoutPortIdentityAnnotator;
 use Octfx\ScDataDumper\Services\Vehicle\MountingPositionBuilder;
+use Octfx\ScDataDumper\Services\Vehicle\OperatingStationResolver;
 use Octfx\ScDataDumper\Services\Vehicle\PortFinder;
 use Octfx\ScDataDumper\Services\Vehicle\PortSummaryBuilder;
 use Octfx\ScDataDumper\Services\Vehicle\PropulsionSystemAggregator;
@@ -184,6 +185,7 @@ final class Ship extends BaseFormat
             ];
 
             $stanceSpeed = (new StanceSpeedExtractor)->extract($this->vehicleWrapper->entity);
+
             if ($stanceSpeed !== null) {
                 $data['StanceSpeed'] = $stanceSpeed;
             }
@@ -287,6 +289,7 @@ final class Ship extends BaseFormat
 
         // Shield Face Type + Shield Resistance/Absorption
         $shields = [];
+
         foreach ($walker->walkItems($standardisedParts) as $entry) {
             if (Arr::has($entry, 'Item.stdItem.ShieldController')) {
                 $data['ShieldController'] = Arr::get($entry, 'Item.stdItem.ShieldController');
@@ -419,13 +422,16 @@ final class Ship extends BaseFormat
 
         $turretDpsMap = array_column($calculatedData['Weaponry']['Turrets'] ?? [], null, 'HardpointName');
         $bridgeControllableTurrets = array_flip($turretControlMap);
+
         foreach (['MannedTurrets', 'PdcTurrets', 'RemoteTurrets'] as $key) {
             if (empty($calculatedData[$key])) {
                 continue;
             }
+
             foreach ($calculatedData[$key] as $i => $turret) {
                 $hardpoint = $turret['HardpointName'] ?? null;
                 $dps = $turretDpsMap[$hardpoint] ?? null;
+
                 if ($dps !== null) {
                     $turret['DpsTotal'] = $dps['DpsTotal'] ?? null;
                     $turret['SustainedDpsTotal'] = $dps['SustainedDpsTotal'] ?? null;
@@ -434,26 +440,34 @@ final class Ship extends BaseFormat
                 }
 
                 $isPilotSlaveable = isset($bridgeControllableTurrets[$hardpoint]);
+
                 if ($isPilotSlaveable || $dps !== null) {
                     $turret['IsPilotSlaveable'] = $isPilotSlaveable;
                 }
+
                 $calculatedData[$key][$i] = $turret;
             }
+
             $summary[$key] = $calculatedData[$key];
         }
+
         if (! empty($calculatedData['Propulsion'])) {
             $summary['Propulsion'] = $calculatedData['Propulsion'];
         }
+
         if (! empty($calculatedData['Weaponry'])) {
             $weaponry = $calculatedData['Weaponry'];
             unset($weaponry['Turrets']);
+
             if (! empty($weaponry)) {
                 $summary['Weaponry'] = $weaponry;
             }
         }
+
         if (! empty($calculatedData['QuantumTravel'])) {
             $summary['QuantumTravel'] = $calculatedData['QuantumTravel'];
         }
+
         if (! empty($calculatedData['DriveCharacteristics'])) {
             $summary['DriveCharacteristics'] = $calculatedData['DriveCharacteristics'];
         }
@@ -473,8 +487,10 @@ final class Ship extends BaseFormat
 
         // Engineering boost (multi-crew weapon regen modifier)
         $engineeringBoostItem = $this->vehicleWrapper->entity->getEngineeringBoostItem();
+
         if ($engineeringBoostItem !== null) {
             $engineeringBoost = new EngineeringBoost($engineeringBoostItem)->toArray();
+
             if ($engineeringBoost !== null) {
                 $data['engineering_boost'] = $engineeringBoost;
             }
@@ -482,12 +498,14 @@ final class Ship extends BaseFormat
 
         // Relay network topology
         $relayNetwork = new RelayNetwork($this->vehicleWrapper->entity, $this->vehicleWrapper->loadout, $loadout);
+
         if ($relayNetwork->canTransform()) {
             $data['RelayNetwork'] = $relayNetwork->toArray();
         }
 
         // Ship-to-ship service provider (CryAstro-style repair/restock/refuel for hangar ships)
         $shipServices = new ShipServices($this->vehicleWrapper->entity);
+
         if ($shipServices->canTransform()) {
             $data['ShipServices'] = $shipServices->toArray();
         }
@@ -502,21 +520,21 @@ final class Ship extends BaseFormat
         );
         $data['systems'] = $systems;
 
-        $controlMapper = new TurretControlMapper;
-        $routes = $controlMapper->getInstalledControllerRoutes($this->vehicleWrapper->vehicle, $loadout);
+        $operatingStations = (new OperatingStationResolver)->resolve($this->vehicleWrapper->vehicle, $loadout);
         [$data['MountingPositions'], $issues] = (new MountingPositionBuilder)->build(
-            $loadout, $sourcePorts, $routes,
+            $loadout, $sourcePorts, $operatingStations,
             [
                 'MannedTurrets' => $calculatedData['MannedTurrets'] ?? [],
                 'RemoteTurrets' => $calculatedData['RemoteTurrets'] ?? [],
                 'PdcTurrets' => $calculatedData['PdcTurrets'] ?? [],
             ],
-            $controlMapper->getInstalledModuleRoutes($loadout),
         );
+
         if ($loadout !== []) {
             // Keep the existing loadout key order after adding position classifications.
             $data['loadout'] = $loadout;
         }
+
         if ($issues !== []) {
             $data['MountingPositionIssues'] = $issues;
         }
@@ -607,6 +625,7 @@ final class Ship extends BaseFormat
 
         foreach ($ports as $childPort) {
             $entry = $this->buildLoadoutEntry($childPort);
+
             if ($entry !== null) {
                 $result[] = $entry;
             }
@@ -656,6 +675,7 @@ final class Ship extends BaseFormat
         }
 
         $nestedLoadout = null;
+
         if ($installedItem && isset($installedItem['Ports']) && is_array($installedItem['Ports'])) {
             $nestedLoadout = $this->buildNestedLoadout($installedItem['Ports']);
         }
@@ -674,10 +694,12 @@ final class Ship extends BaseFormat
         // adapters (e.g. Mount_Gimbal_S3 on a size-2 port) stay reconstructable.
         if (is_array($installedItemPayload)) {
             $installedSize = $installedItem['Size'] ?? $installedItemPayload['Size'] ?? null;
+
             if (is_numeric($installedSize)) {
                 $entry['InstalledSize'] = (int) $installedSize;
             }
         }
+
         $requiredTags = $port['RequiredTags'] ?? [];
 
         if (empty($requiredTags) && is_array($installedItem)) {
@@ -718,6 +740,7 @@ final class Ship extends BaseFormat
                 ?? null;
 
             $damageMax = $part['MaximumDamage'] ?? 0.0;
+
             if (($damageMax === null || (int) $damageMax === 0) && empty($part['Parts'])) {
                 continue;
             }
@@ -751,6 +774,7 @@ final class Ship extends BaseFormat
             }
 
             $loadoutEntry = $this->buildLoadoutEntry($port, $part);
+
             if ($loadoutEntry !== null) {
                 $loadout[] = $loadoutEntry;
                 $sourcePorts[] = $port;
@@ -823,6 +847,7 @@ final class Ship extends BaseFormat
         // uses the parent ship codename (e.g. Command Module uses Caterpillar
         // geometry tags). Try the entity's own class name as a fallback.
         $className = $this->item->getClassName();
+
         if ($className !== '') {
             $classBase = 'Paint_'.implode('_', array_slice(explode('_', $className), 1));
             $classResolved = $this->resolvePaintTagFromItem($classBase, $allowLiveryLookup);
